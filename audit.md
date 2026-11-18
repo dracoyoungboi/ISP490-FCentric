@@ -130,6 +130,7 @@
 | **AUDIT-112** | `2026-11-18 13:10:00` | PhanAnh & Antigravity AI | Fix, Feat & UI / Khắc phục triệt để lỗi đơ trạng thái đơn Shopee bị hủy / hoàn trả, mở in vận đơn A6 chính thức từ Shopee OpenAPI và ẩn nút in vận đơn cho Shopify | `OmnichannelOrderSyncJob.java`, `DonBanHangService.java`, `OmnichannelOrderSyncJobTest.java`, `DonBanHangServiceCancellationTest.java`, `tinhDonBan.js`, `ecommercePrintAdapter.js`, `ban-hang.json`, `DonBanHangDetail.jsx`, `DongGoiPage.jsx`, `PhieuXuatKhoDetail.jsx`, `audit.md` | Khắc phục triệt để lỗi polling Shopee dùng update_time thay vì create_time; Khi đơn đã xuất kho mà sàn báo hủy, tự động chuyển sang Bị hoàn trả (6) thay vì giữ nguyên Đã xuất kho (3); Bắt trọn các trạng thái hoàn trả TO_RETURN, RETURNED, RETURN_REFUND; Nút In vận đơn sàn A6 gọi trực tiếp API Shopee OpenAPI downloadShippingDocument mở tem A6 chính thức; Sửa ecommercePrintAdapter nhận diện SHOPEE_OFFICIAL chống render nhầm sang layout Lazada; Ẩn hoàn toàn nút in vận đơn sàn đối với đơn Shopify trên cả 3 màn hình. Backend 116/116 tests PASS 100%, Frontend 728 tệp i18n sạch 100%. |
 | **AUDIT-113** | `2026-11-18 13:50:00` | PhanAnh & Antigravity AI | Bug Fix, Security & Architecture / Khắc phục dứt điểm lỗi mất SKU ID, Cache Miss Product ID và tự động refresh token 401 trên TikTok Shop | `TikTokShopClient.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJob.java`, `kenhBan.properties`, `kenhBan_en.properties`, `TikTokShopClientTest.java`, `audit.md` | Khắc phục dứt điểm 3 lỗi trọng yếu trên kênh TikTok Shop: (1) Ngăn chặn triệt để mất SKU ID sàn (ma_san_pham_kenh bị null do đối soát thiếu trang trong taiSanPhamTikTok và bẫy lỗi 12052557 khi đẩy tồn); (2) Triển khai cơ chế On-Demand Lookup Product ID qua seller_skus và keyword trên TikTok Shop OpenAPI v202309 khi cache miss, mở rộng catalog phân trang 100 item/trang lên 5.000 sản phẩm, tự động phục hồi mã SKU FCentric nếu bị trống; (3) Tự động refresh access token bằng refresh_token khi gặp lỗi HTTP 401 Unauthorized / 105001 / 105002 trong OmnichannelOrderSyncJob và luồng đẩy tồn, loại bỏ hoàn toàn lỗi nghẽn log và popup đỏ Product ID. Đạt 19/19 TikTok tests và 88/88 backend tests PASS 100%, Frontend 728/728 tệp i18n sạch 100%. |
 | **AUDIT-114** | `2026-11-18 20:45:00` | PhanAnh & Antigravity AI | Bug Fix, Sync & Integration / Khắc phục triệt để lỗi kho gốc SKU TikTok Shop (12052533), đồng nhất tự phục hồi luồng đẩy lô (12052557), tự hiệu chỉnh kho bán hàng và phát sự kiện đồng bộ khi chuyển kho | `TikTokShopClient.java`, `KenhBanHangDongBoServiceImpl.java`, `PhieuChuyenKhoService.java`, `hienThiKenhPos.properties`, `hienThiKenhPos_en.properties`, `TikTokShopClientTest.java`, `KenhBanHangDongBoServiceTest.java`, `audit.md` | Kéo đồng bộ bản vá từ Dev (`a04154e5`, `9673babe`) của Khang (sửa lỗi Rules of Hooks trên `DonBanHangDetail.jsx` và regex token TikTok); Xử lý triệt để lỗi `12052533` (*warehouse changes are not permitted*): bổ sung parse `skus[].inventory[]` và API `getProduct` trong `TikTokShopClient`, lưu cache `skuToInventories` (bảo toàn kho gốc của từng SKU), tự động tải kho gốc qua `GET /product/{id}` và thử lại ngay khi gặp `12052533`; Đồng nhất `dayTonTikTokToiUu` với `guiTonLenTikTok` (on-demand lookup, tự làm mới token, kiểm tra `failed_skus`, tách lẻ tự sửa khi gặp `12052557` và xóa bỏ đoạn xóa trắng `maSanPhamKenh`); Sửa trích xuất mã lỗi số trong `phanLoaiLoiTikTok`; Bổ sung phát `InventoryRestockedEvent` trong `PhieuChuyenKhoService` khi tạo/hủy/từ chối/nhận hàng chuyển kho; Bổ sung 5 unit tests mới, đạt 203/203 backend tests PASS 100% và Frontend 728/728 tệp i18n sạch 100%. |
+| **AUDIT-115** | `2026-11-18 21:35:00` | PhanAnh & Antigravity AI | Bug Fix, Sync & Warehouse Switch / Xử lý triệt để cơ chế chọn & chuyển kho bán hàng TikTok Shop, reset Delta Sync & tự phục hồi `editProduct` | `KenhBanHangDongBoServiceImpl.java`, `KenhBanHangDongBoServiceTest.java`, `audit.md` | Giải đáp giới hạn Read-only của TikTok Seller Center `is_default` trên `GET /logistics/202309/warehouses`; Sửa `getLocations("TIKTOK")` không gắn trùng nhãn `" (Kho bán hàng mặc định)"` khi có >= 2 kho bán hàng và lưu đủ `MA_KHO_SAN` + `TEN_KHO_SAN`; Nâng cấp `luuCaiDat` khi đổi `maKhoSan` để đồng bộ `KENH_<MA>_KHO_MAPPING`, xóa `CACHED_TIKTOK_PRODUCT_SIGNATURES`, reset `soLuongDaDay = null` vượt qua Delta Sync và đẩy tồn ngay sang kho mới; Đưa `warehouseId` vào `productSignature` và bổ sung tự phục hồi `12052533` kèm cập nhật cache `skuToInventories` trong `capNhatSanPhamLenTikTok`; Bổ sung 2 unit tests, đạt 205/205 backend tests PASS 100% và Frontend 728/728 tệp i18n sạch 100%. |
 
 
 ---
@@ -4385,6 +4386,52 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
 - **Frontend & i18n (`npm run i18n:kiem`):**
   + **728/728 tệp đạt chuẩn sạch 100%** (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
   + Bổ sung khóa i18n song ngữ `hienThiKenhPos.tiktokKhongChoPhepDoiKhoSku` trong `hienThiKenhPos.properties` và `hienThiKenhPos_en.properties`.
+
+---
+
+### [AUDIT-115] XỬ LÝ TRIỆT ĐỂ CƠ CHẾ CHỌN & CHUYỂN KHO BÁN HÀNG TRÊN KÊNH TIKTOK SHOP, ĐỒNG BỘ DELTA SYNC & TỰ PHỤC HỒI EDIT PRODUCT
+
+#### Metadata
+- **Thời gian:** 18/11/2026 21:35 (GMT+7)
+- **Tác giả:** PhanAnh & Antigravity AI
+- **Phân hệ:** TikTok Shop OpenAPI v202309 Warehouse Configuration (`getLocations`, `luuCaiDat`), Delta Sync Reset & Product Catalog Signature Update (`capNhatSanPhamLenTikTok`).
+- **Tệp thay đổi:**
+  + `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  + `backend/src/test/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceTest.java`
+  + `audit.md`
+
+#### Mục tiêu & Phân tích nguyên nhân gốc rễ (Root Cause Analysis - RCA)
+1. **Làm rõ hành vi trên TikTok Seller Center vs FCentric (`is_default`):**
+   - TikTok Shop OpenAPI v202309 chỉ cung cấp `GET /logistics/202309/warehouses` (chỉ đọc), **không** có endpoint cập nhật cờ `is_default` của gian hàng trên Seller Center; vì vậy đổi lựa chọn kho trên FCentric sẽ không tự đổi cờ mặc định trong cài đặt tài khoản trên cổng TikTok Seller Center, mà chỉ định kho `SALES_WAREHOUSE` nhận tồn và gán vào SKU sản phẩm từ FCentric.
+2. **4 nguyên nhân khiến việc chọn & chuyển kho bán hàng TikTok Shop trên FCentric trước đây không có tác dụng:**
+   - **RCA 1 (`getLocations("TIKTOK")` nối trùng nhãn mặc định cho mọi kho):** Vòng lặp duyệt `warehouses` nối hậu tố `" (Kho bán hàng mặc định)"` cho tất cả `SALES_WAREHOUSE` (khiến gian hàng >= 2 kho hiển thị trùng nhãn ở mọi option), gán `macDinh = true` sai cho phần tử đầu dù `isDefault = false`, và chưa lưu kèm `TEN_KHO_SAN` khi tự hiệu chỉnh `MA_KHO_SAN`.
+   - **RCA 2 (`luuCaiDat` không reset Delta Sync và chữ ký sản phẩm khi đổi `maKhoSan`):** Sau khi người dùng chọn kho mới và bấm Lưu (`PUT /api/v1/kenh-ban-hang/TIKTOK/cai-dat`), `luuCaiDat` chỉ ghi chuỗi `KENH_TIKTOK_MA_KHO_SAN` mà không cập nhật `KENH_TIKTOK_KHO_MAPPING`, không xóa `CACHED_TIKTOK_PRODUCT_SIGNATURES`, và không đặt lại `soLuongDaDay = null` trên `TrangThaiDongBoSanPham`, khiến bộ lọc Delta Sync bỏ qua 100% SKU nếu số tồn khả dụng không đổi.
+   - **RCA 3 (`capNhatSanPhamLenTikTok` thiếu `warehouseId` trong chữ ký và chưa tự phục hồi `12052533`):** `productSignature` không bao gồm `warehouseId` nên bỏ qua `PUT /product/202309/products/{product_id}` khi đổi kho; khi `editProduct` thành công chưa cập nhật `inventory` vào cache `skuToInventories`; khi sàn khóa cứng kho gốc của SKU (`12052533`) thì chưa có bước tự tải kho gốc qua `GET /product/{id}` để thử lại.
+   - **RCA 4 (Giới hạn API `/inventory/update` mã `12052533` và NPE khi `request == null`):** `dayTonKhiDaGiuKhoa` truy cập `request.getTyLeDayTon()` trực tiếp khi `request == null`.
+
+#### Giải pháp kỹ thuật & Chi tiết triển khai
+1. **Chuẩn hóa `getLocations("TIKTOK")` (`KenhBanHangDongBoServiceImpl.java`):**
+   - Lọc bỏ `RETURN_WAREHOUSE`, chỉ gắn hậu tố `" (Kho bán hàng mặc định)"` khi `list.size() == 1` và `SALES_WAREHOUSE`; khi >= 2 kho giữ nguyên tên kho thật và đánh dấu `macDinh` theo `w.getIsDefault()`.
+   - Khi tự hiệu chỉnh `MA_KHO_SAN` không hợp lệ, lưu đồng thời cả `MA_KHO_SAN` và `TEN_KHO_SAN`.
+2. **Nâng cấp `luuCaiDat` & `dayTonKhiDaGiuKhoa` (`KenhBanHangDongBoServiceImpl.java`):**
+   - Phát hiện `doiKhoSan`, đồng bộ cờ mặc định trong `KENH_<MA_KENH>_KHO_MAPPING` qua `dongBoCoMacDinhTrongKhoMapping`.
+   - Với TikTok (`xuLySauKhiDoiKhoTikTok`): xóa `CACHED_TIKTOK_PRODUCT_SIGNATURES`, đặt `soLuongDaDay = null` cho các `TrangThaiDongBoSanPham` đang bật đồng bộ (`saveAll`), và tự động kích hoạt `dayTonKhoLenKenh(maKenh, null)` nếu `KenhCauHinhDongBo.tuDongDayTon` đang bật.
+   - Bảo vệ `request != null` trong `dayTonKhiDaGiuKhoa` (fallback về `quyTacDaLuu(maKenh)`).
+3. **Nâng cấp `capNhatSanPhamLenTikTok` & `taoProductSignatureTikTok` (`KenhBanHangDongBoServiceImpl.java`):**
+   - Hợp nhất logic tạo chữ ký sản phẩm qua `taoProductSignatureTikTok` có kèm `warehouseId`.
+   - Trích xuất helper `timOrigInventoriesTrongCatalog` tái sử dụng chung giữa đẩy tồn và sửa sản phẩm; bảo toàn đa kho nếu SKU có > 1 kho gốc, thử gắn kho mới nếu <= 1 kho và tự động phục hồi kho gốc `12052533` bằng `GET /product/{id}` (`apDungKhoGocChoReqEditTikTok`) khi sàn từ chối đổi kho; đồng bộ lại `skuToInventories` trong `tikTokCatalogCacheRef` sau khi `editProduct` thành công (`capNhatCacheSauEditProductTikTok`).
+
+#### Kết quả kiểm thử & Đối soát hồi quy
+- **Backend chuyên biệt (`./mvnw test -Dtest="TikTokShopClientTest,KenhBanHangDongBoServiceTest,OmnichannelOrderSyncJobTest,PhieuChuyenKhoServiceTest"`):**
+  + **205/205 tests PASS 100%** (0 failures, 0 errors):
+    * `KenhBanHangDongBoServiceTest`: **77/77 PASS** (bổ sung 2 tests mới: `getLocations_tiktokNhieuKhoBanHang_khongNoiHauToKhoMacDinhTrungLap` và `luuCaiDat_khiDoiMaKhoSanTikTok_resetDeltaSyncVaDayTonSangKhoMoi`).
+    * `PhieuChuyenKhoServiceTest`: **74/74 PASS**.
+    * `TikTokShopClientTest`: **21/21 PASS**.
+    * `OmnichannelOrderSyncJobTest`: **33/33 PASS**.
+- **Backend toàn hệ thống (`./mvnw test`):**
+  + Chạy 2.054 tests: toàn bộ unit tests thuộc phân hệ Omnichannel/TikTok không có lỗi; 28 errors thuộc nhóm tích hợp live MySQL/staging (`PosCheckoutIntegrationTest`, `PosStagingDataVerificationTest`, `PosStagingE2eTest` tại `localhost:8090` khi chạy offline) và 3 failures có sẵn không liên quan (`DonBanHangServiceTongQuanKhachTest.filter_quanTriVien_khongDoiBoLoc`, `LazadaSyncDiagnosticTest.testXacDinhLazadaCategoryId`, `ShopeeMultiVariantLiveDiagnosticTest`).
+- **Frontend & i18n (`npm run i18n:kiem`):**
+  + **728/728 tệp đạt chuẩn sạch 100%** (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
 
 
 
