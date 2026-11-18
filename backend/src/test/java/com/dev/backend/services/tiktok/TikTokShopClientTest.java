@@ -628,4 +628,88 @@ class TikTokShopClientTest {
         assertTrue(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("603726", "Áo nỉ & Áo hoodie nam"));
         assertTrue(TikTokShopClient.isPhuHopThoiTrangNamVaUnisex("1203984", "Áo sơ mi nam"));
     }
+
+    @Test
+    @DisplayName("searchProducts: Gửi seller_skus và keyword trong body JSON phục vụ tra cứu on-demand")
+    void searchProducts_kemSellerSkusVaKeyword() {
+        String appKey = "test_key";
+        String appSecret = "test_secret";
+        String accessToken = "test_token";
+        String shopCipher = "ROW_TEST";
+
+        String mockResponseBody = """
+                {
+                    "code": 0,
+                    "message": "Success",
+                    "request_id": "req_1",
+                    "data": {
+                        "products": [
+                            {
+                                "id": "1729584739281726354",
+                                "title": "Áo polo bảo hộ lao động ngắn tay",
+                                "skus": [
+                                    {
+                                        "id": "1738587264603882852",
+                                        "seller_sku": "AP2611011-CL001-M-MS-0905"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+                """;
+
+        ArgumentCaptor<HttpEntity<String>> requestCaptor = ArgumentCaptor.forClass(HttpEntity.class);
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), requestCaptor.capture(), eq(String.class)))
+                .thenReturn(new ResponseEntity<>(mockResponseBody, HttpStatus.OK));
+
+        var res = client.searchProducts(appKey, appSecret, accessToken, shopCipher, 20, null,
+                List.of("AP2611011-CL001-M-MS-0905"), "Áo polo");
+
+        assertNotNull(res);
+        assertNotNull(res.getProducts());
+        assertEquals(1, res.getProducts().size());
+        assertEquals("1729584739281726354", res.getProducts().get(0).getId());
+
+        HttpEntity<String> captured = requestCaptor.getValue();
+        assertNotNull(captured.getBody());
+        assertTrue(captured.getBody().contains("AP2611011-CL001-M-MS-0905"));
+        assertTrue(captured.getBody().contains("Áo polo"));
+    }
+
+    @Test
+    @DisplayName("searchProducts: Nhận diện lỗi HTTP 401 và ném TIKTOK_TOKEN_EXPIRED")
+    void searchProducts_loi401_nemLoiTokenExpired() {
+        String appKey = "test_key";
+        String appSecret = "test_secret";
+        String accessToken = "expired_token";
+        String shopCipher = "ROW_TEST";
+
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(), eq(String.class)))
+                .thenThrow(new org.springframework.web.client.HttpClientErrorException(HttpStatus.UNAUTHORIZED, "Unauthorized"));
+
+        var ex = assertThrows(com.dev.backend.exception.customize.LoiCoMaException.class, () ->
+                client.searchProducts(appKey, appSecret, accessToken, shopCipher, 20, null));
+
+        assertEquals(com.dev.backend.exception.customize.MaLoi.TIKTOK_TOKEN_EXPIRED, ex.getMa());
+        assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatus());
+    }
+
+    @Test
+    @DisplayName("parseAndValidateResponse: Mã lỗi 105001 được chuẩn hóa thành TIKTOK_TOKEN_EXPIRED")
+    void parseAndValidateResponse_code105001_nemLoiTokenExpired() {
+        String jsonError = """
+                {
+                    "code": 105001,
+                    "message": "Access token has expired",
+                    "request_id": "req_token_expired"
+                }
+                """;
+
+        var ex = assertThrows(com.dev.backend.exception.customize.LoiCoMaException.class, () ->
+                client.parseAndValidateResponse(jsonError));
+
+        assertEquals(com.dev.backend.exception.customize.MaLoi.TIKTOK_TOKEN_EXPIRED, ex.getMa());
+        assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatus());
+    }
 }
