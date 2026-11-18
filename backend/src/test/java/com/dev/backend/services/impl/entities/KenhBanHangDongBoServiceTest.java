@@ -490,7 +490,7 @@ class KenhBanHangDongBoServiceTest {
             assertEquals(List.of("bat-dau:2", "dang:POLO-BLK-M", "ok:POLO-BLK-M"), tienDo.suKien);
             org.mockito.ArgumentCaptor<com.dev.backend.entities.LichSuThayDoi> nhatKy =
                     org.mockito.ArgumentCaptor.forClass(com.dev.backend.entities.LichSuThayDoi.class);
-            verify(lichSuThayDoiService).create(nhatKy.capture());
+            verify(lichSuThayDoiService).createGiaoDichRieng(nhatKy.capture());
             assertTrue(nhatKy.getValue().getGiaTriMoi().endsWith("dừng theo yêu cầu, còn 1 SKU chưa đẩy"),
                     nhatKy.getValue().getGiaTriMoi());
         } finally {
@@ -1356,5 +1356,62 @@ class KenhBanHangDongBoServiceTest {
 
         String msgToken = service.phanLoaiLoiShopee("error_auth", "access_token is expired");
         assertTrue(msgToken.contains("hết hạn"), "Thông báo token phải yêu cầu kết nối lại");
+    }
+
+    @Test
+    void duocDayTon_khiNguoiDungTatDongBo_traVeFalseChongDayTonLenSan() {
+        BienTheSanPham bt = BienTheSanPham.builder().id(99).maSku("SKU-TEST-99").build();
+        TrangThaiDongBoSanPham dong = TrangThaiDongBoSanPham.builder()
+                .bienTheSanPham(bt)
+                .trangThaiDongBo("thanh_cong")
+                .choPhepDongBo(true)
+                .build();
+
+        // 1. Bình thường: choPhepDongBo=true và thanh_cong -> được đẩy
+        assertTrue(KenhBanHangDongBoServiceImpl.duocDayTon(dong), "Bình thường phải được đẩy tồn");
+
+        // 2. Người dùng tắt đồng bộ: choPhepDongBo=false -> BẮT BUỘC KHÔNG ĐƯỢC ĐẨY
+        dong.setChoPhepDongBo(false);
+        assertFalse(KenhBanHangDongBoServiceImpl.duocDayTon(dong), "Đã tắt choPhepDongBo thì tuyệt đối không đẩy tồn");
+
+        // 3. Trạng thái ngừng đồng bộ / chưa đồng bộ -> Không được đẩy
+        dong.setChoPhepDongBo(true);
+        dong.setTrangThaiDongBo("chua_dong_bo");
+        assertFalse(KenhBanHangDongBoServiceImpl.duocDayTon(dong));
+
+        dong.setTrangThaiDongBo("ngung_dong_bo");
+        assertFalse(KenhBanHangDongBoServiceImpl.duocDayTon(dong));
+
+        // 4. Trạng thái that_bai nhưng choPhepDongBo=false -> Không được đẩy
+        dong.setTrangThaiDongBo("that_bai");
+        dong.setChoPhepDongBo(false);
+        assertFalse(KenhBanHangDongBoServiceImpl.duocDayTon(dong));
+    }
+
+    @Test
+    void capNhatLienKet_khiTatDongBo_luuChoPhepDongBoFalse() {
+        TrangThaiDongBoSanPham existing = TrangThaiDongBoSanPham.builder()
+                .id(10)
+                .kenhBanHang(KenhBanHang.builder().id(2).maKenh("LAZADA").build())
+                .maSanPhamKenh("LZD-12345")
+                .trangThaiDongBo("that_bai")
+                .chiTietLoi("Lỗi cũ")
+                .choPhepDongBo(true)
+                .build();
+
+        when(trangThaiDongBoSanPhamRepository.findById(10)).thenReturn(Optional.of(existing));
+        when(trangThaiDongBoSanPhamRepository.save(any(TrangThaiDongBoSanPham.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        com.dev.backend.dto.request.CapNhatLienKetRequest req = com.dev.backend.dto.request.CapNhatLienKetRequest.builder()
+                .bienTheSanPhamId(null)
+                .choPhepDongBo(false)
+                .build();
+
+        var res = service.capNhatLienKet(10, req);
+
+        assertNotNull(res);
+        assertFalse(res.getChoPhepDongBo(), "DTO trả về phải phản ánh choPhepDongBo = false");
+        assertFalse(existing.getChoPhepDongBo(), "Entity lưu vào DB phải có choPhepDongBo = false");
+        assertEquals("chua_dong_bo", existing.getTrangThaiDongBo());
     }
 }
