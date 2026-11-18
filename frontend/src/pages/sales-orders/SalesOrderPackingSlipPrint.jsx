@@ -12,34 +12,40 @@ export default function SalesOrderPackingSlipPrint() {
     <PrintRoutePage
       documentType="ecommerce_packing_slip"
       fetcher={async (id) => {
-        const detail = await donBanHangService.getDetail(id);
-        if (!detail) return null;
+        const res = await donBanHangService.getDetail(id);
+        const payload = res?.data ?? res;
+        const don = payload?.donBanHang ?? payload;
+        if (!don || !don.id) return null;
+        const maKenh = String(don?.kenhBanHang?.maKenh ?? "").trim().toUpperCase();
+        const laShopee = ["SHOPEE", "SHOPEE_OFFICIAL", "SHOPEE_SANDBOX"].includes(maKenh) || maKenh.includes("SHOPEE");
+        const dsChiTiet = payload?.chiTiet ?? don?.chiTietDonHang ?? [];
+        const pxDau = Array.isArray(payload?.phieuXuatKhoList) ? payload.phieuXuatKhoList[0] : null;
         return {
           phieu: {
-            donBanHang: detail,
-            soPhieuXuat: detail.soDonHang,
-            ngayXuat: detail.ngayTao,
-            maVanDon: detail.maVanDon,
-            maKienHang: detail.maKienHang,
-            tongKhoiLuongKg: detail.tongKhoiLuongKg,
-            nhanThanhToan: detail.nhanThanhToan,
-            chiDanDongKiem: detail.chiDanDongKiem,
-            donViPickup: detail.donViPickup,
-            donViDelivery: detail.donViDelivery,
-            loaiDichVu: detail.loaiDichVu,
-            maDinhTuyen: detail.maDinhTuyen,
-            maTramPhat: detail.maTramPhat,
-            tagGiaoNhan: detail.tagGiaoNhan,
-            chuoiQrCode: detail.chuoiQrCode,
-            shippingDocUrl: detail.shippingDocUrl,
+            donBanHang: don,
+            soPhieuXuat: pxDau?.soPhieuXuat || don.soDonHang,
+            ngayXuat: don.ngayDatHang || don.ngayTao,
+            maVanDon: don.maVanDon,
+            maKienHang: don.maKienHang,
+            tongKhoiLuongKg: don.tongKhoiLuongKg,
+            nhanThanhToan: don.nhanThanhToan,
+            chiDanDongKiem: don.chiDanDongKiem,
+            donViPickup: don.donViPickup,
+            donViDelivery: don.donViDelivery,
+            loaiDichVu: don.loaiDichVu,
+            maDinhTuyen: don.maDinhTuyen,
+            maTramPhat: don.maTramPhat,
+            tagGiaoNhan: don.tagGiaoNhan,
+            chuoiQrCode: don.chuoiQrCode,
+            shippingDocUrl: don.shippingDocUrl || payload?.shippingDocUrl || (laShopee ? `/api/v1/don-ban-hang/${don.id}/van-don-san` : null),
           },
-          chiTiet: (detail.chiTietDonHang || []).map((ct) => ({
-            tenSanPham: ct.tenSanPham || ct.tenBienThe,
+          chiTiet: dsChiTiet.map((ct) => ({
+            tenSanPham: ct.tenSanPhamGoc || ct.tenSanPham || ct.tenBienThe,
             tenBienThe: ct.tenBienThe,
             tenMau: ct.tenMau,
             kichCo: ct.kichCo,
             sku: ct.sku || ct.maSku,
-            soLuongCanXuat: ct.soLuong,
+            soLuongCanXuat: ct.soLuongDat ?? ct.soLuong,
             ghiChu: ct.ghiChu,
           })),
         };

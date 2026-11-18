@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import PrintDocCode from "@/components/print/PrintDocCode";
+import apiClient from "@/services/apiClient";
+import { toast } from "@/lib/thongBaoNhanh";
+import { getApiErrorMessage } from "@/utils/apiError";
 import { t } from "@/i18n";
 import "@/components/print/shopeeAwb.css";
 
@@ -20,7 +23,8 @@ import "@/components/print/shopeeAwb.css";
 export default function ShopeeAwbDocument({ model, company }) {
     if (!model) return null;
 
-    const [showSimulated, setShowSimulated] = useState(false);
+    const [showSimulated, setShowSimulated] = useState(true);
+    const [dangTaiPdf, setDangTaiPdf] = useState(false);
 
     const channelInfo = model.channelOrderInfo || {};
     const recipient = model.recipient || {};
@@ -42,6 +46,37 @@ export default function ShopeeAwbDocument({ model, company }) {
     const senderName = company?.tenCongTy || "FCentric";
     const shippingDocUrl = model.shippingDocUrl || null;
 
+    const xuLyTaiPdfChinhThuc = async (taiVe = false) => {
+        if (!shippingDocUrl || dangTaiPdf) return;
+        if (!shippingDocUrl.startsWith("/")) {
+            window.open(shippingDocUrl, "_blank", "noopener,noreferrer");
+            return;
+        }
+        try {
+            setDangTaiPdf(true);
+            const res = await apiClient.get(shippingDocUrl, { responseType: "blob" });
+            const blob = res.data;
+            const blobUrl = window.URL.createObjectURL(blob);
+            if (taiVe) {
+                const duoi = String(blob?.type || "").toLowerCase().includes("pdf") ? "pdf" : "html";
+                const link = document.createElement("a");
+                link.href = blobUrl;
+                link.download = `AWB_Shopee_${trackingCode}.${duoi}`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            } else {
+                const win = window.open(blobUrl, "_blank");
+                if (!win) window.location.href = blobUrl;
+            }
+            window.setTimeout(() => window.URL.revokeObjectURL(blobUrl), 10000);
+        } catch (err) {
+            toast.error(t("Không thể tải tem vận đơn từ sàn: {{error}}", { error: getApiErrorMessage(err, t("Lỗi kết nối")) }));
+        } finally {
+            setDangTaiPdf(false);
+        }
+    };
+
     return (
         <div className="sawb-wrapper">
             {/* 1. Nếu có file PDF / URL vận đơn chính thức từ Shopee API */}
@@ -53,23 +88,22 @@ export default function ShopeeAwbDocument({ model, company }) {
                             <span>{t("Vận đơn AWB chính thức Shopee (PDF chuẩn sàn)")}</span>
                         </div>
                         <div className="sawb-official-pdf-actions">
-                            <a
-                                href={shippingDocUrl}
-                                target="_blank"
-                                rel="noreferrer"
+                            <button
+                                type="button"
+                                disabled={dangTaiPdf}
+                                onClick={() => xuLyTaiPdfChinhThuc(false)}
                                 className="sawb-btn sawb-btn-primary"
                             >
                                 {t("Mở PDF trong tab mới")}
-                            </a>
-                            <a
-                                href={shippingDocUrl}
-                                download={`AWB_Shopee_${trackingCode}.pdf`}
-                                target="_blank"
-                                rel="noreferrer"
+                            </button>
+                            <button
+                                type="button"
+                                disabled={dangTaiPdf}
+                                onClick={() => xuLyTaiPdfChinhThuc(true)}
                                 className="sawb-btn sawb-btn-secondary"
                             >
                                 {t("Tải PDF A6")}
-                            </a>
+                            </button>
                             <button
                                 type="button"
                                 onClick={() => setShowSimulated((prev) => !prev)}
