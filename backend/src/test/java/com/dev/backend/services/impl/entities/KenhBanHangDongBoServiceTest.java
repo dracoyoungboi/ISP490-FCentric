@@ -22,6 +22,7 @@ import com.dev.backend.exception.customize.CommonException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -1428,5 +1429,87 @@ class KenhBanHangDongBoServiceTest {
         service.xoaLienKet(20);
 
         verify(trangThaiDongBoSanPhamRepository).delete(mapping);
+    }
+
+    @Test
+    @DisplayName("Cô lập đa kênh: Hủy liên kết ở Sàn A không làm mất hoặc ảnh hưởng liên kết của Sàn B")
+    void xoaLienKet_sanA_khongAnhHuongSanB() {
+        BienTheSanPham sku = BienTheSanPham.builder().id(101).maSku("SKU-99").build();
+        KenhBanHang kenhShopify = KenhBanHang.builder().id(1).maKenh("SHOPIFY").build();
+        KenhBanHang kenhShopee = KenhBanHang.builder().id(2).maKenh("SHOPEE").build();
+
+        TrangThaiDongBoSanPham mappingShopify = TrangThaiDongBoSanPham.builder()
+                .id(20)
+                .kenhBanHang(kenhShopify)
+                .bienTheSanPham(sku)
+                .maSanPhamKenh("SHOP-SKU-99")
+                .choPhepDongBo(true)
+                .trangThaiDongBo("thanh_cong")
+                .build();
+
+        TrangThaiDongBoSanPham mappingShopee = TrangThaiDongBoSanPham.builder()
+                .id(21)
+                .kenhBanHang(kenhShopee)
+                .bienTheSanPham(sku)
+                .maSanPhamKenh("SHOPEE-SKU-99")
+                .choPhepDongBo(true)
+                .trangThaiDongBo("thanh_cong")
+                .build();
+
+        when(trangThaiDongBoSanPhamRepository.findById(20)).thenReturn(Optional.of(mappingShopify));
+        when(trangThaiDongBoSanPhamRepository.findById(21)).thenReturn(Optional.of(mappingShopee));
+
+        // Người dùng bấm Hủy liên kết trên sàn Shopify
+        service.xoaLienKet(20);
+
+        // Chỉ xóa duy nhất mapping của Shopify
+        verify(trangThaiDongBoSanPhamRepository).delete(mappingShopify);
+        verify(trangThaiDongBoSanPhamRepository, never()).delete(mappingShopee);
+
+        // Mapping của Shopee vẫn giữ nguyên 100%
+        assertTrue(mappingShopee.getChoPhepDongBo(), "Sàn B vẫn phải giữ nguyên choPhepDongBo = true");
+        assertEquals("thanh_cong", mappingShopee.getTrangThaiDongBo(), "Sàn B vẫn phải giữ nguyên trạng thái liên kết thành công");
+        assertEquals("SHOPEE-SKU-99", mappingShopee.getMaSanPhamKenh(), "Mã sản phẩm sàn B không bị xóa");
+    }
+
+    @Test
+    @DisplayName("Cô lập đa kênh: Tắt đồng bộ ở Sàn A không làm đổi trạng thái hoặc cờ của Sàn B")
+    void capNhatLienKet_tatDongBoSanA_khongAnhHuongSanB() {
+        BienTheSanPham sku = BienTheSanPham.builder().id(101).maSku("SKU-99").build();
+        KenhBanHang kenhShopify = KenhBanHang.builder().id(1).maKenh("SHOPIFY").build();
+        KenhBanHang kenhShopee = KenhBanHang.builder().id(2).maKenh("SHOPEE").build();
+
+        TrangThaiDongBoSanPham mappingShopify = TrangThaiDongBoSanPham.builder()
+                .id(20)
+                .kenhBanHang(kenhShopify)
+                .bienTheSanPham(sku)
+                .maSanPhamKenh("SHOP-SKU-99")
+                .choPhepDongBo(true)
+                .trangThaiDongBo("thanh_cong")
+                .build();
+
+        TrangThaiDongBoSanPham mappingShopee = TrangThaiDongBoSanPham.builder()
+                .id(21)
+                .kenhBanHang(kenhShopee)
+                .bienTheSanPham(sku)
+                .maSanPhamKenh("SHOPEE-SKU-99")
+                .choPhepDongBo(true)
+                .trangThaiDongBo("thanh_cong")
+                .build();
+
+        when(trangThaiDongBoSanPhamRepository.findById(20)).thenReturn(Optional.of(mappingShopify));
+        when(trangThaiDongBoSanPhamRepository.save(any(TrangThaiDongBoSanPham.class))).thenAnswer(i -> i.getArgument(0));
+
+        // Người dùng tắt đồng bộ ở Shopify
+        CapNhatLienKetRequest req = new CapNhatLienKetRequest();
+        req.setChoPhepDongBo(false);
+        service.capNhatLienKet(20, req);
+
+        // Shopify bị tắt
+        assertFalse(mappingShopify.getChoPhepDongBo());
+
+        // Shopee không bị ảnh hưởng
+        assertTrue(mappingShopee.getChoPhepDongBo(), "Sàn B vẫn giữ nguyên cho phép đồng bộ");
+        assertEquals("thanh_cong", mappingShopee.getTrangThaiDongBo(), "Sàn B vẫn giữ nguyên trạng thái thành công");
     }
 }
