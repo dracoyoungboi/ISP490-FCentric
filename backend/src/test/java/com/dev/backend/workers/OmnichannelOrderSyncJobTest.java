@@ -447,4 +447,33 @@ class OmnichannelOrderSyncJobTest {
         assertFalse(result);
         verify(donBanHangService).capNhatTrangThaiGiaoHangTuSan(202, "TO_RETURN");
     }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("Shopify: Buyer gửi yêu cầu hoàn trả (return_status = RETURN_REQUESTED) phải chuyển ngay sang Bị hoàn trả (6)")
+    void processShopifyWebhookOrder_khiCoReturnStatusReturnRequested_chuyenNgaySangBiHoanTra() throws Exception {
+        var channel = KenhBanHang.builder().id(1).maKenh("SHOPIFY").tenKenh("Shopify Store").build();
+        var order = DonBanHang.builder()
+                .id(305)
+                .kenhBanHang(channel)
+                .maDonHangKenh("5550001")
+                .trangThai(3)
+                .trangThaiThanhToan("da_thanh_toan")
+                .build();
+        when(donBanHangRepository.findByKenhBanHangIdAndMaDonHangKenh(1, "5550001")).thenReturn(Optional.of(order));
+
+        String payload = """
+                {
+                  "id": 5550001,
+                  "financial_status": "paid",
+                  "fulfillment_status": "fulfilled",
+                  "cancelled_at": null,
+                  "return_status": "RETURN_REQUESTED",
+                  "refunds": []
+                }
+                """;
+
+        job.processShopifyWebhookOrder(mapper.readTree(payload), channel, false);
+
+        verify(donBanHangService).capNhatTrangThaiGiaoHangTuSan(305, "return_requested");
+    }
 }

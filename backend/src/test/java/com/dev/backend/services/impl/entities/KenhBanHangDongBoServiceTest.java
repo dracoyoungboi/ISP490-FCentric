@@ -1844,4 +1844,155 @@ class KenhBanHangDongBoServiceTest {
         assertTrue(sentInvs.stream().anyMatch(i -> "wh_moi_2".equals(i.getWarehouseId()) && Integer.valueOf(15).equals(i.getQuantity())),
                 "Kho mới wh_moi_2 phải nhận đủ số tồn khả dụng 15 dù soLuongDaDay trước đó cũng là 15");
     }
+
+    @Test
+    @DisplayName("Shopee: getLocations kết hợp kho/địa chỉ Shopee với các kho vật lý FCentric khi Shopee dùng mô hình 1 kho")
+    void getLocations_shopee_ketHopKhoShopeeVaKhoFCentricKhiShopMotKho() throws Exception {
+        KenhBanHang shopeeKenh = KenhBanHang.builder().id(7).maKenh("SHOPEE_SANDBOX").tenKenh("Shopee Sandbox").trangThai(1).build();
+        when(kenhBanHangRepository.findByMaKenh("SHOPEE_SANDBOX")).thenReturn(Optional.of(shopeeKenh));
+        when(kenhBanHangService.getShopeePartnerId("SHOPEE_SANDBOX")).thenReturn(12345L);
+        when(kenhBanHangService.getDecryptedShopeePartnerKey("SHOPEE_SANDBOX")).thenReturn("mock_partner_key");
+        when(kenhBanHangService.getDecryptedShopeeAccessToken("SHOPEE_SANDBOX")).thenReturn("tok_shp");
+        when(kenhBanHangService.getShopeeShopId("SHOPEE_SANDBOX")).thenReturn(8888L);
+
+        var khoTong = com.dev.backend.entities.Kho.builder().id(1).maKho("KHO_TONG").tenKho("Kho Tổng Hà Nội").loaiKho("kho_tong").trangThai(1).build();
+        var khoHcm = com.dev.backend.entities.Kho.builder().id(2).maKho("KHO_HCM").tenKho("Kho TP.HCM").loaiKho("cua_hang").trangThai(1).build();
+        var khoTransit = com.dev.backend.entities.Kho.builder().id(3).maKho("KHO_TRANSIT").tenKho("Kho Transit").loaiKho("transit").trangThai(1).build();
+        when(khoRepository.findByTrangThai(1)).thenReturn(List.of(khoTong, khoHcm, khoTransit));
+
+        var spyService = spy(service);
+        var mockClient = mock(com.dev.backend.services.shopee.ShopeeClient.class);
+        doReturn(mockClient).when(spyService).getShopeeClient(shopeeKenh);
+        ObjectMapper mapper = new ObjectMapper();
+        when(mockClient.getWarehouseDetail()).thenReturn(mapper.readTree("{\"error\":\"\"}"));
+        when(mockClient.getAddressList()).thenReturn(mapper.readTree("""
+                {"error":"","response":{"address_list":[{"address_id":5001,"address":"12 Cầu Giấy","city":"Hà Nội","address_type":["PICKUP_ADDRESS"]}]}}
+                """));
+
+        var ds = spyService.getLocations("SHOPEE_SANDBOX");
+
+        assertTrue(ds.size() >= 3, "Phải trả về địa chỉ Shopee kèm các kho FCentric đang hoạt động (trừ KHO_TRANSIT)");
+        assertTrue(ds.stream().anyMatch(l -> "5001".equals(l.getMaKhoSan())));
+        assertTrue(ds.stream().anyMatch(l -> "fcentric-kho-1".equals(l.getMaKhoSan())));
+        assertTrue(ds.stream().anyMatch(l -> "fcentric-kho-2".equals(l.getMaKhoSan())));
+        assertFalse(ds.stream().anyMatch(l -> l.getMaKhoSan().contains("-3")), "Không được đưa KHO_TRANSIT vào danh sách chọn kho");
+    }
+
+    @Test
+    @DisplayName("Shopee: Đổi sang kho FCentric mới reset Delta Sync và đẩy tồn theo đúng kho đã chọn")
+    void luuCaiDat_khiDoiMaKhoSanShopee_resetDeltaSyncVaDayTonTheoKhoFCentric() throws Exception {
+        KenhBanHang shopeeKenh = KenhBanHang.builder().id(7).maKenh("SHOPEE_SANDBOX").tenKenh("Shopee Sandbox").trangThai(1).build();
+        BienTheSanPham bt = BienTheSanPham.builder().id(210).maSku("SHP-WH-SKU-01").build();
+        TrangThaiDongBoSanPham dong = TrangThaiDongBoSanPham.builder()
+                .id(710)
+                .kenhBanHang(shopeeKenh)
+                .bienTheSanPham(bt)
+                .maSanPhamKenh("900100:2001")
+                .soLuongDaDay(12)
+                .trangThaiDongBo("thanh_cong")
+                .choPhepDongBo(true)
+                .build();
+
+        when(kenhBanHangRepository.findByMaKenh("SHOPEE_SANDBOX")).thenReturn(Optional.of(shopeeKenh));
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(7)).thenReturn(List.of(dong));
+        when(kenhBanHangService.getShopeeShopId("SHOPEE_SANDBOX")).thenReturn(8888L);
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_SHOPEE_SANDBOX_MA_KHO_SAN"), any()))
+                .thenReturn("fcentric-kho-1", "fcentric-kho-2");
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_SHOPEE_SANDBOX_TU_DONG_DAY_TON"), any()))
+                .thenReturn("true");
+        when(tonKhoTongHopRepository.sumFreeToUseTheoKhoVaBienTheIds(2, List.of(210)))
+                .thenReturn(List.<Object[]>of(new Object[]{210, BigDecimal.valueOf(7)}));
+
+        var spyService = spy(service);
+        var mockClient = mock(com.dev.backend.services.shopee.ShopeeClient.class);
+        doReturn(mockClient).when(spyService).getShopeeClient(shopeeKenh);
+        when(mockClient.updateStockBatch(eq(900100L), any())).thenReturn(new ObjectMapper().readTree("{\"error\":\"\",\"message\":\"success\"}"));
+
+        var req = com.dev.backend.dto.request.KenhBanHangCaiDatRequest.builder()
+                .maKhoSan("fcentric-kho-2")
+                .tenKhoSan("Kho TP.HCM (Đồng bộ lên Shopee)")
+                .build();
+
+        spyService.luuCaiDat("SHOPEE_SANDBOX", req);
+
+        verify(dieuHanhHeThongService).setCauHinhString("KENH_SHOPEE_SANDBOX_MA_KHO_SAN", "fcentric-kho-2");
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<List<Map<String, Object>>> stockBatchCaptor = org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(mockClient).updateStockBatch(eq(900100L), stockBatchCaptor.capture());
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> sellerStock = (List<Map<String, Object>>) stockBatchCaptor.getValue().get(0).get("seller_stock");
+        assertEquals(7, sellerStock.get(0).get("stock"), "Phải đẩy đúng số tồn khả dụng 7 của kho fcentric-kho-2 vừa chuyển sang");
+    }
+
+    @Test
+    @DisplayName("TikTok Shop: Chuyển kho gọi editProduct với SKU id = null để gắn SKU sang kho mới và lưu lại maSanPhamKenh mới")
+    void luuCaiDat_khiDoiMaKhoSanTikTok_chuyenSkuSangKhoMoiQuaEditProductVaCapNhatMaSanPhamKenh() {
+        var mockClient = mock(com.dev.backend.services.tiktok.TikTokShopClient.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "tiktokShopClient", mockClient);
+
+        KenhBanHang tikTokKenh = KenhBanHang.builder().id(5).maKenh("TIKTOK").tenKenh("TikTok Shop").trangThai(1).build();
+        SanPhamQuanAo sp = SanPhamQuanAo.builder().id(101).tenSanPham("Áo Polo Bảo Hộ FCentric Chính Hãng").build();
+        BienTheSanPham bt = BienTheSanPham.builder().id(174).sanPham(sp).maSku("POLO-SWITCH-01").giaBan(BigDecimal.valueOf(180000)).build();
+        TrangThaiDongBoSanPham dong = TrangThaiDongBoSanPham.builder()
+                .id(504)
+                .kenhBanHang(tikTokKenh)
+                .bienTheSanPham(bt)
+                .maSanPhamKenh("999000111")
+                .soLuongDaDay(12)
+                .trangThaiDongBo("thanh_cong")
+                .choPhepDongBo(true)
+                .build();
+
+        when(kenhBanHangRepository.findByMaKenh("TIKTOK")).thenReturn(Optional.of(tikTokKenh));
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(5)).thenReturn(List.of(dong));
+        when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(List.of(174)))
+                .thenReturn(List.<Object[]>of(new Object[]{174, BigDecimal.valueOf(12)}));
+        when(kenhBanHangService.getTikTokAppKey()).thenReturn("app_k");
+        when(kenhBanHangService.getDecryptedTikTokAppSecret()).thenReturn("app_s");
+        when(kenhBanHangService.getDecryptedTikTokAccessToken()).thenReturn("tok_1");
+        when(kenhBanHangService.getTikTokShopCipher()).thenReturn("ROW_CIPHER");
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_TIKTOK_MA_KHO_SAN"), any()))
+                .thenReturn("wh_cu_1", "wh_moi_2");
+
+        var oldSku = com.dev.backend.dto.response.customize.TikTokSkuDto.builder()
+                .id("999000111")
+                .sellerSku("POLO-SWITCH-01")
+                .inventory(List.of(new com.dev.backend.dto.response.customize.TikTokSkuDto.Inventory("wh_cu_1", 12)))
+                .build();
+        var prod = com.dev.backend.dto.response.customize.TikTokProductDto.builder()
+                .id("88888").status("ACTIVATE").skus(List.of(oldSku)).build();
+        var searchResp = new com.dev.backend.dto.response.customize.TikTokProductSearchResponse();
+        var searchData = new com.dev.backend.dto.response.customize.TikTokProductSearchResponse.ProductSearchData();
+        searchData.setProducts(List.of(prod));
+        searchResp.setData(searchData);
+        when(mockClient.searchProducts(any(), any(), any(), any(), anyInt(), any())).thenReturn(searchResp);
+        when(mockClient.uploadImage(any(), any(), any(), any(), any(), any())).thenReturn("tos-maliva-i-o260ufnz6q-us/mock-main");
+        when(mockClient.uploadImageWithUseCase(any(), any(), any(), any(), any(), any(), any())).thenReturn("tos-maliva-i-o260ufnz6q-us/mock-size-chart");
+
+        var editResp = new com.dev.backend.dto.response.customize.TikTokProductCreateResponse();
+        editResp.setCode(0);
+        var data = new com.dev.backend.dto.response.customize.TikTokProductCreateResponse.ProductCreateData();
+        data.setProductId("88888");
+        var newSku = new com.dev.backend.dto.response.customize.TikTokProductCreateResponse.CreatedSku();
+        newSku.setId("999000222");
+        newSku.setSellerSku("POLO-SWITCH-01");
+        data.setSkus(List.of(newSku));
+        editResp.setData(data);
+        when(mockClient.editProduct(any(), any(), any(), any(), eq("88888"), any())).thenReturn(editResp);
+
+        var req = com.dev.backend.dto.request.KenhBanHangCaiDatRequest.builder()
+                .maKhoSan("wh_moi_2")
+                .tenKhoSan("F-Centric Kho Tổng")
+                .build();
+
+        service.luuCaiDat("TIKTOK", req);
+
+        org.mockito.ArgumentCaptor<com.dev.backend.dto.request.TikTokProductCreateRequest> editCaptor =
+                org.mockito.ArgumentCaptor.forClass(com.dev.backend.dto.request.TikTokProductCreateRequest.class);
+        verify(mockClient).editProduct(any(), any(), any(), any(), eq("88888"), editCaptor.capture());
+        var sentSku = editCaptor.getValue().getSkus().get(0);
+        assertNull(sentSku.getId(), "Khi chuyển kho mới phải gửi sku.id = null để TikTok tạo binding mới ở kho đích");
+        assertEquals("wh_moi_2", sentSku.getInventory().get(0).getWarehouseId());
+        assertEquals("999000222", dong.getMaSanPhamKenh(), "Sau editProduct thành công phải cập nhật maSanPhamKenh mới vào DB");
+    }
 }

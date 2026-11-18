@@ -214,5 +214,39 @@ class ShopeeClientTest {
         assertNotNull(res);
         assertEquals("", res.path("error").asText());
     }
+
+    @Test
+    @DisplayName("laJsonLoiShopee: Nhận diện payload JSON lỗi logistics.shipping_document_should_print_first và chấp nhận %PDF")
+    void laJsonLoiShopee_nhanDienDungPayloadLoiShippingDocumentShouldPrintFirstVaChapNhanPdf() {
+        String errJson = "{\"error\":\"logistics.shipping_document_should_print_first\",\"message\":\"The package should print first. Detail: these orders: 261118MS884CUY should print\"}";
+        assertTrue(ShopeeClient.laJsonLoiShopee(errJson.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+
+        byte[] fakePdf = "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+        assertFalse(ShopeeClient.laJsonLoiShopee(fakePdf));
+        assertFalse(ShopeeClient.laJsonLoiShopee(null));
+    }
+
+    @Test
+    @DisplayName("updateStock: Hỗ trợ truyền location_id trong seller_stock khi Shopee bật đa kho")
+    @SuppressWarnings("unchecked")
+    void updateStock_voiLocationId_guiSellerStockKemLocationId() {
+        ShopeeClient realClient = new ShopeeClient(1253449L, "real_partner_key_1234567890abcdef", 99999L, "token_xyz", true);
+        ReflectionTestUtils.setField(realClient, "restTemplate", restTemplate);
+        ReflectionTestUtils.setField(realClient, "objectMapper", objectMapper);
+
+        when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{\"error\":\"\",\"message\":\"success\"}"));
+
+        JsonNode res = realClient.updateStock(888L, 999L, 25, "VN1001");
+        assertNotNull(res);
+
+        ArgumentCaptor<HttpEntity> entityCaptor = ArgumentCaptor.forClass(HttpEntity.class);
+        verify(restTemplate).postForEntity(anyString(), entityCaptor.capture(), eq(String.class));
+        Map<String, Object> sentBody = (Map<String, Object>) entityCaptor.getValue().getBody();
+        List<Map<String, Object>> stockList = (List<Map<String, Object>>) sentBody.get("stock_list");
+        List<Map<String, Object>> sellerStock = (List<Map<String, Object>>) stockList.get(0).get("seller_stock");
+        assertEquals("VN1001", sellerStock.get(0).get("location_id"));
+        assertEquals(25, sellerStock.get(0).get("stock"));
+    }
 }
 
