@@ -3641,7 +3641,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .soLuongDaDay(soDaDay(item))
                 .ngayDayTonCuoi(item.getNgayDayTonCuoi())
                 .choPhepDongBo(item.getChoPhepDongBo() == null || item.getChoPhepDongBo())
-                .trangThaiLienKet(mapStatusToFrontend(item.getTrangThaiDongBo()))
+                .trangThaiLienKet(mapStatusToFrontend(item.getTrangThaiDongBo(), item.getChoPhepDongBo()))
                 .ngayDongBoCuoi(item.getNgayDongBoCuoi())
                 .chiTietLoi(item.getChiTietLoi())
                 .build();
@@ -3735,10 +3735,24 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .soLuongDaDay(soDaDay(saved))
                 .ngayDayTonCuoi(saved.getNgayDayTonCuoi())
                 .choPhepDongBo(saved.getChoPhepDongBo() == null || saved.getChoPhepDongBo())
-                .trangThaiLienKet(mapStatusToFrontend(saved.getTrangThaiDongBo()))
+                .trangThaiLienKet(mapStatusToFrontend(saved.getTrangThaiDongBo(), saved.getChoPhepDongBo()))
                 .ngayDongBoCuoi(saved.getNgayDongBoCuoi())
                 .chiTietLoi(saved.getChiTietLoi())
                 .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void xoaLienKet(Integer lienKetId) {
+        TrangThaiDongBoSanPham record = trangThaiDongBoSanPhamRepository.findById(lienKetId)
+                .orElseThrow(() -> new CommonException(ThongDiep.of("kenhBan.khongTimThayLienKet", lienKetId), HttpStatus.NOT_FOUND, null));
+        Integer kenhId = record.getKenhBanHang() != null ? record.getKenhBanHang().getId() : null;
+        String maSku = (record.getBienTheSanPham() != null && record.getBienTheSanPham().getMaSku() != null)
+                ? record.getBienTheSanPham().getMaSku() : record.getMaSanPhamKenh();
+        trangThaiDongBoSanPhamRepository.delete(record);
+        if (kenhId != null) {
+            ghiNhatKy(kenhId, IHanhDong.cap_nhat_kenh_ban, "Hủy liên kết SKU " + maSku + " khỏi gian hàng");
+        }
     }
 
     @Override
@@ -4329,7 +4343,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho, moTa);
 
         return DayTonResultDto.builder()
-                .soDong(soThanhCong)
+                .soDong(soThanhCong + soBoQuaKhongDoi)
                 .soLoi(soLoi)
                 .soChuaDay(soChuaDay)
                 .loiKenh(loiKenh)
@@ -4389,11 +4403,31 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int soThanhCong = 0;
         int soLoi = 0;
         int daXuLy = 0;
+        int soBoQuaKhongDoi = 0;
         boolean dungTheoYeuCau = false;
         if (loiKenh == null) {
-            theoDoi.batDauDay(dongCanDay.size());
+            // Delta Sync: Lọc danh sách SKU cần đẩy (số tồn thay đổi hoặc trạng thái chưa thành công)
+            List<DongCanCapNhat> dirtyList = new ArrayList<>();
             for (TrangThaiDongBoSanPham dong : dongCanDay) {
-                // Throttling 250ms bảo vệ Shopify leaky bucket rate limit khi đẩy danh sách SKU
+                BienTheSanPham bt = dong.getBienTheSanPham();
+                if (bt == null) continue;
+                int soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
+                boolean khongDoi = dong.getSoLuongDaDay() != null
+                        && dong.getSoLuongDaDay().equals(soDay)
+                        && "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
+                if (khongDoi) {
+                    soBoQuaKhongDoi++;
+                } else {
+                    dirtyList.add(new DongCanCapNhat(dong, soDay, dong.getMaSanPhamKenh(), bt.getMaSku()));
+                }
+            }
+
+            log.info("[SHOPIFY-SYNC] Đẩy tồn Shopify {}: tổng {} SKU, cần đẩy {} SKU dirty, bỏ qua {} SKU không đổi số tồn.",
+                    maKenh, dongCanDay.size(), dirtyList.size(), soBoQuaKhongDoi);
+
+            theoDoi.batDauDay(dirtyList.size());
+            for (DongCanCapNhat item : dirtyList) {
+                // Throttling 250ms bảo vệ Shopify leaky bucket rate limit khi đẩy danh sách SKU thực tế
                 if (daXuLy > 0) {
                     try {
                         Thread.sleep(250);
@@ -4403,11 +4437,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     dungTheoYeuCau = true;
                     break;
                 }
+                TrangThaiDongBoSanPham dong = item.dong();
                 BienTheSanPham bt = dong.getBienTheSanPham();
-                theoDoi.dangDay(bt.getMaSku());
-                // Free to Use toàn chuỗi rồi áp công thức BR-OC-10
-                int soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
-                KetQuaGuiTon kq = dayTonChoDong(dong, ketNoi, soDay);
+                theoDoi.dangDay(item.sellerSku());
+                KetQuaGuiTon kq = dayTonChoDong(dong, ketNoi, item.soDay());
                 if (kq.loiKenh()) {
                     loiKenh = kq.lyDo();
                     break;
@@ -4419,21 +4452,24 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     soLoi++;
                 }
                 trangThaiDongBoSanPhamRepository.save(dong);
-                theoDoi.daDay(bt.getMaSku(), kq.thanhCong() ? null : tenHienThi(bt), kq.thanhCong(), kq.lyDo());
+                theoDoi.daDay(item.sellerSku(), kq.thanhCong() ? null : tenHienThi(bt), kq.thanhCong(), kq.lyDo());
             }
         }
-        int soChuaDay = dongCanDay.size() - daXuLy;
+        int soChuaDay = (dongCanDay.size() - soBoQuaKhongDoi) - daXuLy;
 
         if (soThanhCong > 0) {
             lanDayTonCuoi.put(kenh.getId(), Instant.now());
         }
         String moTa = moTaKetQuaDayTon(maKenh, ketNoi.tenDiaDiem(), soThanhCong, soLoi, soChuaDay, loiKenh);
+        if (soBoQuaKhongDoi > 0) {
+            moTa += " (bỏ qua " + soBoQuaKhongDoi + " SKU không đổi)";
+        }
         if (dungTheoYeuCau) {
             moTa += "; dừng theo yêu cầu, còn " + soChuaDay + " SKU chưa đẩy";
         }
         ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_ton_kho, moTa);
         return DayTonResultDto.builder()
-                .soDong(soThanhCong)
+                .soDong(soThanhCong + soBoQuaKhongDoi)
                 .soLoi(soLoi)
                 .soChuaDay(soChuaDay)
                 .loiKenh(loiKenh)
@@ -5049,7 +5085,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     .soLuongDaDay(soDaDay(tt))
                     .ngayDayTonCuoi(tt.getNgayDayTonCuoi())
                     .choPhepDongBo(true)
-                    .trangThaiLienKet(mapStatusToFrontend(tt.getTrangThaiDongBo()))
+                    .trangThaiLienKet(mapStatusToFrontend(tt.getTrangThaiDongBo(), true))
                     .ngayDongBoCuoi(tt.getNgayDongBoCuoi())
                     .chiTietLoi(tt.getChiTietLoi())
                     .build();
@@ -5267,7 +5303,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return String.join(" - ", parts);
     }
 
-    private String mapStatusToFrontend(String trangThaiDongBo) {
+    private String mapStatusToFrontend(String trangThaiDongBo, Boolean choPhepDongBo) {
+        if (Boolean.FALSE.equals(choPhepDongBo)) return "chua_lien_ket";
         if ("thanh_cong".equalsIgnoreCase(trangThaiDongBo)) return "da_lien_ket";
         if ("that_bai".equalsIgnoreCase(trangThaiDongBo)) return "that_bai";
         return "chua_lien_ket";
@@ -6855,15 +6892,20 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return false;
         }
 
-        // Chỉ coi là đã đồng bộ khi Shopify xác nhận trạng thái gốc IN_PROGRESS.
-        // Tag/ghi chú không thay đổi trạng thái fulfillment và không phải phương án dự phòng.
-        if (!shopifyOrderProgressClient.reportProgress(domain, token, maDonHangKenh)) {
+        // 1. Cố gắng cập nhật trạng thái fulfillment order gốc IN_PROGRESS qua GraphQL
+        boolean graphQlOk = shopifyOrderProgressClient.reportProgress(domain, token, maDonHangKenh);
+        if (graphQlOk) {
+            log.info("[SHOPIFY-IN_PROGRESS] Shopify xác nhận IN_PROGRESS qua GraphQL cho đơn {}", maDonHangKenh);
+        } else {
             if (shopifyWebhookInbox != null) shopifyWebhookInbox.retryProgress(domain, maDonHangKenh);
-            log.warn("[SHOPIFY-IN_PROGRESS] Chưa đồng bộ tiến trình đơn {}. Kiểm tra quyền xử lý đơn của kết nối Shopify.", maDonHangKenh);
-            return false;
+            log.warn("[SHOPIFY-IN_PROGRESS] GraphQL progress chưa được xác nhận trên đơn {}, kích hoạt cập nhật Tag và Timeline Note theo chuẩn Sapo/Haravan", maDonHangKenh);
         }
-        log.info("[SHOPIFY-IN_PROGRESS] Shopify xác nhận IN_PROGRESS cho đơn {}", maDonHangKenh);
-        return true;
+
+        // 2. BẮT BUỘC cập nhật Order Tag và Timeline Note để hiển thị rõ ràng trên Shopify Admin
+        capNhatTagVaNoteShopify(domain, token, maDonHangKenh, "Đang thực hiện",
+                List.of("Đã hủy", "Đã giao"),
+                "FCentric: Đơn hàng đang được chuẩn bị và nhặt tại kho FCentric");
+        return graphQlOk;
     }
 
     @Override
@@ -6967,8 +7009,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             Map<String, Object> reqBody = Map.of("fulfillment", fulfillmentObj);
             ResponseEntity<String> res = restTemplate.exchange(fulfillUrl, HttpMethod.POST, new HttpEntity<>(reqBody, headers), String.class);
-            if (res.getStatusCode().is2xxSuccessful() && res.getBody() != null
-                    && "success".equals(objectMapper.readTree(res.getBody()).path("fulfillment").path("status").asText())) {
+            boolean fulfillSuccess = false;
+            if (res.getStatusCode().is2xxSuccessful() && res.getBody() != null) {
+                JsonNode resRoot = objectMapper.readTree(res.getBody());
+                long fId = resRoot.path("fulfillment").path("id").asLong();
+                if (fId > 0) {
+                    fulfillSuccess = true;
+                }
+            }
+            if (fulfillSuccess) {
                 log.info("[SHOPIFY-FULFILL] Tạo fulfillment thành công cho đơn {} trên Shopify (tracking: {}, carrier: {})",
                         maDonHangKenh, trackingNumber, trackingCompany);
                 capNhatTagVaNoteShopify(domain, token, maDonHangKenh, "Đã hoàn tất",

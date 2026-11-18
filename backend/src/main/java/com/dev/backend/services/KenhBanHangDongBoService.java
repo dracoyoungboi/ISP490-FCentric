@@ -29,6 +29,8 @@ public interface KenhBanHangDongBoService {
 
     LienKetSanPhamDto capNhatLienKet(Integer lienKetId, CapNhatLienKetRequest request);
 
+    void xoaLienKet(Integer lienKetId);
+
     DayTonResultDto dayTonKhoLenKenh(String maKenh, DayTonKenhRequest request);
 
     /** Đẩy tồn theo quy tắc đã lưu của kênh, báo tiến độ từng SKU cho {@code theoDoi} (đồng bộ tay chạy nền). */

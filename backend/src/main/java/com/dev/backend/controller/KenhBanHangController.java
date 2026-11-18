@@ -699,6 +699,19 @@ public class KenhBanHangController {
         );
     }
 
+    @DeleteMapping("/lien-ket/{id}")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @Operation(summary = "Hủy liên kết SKU FCentric khỏi gian hàng")
+    public ResponseEntity<ResponseData<Void>> xoaLienKet(@PathVariable Integer id) {
+        kenhBanHangDongBoService.xoaLienKet(id);
+        return ResponseEntity.ok(
+                ResponseData.<Void>builder()
+                        .status(HttpStatus.OK.value())
+                        .message(ThongDiep.dich("kenhBan.huyLienKetThanhCong"))
+                        .build()
+        );
+    }
+
     @PostMapping("/{maKenh}/day-ton")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Đẩy tồn kho khả dụng lên kênh bán hàng theo chính sách tồn kho")
