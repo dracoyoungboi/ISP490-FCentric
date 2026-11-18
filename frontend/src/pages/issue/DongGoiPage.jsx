@@ -337,7 +337,13 @@ function ManDongGoi({ donId }) {
     phien?.tenKenh?.toLowerCase()?.includes("shopee") ||
     phien?.maDonHangKenh?.startsWith("SHP-")
   );
+  const laShopify = Boolean(
+    phien?.soDonHang?.startsWith("SPF-") ||
+    phien?.tenKenh?.toLowerCase()?.includes("shopify") ||
+    phien?.maKenh?.toUpperCase() === "SHOPIFY"
+  );
   const laDonSan = laLazada || laShopee || Boolean(phien?.maDonHangKenh);
+  const hoTroInVanDonSan = laDonSan && !laShopify && pxId && th.xong;
 
   // ── Đầu khối ────────────────────────────────────────────────────────────
   const moPx = () => pxId && xinRoiTrang(() => navigate(`/goods-issues/${pxId}`));
@@ -418,7 +424,7 @@ function ManDongGoi({ donId }) {
             menu={[
               pxId ? { ma: "moPx", nhan: t("Mở phiếu xuất {{px}}", { px }), icon: FileText, onSelect: moPx } : null,
               pxId ? { ma: "inPx", nhan: t("In phiếu xuất"), icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print`)) } : null,
-              laDonSan && pxId && th.xong
+              hoTroInVanDonSan
                 ? { ma: "inPackingSlip", nhan: t("In vận đơn / phiếu đóng gói sàn (A6)"), icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print-packing-slip`)) }
                 : null,
             ].filter(Boolean)}

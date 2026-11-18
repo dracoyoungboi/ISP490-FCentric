@@ -343,7 +343,14 @@ function ManPhieuXuatKho({ id }) {
     phieu.donBanHang?.maDonHangKenh?.startsWith("SHP-")
   );
 
+  const laShopify = Boolean(
+    phieu.donBanHang?.soDonHang?.startsWith("SPF-") ||
+    phieu.donBanHang?.kenhBanHang?.maKenh === "SHOPIFY" ||
+    phieu.donBanHang?.kenhBanHang?.tenKenh?.toLowerCase()?.includes("shopify")
+  );
+
   const laDonSan = laLazada || laShopee || Boolean(phieu?.donBanHang?.maDonHangKenh);
+  const hoTroInVanDonSan = laDonSan && !laShopify && (tt === TRANG_THAI_PHIEU_XUAT.CHO_XUAT || tt === TRANG_THAI_PHIEU_XUAT.DA_XUAT);
 
   const soDon = phieu.donBanHang?.soDonHang;
   const moTaHuy = t("Hủy phiếu {{soPhieuXuat}}? Số lượng đang giữ được trả lại tồn kho{{phanDon}}. Không hoàn tác được.", { soPhieuXuat: phieu.soPhieuXuat, phanDon: soDon ? t("; đơn {{soDon}} quay về Chờ nhặt hàng (Đã xuất một phần nếu đơn đã xuất một phần trước đó)", { soDon }) : "" });
@@ -400,7 +407,7 @@ function ManPhieuXuatKho({ id }) {
             nutPhu={quyen.coIn ? { ma: "in", nhan: t("In phiếu"), icon: Printer, onClick: () => navigate(`/goods-issues/${phieu.id}/print`) } : null}
             saoChepMa={{ giaTri: phieu.soPhieuXuat, nhan: t("Sao chép mã phiếu") }}
                         menu={[
-              laDonSan && (tt === TRANG_THAI_PHIEU_XUAT.CHO_XUAT || tt === TRANG_THAI_PHIEU_XUAT.DA_XUAT)
+              hoTroInVanDonSan
                 ? { ma: "inPackingSlip", nhan: t("In vận đơn / phiếu đóng gói sàn (A6)"), icon: Printer, onSelect: () => navigate(`/goods-issues/${phieu.id}/print-packing-slip`) }
                 : null,
               coXemBangChung
