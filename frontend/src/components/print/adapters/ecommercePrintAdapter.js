@@ -55,7 +55,10 @@ export function toEcommercePrintModel(payload) {
     const maKenhUpper = kenh.maKenh ? String(kenh.maKenh).toUpperCase() : "";
     const isTikTok = ["TIKTOK", "TIKTOK_SHOP"].includes(maKenhUpper) || String(don.soDonHang || "").startsWith("TTS-");
     const isLazada = ["LAZADA", "LAZADA_SANDBOX"].includes(maKenhUpper) || String(don.soDonHang || "").startsWith("LZD-");
-    const isShopee = ["SHOPEE", "SHOPEE_SANDBOX"].includes(maKenhUpper) || String(don.soDonHang || "").startsWith("SHP-");
+    const isShopee = ["SHOPEE", "SHOPEE_OFFICIAL", "SHOPEE_SANDBOX"].includes(maKenhUpper)
+        || maKenhUpper.includes("SHOPEE")
+        || String(don.soDonHang || "").startsWith("SHP-")
+        || String(don.maDonHangKenh || "").startsWith("SHP");
 
     const pickupBy = phieu.donViPickup || don.donViPickup || (isTikTok ? "J&T EXPRESS" : isShopee ? "SPX EXPRESS" : "BEST EXPRESS");
     const deliveryBy = phieu.donViDelivery || don.donViDelivery || (isTikTok ? "J&T EXPRESS" : isShopee ? "SPX EXPRESS" : "BEST EXPRESS");

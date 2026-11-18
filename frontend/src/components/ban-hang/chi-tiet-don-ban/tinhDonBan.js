@@ -77,6 +77,9 @@ export const laDonLazada = (don) => {
  */
 export const laDonShopee = (don) => ["SHOPEE", "SHOPEE_SANDBOX", "SHOPEE_OFFICIAL"].includes(maKenhCua(don));
 
+/** Đơn sàn Shopify: không có tem vận đơn sàn (người bán tự giao hoặc dùng đơn vị vận chuyển ngoài). */
+export const laDonShopify = (don) => maKenhCua(don) === "SHOPIFY";
+
 /** Tên sàn để ghép câu ("Shopify"); thiếu thì "sàn". */
 export const tenKenhCua = (don) => String(don?.kenhBanHang?.tenKenh ?? "").trim() || t("sàn");
 

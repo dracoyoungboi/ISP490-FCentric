@@ -35,6 +35,7 @@ import {
   hauQuaHuy,
   laDonLazada,
   laDonShopee,
+  laDonShopify,
   laDonSan,
   laDonTaiQuay,
   lyDoSanHuy,
@@ -111,7 +112,9 @@ function ChiTietDonBanHang({ id }) {
   const laSan = laDonSan(don);
   const laLazada = laDonLazada(don);
   const laShopee = laDonShopee(don);
+  const laShopify = laDonShopify(don);
   const laSanXuatKhoTong = laLazada || laShopee;
+  const hoTroInVanDonSan = laSan && !laShopify && don?.trangThai !== TRANG_THAI_DON.DA_HUY;
   const maBG = don && !laBaoGia ? maBaoGiaGoc(don.soDonHang, { laPos, laSan }) : null;
   const taiBaoGia = useCallback(async () => {
     const page = await donBanHangService.filter({
@@ -313,11 +316,26 @@ function ChiTietDonBanHang({ id }) {
       },
     });
 
-  const inVanDonSan = () => {
-    if (v.pxMo?.id) {
-      navigate(`/goods-issues/${v.pxMo.id}/print-packing-slip`);
-    } else {
-      navigate(`/sales-orders/${id}/print-packing-slip`);
+  const [dangTaiVanDon, setDangTaiVanDon] = useState(false);
+
+  const inVanDonSan = async () => {
+    try {
+      setDangTaiVanDon(true);
+      const blob = await donBanHangService.layVanDonSan(id);
+      const fileUrl = window.URL.createObjectURL(blob);
+      const win = window.open(fileUrl, "_blank");
+      if (!win) {
+        window.location.href = fileUrl;
+      }
+    } catch (err) {
+      toast.error(t("Không thể tải tem vận đơn từ sàn: {{error}}", { error: getApiErrorMessage(err, t("Lỗi kết nối")) }));
+      if (v.pxMo?.id) {
+        navigate(`/goods-issues/${v.pxMo.id}/print-packing-slip`);
+      } else {
+        navigate(`/sales-orders/${id}/print-packing-slip`);
+      }
+    } finally {
+      setDangTaiVanDon(false);
     }
   };
 
@@ -345,20 +363,21 @@ function ChiTietDonBanHang({ id }) {
       v.nutTaoLai
         ? { ma: "taoLai", nhan: t("Tạo lại phiếu xuất"), icon: RefreshCw, dangChay: dangChay === "taoLai", khoa: Boolean(dangChay), onClick: taoLaiPhieuXuat }
         : null,
-      laSan && don?.trangThai !== TRANG_THAI_DON.DA_HUY
-        ? { ma: "inVanDonSan", nhan: t("In vận đơn sàn (A6)"), icon: Printer, onClick: inVanDonSan }
+      hoTroInVanDonSan
+        ? { ma: "inVanDonSan", nhan: t("In vận đơn sàn (A6)"), icon: Printer, dangChay: dangTaiVanDon, khoa: dangTaiVanDon, onClick: inVanDonSan }
         : null,
     ].filter(Boolean),
     choGoc,
   );
 
   const menu = [
-    laSan && don?.trangThai !== TRANG_THAI_DON.DA_HUY
+    hoTroInVanDonSan
       ? {
         ma: "inVanDonSan",
         nhan: t("In vận đơn sàn (A6)"),
         moTa: t("Mở tem in vận chuyển chuẩn sàn"),
         icon: Printer,
+        khoa: dangTaiVanDon,
         onSelect: inVanDonSan,
       }
       : null,
