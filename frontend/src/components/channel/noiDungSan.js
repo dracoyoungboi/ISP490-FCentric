@@ -49,8 +49,8 @@ const NOI_DUNG = {
     hanUyQuyen: t("Thời hạn kết nối có hiệu lực 365 ngày (hệ thống tự động gia hạn)."),
     khoSan: {
       nhan: t("Kho trên Shopee"),
-      moTa: t("Gian hàng một kho: Shopee nhận số vào kho mặc định, không cần chọn."),
-      chiDoc: t("Kho mặc định"),
+      moTa: t("Chọn kho xuất hàng và đồng bộ tồn kho lên Shopee."),
+      chiDoc: null,
     },
     ghiChuTon: t("Hệ thống tự động gom cụm đẩy tồn kho theo lô sang Shopee theo quy tắc tồn khả dụng đã cấu hình."),
     ghiChuDon: t("Đơn mới từ Shopee đồng bộ tự động theo chu kỳ quét định kỳ với tiền tố SHP-."),
@@ -66,8 +66,8 @@ const NOI_DUNG = {
       t("Hạn ủy quyền Shopee là 30 ngày (hệ thống tự động làm mới mã truy cập mỗi 4 giờ bằng mã làm mới)."),
     khoSan: {
       nhan: t("Kho trên Shopee"),
-      moTa: t("Gian hàng một kho: Shopee nhận số vào kho mặc định, không cần chọn."),
-      chiDoc: t("Kho mặc định"),
+      moTa: t("Chọn kho xuất hàng và đồng bộ tồn kho lên Shopee."),
+      chiDoc: null,
     },
     ghiChuTon: t("Cập nhật tồn kho trực tiếp qua Shopee Open Platform API v2 (/api/v2/product/update_stock)."),
     ghiChuDon: t("Đồng bộ đơn hàng tự động qua Shopee Open Platform API v2 (/api/v2/order/get_order_list)."),
@@ -83,8 +83,8 @@ const NOI_DUNG = {
       t("Hạn ủy quyền Shopee Sandbox là 365 ngày (hệ thống tự động làm mới mã truy cập mỗi 4 giờ bằng mã làm mới)."),
     khoSan: {
       nhan: t("Kho trên Shopee Sandbox"),
-      moTa: t("Gian hàng một kho: Shopee nhận số vào kho mặc định, không cần chọn."),
-      chiDoc: t("Kho mặc định"),
+      moTa: t("Chọn kho xuất hàng và đồng bộ tồn kho lên Shopee."),
+      chiDoc: null,
     },
     ghiChuTon: t("Cập nhật tồn kho trực tiếp qua Shopee Open Platform API v2 (/api/v2/product/update_stock)."),
     ghiChuDon: t("Đồng bộ đơn hàng tự động qua Shopee Open Platform API v2 (/api/v2/order/get_order_list)."),

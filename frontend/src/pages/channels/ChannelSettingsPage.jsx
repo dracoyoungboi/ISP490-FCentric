@@ -145,6 +145,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
   const [ketQuaKetNoi, setKetQuaKetNoi] = useState(null);
   const [moDoiKhoa, setMoDoiKhoa] = useState(false);
   const [hoiNgat, setHoiNgat] = useState(false);
+  const [khoChoXacNhan, setKhoChoXacNhan] = useState(null);
   // Rời trang khi còn thay đổi chưa lưu: hàm đi tiếp chờ người dùng xác nhận
   const [hoiRoi, setHoiRoi] = useState(null);
   const [dangChay, setDangChay] = useState(null);
@@ -160,6 +161,17 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
   const khoMat = uyQuyen && khoDaLuuKhongCon(config?.maKhoSan, dsKhoSan?.data);
   const khoChon = maKhoSan ?? (khoMat ? khoDangLuu : null);
   const doiKho = uyQuyen && Boolean(khoChon) && khoChon !== (config?.maKhoSan ?? khoDangLuu);
+  const danhSachKho = dsKhoSan?.data ?? [];
+  const maKhoHienTai = maKhoSan ?? khoDangLuu;
+  const tenKhoCu =
+    danhSachKho.find((k) => k.maKhoSan === maKhoHienTai)?.tenKhoSan ??
+    config?.tenKhoSan ??
+    maKhoHienTai ??
+    t("Kho hiện tại");
+  const tenKhoMoi =
+    danhSachKho.find((k) => k.maKhoSan === khoChoXacNhan)?.tenKhoSan ??
+    khoChoXacNhan ??
+    "";
   const doiGianHang = dongBoGianHang !== (Number(config?.trangThai) === 1);
   const doiCauHinh = coThayDoiCauHinh(values, cauHinh);
   const doiKhoMapping = Boolean(
@@ -227,6 +239,32 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
       setKhoMappingConfig(khoMapping.data);
     }
   };
+
+  const chonKhoSan = (moi) => {
+    if (!moi || moi === maKhoHienTai) return;
+    setKhoChoXacNhan(moi);
+  };
+
+  const xacNhanChuyenKho = () =>
+    chay("chuyen-kho", async () => {
+      if (!khoChoXacNhan) return;
+      const khoMucTieu = danhSachKho.find((k) => k.maKhoSan === khoChoXacNhan);
+      const khoMoiPayload = {
+        maKhoSan: khoChoXacNhan,
+        tenKhoSan: khoMucTieu?.tenKhoSan ?? null,
+      };
+      try {
+        await kenhBanHangService.luuCaiDatKenh(SAN.maKenh, khoMoiPayload);
+        onConfigSaved((cu) => ({ ...cu, ...khoMoiPayload }));
+        setMaKhoSan(null);
+        setKhoChoXacNhan(null);
+        toast.success(t("Đã chuyển kho và đồng bộ sản phẩm sang {{khoMoi}}.", { khoMoi: tenKhoMoi }));
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, t("Không chuyển được kho đồng bộ.")));
+        onTaiLaiKetNoi();
+        khiMatKetNoi(error);
+      }
+    });
 
   const luu = () =>
     chay("luu", async () => {
@@ -557,7 +595,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
                   khoSan={dsKhoSan}
                   value={maKhoSan ?? khoDangLuu}
                   maKhoDaLuu={config?.maKhoSan}
-                  onChange={setMaKhoSan}
+                  onChange={chonKhoSan}
                   disabled={khoa}
                 />
               ) : undefined
@@ -658,6 +696,18 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
         description={t("Các thay đổi cấu hình chưa lưu sẽ mất.")}
         confirmText={t("Rời trang")}
         cancelText={t("Ở lại")}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(khoChoXacNhan)}
+        onClose={() => dangChay !== "chuyen-kho" && setKhoChoXacNhan(null)}
+        onConfirm={xacNhanChuyenKho}
+        isLoading={dangChay === "chuyen-kho"}
+        variant="warning"
+        title={t("Chuyển sản phẩm sang kho mới?")}
+        description={t("Bạn đang chuyển kho đồng bộ của kênh {{tenSan}} từ {{khoCu}} sang {{khoMoi}}. Hệ thống sẽ tự động chuyển sản phẩm đang đồng bộ sang kho mới và đẩy lại tồn kho lên sàn.", { tenSan: SAN.ten, khoCu: tenKhoCu, khoMoi: tenKhoMoi })}
+        confirmText={t("Chuyển kho và đồng bộ")}
+        cancelText={t("Giữ kho hiện tại")}
       />
 
       <ConfirmModal
