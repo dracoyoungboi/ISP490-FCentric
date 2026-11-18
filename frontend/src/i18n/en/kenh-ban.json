@@ -978,5 +978,12 @@
   "Không hủy được liên kết": "Could not unlink product",
   "Hủy liên kết": "Unlink",
   "Hủy liên kết SKU khỏi {{ten}}?": "Unlink SKU from {{ten}}?",
-  "Hệ thống sẽ gỡ thông tin liên kết của SKU {{sku}} khỏi gian hàng {{ten}}. Bạn có thể ghép nối lại sau.": "The system will remove the link for SKU {{sku}} from {{ten}}. You can re-link it later."
+  "Hệ thống sẽ gỡ thông tin liên kết của SKU {{sku}} khỏi gian hàng {{ten}}. Bạn có thể ghép nối lại sau.": "The system will remove the link for SKU {{sku}} from {{ten}}. You can re-link it later.",
+  "Chọn kho xuất hàng và đồng bộ tồn kho lên Shopee.": "Select the fulfillment warehouse to sync inventory with Shopee.",
+  "Kho hiện tại": "Current warehouse",
+  "Chuyển sản phẩm sang kho mới?": "Move synced products to the new warehouse?",
+  "Bạn đang chuyển kho đồng bộ của kênh {{tenSan}} từ {{khoCu}} sang {{khoMoi}}. Hệ thống sẽ tự động chuyển sản phẩm đang đồng bộ sang kho mới và đẩy lại tồn kho lên sàn.": "You are switching the sync warehouse for {{tenSan}} from {{khoCu}} to {{khoMoi}}. FCentric will move synced products to the new warehouse and push inventory to the channel.",
+  "Chuyển kho và đồng bộ": "Switch warehouse and sync",
+  "Đã chuyển kho và đồng bộ sản phẩm sang {{khoMoi}}.": "Switched warehouse and synced products to {{khoMoi}}.",
+  "Không chuyển được kho đồng bộ.": "Could not switch sync warehouse."
 }
