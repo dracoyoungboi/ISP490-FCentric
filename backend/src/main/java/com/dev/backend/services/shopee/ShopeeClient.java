@@ -50,6 +50,7 @@ public class ShopeeClient {
     public static final String PATH_TOKEN_REFRESH = "/api/v2/auth/access_token/get";
     public static final String PATH_SHOP_INFO = "/api/v2/shop/get_shop_info";
     public static final String PATH_SHOP_PROFILE = "/api/v2/shop/get_profile";
+    public static final String PATH_GET_WAREHOUSE_DETAIL = "/api/v2/shop/get_warehouse_detail";
     public static final String PATH_SHOPS_BY_PARTNER = "/api/v2/public/get_shops_by_partner";
 
     // 2. Order Paths
@@ -80,6 +81,7 @@ public class ShopeeClient {
     public static final String PATH_SHIP_ORDER = "/api/v2/logistics/ship_order";
     public static final String PATH_TRACKING_NUMBER = "/api/v2/logistics/get_tracking_number";
     public static final String PATH_TRACKING_INFO = "/api/v2/logistics/get_tracking_info";
+    public static final String PATH_GET_ADDRESS_LIST = "/api/v2/logistics/get_address_list";
     public static final String PATH_CREATE_DOC = "/api/v2/logistics/create_shipping_document";
     public static final String PATH_GET_DOC_RESULT = "/api/v2/logistics/get_shipping_document_result";
     public static final String PATH_DOWNLOAD_DOC = "/api/v2/logistics/download_shipping_document";
@@ -382,6 +384,14 @@ public class ShopeeClient {
 
     public JsonNode cancelOrder(String partnerId, String partnerKey, String accessToken, String shopId,
                                 String orderSn, String cancelReason, Long itemId, Long modelId, boolean isSandbox) {
+        List<Map<String, Object>> itemList = itemId != null
+                ? List.of(Map.of("item_id", itemId, "model_id", modelId != null ? modelId : 0L))
+                : null;
+        return cancelOrder(partnerId, partnerKey, accessToken, shopId, orderSn, cancelReason, itemList, isSandbox);
+    }
+
+    public JsonNode cancelOrder(String partnerId, String partnerKey, String accessToken, String shopId,
+                                String orderSn, String cancelReason, List<Map<String, Object>> itemList, boolean isSandbox) {
         if (isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK] Giả lập hủy đơn Shopee #{} với lý do {}", orderSn, cancelReason);
             return objectMapper.createObjectNode().put("error", "").put("message", "success");
@@ -396,7 +406,9 @@ public class ShopeeClient {
         Map<String, Object> body = new HashMap<>();
         body.put("order_sn", orderSn);
         body.put("cancel_reason", cancelReason != null ? cancelReason : "OUT_OF_STOCK");
-        if (itemId != null) body.put("item_list", List.of(Map.of("item_id", itemId, "model_id", modelId != null ? modelId : 0)));
+        if (itemList != null && !itemList.isEmpty()) {
+            body.put("item_list", itemList);
+        }
 
         return executePost(url, body);
     }
@@ -707,6 +719,11 @@ public class ShopeeClient {
 
     public JsonNode updateStock(String partnerId, String partnerKey, String accessToken, String shopId,
                                 Long itemId, Long modelId, int stock, boolean isSandbox) {
+        return updateStock(partnerId, partnerKey, accessToken, shopId, itemId, modelId, stock, null, isSandbox);
+    }
+
+    public JsonNode updateStock(String partnerId, String partnerKey, String accessToken, String shopId,
+                                Long itemId, Long modelId, int stock, String locationId, boolean isSandbox) {
         if (isMockCredentials(partnerId, partnerKey)) {
             log.info("[SHOPEE-MOCK-UPDATE-STOCK] Giả lập cập nhật tồn kho Shopee: item={}, model={}, stock={}", itemId, modelId, stock);
             return objectMapper.createObjectNode().put("error", "").put("message", "success");
@@ -723,7 +740,12 @@ public class ShopeeClient {
         body.put("item_id", itemId);
         Map<String, Object> stockItem = new HashMap<>();
         stockItem.put("model_id", (modelId != null && modelId > 0) ? modelId : 0L);
-        stockItem.put("seller_stock", List.of(Map.of("stock", stock)));
+        Map<String, Object> sellerStockEntry = new LinkedHashMap<>();
+        if (locationId != null && !locationId.isBlank()) {
+            sellerStockEntry.put("location_id", locationId.trim());
+        }
+        sellerStockEntry.put("stock", stock);
+        stockItem.put("seller_stock", List.of(sellerStockEntry));
         body.put("stock_list", List.of(stockItem));
 
         return executePost(url, body);
@@ -837,12 +859,7 @@ public class ShopeeClient {
             return objectMapper.createObjectNode().put("error", "").put("message", "success");
         }
 
-        long timestamp = Instant.now().getEpochSecond();
-        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_SHIP_ORDER, timestamp, accessToken, shopId);
-        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
-        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                getHost(isSandbox), PATH_SHIP_ORDER, partnerId, timestamp, accessToken, shopId, sign);
-
+        String url = buildSignedShopUrl(PATH_SHIP_ORDER, partnerId, partnerKey, accessToken, shopId, isSandbox);
         Map<String, Object> body = new HashMap<>();
         body.put("order_sn", orderSn);
         if ("pickup".equalsIgnoreCase(pickupOrDropoff)) {
@@ -852,6 +869,126 @@ public class ShopeeClient {
         }
 
         return executePost(url, body);
+    }
+
+    /**
+     * Tự động đọc {@code get_shipping_parameter} để chọn đúng chế độ {@code pickup} (kèm {@code address_id},
+     * {@code pickup_time_id}) hoặc {@code dropoff} khi gọi {@code ship_order}, có tự động thử chế độ còn lại nếu lỗi.
+     */
+    public JsonNode shipOrderAuto(String partnerId, String partnerKey, String accessToken, String shopId,
+                                  String orderSn, boolean isSandbox) {
+        return shipOrderAuto(partnerId, partnerKey, accessToken, shopId, orderSn, null, isSandbox);
+    }
+
+    public JsonNode shipOrderAuto(String partnerId, String partnerKey, String accessToken, String shopId,
+                                  String orderSn, Long preferredAddressId, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            log.info("[SHOPEE-MOCK-SHIP] Giả lập shipOrderAuto #{}", orderSn);
+            return objectMapper.createObjectNode().put("error", "").put("message", "success");
+        }
+
+        Map<String, Object> pickupPayload = null;
+        boolean hasDropoff = false;
+        try {
+            JsonNode paramRes = getShippingParameter(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
+            JsonNode resp = paramRes != null ? paramRes.path("response") : null;
+            if (resp != null && !resp.isMissingNode()) {
+                JsonNode addressList = resp.path("pickup").path("address_list");
+                if (addressList.isArray() && !addressList.isEmpty()) {
+                    JsonNode chosenAddr = chonDiaChiPickupShopee(addressList, preferredAddressId);
+                    if (chosenAddr != null && chosenAddr.hasNonNull("address_id")) {
+                        Map<String, Object> p = new HashMap<>();
+                        p.put("address_id", chosenAddr.path("address_id").asLong());
+                        JsonNode timeSlotList = chosenAddr.path("time_slot_list");
+                        if (timeSlotList.isArray() && !timeSlotList.isEmpty()) {
+                            String timeId = timeSlotList.get(0).path("pickup_time_id").asText("");
+                            if (!timeId.isBlank()) {
+                                p.put("pickup_time_id", timeId);
+                            }
+                        }
+                        pickupPayload = p;
+                    }
+                }
+                hasDropoff = resp.has("dropoff") && !resp.path("dropoff").isMissingNode() && !resp.path("dropoff").isNull();
+            }
+        } catch (Exception ex) {
+            log.info("[SHOPEE-SHIP] Không đọc được shipping_parameter cho đơn {}: {}", orderSn, ex.getMessage());
+        }
+
+        String url = buildSignedShopUrl(PATH_SHIP_ORDER, partnerId, partnerKey, accessToken, shopId, isSandbox);
+        boolean uuTienPickup = pickupPayload != null && !hasDropoff;
+
+        if (uuTienPickup || pickupPayload != null) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("order_sn", orderSn);
+            body.put("pickup", pickupPayload);
+            JsonNode res = executePost(url, body);
+            if (laKetQuaShipOrderThanhCong(res)) {
+                return res;
+            }
+            if (hasDropoff) {
+                Map<String, Object> dropBody = Map.of("order_sn", orderSn, "dropoff", Map.of());
+                return executePost(url, dropBody);
+            }
+            return res;
+        }
+
+        Map<String, Object> dropBody = Map.of("order_sn", orderSn, "dropoff", Map.of());
+        return executePost(url, dropBody);
+    }
+
+    private static JsonNode chonDiaChiPickupShopee(JsonNode addressList, Long preferredAddressId) {
+        if (preferredAddressId != null) {
+            for (JsonNode addr : addressList) {
+                if (addr.path("address_id").asLong(-1L) == preferredAddressId) {
+                    return addr;
+                }
+            }
+        }
+        for (JsonNode addr : addressList) {
+            JsonNode flags = addr.path("address_flag");
+            if (flags.isArray()) {
+                for (JsonNode f : flags) {
+                    if ("pickup_address".equalsIgnoreCase(f.asText())) {
+                        return addr;
+                    }
+                }
+            }
+        }
+        return addressList.get(0);
+    }
+
+    private static boolean laKetQuaShipOrderThanhCong(JsonNode res) {
+        if (res == null) return false;
+        String err = res.path("error").asText("");
+        String msg = res.path("message").asText("").toLowerCase(Locale.ROOT);
+        return err.isBlank() || msg.contains("already") || msg.contains("processed") || err.contains("already");
+    }
+
+    public JsonNode getAddressList(String partnerId, String partnerKey, String accessToken, String shopId, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            ArrayNode arr = res.putObject("response").putArray("address_list");
+            arr.addObject().put("address_id", 1001L).put("address", "Kho Tổng FCentric (Mặc định)").put("state", "Hà Nội");
+            return res;
+        }
+        String url = buildSignedShopUrl(PATH_GET_ADDRESS_LIST, partnerId, partnerKey, accessToken, shopId, isSandbox);
+        return executeGet(url);
+    }
+
+    public JsonNode getWarehouseDetail(String partnerId, String partnerKey, String accessToken, String shopId, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            res.putArray("response").addObject()
+                    .put("warehouse_id", "1001")
+                    .put("warehouse_name", "Kho mặc định Shopee")
+                    .put("warehouse_type", 1);
+            return res;
+        }
+        String url = buildSignedShopUrl(PATH_GET_WAREHOUSE_DETAIL, partnerId, partnerKey, accessToken, shopId, isSandbox);
+        return executeGet(url);
     }
 
     public JsonNode getTrackingNumber(String partnerId, String partnerKey, String accessToken, String shopId,
@@ -897,29 +1034,40 @@ public class ShopeeClient {
 
     public JsonNode createShippingDocument(String partnerId, String partnerKey, String accessToken, String shopId,
                                            String orderSn, boolean isSandbox) {
+        return createShippingDocument(partnerId, partnerKey, accessToken, shopId, orderSn, null, "THERMAL_AIR_WAYBILL", isSandbox);
+    }
+
+    public JsonNode createShippingDocument(String partnerId, String partnerKey, String accessToken, String shopId,
+                                           String orderSn, String trackingNumber, String documentType, boolean isSandbox) {
         if (isMockCredentials(partnerId, partnerKey)) {
-            log.info("[SHOPEE-MOCK-DOC] Giả lập tạo phiếu vận đơn Shopee cho #{}", orderSn);
+            log.info("[SHOPEE-MOCK-DOC] Giả lập tạo phiếu vận đơn Shopee cho #{} (tracking={})", orderSn, trackingNumber);
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
             res.putObject("response").put("status", "READY");
             return res;
         }
 
-        long timestamp = Instant.now().getEpochSecond();
-        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_CREATE_DOC, timestamp, accessToken, shopId);
-        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
-        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                getHost(isSandbox), PATH_CREATE_DOC, partnerId, timestamp, accessToken, shopId, sign);
-
+        String url = buildSignedShopUrl(PATH_CREATE_DOC, partnerId, partnerKey, accessToken, shopId, isSandbox);
+        String docType = (documentType != null && !documentType.isBlank()) ? documentType : "THERMAL_AIR_WAYBILL";
+        Map<String, Object> orderEntry = new HashMap<>();
+        orderEntry.put("order_sn", orderSn);
+        if (trackingNumber != null && !trackingNumber.isBlank()) {
+            orderEntry.put("tracking_number", trackingNumber.trim());
+        }
         Map<String, Object> body = Map.of(
-                "order_list", List.of(Map.of("order_sn", orderSn)),
-                "shipping_document_type", "THERMAL_AIR_WAYBILL"
+                "order_list", List.of(orderEntry),
+                "shipping_document_type", docType
         );
         return executePost(url, body);
     }
 
     public JsonNode getShippingDocumentResult(String partnerId, String partnerKey, String accessToken, String shopId,
                                              String orderSn, boolean isSandbox) {
+        return getShippingDocumentResult(partnerId, partnerKey, accessToken, shopId, orderSn, "THERMAL_AIR_WAYBILL", isSandbox);
+    }
+
+    public JsonNode getShippingDocumentResult(String partnerId, String partnerKey, String accessToken, String shopId,
+                                             String orderSn, String documentType, boolean isSandbox) {
         if (isMockCredentials(partnerId, partnerKey)) {
             ObjectNode res = objectMapper.createObjectNode();
             res.put("error", "").put("message", "success");
@@ -927,15 +1075,11 @@ public class ShopeeClient {
             return res;
         }
 
-        long timestamp = Instant.now().getEpochSecond();
-        String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_GET_DOC_RESULT, timestamp, accessToken, shopId);
-        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
-        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                getHost(isSandbox), PATH_GET_DOC_RESULT, partnerId, timestamp, accessToken, shopId, sign);
-
+        String url = buildSignedShopUrl(PATH_GET_DOC_RESULT, partnerId, partnerKey, accessToken, shopId, isSandbox);
+        String docType = (documentType != null && !documentType.isBlank()) ? documentType : "THERMAL_AIR_WAYBILL";
         Map<String, Object> body = Map.of(
                 "order_list", List.of(Map.of("order_sn", orderSn)),
-                "shipping_document_type", "THERMAL_AIR_WAYBILL"
+                "shipping_document_type", docType
         );
         return executePost(url, body);
     }
@@ -977,6 +1121,24 @@ public class ShopeeClient {
     // =========================================================================
     // HELPER METHODS
     // =========================================================================
+
+    private String buildSignedShopUrl(String path, String partnerId, String partnerKey,
+                                      String accessToken, String shopId, boolean isSandbox) {
+        long timestamp = Instant.now().getEpochSecond();
+        String pId = partnerId != null ? partnerId.trim() : "";
+        String aToken = accessToken != null ? accessToken.trim() : "";
+        String sId = shopId != null ? shopId.trim() : "";
+        String base = ShopeeSignatureHelper.buildShopBaseString(pId, path, timestamp, aToken, sId);
+        String sign = ShopeeSignatureHelper.sign(partnerKey, base);
+        return String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
+                getHost(isSandbox), path, pId, timestamp, aToken, sId, sign);
+    }
+
+    public static boolean laJsonLoiShopee(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) return false;
+        String text = new String(bytes, StandardCharsets.UTF_8).trim();
+        return text.startsWith("{") && (text.contains("\"error\"") || text.contains("\"message\""));
+    }
 
     private boolean isMockCredentials(String partnerId, String partnerKey) {
         return partnerId == null || partnerId.isBlank()
@@ -1081,7 +1243,11 @@ public class ShopeeClient {
     }
 
     public JsonNode cancelOrder(String orderSn, String cancelReason) {
-        return cancelOrder(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, cancelReason, null, null, this.isSandbox);
+        return cancelOrder(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, cancelReason, (List<Map<String, Object>>) null, this.isSandbox);
+    }
+
+    public JsonNode cancelOrder(String orderSn, String cancelReason, List<Map<String, Object>> itemList) {
+        return cancelOrder(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, cancelReason, itemList, this.isSandbox);
     }
 
     public JsonNode handleBuyerCancellation(String orderSn, String operation) {
@@ -1114,6 +1280,30 @@ public class ShopeeClient {
         return shipOrder(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, pickupOrDropoff, this.isSandbox);
     }
 
+    public JsonNode shipOrderAuto(String orderSn) {
+        return shipOrderAuto(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, this.isSandbox);
+    }
+
+    public JsonNode shipOrderAuto(String orderSn, Long preferredAddressId) {
+        return shipOrderAuto(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, preferredAddressId, this.isSandbox);
+    }
+
+    public JsonNode createShippingDocument(String orderSn, String trackingNumber, String documentType) {
+        return createShippingDocument(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, trackingNumber, documentType, this.isSandbox);
+    }
+
+    public JsonNode getOrderDetail(String orderSn) {
+        return getOrderDetail(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), List.of(orderSn), this.isSandbox);
+    }
+
+    public JsonNode getAddressList() {
+        return getAddressList(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), this.isSandbox);
+    }
+
+    public JsonNode getWarehouseDetail() {
+        return getWarehouseDetail(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), this.isSandbox);
+    }
+
     public JsonNode getTrackingNumber(String orderSn) {
         return getTrackingNumber(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, this.isSandbox);
     }
@@ -1141,52 +1331,98 @@ public class ShopeeClient {
             return mockHtml.getBytes(StandardCharsets.UTF_8);
         }
         try {
-            // Bước 0: Chuẩn bị hàng (ship_order) nếu đơn còn ở trạng thái UNPROCESSED (Chờ xử lý)
+            // Bước 0: Chuẩn bị hàng tự động theo get_shipping_parameter (pickup / dropoff)
             try {
-                shipOrder(partnerId, partnerKey, accessToken, shopId, orderSn, "dropoff", isSandbox);
+                shipOrderAuto(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
             } catch (Exception shipEx) {
-                log.info("[SHOPEE-DOC] shipOrder phản hồi: {}", shipEx.getMessage());
+                log.info("[SHOPEE-DOC] shipOrderAuto phản hồi: {}", shipEx.getMessage());
             }
 
-            // Bước 1: Yêu cầu Shopee tạo tài liệu vận đơn AWB nếu chưa tạo
+            // Bước 1: Lấy tracking_number (thử tối đa 3 lần phòng trường hợp Shopee vừa cấp sau ship_order)
+            String trackingNumber = layTrackingNumberShopee(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
+
+            // Bước 2-4: Tạo bản in (create_shipping_document kèm tracking_number) -> Chờ READY -> Tải file PDF
+            for (String docType : List.of("THERMAL_AIR_WAYBILL", "NORMAL_AIR_WAYBILL")) {
+                byte[] downloaded = taoVaTaiVanDonTheoLoai(
+                        partnerId, partnerKey, accessToken, shopId, orderSn, trackingNumber, docType, isSandbox);
+                if (downloaded.length > 50 && !laJsonLoiShopee(downloaded)) {
+                    return downloaded;
+                }
+            }
+            return new byte[0];
+        } catch (Exception ex) {
+            log.warn("[SHOPEE-DOWNLOAD-DOC] Lỗi khi tải tài liệu in vận đơn: {}", ex.getMessage());
+            return new byte[0];
+        }
+    }
+
+    private String layTrackingNumberShopee(String partnerId, String partnerKey, String accessToken, String shopId,
+                                           String orderSn, boolean isSandbox) {
+        for (int attempt = 0; attempt < 3; attempt++) {
             try {
-                createShippingDocument(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
+                JsonNode trackRes = getTrackingNumber(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
+                String trackingNo = trackRes != null ? trackRes.path("response").path("tracking_number").asText("").trim() : "";
+                if (!trackingNo.isBlank()) {
+                    return trackingNo;
+                }
+                if (attempt < 2) {
+                    Thread.sleep(400);
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
             } catch (Exception ex) {
-                log.info("[SHOPEE-DOC] createShippingDocument phản hồi: {}", ex.getMessage());
+                log.debug("[SHOPEE-DOC] getTrackingNumber lần {} thất bại cho {}: {}", attempt + 1, orderSn, ex.getMessage());
             }
+        }
+        return "";
+    }
 
-            // Bước 2: Kiểm tra trạng thái sẵn sàng (polling tối đa 4 lần, mỗi lần 600ms)
-            for (int i = 0; i < 4; i++) {
-                try {
-                    JsonNode statusRes = getShippingDocumentResult(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
-                    if (statusRes != null) {
-                        String st = statusRes.path("response").path("status").asText("");
-                        if (st.isBlank() && statusRes.path("response").path("result_list").isArray()) {
-                            st = statusRes.path("response").path("result_list").path(0).path("status").asText("");
-                        }
-                        if ("READY".equalsIgnoreCase(st)) {
-                            break;
-                        }
+    private byte[] taoVaTaiVanDonTheoLoai(String partnerId, String partnerKey, String accessToken, String shopId,
+                                          String orderSn, String trackingNumber, String docType, boolean isSandbox) {
+        try {
+            JsonNode createRes = createShippingDocument(
+                    partnerId, partnerKey, accessToken, shopId, orderSn, trackingNumber, docType, isSandbox);
+            if (!laCreateDocThanhCong(createRes) && trackingNumber != null && !trackingNumber.isBlank()) {
+                log.info("[SHOPEE-DOC] createShippingDocument kèm tracking [{}] chưa đạt ({}), thử lại không truyền tracking_number...",
+                        trackingNumber, createRes != null ? createRes.toString() : "null");
+                createShippingDocument(partnerId, partnerKey, accessToken, shopId, orderSn, null, docType, isSandbox);
+            }
+        } catch (Exception ex) {
+            log.info("[SHOPEE-DOC] createShippingDocument ({}) phản hồi: {}", docType, ex.getMessage());
+        }
+
+        // Kiểm tra trạng thái sẵn sàng (polling tối đa 8 lần, mỗi lần 500ms)
+        for (int i = 0; i < 8; i++) {
+            try {
+                JsonNode statusRes = getShippingDocumentResult(
+                        partnerId, partnerKey, accessToken, shopId, orderSn, docType, isSandbox);
+                if (statusRes != null) {
+                    String st = statusRes.path("response").path("status").asText("");
+                    if (st.isBlank() && statusRes.path("response").path("result_list").isArray()) {
+                        st = statusRes.path("response").path("result_list").path(0).path("status").asText("");
                     }
-                    Thread.sleep(600);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    break;
-                } catch (Exception ignored) {}
-            }
+                    if ("READY".equalsIgnoreCase(st)) {
+                        break;
+                    }
+                    if ("FAILED".equalsIgnoreCase(st)) {
+                        log.warn("[SHOPEE-DOC] Shopee báo FAILED khi dựng vận đơn {} cho đơn {}: {}", docType, orderSn, statusRes);
+                        return new byte[0];
+                    }
+                }
+                Thread.sleep(500);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
+            } catch (Exception ignored) {}
+        }
 
-            // Bước 3: Tải file nhị phân PDF/ZIP phiếu vận đơn bằng POST
-            long timestamp = Instant.now().getEpochSecond();
-            String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_DOWNLOAD_DOC, timestamp, accessToken, shopId);
-            String sign = ShopeeSignatureHelper.sign(partnerKey, base);
-            String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s",
-                    getHost(isSandbox), PATH_DOWNLOAD_DOC, partnerId, timestamp, accessToken, shopId, sign);
-
+        try {
+            String url = buildSignedShopUrl(PATH_DOWNLOAD_DOC, partnerId, partnerKey, accessToken, shopId, isSandbox);
             Map<String, Object> body = Map.of(
-                    "shipping_document_type", "THERMAL_AIR_WAYBILL",
+                    "shipping_document_type", docType,
                     "order_list", List.of(Map.of("order_sn", orderSn))
             );
-
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.setAccept(List.of(MediaType.APPLICATION_PDF, MediaType.APPLICATION_OCTET_STREAM, MediaType.ALL));
@@ -1194,13 +1430,33 @@ public class ShopeeClient {
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
             ResponseEntity<byte[]> res = restTemplate.exchange(url, HttpMethod.POST, entity, byte[].class);
-            byte[] rawBytes = res.getBody() != null ? res.getBody() : new byte[0];
-
-            return extractPdfFromZipOrRaw(rawBytes);
+            byte[] extracted = extractPdfFromZipOrRaw(res.getBody() != null ? res.getBody() : new byte[0]);
+            if (laJsonLoiShopee(extracted)) {
+                log.warn("[SHOPEE-DOWNLOAD-DOC] Shopee trả về JSON lỗi ({}): {}",
+                        docType, new String(extracted, StandardCharsets.UTF_8));
+                return new byte[0];
+            }
+            return extracted;
+        } catch (HttpStatusCodeException ex) {
+            log.warn("[SHOPEE-DOWNLOAD-DOC] HTTP {} khi tải vận đơn {} đơn {}: {}",
+                    ex.getStatusCode(), docType, orderSn, ex.getResponseBodyAsString());
+            return new byte[0];
         } catch (Exception ex) {
-            log.warn("[SHOPEE-DOWNLOAD-DOC] Lỗi khi tải tài liệu in vận đơn: {}", ex.getMessage());
+            log.warn("[SHOPEE-DOWNLOAD-DOC] Lỗi khi tải vận đơn {} đơn {}: {}", docType, orderSn, ex.getMessage());
             return new byte[0];
         }
+    }
+
+    private static boolean laCreateDocThanhCong(JsonNode res) {
+        if (res == null) return false;
+        String err = res.path("error").asText("");
+        if (!err.isBlank()) return false;
+        JsonNode resultList = res.path("response").path("result_list");
+        if (resultList.isArray() && !resultList.isEmpty()) {
+            String failErr = resultList.get(0).path("fail_error").asText("");
+            return failErr.isBlank();
+        }
+        return true;
     }
 
     private byte[] extractPdfFromZipOrRaw(byte[] bytes) {
@@ -1237,7 +1493,11 @@ public class ShopeeClient {
     }
 
     public JsonNode updateStock(Long itemId, Long modelId, int stock) {
-        return updateStock(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, modelId, stock, this.isSandbox);
+        return updateStock(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, modelId, stock, null, this.isSandbox);
+    }
+
+    public JsonNode updateStock(Long itemId, Long modelId, int stock, String locationId) {
+        return updateStock(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), itemId, modelId, stock, locationId, this.isSandbox);
     }
 
     public JsonNode updateStockBatch(Long itemId, List<Map<String, Object>> stockList) {

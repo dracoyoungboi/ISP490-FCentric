@@ -54,11 +54,16 @@ public class ShopifyOrderSnapshotClient {
         if (response.getBody() == null) throw new IllegalStateException("Missing Shopify order");
         JsonNode order = mapper.readTree(response.getBody()).path("order");
         if (!order.isObject() || !orderId.equals(order.path("id").asText())) throw new IllegalStateException("Unexpected Shopify order");
-        JsonNode progress = graphql(base, headers, "query($id:ID!){order(id:$id){id displayFulfillmentStatus}}", Map.of("id", "gid://shopify/Order/" + orderId));
+        JsonNode progress = graphql(base, headers, "query($id:ID!){order(id:$id){id displayFulfillmentStatus returnStatus}}", Map.of("id", "gid://shopify/Order/" + orderId));
         JsonNode progressOrder = progress.path("order");
         if (!("gid://shopify/Order/" + orderId).equals(progressOrder.path("id").asText())
                 || progressOrder.path("displayFulfillmentStatus").asText("").isBlank()) {
             throw new IllegalStateException("Shopify order progress unavailable");
+        }
+        String returnStatus = progressOrder.path("returnStatus").asText("").trim();
+        if (!returnStatus.isBlank() && !"NO_RETURN".equalsIgnoreCase(returnStatus)
+                && order instanceof com.fasterxml.jackson.databind.node.ObjectNode orderObj) {
+            orderObj.put("return_status", returnStatus);
         }
         return new Snapshot(order, "IN_PROGRESS".equals(progressOrder.path("displayFulfillmentStatus").asText()));
     }
