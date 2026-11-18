@@ -1104,8 +1104,18 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 log.info("[CHANNEL-SHIPPED] Đơn {} đang vận chuyển trên sàn -> Chuyển Đã xuất toàn bộ (3)", don.getSoDonHang());
                 return true;
             }
+        } else if (st.equals("ready_to_ship") || st.equals("processed")) {
+            if (trangThaiHienTai == ITrangThaiDonBanHang.NHAP) {
+                don.setTrangThai(ITrangThaiDonBanHang.CHO_NHAT_HANG);
+                don.setNgayCapNhat(Instant.now());
+                repository.save(don);
+                ghiNhatKyDon(don, "san_sang_xu_ly_tu_san", "Sàn cập nhật sẵn sàng xử lý (" + trangThaiSan + ")");
+                return true;
+            }
         } else if (st.contains("failed_delivery") || st.contains("returned") || st.contains("refunded")
-                || st.contains("to_return") || st.contains("return_refund")) {
+                || st.contains("to_return") || st.contains("return_refund")
+                || st.contains("return_requested") || st.contains("return_in_progress")
+                || st.contains("return_approved") || st.contains("inspection_complete")) {
             // Nếu đơn chưa đóng gói/chưa xuất (đang ở Chờ nhặt hoặc Nháp) mà sàn báo hoàn trả -> hủy đơn và giải phóng tạm giữ tồn
             if (trangThaiHienTai == ITrangThaiDonBanHang.CHO_NHAT_HANG || trangThaiHienTai == ITrangThaiDonBanHang.NHAP) {
                 return huyDonTuSan(donId, "Sàn cập nhật hoàn trả trước khi xuất kho (" + trangThaiSan + ")");
@@ -1688,6 +1698,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             if (orderSn == null || orderSn.isBlank()) {
                 throw new CommonException(ThongDiep.of("banHang.donChuaCoMaShopee"), HttpStatus.BAD_REQUEST, null);
             }
+            String resolvedTracking = null;
             try {
                 if (shopeeClient != null && kenhBanHangService != null) {
                     Long partnerId = kenhBanHangService.getShopeePartnerId(maKenh);
@@ -1699,17 +1710,29 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                     if (partnerId != null && partnerKey != null && accessToken != null && shopId != null) {
                         byte[] docBytes = shopeeClient.downloadShippingDocument(
                                 String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId), orderSn, isSandbox);
-                        if (docBytes != null && docBytes.length > 50) {
+                        if (docBytes != null && docBytes.length > 50 && !com.dev.backend.services.shopee.ShopeeClient.laJsonLoiShopee(docBytes)) {
                             boolean isPdf = docBytes.length > 4 && docBytes[0] == '%' && docBytes[1] == 'P' && docBytes[2] == 'D' && docBytes[3] == 'F';
-                            String mime = isPdf ? "application/pdf" : "text/html; charset=utf-8";
-                            return new VanDonSanDto(docBytes, mime, "van-don-shopee-" + don.getSoDonHang() + (isPdf ? ".pdf" : ".html"));
+                            String preview = isPdf ? "" : new String(docBytes, 0, Math.min(docBytes.length, 512), StandardCharsets.UTF_8).toLowerCase(java.util.Locale.ROOT);
+                            boolean isHtml = !isPdf && (preview.trim().startsWith("<") || preview.contains("<html") || preview.contains("<!doctype"));
+                            if (isPdf || isHtml) {
+                                String mime = isPdf ? "application/pdf" : "text/html; charset=utf-8";
+                                return new VanDonSanDto(docBytes, mime, "van-don-shopee-" + don.getSoDonHang() + (isPdf ? ".pdf" : ".html"));
+                            }
                         }
+                        try {
+                            JsonNode trackRes = shopeeClient.getTrackingNumber(
+                                    String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId), orderSn, isSandbox);
+                            String tk = trackRes != null ? trackRes.path("response").path("tracking_number").asText("").trim() : "";
+                            if (!tk.isBlank()) {
+                                resolvedTracking = tk;
+                            }
+                        } catch (Exception ignored) {}
                     }
                 }
             } catch (Exception ex) {
                 log.info("[AWB-SHOPEE] Không thể tải tài liệu gốc từ Shopee: {}. Chuyển sang tạo tem A6 nội bộ...", ex.getMessage());
             }
-            return taoVanDonShopeeHtml(don, don.getMaDonHangKenh());
+            return taoVanDonShopeeHtml(don, orderSn, resolvedTracking);
         }
 
         throw new CommonException(ThongDiep.of("banHang.kenhChuaHoTroInVanDon", maKenh), HttpStatus.BAD_REQUEST, null);
@@ -1881,9 +1904,16 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
      * Tạo tem vận đơn nhiệt khổ A6 chuẩn Shopee Express (SPX VN) có mã vạch barcode Code 128 cho đơn hàng Shopee.
      */
     private VanDonSanDto taoVanDonShopeeHtml(DonBanHang don, String orderId) {
-        String trackingCode = "SPXVN" + (orderId != null ? orderId : don.getSoDonHang());
+        return taoVanDonShopeeHtml(don, orderId, null);
+    }
+
+    private VanDonSanDto taoVanDonShopeeHtml(DonBanHang don, String orderId, String resolvedTracking) {
+        String trackingCode = (resolvedTracking != null && !resolvedTracking.isBlank())
+                ? resolvedTracking.trim()
+                : ("SPXVN" + (orderId != null ? orderId : don.getSoDonHang()));
         String carrier = "Shopee Xpress (SPX)";
-        if (don.getGhiChu() != null && don.getGhiChu().contains("[VẬN ĐƠN:")) {
+        if ((resolvedTracking == null || resolvedTracking.isBlank())
+                && don.getGhiChu() != null && don.getGhiChu().contains("[VẬN ĐƠN:")) {
             try {
                 int start = don.getGhiChu().indexOf("[VẬN ĐƠN:") + 9;
                 int end = don.getGhiChu().indexOf("]", start);

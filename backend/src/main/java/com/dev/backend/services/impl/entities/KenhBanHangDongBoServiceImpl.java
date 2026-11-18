@@ -1791,7 +1791,25 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             Map<String, String> cdnCache,
             TikTokCatalogCache catalog,
             Map<Integer, TrangThaiDongBoSanPham> existingByBtId) {
-        if (sp == null || variants == null || variants.isEmpty()) {
+        return capNhatSanPhamLenTikTok(
+                kenh, sp, variants, appKey, appSecret, token, cipher,
+                warehouseId, cdnCache, catalog, existingByBtId, false);
+    }
+
+    private boolean capNhatSanPhamLenTikTok(
+            KenhBanHang kenh,
+            SanPhamQuanAo sp,
+            List<BienTheSanPham> variants,
+            String appKey,
+            String appSecret,
+            String token,
+            String cipher,
+            String warehouseId,
+            Map<String, String> cdnCache,
+            TikTokCatalogCache catalog,
+            Map<Integer, TrangThaiDongBoSanPham> existingByBtId,
+            boolean chuyenKho) {
+        if (sp == null || variants == null || variants.isEmpty() || catalog == null) {
             return false;
         }
 
@@ -1859,7 +1877,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         String v2CategoryId = xacDinhTikTokV2CategoryId(appKey, appSecret, token, cipher, title, desc, sp);
         String productSignature = taoProductSignatureTikTok(title, v2CategoryId, warehouseId, mainImages, variants, anhBienTheMap);
         String lastSignature = CACHED_TIKTOK_PRODUCT_SIGNATURES.get(prodId);
-        if (lastSignature != null && lastSignature.equals(productSignature)) {
+        if (!chuyenKho && lastSignature != null && lastSignature.equals(productSignature)) {
             log.info("[TIKTOK-UPDATE] Sản phẩm [{}] (ID: {}) không có thay đổi về tiêu đề, danh mục, kho bán hàng và hình ảnh. Bỏ qua gọi API PUT để tránh kích hoạt kiểm duyệt sàn và bảo vệ Quota.",
                     title, prodId);
             return false;
@@ -1867,6 +1885,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         List<TikTokProductCreateRequest.CreateSku> skuList = new ArrayList<>();
         Map<String, Integer> qtyBySku = new HashMap<>();
+        Map<String, String> originalSkuIds = new HashMap<>();
+        Map<String, BienTheSanPham> variantBySku = new HashMap<>();
         boolean isMultiSku = variants.size() > 1;
 
         boolean hasSizeDimension = isMultiSku && variants.stream()
@@ -1888,6 +1908,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     tiktokSkuId = rec.getMaSanPhamKenh().trim();
                 }
             }
+
+            if (tiktokSkuId != null && !tiktokSkuId.isBlank()) {
+                originalSkuIds.put(sku, tiktokSkuId);
+            }
+            variantBySku.put(norm, bt);
 
             BigDecimal price = bt.getGiaBan() != null && bt.getGiaBan().compareTo(BigDecimal.ZERO) > 0
                     ? bt.getGiaBan() : BigDecimal.valueOf(100000);
@@ -1954,7 +1979,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             List<TikTokSkuDto.Inventory> cachedOrigInvs = timOrigInventoriesTrongCatalog(catalog, tiktokSkuId, sku);
             List<TikTokProductCreateRequest.SkuInventoryQuantity> skuInventory =
-                    (cachedOrigInvs != null && cachedOrigInvs.size() > 1)
+                    (!chuyenKho && cachedOrigInvs != null && cachedOrigInvs.size() > 1)
                             ? chuyenSangCreateSkuInventory(xayDungDanhSachWarehouseQuantityChoSku(tiktokSkuId, sku, qty, warehouseId, catalog))
                             : List.of(TikTokProductCreateRequest.SkuInventoryQuantity.builder()
                                     .warehouseId(warehouseId)
@@ -1962,7 +1987,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                     .build());
 
             skuList.add(TikTokProductCreateRequest.CreateSku.builder()
-                    .id(tiktokSkuId)
+                    .id(chuyenKho ? null : tiktokSkuId)
                     .sellerSku(sku)
                     .price(TikTokProductCreateRequest.SkuPrice.builder()
                             .amount(String.valueOf(price.setScale(0, RoundingMode.HALF_UP).intValue()))
@@ -2010,16 +2035,23 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             int errCode = -1;
             String errMsg = null;
             try {
-                log.info("[TIKTOK-UPDATE] Đang cập nhật sản phẩm [{}] (ID: {}, attempt={}) lên TikTok Shop...", title, prodId, attempt + 1);
+                log.info("[TIKTOK-UPDATE] Đang cập nhật sản phẩm [{}] (ID: {}, attempt={}, chuyenKho={}) lên TikTok Shop...",
+                        title, prodId, attempt + 1, chuyenKho);
                 TikTokProductCreateResponse res = getTikTokShopClient().editProduct(appKey, appSecret, token, cipher, prodId, req);
                 if (res != null && res.getCode() == 0) {
                     log.info("[TIKTOK-UPDATE] Cập nhật thành công sản phẩm [{}] (ProductId: {}) trên TikTok Shop!", title, prodId);
                     CACHED_TIKTOK_PRODUCT_SIGNATURES.put(prodId, productSignature);
                     TikTokCatalogCache curCache = tikTokCatalogCacheRef.get();
+                    if (curCache == null) {
+                        curCache = catalog;
+                    }
                     if (curCache != null) {
                         curCache.productTitles().put(prodId, title);
                         curCache.productStatuses().put(prodId, "ACTIVATE");
                         capNhatCacheSauEditProductTikTok(curCache, prodId, res, req.getSkus());
+                    }
+                    if (chuyenKho && !daThuLaiKhoGoc) {
+                        capNhatMaSanPhamKenhSauChuyenKhoTikTok(res, req.getSkus(), variantBySku, existingByBtId, qtyBySku);
                     }
                     return true;
                 }
@@ -2035,6 +2067,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             if (!daThuLaiKhoGoc && laLoiKhoGoc12052533(errCode, errMsg)) {
                 daThuLaiKhoGoc = true;
                 log.warn("[TIKTOK-UPDATE] Sản phẩm [{}] (ID: {}) bị sàn từ chối đổi kho (12052533). Tải kho gốc thực tế từ GET /product/{} để thử lại...", title, prodId, prodId);
+                if (req.getSkus() != null) {
+                    for (TikTokProductCreateRequest.CreateSku skuItem : req.getSkus()) {
+                        if (skuItem.getId() == null && skuItem.getSellerSku() != null) {
+                            skuItem.setId(originalSkuIds.get(skuItem.getSellerSku()));
+                        }
+                    }
+                }
                 napInventoriesTuSanPhamTikTok(appKey, appSecret, token, cipher, prodId, catalog);
                 apDungKhoGocChoReqEditTikTok(req, qtyBySku, warehouseId, catalog);
                 continue;
@@ -2045,6 +2084,49 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return false;
         }
         return false;
+    }
+
+    private void capNhatMaSanPhamKenhSauChuyenKhoTikTok(
+            TikTokProductCreateResponse res,
+            List<TikTokProductCreateRequest.CreateSku> sentSkus,
+            Map<String, BienTheSanPham> variantBySku,
+            Map<Integer, TrangThaiDongBoSanPham> existingByBtId,
+            Map<String, Integer> qtyBySku) {
+        if (res == null || res.getData() == null || res.getData().getSkus() == null
+                || existingByBtId == null || variantBySku == null) {
+            return;
+        }
+        List<TikTokProductCreateResponse.CreatedSku> createdSkus = res.getData().getSkus();
+        List<TrangThaiDongBoSanPham> updatedRows = new ArrayList<>();
+        Instant now = Instant.now();
+        for (int i = 0; i < createdSkus.size(); i++) {
+            TikTokProductCreateResponse.CreatedSku cSku = createdSkus.get(i);
+            String cId = cSku.getId() != null ? cSku.getId().trim() : null;
+            if (cId == null || cId.isBlank()) continue;
+
+            String cSeller = cSku.getSellerSku() != null && !cSku.getSellerSku().isBlank()
+                    ? cSku.getSellerSku().trim()
+                    : (sentSkus != null && i < sentSkus.size() && sentSkus.get(i).getSellerSku() != null
+                            ? sentSkus.get(i).getSellerSku().trim() : null);
+            if (cSeller == null || cSeller.isBlank()) continue;
+
+            BienTheSanPham bt = variantBySku.get(cSeller.toLowerCase(Locale.ROOT));
+            if (bt == null || bt.getId() == null) continue;
+            TrangThaiDongBoSanPham rec = existingByBtId.get(bt.getId());
+            if (rec == null) continue;
+
+            rec.setMaSanPhamKenh(cId);
+            if (qtyBySku != null && qtyBySku.containsKey(cSeller)) {
+                rec.setSoLuongDaDay(qtyBySku.get(cSeller));
+            }
+            rec.setNgayDayTonCuoi(now);
+            rec.setTrangThaiDongBo("thanh_cong");
+            rec.setChiTietLoi(null);
+            updatedRows.add(rec);
+        }
+        if (!updatedRows.isEmpty()) {
+            trangThaiDongBoSanPhamRepository.saveAll(updatedRows);
+        }
     }
 
     private static String taoProductSignatureTikTok(
@@ -4848,7 +4930,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     log.warn("[JOB-03 Real-time] Không đẩy tồn khẩn cấp SKU ID {} lên kênh {}: {}", bienTheSanPhamId, maKenhCuaDong, ketNoi.lyDoLoi());
                     continue;
                 }
-                int soDay = soTonDayTheoQuyTacDaLuu(maKenhCuaDong, khaDungToanChuoi(bienTheSanPhamId));
+                int soDay = soTonDayTheoQuyTacDaLuu(maKenhCuaDong, tinhKhaDungTheoKhoKenh(maKenhCuaDong, bienTheSanPhamId));
                 KetQuaGuiTon kq = dayTonChoDong(m, ketNoi, soDay);
                 if (kq.loiKenh()) {
                     log.warn("[JOB-03 Real-time] Không đẩy tồn khẩn cấp SKU ID {} lên kênh {}: {}", bienTheSanPhamId, maKenhCuaDong, kq.lyDo());
@@ -4929,14 +5011,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             );
         }
         if (OmnichannelOrderSyncJob.isShopee(kenh.getMaKenh())) {
-            return List.of(
-                    ShopifyLocationDto.builder()
-                            .maKhoSan("shopee-default-warehouse")
-                            .tenKhoSan("Kho mặc định Shopee" + (OmnichannelOrderSyncJob.isShopeeSandbox(kenh.getMaKenh()) ? " Sandbox" : ""))
-                            .loai("fulfillment")
-                            .macDinh(true)
-                            .build()
-            );
+            return layDanhSachKhoShopee(kenh);
         }
         if ("TIKTOK".equalsIgnoreCase(kenh.getMaKenh())) {
             String token = kenhBanHangService.getDecryptedTikTokAccessToken();
@@ -5083,9 +5158,231 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         if (doiKhoSan && OmnichannelOrderSyncJob.isTikTok(kenh.getMaKenh())) {
             xuLySauKhiDoiKhoTikTok(kenh, maKenh, oldMaKhoSan, newMaKhoSan);
+        } else if (doiKhoSan && OmnichannelOrderSyncJob.isShopee(kenh.getMaKenh())) {
+            xuLySauKhiDoiKhoShopee(kenh, maKenh, oldMaKhoSan, newMaKhoSan);
         }
 
         return getTongQuan(maKenh);
+    }
+
+    private List<ShopifyLocationDto> layDanhSachKhoShopee(KenhBanHang kenh) {
+        String maKenh = kenh.getMaKenh();
+        boolean isSandbox = OmnichannelOrderSyncJob.isShopeeSandbox(maKenh);
+        List<ShopifyLocationDto> list = new ArrayList<>();
+        Set<String> seenIds = new HashSet<>();
+
+        try {
+            com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
+            try {
+                JsonNode whRes = client.getWarehouseDetail();
+                if (whRes != null && whRes.path("error").asText("").isEmpty()) {
+                    JsonNode resp = whRes.path("response");
+                    JsonNode whArray = resp.isArray() ? resp
+                            : (resp.path("warehouse_list").isArray() ? resp.path("warehouse_list") : resp.path("list"));
+                    if (whArray.isArray()) {
+                        for (JsonNode w : whArray) {
+                            String locId = w.path("location_id").asText("").trim();
+                            if (locId.isBlank()) {
+                                locId = w.path("warehouse_id").asText("").trim();
+                            }
+                            if (locId.isBlank()) continue;
+                            String maKho = "wh_loc:" + locId;
+                            if (!seenIds.add(maKho)) continue;
+                            String name = w.path("warehouse_name").asText("").trim();
+                            if (name.isBlank()) name = w.path("address_name").asText("").trim();
+                            if (name.isBlank()) name = w.path("address").asText("").trim();
+                            boolean macDinh = w.path("default_warehouse").asBoolean(false)
+                                    || w.path("is_default").asBoolean(false);
+                            list.add(ShopifyLocationDto.builder()
+                                    .maKhoSan(maKho)
+                                    .tenKhoSan(name.isBlank() ? ("Kho Shopee (" + locId + ")") : name)
+                                    .loai("fulfillment")
+                                    .macDinh(macDinh)
+                                    .build());
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.debug("[SHOPEE-WAREHOUSE] Gian hàng {} chưa bật get_warehouse_detail: {}", maKenh, ex.getMessage());
+            }
+
+            if (list.size() <= 1) {
+                try {
+                    JsonNode addrRes = client.getAddressList();
+                    if (addrRes != null && addrRes.path("error").asText("").isEmpty()) {
+                        JsonNode addrList = addrRes.path("response").path("address_list");
+                        if (addrList.isArray()) {
+                            for (JsonNode addr : addrList) {
+                                long addrId = addr.path("address_id").asLong(0);
+                                if (addrId <= 0) continue;
+                                String idStr = String.valueOf(addrId);
+                                if (!seenIds.add(idStr)) continue;
+                                boolean isDefaultOrPickup = false;
+                                JsonNode types = addr.path("address_type");
+                                if (types.isArray()) {
+                                    for (JsonNode tp : types) {
+                                        String t = tp.asText("").toUpperCase(Locale.ROOT);
+                                        if ("DEFAULT_ADDRESS".equals(t) || "PICKUP_ADDRESS".equals(t)) {
+                                            isDefaultOrPickup = true;
+                                        }
+                                    }
+                                }
+                                String diaChi = java.util.stream.Stream.of(
+                                                addr.path("address").asText("").trim(),
+                                                addr.path("district").asText("").trim(),
+                                                addr.path("city").asText("").trim(),
+                                                addr.path("state").asText("").trim())
+                                        .filter(s -> !s.isBlank())
+                                        .collect(Collectors.joining(", "));
+                                String label = "Kho lấy hàng Shopee #" + idStr + (diaChi.isBlank() ? "" : " - " + diaChi);
+                                list.add(ShopifyLocationDto.builder()
+                                        .maKhoSan(idStr)
+                                        .tenKhoSan(label)
+                                        .loai("pickup")
+                                        .macDinh(list.isEmpty() && isDefaultOrPickup)
+                                        .build());
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.debug("[SHOPEE-WAREHOUSE] Không lấy được get_address_list cho {}: {}", maKenh, ex.getMessage());
+                }
+            }
+        } catch (Exception ex) {
+            log.debug("[SHOPEE-WAREHOUSE] Không khởi tạo được ShopeeClient cho {}: {}", maKenh, ex.getMessage());
+        }
+
+        if (list.size() <= 1 && khoRepository != null) {
+            try {
+                List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
+                if (khoHoatDong != null) {
+                    for (Kho k : khoHoatDong) {
+                        if (k == null || k.getId() == null) continue;
+                        if (k.getMaKho() != null && "KHO_TRANSIT".equalsIgnoreCase(k.getMaKho().trim())) continue;
+                        if (k.getTenKho() != null && k.getTenKho().toLowerCase(Locale.ROOT).contains("transit")) continue;
+                        String code = "fcentric-kho-" + k.getId();
+                        if (!seenIds.add(code)) continue;
+                        String ten = (k.getTenKho() != null && !k.getTenKho().isBlank()) ? k.getTenKho().trim() : ("Kho #" + k.getId());
+                        list.add(ShopifyLocationDto.builder()
+                                .maKhoSan(code)
+                                .tenKhoSan(ten + " (Đồng bộ lên Shopee)")
+                                .loai("fulfillment")
+                                .macDinh(list.isEmpty() && KhoService.laKhoTong(k))
+                                .build());
+                    }
+                }
+            } catch (Exception ex) {
+                log.debug("[SHOPEE-WAREHOUSE] Lỗi đọc danh sách kho nội bộ cho Shopee {}: {}", maKenh, ex.getMessage());
+            }
+        }
+
+        if (list.isEmpty()) {
+            list.add(ShopifyLocationDto.builder()
+                    .maKhoSan("shopee-default-warehouse")
+                    .tenKhoSan("Kho mặc định Shopee" + (isSandbox ? " Sandbox" : ""))
+                    .loai("fulfillment")
+                    .macDinh(true)
+                    .build());
+        } else {
+            boolean foundDefault = false;
+            for (ShopifyLocationDto dto : list) {
+                if (dto.isMacDinh()) {
+                    if (!foundDefault) {
+                        foundDefault = true;
+                    } else {
+                        dto.setMacDinh(false);
+                    }
+                }
+            }
+            if (!foundDefault) {
+                list.get(0).setMacDinh(true);
+            }
+        }
+
+        if (dieuHanhHeThongService != null) {
+            String curSaved = dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "MA_KHO_SAN"), null);
+            boolean savedHopLe = curSaved != null && !curSaved.isBlank()
+                    && list.stream().anyMatch(l -> curSaved.trim().equals(l.getMaKhoSan()));
+            if (!savedHopLe) {
+                ShopifyLocationDto targetKho = list.stream().filter(ShopifyLocationDto::isMacDinh)
+                        .findFirst().orElse(list.get(0));
+                try {
+                    dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "MA_KHO_SAN"), targetKho.getMaKhoSan());
+                    if (targetKho.getTenKhoSan() != null && !targetKho.getTenKhoSan().isBlank()) {
+                        dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "TEN_KHO_SAN"), targetKho.getTenKhoSan());
+                    }
+                } catch (Exception ignored) {}
+            }
+        }
+        return list;
+    }
+
+    private void xuLySauKhiDoiKhoShopee(KenhBanHang kenh, String maKenh, String oldMaKhoSan, String newMaKhoSan) {
+        log.info("[SHOPEE-WAREHOUSE] Đổi kho đồng bộ kênh {} từ [{}] sang [{}]: reset Delta Sync và đẩy lại tồn kho.",
+                maKenh, oldMaKhoSan, newMaKhoSan);
+        List<TrangThaiDongBoSanPham> allRows = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
+        List<TrangThaiDongBoSanPham> dirtyReset = new ArrayList<>();
+        boolean hasActiveRow = false;
+        if (allRows != null) {
+            for (TrangThaiDongBoSanPham dong : allRows) {
+                if (dong != null && !Boolean.FALSE.equals(dong.getChoPhepDongBo())) {
+                    hasActiveRow = true;
+                    if (dong.getSoLuongDaDay() != null) {
+                        dong.setSoLuongDaDay(null);
+                        dirtyReset.add(dong);
+                    }
+                }
+            }
+        }
+        if (!dirtyReset.isEmpty()) {
+            trangThaiDongBoSanPhamRepository.saveAll(dirtyReset);
+        }
+        ghiNhatKy(kenh.getId(), IHanhDong.cap_nhat_kenh_ban,
+                "Shopee: Chuyển kho đồng bộ sang [" + newMaKhoSan + "] (" + dirtyReset.size() + " SKU reset Delta Sync)");
+
+        if (hasActiveRow && KenhCauHinhDongBo.tuDongDayTon(dieuHanhHeThongService, maKenh)) {
+            try {
+                dayTonKhoLenKenh(maKenh, null);
+            } catch (Exception ex) {
+                log.warn("[SHOPEE-WAREHOUSE] Đẩy tồn Shopee sang kho mới [{}] gặp lỗi: {}", newMaKhoSan, ex.getMessage());
+            }
+        }
+    }
+
+    private String layLocationIdShopeeDaLuu(String maKenh) {
+        if (dieuHanhHeThongService == null || maKenh == null || maKenh.isBlank()) return null;
+        String saved = dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "MA_KHO_SAN"), null);
+        if (saved != null && saved.trim().startsWith("wh_loc:")) {
+            String loc = saved.trim().substring("wh_loc:".length()).trim();
+            return loc.isBlank() ? null : loc;
+        }
+        return null;
+    }
+
+    private Long layPreferredAddressIdShopee(String maKenh) {
+        if (dieuHanhHeThongService == null || maKenh == null || maKenh.isBlank()) return null;
+        String saved = dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "MA_KHO_SAN"), null);
+        if (saved != null && saved.trim().matches("\\d+")) {
+            try {
+                return Long.parseLong(saved.trim());
+            } catch (NumberFormatException ignored) {}
+        }
+        return null;
+    }
+
+    private BigDecimal tinhKhaDungTheoKhoKenh(String maKenh, Integer bienTheId) {
+        if (bienTheId == null) return BigDecimal.ZERO;
+        if (dieuHanhHeThongService != null && maKenh != null && OmnichannelOrderSyncJob.isShopee(maKenh)) {
+            String saved = dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "MA_KHO_SAN"), null);
+            if (saved != null && saved.trim().startsWith("fcentric-kho-")) {
+                try {
+                    Integer khoId = Integer.parseInt(saved.trim().substring("fcentric-kho-".length()).trim());
+                    List<Object[]> stocks = tonKhoTongHopRepository.sumFreeToUseTheoKhoVaBienTheIds(khoId, List.of(bienTheId));
+                    return !stocks.isEmpty() && stocks.get(0)[1] != null ? (BigDecimal) stocks.get(0)[1] : BigDecimal.ZERO;
+                } catch (Exception ignored) {}
+            }
+        }
+        return khaDungToanChuoi(bienTheId);
     }
 
     private void dongBoCoMacDinhTrongKhoMapping(String maKenh, String newMaKhoSan) {
@@ -5110,7 +5407,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     private void xuLySauKhiDoiKhoTikTok(KenhBanHang kenh, String maKenh, String oldMaKhoSan, String newMaKhoSan) {
-        log.info("[TIKTOK-WAREHOUSE] Đổi kho bán hàng kênh {} từ [{}] sang [{}]: xóa cache chữ ký sản phẩm và reset Delta Sync.",
+        log.info("[TIKTOK-WAREHOUSE] Đổi kho bán hàng kênh {} từ [{}] sang [{}]: xóa cache chữ ký sản phẩm, chuyển SKU sang kho mới và reset Delta Sync.",
                 maKenh, oldMaKhoSan, newMaKhoSan);
         CACHED_TIKTOK_PRODUCT_SIGNATURES.clear();
 
@@ -5132,6 +5429,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             trangThaiDongBoSanPhamRepository.saveAll(dirtyReset);
         }
 
+        int soSpChuyenKho = chuyenKhoSanPhamTikTok(kenh, newMaKhoSan, allRows);
+        if (soSpChuyenKho > 0) {
+            ghiNhatKy(kenh.getId(), IHanhDong.dong_bo_san_pham,
+                    "TikTok Shop: Đã chuyển " + soSpChuyenKho + " sản phẩm sang kho mới [" + newMaKhoSan + "]");
+        }
+
         if (hasActiveRow && KenhCauHinhDongBo.tuDongDayTon(dieuHanhHeThongService, maKenh)) {
             try {
                 dayTonKhoLenKenh(maKenh, null);
@@ -5140,6 +5443,80 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         newMaKhoSan, ex.getMessage());
             }
         }
+    }
+
+    private int chuyenKhoSanPhamTikTok(KenhBanHang kenh, String newWarehouseId, List<TrangThaiDongBoSanPham> allRows) {
+        if (kenh == null || newWarehouseId == null || newWarehouseId.isBlank() || allRows == null || allRows.isEmpty()) {
+            return 0;
+        }
+        String appKey = kenhBanHangService.getTikTokAppKey();
+        String appSecret = kenhBanHangService.getDecryptedTikTokAppSecret();
+        String token = kenhBanHangService.getDecryptedTikTokAccessToken();
+        String cipher = kenhBanHangService.getTikTokShopCipher();
+        if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank()
+                || token == null || token.isBlank() || cipher == null || cipher.isBlank()) {
+            return 0;
+        }
+
+        String targetWh = newWarehouseId.trim();
+        TikTokCatalogCache catalog = layHoacCapNhatTikTokCatalog(appKey, appSecret, token, cipher, false);
+        if (catalog == null) {
+            return 0;
+        }
+
+        Map<Integer, TrangThaiDongBoSanPham> existingByBtId = new HashMap<>();
+        Map<Integer, SanPhamQuanAo> spById = new LinkedHashMap<>();
+        Map<Integer, List<BienTheSanPham>> variantsBySpId = new LinkedHashMap<>();
+        for (TrangThaiDongBoSanPham dong : allRows) {
+            if (dong == null || Boolean.FALSE.equals(dong.getChoPhepDongBo())) {
+                continue;
+            }
+            BienTheSanPham bt = dong.getBienTheSanPham();
+            if (bt == null || bt.getId() == null || bt.getSanPham() == null || bt.getSanPham().getId() == null) {
+                continue;
+            }
+            if ((bt.getMaSku() == null || bt.getMaSku().isBlank())
+                    && (dong.getMaSanPhamKenh() == null || dong.getMaSanPhamKenh().isBlank())) {
+                continue;
+            }
+            existingByBtId.put(bt.getId(), dong);
+            Integer spId = bt.getSanPham().getId();
+            spById.putIfAbsent(spId, bt.getSanPham());
+            variantsBySpId.computeIfAbsent(spId, k -> new ArrayList<>()).add(bt);
+        }
+
+        if (spById.isEmpty()) {
+            return 0;
+        }
+
+        int daChuyen = 0;
+        Map<String, String> cdnCache = new HashMap<>();
+        for (Map.Entry<Integer, List<BienTheSanPham>> entry : variantsBySpId.entrySet()) {
+            SanPhamQuanAo sp = spById.get(entry.getKey());
+            List<BienTheSanPham> spVariants = entry.getValue();
+            boolean daCoKhoMoi = spVariants.stream().allMatch(bt -> {
+                TrangThaiDongBoSanPham rec = existingByBtId.get(bt.getId());
+                String mspk = rec != null ? rec.getMaSanPhamKenh() : null;
+                List<TikTokSkuDto.Inventory> invs = timOrigInventoriesTrongCatalog(catalog, mspk, bt.getMaSku());
+                return invs != null && invs.stream()
+                        .anyMatch(inv -> inv.getWarehouseId() != null && targetWh.equals(inv.getWarehouseId().trim()));
+            });
+            if (daCoKhoMoi) {
+                continue;
+            }
+            try {
+                boolean ok = capNhatSanPhamLenTikTok(
+                        kenh, sp, spVariants, appKey, appSecret, token, cipher,
+                        targetWh, cdnCache, catalog, existingByBtId, true);
+                if (ok) {
+                    daChuyen++;
+                }
+            } catch (Exception ex) {
+                log.warn("[TIKTOK-WAREHOUSE] Không thể chuyển sản phẩm [{}] sang kho [{}]: {}",
+                        sp.getTenSanPham(), targetWh, ex.getMessage());
+            }
+        }
+        return daChuyen;
     }
 
     public KenhKhoMappingConfigDto layCauHinhKhoMappingDaLuu(String maKenh) {
@@ -6514,7 +6891,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return KetQuaGuiTon.loiSku("Biến thể chưa liên kết với Item ID hợp lệ trên Shopee");
         }
         try {
-            JsonNode res = client.updateStock(itemId, modelId, soDay);
+            String shopeeLocationId = kenh != null ? layLocationIdShopeeDaLuu(kenh.getMaKenh()) : null;
+            JsonNode res = shopeeLocationId != null
+                    ? client.updateStock(itemId, modelId, soDay, shopeeLocationId)
+                    : client.updateStock(itemId, modelId, soDay);
             if (res != null && (res.path("error").asText("").isEmpty() || "0".equals(res.path("error").asText("")))) {
                 return KetQuaGuiTon.THANH_CONG;
             } else {
@@ -8697,48 +9077,74 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Override
     public boolean dongBoTrangThaiChuanBiHangShopee(String maDonHangKenh) {
         if (maDonHangKenh == null || maDonHangKenh.isBlank()) return false;
-        KenhBanHang kenh = xacDinhKenhShopee(maDonHangKenh);
+        String orderSn = maDonHangKenh.trim();
+        KenhBanHang kenh = xacDinhKenhShopee(orderSn);
         if (kenh == null) {
-            log.warn("[SHOPEE-PREPARE] Không tìm thấy kênh Shopee cho đơn {}", maDonHangKenh);
+            log.warn("[SHOPEE-PREPARE] Không tìm thấy kênh Shopee cho đơn {}", orderSn);
             return false;
         }
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
         try {
-            // 1. Gọi ship_order với dropoff để chuyển Shopee sang PROCESSED (Người bán đang chuẩn bị hàng)
-            JsonNode shipRes = client.shipOrder(maDonHangKenh.trim(), "dropoff");
+            // 1. Tự động chọn pickup / dropoff theo shipping_parameter của đơn và address_id cấu hình
+            Long preferredAddressId = layPreferredAddressIdShopee(kenh.getMaKenh());
+            JsonNode shipRes = client.shipOrderAuto(orderSn, preferredAddressId);
             String err = shipRes != null ? shipRes.path("error").asText("") : "";
             String msg = shipRes != null ? shipRes.path("message").asText("") : "";
             boolean isOk = err.isBlank() || "success".equalsIgnoreCase(msg)
-                    || msg.toLowerCase().contains("already") || msg.toLowerCase().contains("processed");
+                    || msg.toLowerCase().contains("already") || msg.toLowerCase().contains("processed")
+                    || err.toLowerCase().contains("processed");
 
-            log.info("[SHOPEE-PREPARE] Gọi shipOrder cho đơn {}: error='{}', message='{}'", maDonHangKenh, err, msg);
+            log.info("[SHOPEE-PREPARE] Gọi shipOrderAuto cho đơn {}: error='{}', message='{}'", orderSn, err, msg);
 
-            // 2. Tra cứu mã vận đơn SPX / đơn vị vận chuyển và lưu vào đơn hàng FCentric
-            try {
-                JsonNode trackRes = client.getTrackingNumber(maDonHangKenh.trim());
-                String trackingNo = trackRes != null ? trackRes.path("response").path("tracking_number").asText("") : "";
-                if (trackingNo != null && !trackingNo.isBlank()) {
-                    DonBanHang don = donBanHangRepository.findByMaDonHangKenh(maDonHangKenh.trim())
-                            .or(() -> donBanHangRepository.findBySoDonHang("SHP-" + maDonHangKenh.trim()))
-                            .orElse(null);
-                    if (don != null) {
-                        String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
-                        if (!currentNote.contains("[VẬN ĐƠN:")) {
-                            String trackingInfo = "[VẬN ĐƠN: " + trackingNo.trim() + " - Shopee Xpress]";
-                            don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + trackingInfo);
-                            don.setNgayCapNhat(Instant.now());
-                            donBanHangRepository.save(don);
-                            log.info("[SHOPEE-PREPARE] Đã gắn mã vận đơn Shopee {} vào đơn {}", trackingNo, don.getSoDonHang());
-                        }
+            // 2. Poll mã vận đơn (tối đa 3 lần) để lưu vào đơn FCentric & tạo trước shipping document A6
+            String trackingNo = "";
+            for (int attempt = 0; attempt < 3; attempt++) {
+                try {
+                    JsonNode trackRes = client.getTrackingNumber(orderSn);
+                    String candidate = trackRes != null ? trackRes.path("response").path("tracking_number").asText("") : "";
+                    if (candidate != null && !candidate.isBlank()) {
+                        trackingNo = candidate.trim();
+                        break;
+                    }
+                    if (attempt < 2) {
+                        Thread.sleep(300L);
+                    }
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Exception trackEx) {
+                    log.warn("[SHOPEE-PREPARE] Không thể lấy mã vận đơn lần {} cho đơn {}: {}", attempt + 1, orderSn, trackEx.getMessage());
+                }
+            }
+
+            if (!trackingNo.isBlank()) {
+                DonBanHang don = donBanHangRepository != null
+                        ? donBanHangRepository.findByMaDonHangKenh(orderSn)
+                                .or(() -> donBanHangRepository.findBySoDonHang("SHP-" + orderSn))
+                                .orElse(null)
+                        : null;
+                if (don != null) {
+                    String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
+                    if (!currentNote.contains("[VẬN ĐƠN:")) {
+                        String trackingInfo = "[VẬN ĐƠN: " + trackingNo + " - Shopee]";
+                        don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + trackingInfo);
+                        don.setNgayCapNhat(Instant.now());
+                        donBanHangRepository.save(don);
+                        log.info("[SHOPEE-PREPARE] Đã gắn mã vận đơn Shopee {} vào đơn {}", trackingNo, don.getSoDonHang());
                     }
                 }
-            } catch (Exception trackEx) {
-                log.warn("[SHOPEE-PREPARE] Không thể lấy mã vận đơn cho đơn {}: {}", maDonHangKenh, trackEx.getMessage());
+            }
+
+            // 3. Tạo trước phiếu vận đơn trên Shopee (create_shipping_document) để tránh lỗi shipping_document_should_print_first khi in
+            try {
+                client.createShippingDocument(orderSn, trackingNo, "THERMAL_AIR_WAYBILL");
+            } catch (Exception docEx) {
+                log.debug("[SHOPEE-PREPARE] Pre-create shipping document cho đơn {}: {}", orderSn, docEx.getMessage());
             }
 
             return isOk;
         } catch (Exception ex) {
-            log.error("[SHOPEE-PREPARE] Lỗi ngoại lệ khi chuẩn bị hàng cho đơn {}: {}", maDonHangKenh, ex.getMessage());
+            log.error("[SHOPEE-PREPARE] Lỗi ngoại lệ khi chuẩn bị hàng cho đơn {}: {}", orderSn, ex.getMessage());
             return false;
         }
     }
@@ -8746,19 +9152,21 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Override
     public boolean dongBoTrangThaiXuatKhoShopee(Integer donId, String maDonHangKenh) {
         if (maDonHangKenh == null || maDonHangKenh.isBlank()) return false;
-        KenhBanHang kenh = xacDinhKenhShopee(maDonHangKenh);
+        String orderSn = maDonHangKenh.trim();
+        KenhBanHang kenh = xacDinhKenhShopee(orderSn);
         if (kenh == null) return false;
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
         try {
-            // Đảm bảo đơn đã được ship_order
+            // Đảm bảo đơn đã được ship_order tự động đúng pickup/dropoff
             try {
-                client.shipOrder(maDonHangKenh.trim(), "dropoff");
+                Long preferredAddressId = layPreferredAddressIdShopee(kenh.getMaKenh());
+                client.shipOrderAuto(orderSn, preferredAddressId);
             } catch (Exception e) {
-                // bỏ qua nếu đã ship
+                // bỏ qua nếu đơn đã ship trước đó
             }
             // Ghi chú trạng thái xuất kho
-            client.setOrderNote(maDonHangKenh.trim(), "FCentric: Đơn hàng đã xuất kho vật lý, sẵn sàng bàn giao bưu tá");
-            log.info("[SHOPEE-DISPATCH] Đã ghi nhận xuất kho cho đơn Shopee {}", maDonHangKenh);
+            client.setOrderNote(orderSn, "FCentric: Đơn hàng đã xuất kho vật lý, sẵn sàng bàn giao bưu tá");
+            log.info("[SHOPEE-DISPATCH] Đã ghi nhận xuất kho cho đơn Shopee {}", orderSn);
 
             // Tra cứu mã vận đơn bổ sung nếu đơn hàng FCentric chưa có
             if (donId != null && donBanHangRepository != null) {
@@ -8766,10 +9174,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
                     if (!currentNote.contains("[VẬN ĐƠN:")) {
                         try {
-                            JsonNode trackRes = client.getTrackingNumber(maDonHangKenh.trim());
+                            JsonNode trackRes = client.getTrackingNumber(orderSn);
                             String trackingNo = trackRes != null ? trackRes.path("response").path("tracking_number").asText("") : "";
                             if (trackingNo != null && !trackingNo.isBlank()) {
-                                don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + "[VẬN ĐƠN: " + trackingNo.trim() + " - Shopee Xpress]");
+                                don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + "[VẬN ĐƠN: " + trackingNo.trim() + " - Shopee]");
                                 don.setNgayCapNhat(Instant.now());
                                 donBanHangRepository.save(don);
                             }
@@ -8779,7 +9187,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
             return true;
         } catch (Exception ex) {
-            log.error("[SHOPEE-DISPATCH] Lỗi ngoại lệ khi xuất kho đơn {}: {}", maDonHangKenh, ex.getMessage());
+            log.error("[SHOPEE-DISPATCH] Lỗi ngoại lệ khi xuất kho đơn {}: {}", orderSn, ex.getMessage());
             return false;
         }
     }
@@ -8803,20 +9211,52 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Override
     public boolean huyDonHangTrenShopee(String maDonHangKenh, String lyDoHuy) {
         if (maDonHangKenh == null || maDonHangKenh.isBlank()) return false;
-        KenhBanHang kenh = xacDinhKenhShopee(maDonHangKenh);
+        String orderSn = maDonHangKenh.trim();
+        KenhBanHang kenh = xacDinhKenhShopee(orderSn);
         if (kenh == null) return false;
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
         try {
-            JsonNode res = client.cancelOrder(maDonHangKenh.trim(), "OUT_OF_STOCK");
+            List<Map<String, Object>> itemList = null;
+            String orderStatus = "";
+            try {
+                JsonNode detailRes = client.getOrderDetail(orderSn);
+                JsonNode firstOrder = detailRes != null ? detailRes.path("response").path("order_list").path(0) : null;
+                if (firstOrder != null && !firstOrder.isMissingNode()) {
+                    orderStatus = firstOrder.path("order_status").asText("");
+                    if ("CANCELLED".equalsIgnoreCase(orderStatus)) {
+                        return true;
+                    }
+                    JsonNode itemsNode = firstOrder.path("item_list");
+                    if (itemsNode.isArray() && !itemsNode.isEmpty()) {
+                        itemList = new ArrayList<>();
+                        for (JsonNode it : itemsNode) {
+                            long itemId = it.path("item_id").asLong(0);
+                            long modelId = it.path("model_id").asLong(0);
+                            if (itemId > 0) {
+                                itemList.add(Map.of("item_id", itemId, "model_id", modelId));
+                            }
+                        }
+                    }
+                }
+            } catch (Exception detailEx) {
+                log.debug("[SHOPEE-CANCEL] Không lấy được chi tiết item_list cho đơn {}: {}", orderSn, detailEx.getMessage());
+            }
+
+            JsonNode res;
+            if ("IN_CANCEL".equalsIgnoreCase(orderStatus)) {
+                res = client.handleBuyerCancellation(orderSn, "ACCEPT");
+            } else {
+                res = client.cancelOrder(orderSn, "OUT_OF_STOCK", itemList);
+            }
             String err = res != null ? res.path("error").asText("") : "";
             String msg = res != null ? res.path("message").asText("") : "";
-            log.info("[SHOPEE-CANCEL] Hủy đơn {} trên Shopee: error='{}', message='{}'", maDonHangKenh, err, msg);
+            log.info("[SHOPEE-CANCEL] Hủy đơn {} trên Shopee (trạng thái cũ '{}'): error='{}', message='{}'", orderSn, orderStatus, err, msg);
             if (!err.isBlank() && !"success".equalsIgnoreCase(msg)) {
-                client.setOrderNote(maDonHangKenh.trim(), "FCentric: Yêu cầu hủy đơn (" + (lyDoHuy != null ? lyDoHuy : "Hết hàng") + ")");
+                client.setOrderNote(orderSn, "FCentric: Yêu cầu hủy đơn (" + (lyDoHuy != null ? lyDoHuy : "Hết hàng") + ")");
             }
             return true;
         } catch (Exception ex) {
-            log.error("[SHOPEE-CANCEL] Lỗi khi hủy đơn {} trên Shopee: {}", maDonHangKenh, ex.getMessage());
+            log.error("[SHOPEE-CANCEL] Lỗi khi hủy đơn {} trên Shopee: {}", orderSn, ex.getMessage());
             return false;
         }
     }
@@ -10429,6 +10869,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (variants.size() == 1) {
             BienTheSanPham bt = variants.get(0);
             String sku = bt.getMaSku() != null ? bt.getMaSku().trim() : ("SKU-" + bt.getId());
+
             BigDecimal price = bt.getGiaBan() != null && bt.getGiaBan().compareTo(BigDecimal.ZERO) > 0
                     ? bt.getGiaBan() : BigDecimal.valueOf(100000);
             price = chuanHoaGiaShopee(price, isSandbox);
@@ -10673,6 +11114,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         for (BienTheSanPham bt : variants) {
             String sku = bt.getMaSku() != null ? bt.getMaSku().trim() : ("SKU-" + bt.getId());
+
             BigDecimal price = bt.getGiaBan() != null && bt.getGiaBan().compareTo(BigDecimal.ZERO) > 0
                     ? bt.getGiaBan() : minPrice;
             price = chuanHoaGiaShopee(price, isSandbox);
@@ -10827,7 +11269,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         for (TrangThaiDongBoSanPham dong : dongCanDay) {
             BienTheSanPham bt = dong.getBienTheSanPham();
             if (bt == null || bt.getId() == null) continue;
-            int soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
+            int soDay = tinhSoTonDay(tinhKhaDungTheoKhoKenh(maKenh, bt.getId()), tyLe, tonDem, nguongVe0);
 
             boolean daThanhCong = "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
             boolean soTonKhongDoi = dong.getSoLuongDaDay() != null && dong.getSoLuongDaDay().equals(soDay);
@@ -10907,7 +11349,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
                 Map<String, Object> stockItem = new HashMap<>();
                 stockItem.put("model_id", modelId != null ? modelId : 0L);
-                stockItem.put("seller_stock", List.of(Map.of("stock", soDay)));
+                String shopeeLocId = layLocationIdShopeeDaLuu(maKenh);
+                stockItem.put("seller_stock", shopeeLocId != null
+                        ? List.of(Map.of("location_id", shopeeLocId, "stock", soDay))
+                        : List.of(Map.of("stock", soDay)));
                 stockList.add(stockItem);
             }
 

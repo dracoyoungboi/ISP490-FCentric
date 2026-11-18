@@ -787,6 +787,14 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 soNgayCon = Math.max(0L, seconds / 86400L);
             }
             String maskedToken = hasToken ? cheKhoa(kenh.getApiKey(), this::maskToken) : null;
+            String maKhoSan = null;
+            String tenKhoSan = null;
+            if (cauHinhHeThongRepository != null) {
+                maKhoSan = cauHinhHeThongRepository.findById("KENH_" + ma + "_MA_KHO_SAN")
+                        .map(com.dev.backend.entities.CauHinhHeThong::getGiaTri).orElse(null);
+                tenKhoSan = cauHinhHeThongRepository.findById("KENH_" + ma + "_TEN_KHO_SAN")
+                        .map(com.dev.backend.entities.CauHinhHeThong::getGiaTri).orElse(null);
+            }
             return ShopifyConfigResponse.builder()
                     .id(kenh.getId())
                     .maKenh(ma)
@@ -803,6 +811,8 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .ngayUyQuyen(kenh.getNgayCapNhat())
                     .tenGianHang(kenh.getTenKenh())
                     .shopIdSan(kenh.getApiUrl())
+                    .maKhoSan(maKhoSan)
+                    .tenKhoSan(tenKhoSan)
                     .trangThai(kenh.getTrangThai() != null ? kenh.getTrangThai() : 1)
                     .kieuKetNoi(KIEU_UY_QUYEN)
                     .trangThaiKetNoi(trangThaiKetNoi)
@@ -858,6 +868,14 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             } else if (kenh.getShopDomain() != null && kenh.getShopDomain().matches("^\\d+$")) {
                 numericShopId = kenh.getShopDomain().trim();
             }
+            String maKhoSan = null;
+            String tenKhoSan = null;
+            if (cauHinhHeThongRepository != null) {
+                maKhoSan = cauHinhHeThongRepository.findById("KENH_" + ma + "_MA_KHO_SAN")
+                        .map(com.dev.backend.entities.CauHinhHeThong::getGiaTri).orElse(null);
+                tenKhoSan = cauHinhHeThongRepository.findById("KENH_" + ma + "_TEN_KHO_SAN")
+                        .map(com.dev.backend.entities.CauHinhHeThong::getGiaTri).orElse(null);
+            }
 
             return ShopifyConfigResponse.builder()
                     .id(kenh.getId())
@@ -876,6 +894,8 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .tenGianHang(kenh.getTenKenh())
                     .shopIdSan(numericShopId)
                     .shopDomain(numericShopId)
+                    .maKhoSan(maKhoSan)
+                    .tenKhoSan(tenKhoSan)
                     .trangThai(kenh.getTrangThai() != null ? kenh.getTrangThai() : 1)
                     .kieuKetNoi(isOfficial || isSandbox ? KIEU_UY_QUYEN : "ben_thu_ba")
                     .trangThaiKetNoi(trangThaiKetNoi)

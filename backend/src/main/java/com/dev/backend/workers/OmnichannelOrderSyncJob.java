@@ -338,6 +338,7 @@ public class OmnichannelOrderSyncJob {
                 JsonNode root = objectMapper.readTree(response.getBody());
                 JsonNode orders = root.path("orders");
                 if (orders.isArray()) {
+                    boSungTrangThaiHoanTraShopifyQuaGraphQL(domain, token, orders, restTemplate);
                     batDauLuot();
                     for (JsonNode orderNode : orders) {
                         try {
@@ -377,10 +378,83 @@ public class OmnichannelOrderSyncJob {
         // and load the existing row under lock before any payment/status update can flush a stale entity.
         donBanHangRepository.khoaDonShopify(kenh.getId(), orderNode.path("id").asText());
         processSingleOrder(orderNode, kenh, false);
-        if (inProgress && !orderNode.hasNonNull("cancelled_at")
-                && !orderNode.path("financial_status").asText("").contains("refunded")) {
+        if (inProgress && !orderNode.hasNonNull("cancelled_at") && !coYeuCauHoanTraTuShopify(orderNode)) {
             donBanHangService.batDauXuLyTuShopify(kenh.getId(), orderNode.path("id").asText());
         }
+    }
+
+    private void boSungTrangThaiHoanTraShopifyQuaGraphQL(String domain, String token, JsonNode orders, RestTemplate restTemplate) {
+        if (orders == null || !orders.isArray() || orders.isEmpty()) return;
+        List<String> gids = new ArrayList<>();
+        Map<String, com.fasterxml.jackson.databind.node.ObjectNode> byId = new HashMap<>();
+        for (JsonNode n : orders) {
+            if (!(n instanceof com.fasterxml.jackson.databind.node.ObjectNode obj)) continue;
+            if (n.hasNonNull("cancelled_at")) continue;
+            String id = n.path("id").asText("").trim();
+            if (!id.matches("[1-9][0-9]*")) continue;
+            String fin = n.path("financial_status").asText("").trim().toLowerCase();
+            if ("refunded".equals(fin) || "partially_refunded".equals(fin)) continue;
+            gids.add("gid://shopify/Order/" + id);
+            byId.put(id, obj);
+        }
+        if (gids.isEmpty()) return;
+        try {
+            String url = "https://" + domain + "/admin/api/2026-04/graphql.json";
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Shopify-Access-Token", token);
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            String query = "query($ids:[ID!]!){nodes(ids:$ids){... on Order{id returnStatus}}}";
+            ResponseEntity<String> res = restTemplate.exchange(
+                    url, HttpMethod.POST, new HttpEntity<>(Map.of("query", query, "variables", Map.of("ids", gids)), headers), String.class);
+            if (!res.getStatusCode().is2xxSuccessful() || res.getBody() == null) return;
+            JsonNode nodes = objectMapper.readTree(res.getBody()).path("data").path("nodes");
+            if (!nodes.isArray()) return;
+            for (JsonNode node : nodes) {
+                String gid = node.path("id").asText("");
+                String numId = gid.replaceFirst("^gid://shopify/Order/", "").trim();
+                String rStatus = node.path("returnStatus").asText("").trim();
+                com.fasterxml.jackson.databind.node.ObjectNode target = byId.get(numId);
+                if (target != null && !rStatus.isBlank() && !"NO_RETURN".equalsIgnoreCase(rStatus)) {
+                    target.put("return_status", rStatus);
+                }
+            }
+        } catch (Exception ex) {
+            log.debug("[JOB-01] Không tra cứu được returnStatus GraphQL Shopify (sẽ dùng dữ liệu REST): {}", ex.getMessage());
+        }
+    }
+
+    static boolean coYeuCauHoanTraTuShopify(JsonNode orderNode) {
+        if (orderNode == null) return false;
+        String financialStatus = orderNode.path("financial_status").asText("").trim().toLowerCase();
+        if ("refunded".equals(financialStatus) || "partially_refunded".equals(financialStatus)) {
+            return true;
+        }
+        if (orderNode.path("refunds").isArray() && !orderNode.path("refunds").isEmpty()) {
+            return true;
+        }
+        String returnStatus = orderNode.path("return_status").asText("").trim().toUpperCase();
+        if (returnStatus.isBlank()) {
+            returnStatus = orderNode.path("returnStatus").asText("").trim().toUpperCase();
+        }
+        if ("RETURN_REQUESTED".equals(returnStatus) || "IN_PROGRESS".equals(returnStatus)
+                || "INSPECTION_COMPLETE".equals(returnStatus) || "RETURNED".equals(returnStatus)
+                || "RETURN_APPROVED".equals(returnStatus)) {
+            return true;
+        }
+        JsonNode returnsNode = orderNode.path("returns");
+        if (returnsNode.isObject() && returnsNode.path("nodes").isArray()) {
+            returnsNode = returnsNode.path("nodes");
+        }
+        if (returnsNode.isArray() && !returnsNode.isEmpty()) {
+            for (JsonNode r : returnsNode) {
+                String st = r.path("status").asText("").trim().toUpperCase();
+                if (!"CANCELED".equals(st) && !"CANCELLED".equals(st)
+                        && !"DECLINED".equals(st) && !"REJECTED".equals(st)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private boolean processSingleOrder(JsonNode orderNode, KenhBanHang kenh, boolean reconcileOutbound) {
@@ -468,13 +542,11 @@ public class OmnichannelOrderSyncJob {
                     }
                 }
 
-                // 2.1 Kiểm tra trả hàng / hoàn tiền từ Shopify
-                if ("refunded".equalsIgnoreCase(financialStatus)
-                        || "partially_refunded".equalsIgnoreCase(financialStatus)
-                        || (orderNode.path("returns").isArray() && !orderNode.path("returns").isEmpty())
-                        || (orderNode.path("refunds").isArray() && !orderNode.path("refunds").isEmpty())) {
+                // 2.1 Kiểm tra trả hàng / yêu cầu trả hàng / hoàn tiền từ Shopify (nhảy ngay khi buyer gửi return request)
+                boolean coHoanTra = coYeuCauHoanTraTuShopify(orderNode);
+                if (coHoanTra) {
                     try {
-                        donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), "refunded");
+                        donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), "return_requested");
                     } catch (Exception ex) {
                         if (!reconcileOutbound) throw new IllegalStateException("Shopify return pending retry", ex);
                         log.error("[JOB-01] Lỗi khi cập nhật hoàn tiền/trả hàng đơn {} theo Shopify: {}", soDonHang, ex.getMessage());
@@ -489,8 +561,7 @@ public class OmnichannelOrderSyncJob {
                                 ITrangThaiDonBanHang.CHO_DONG_GOI, ITrangThaiDonBanHang.DA_DONG_GOI).contains(trangThaiKho == null ? -1 : trangThaiKho)
                         && !hasDeliveredFulfillment && !"fulfilled".equalsIgnoreCase(fulfillmentStatus)
                         && !"in_progress".equalsIgnoreCase(fulfillmentStatus)
-                        && !"refunded".equals(financialStatus) && !"partially_refunded".equals(financialStatus)
-                        && orderNode.path("refunds").isEmpty() && orderNode.path("returns").isEmpty()) {
+                        && !coHoanTra) {
                     SauCommit.chay("Đối soát tiến trình đơn Shopify đang xử lý tại kho",
                             () -> kenhBanHangDongBoService.dongBoTrangThaiDangThucHienShopify(orderId));
                 }
