@@ -2893,6 +2893,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 List<BienTheSanPham> variantsDaCo = new ArrayList<>();
                 for (BienTheSanPham bt : spVariants) {
                     if (bt.getMaSku() != null && !bt.getMaSku().isBlank()) {
+                        TrangThaiDongBoSanPham exM = existingByBtId.get(bt.getId());
+                        if (exM != null && Boolean.FALSE.equals(exM.getChoPhepDongBo())) {
+                            continue; // Người dùng đã tắt đồng bộ biến thể này, không đẩy tạo mới lên TikTok Shop
+                        }
                         String norm = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
                         if (!tiktokSkuMap.containsKey(norm)) {
                             variantsCanTao.add(bt);
@@ -2943,9 +2947,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
 
                 if (record != null) {
+                    boolean dangNgung = Boolean.FALSE.equals(record.getChoPhepDongBo()) || TRANG_THAI_NGUNG.equals(record.getTrangThaiDongBo());
                     record.setBienTheSanPham(bt);
                     // Bảo toàn lý do lỗi từ bước 3 (tạo mới/cập nhật) nếu sản phẩm vừa gặp lỗi kiểm duyệt hoặc bị khóa trên sàn
-                    if (!"that_bai".equalsIgnoreCase(record.getTrangThaiDongBo()) || record.getChiTietLoi() == null) {
+                    if (!dangNgung && (!"that_bai".equalsIgnoreCase(record.getTrangThaiDongBo()) || record.getChiTietLoi() == null)) {
                         record.setTrangThaiDongBo("thanh_cong");
                         record.setChiTietLoi(null);
                     }
@@ -3115,6 +3120,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int soCapNhatTrenLazada = 0;
         Map<String, String> cdnCache = new HashMap<>();
 
+        List<TrangThaiDongBoSanPham> existingMappings = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
+        Map<Integer, TrangThaiDongBoSanPham> mappingByBtId = new HashMap<>();
+        for (TrangThaiDongBoSanPham m : existingMappings) {
+            if (m.getBienTheSanPham() != null) {
+                mappingByBtId.put(m.getBienTheSanPham().getId(), m);
+            }
+        }
+
         for (Map.Entry<SanPhamQuanAo, List<BienTheSanPham>> entry : spGroupMap.entrySet()) {
             SanPhamQuanAo sp = entry.getKey();
             List<BienTheSanPham> spVariants = entry.getValue();
@@ -3125,6 +3138,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             for (BienTheSanPham bt : spVariants) {
                 if (bt.getMaSku() != null && !bt.getMaSku().isBlank()) {
+                    TrangThaiDongBoSanPham existingM = mappingByBtId.get(bt.getId());
+                    if (existingM != null && Boolean.FALSE.equals(existingM.getChoPhepDongBo())) {
+                        continue; // Người dùng đã chủ động tắt đồng bộ biến thể này, không đẩy tạo mới lên sàn
+                    }
                     String norm = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
                     if (!lazadaSkuToSkuIdMap.containsKey(norm)) {
                         variantsCanTao.add(bt);
@@ -3155,14 +3172,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int soKhongKhop = 0;
         int soTonKhoDaDay = 0;
 
-        List<TrangThaiDongBoSanPham> existingMappings = trangThaiDongBoSanPhamRepository.findByKenhBanHangId(kenh.getId());
-        Map<Integer, TrangThaiDongBoSanPham> mappingByBtId = new HashMap<>();
-        for (TrangThaiDongBoSanPham m : existingMappings) {
-            if (m.getBienTheSanPham() != null) {
-                mappingByBtId.put(m.getBienTheSanPham().getId(), m);
-            }
-        }
-
         for (BienTheSanPham bt : activeVariants) {
             if (bt.getMaSku() == null || bt.getMaSku().isBlank()) continue;
             String normSku = bt.getMaSku().trim().toLowerCase(Locale.ROOT);
@@ -3173,9 +3182,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
 
             TrangThaiDongBoSanPham record = mappingByBtId.get(bt.getId());
-            boolean dangNgung = false;
+            boolean dangNgung = record != null && (Boolean.FALSE.equals(record.getChoPhepDongBo()) || TRANG_THAI_NGUNG.equals(record.getTrangThaiDongBo()));
             if (record != null) {
-                dangNgung = TRANG_THAI_NGUNG.equals(record.getTrangThaiDongBo());
                 record.setMaSanPhamKenh(targetSkuId);
                 if (!dangNgung) {
                     if (hasNumericSkuId) {
@@ -3320,6 +3328,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     List<BienTheSanPham> variantsCanTaoMoi = new ArrayList<>();
                     Long existingShopifyProdId = null;
                     for (BienTheSanPham bt : spVariants) {
+                        Optional<TrangThaiDongBoSanPham> mapCheck = trangThaiDongBoSanPhamRepository.findByKenhBanHangIdAndBienTheSanPhamId(kenh.getId(), bt.getId());
+                        if (mapCheck.isPresent() && Boolean.FALSE.equals(mapCheck.get().getChoPhepDongBo())) {
+                            continue; // Người dùng đã tắt đồng bộ biến thể này, không đẩy tạo mới lên Shopify
+                        }
                         String skuKey = bt.getMaSku().trim().toLowerCase();
                         if (!shopifySkuMap.containsKey(skuKey)) {
                             variantsCanTaoMoi.add(bt);
@@ -3400,7 +3412,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         record = mappingOpt.get();
                         record.setMaSanPhamKenh(maVariantKenh);
                         // Dòng người dùng đã ngừng đồng bộ thì giữ nguyên trạng thái ngừng và không đẩy tồn
-                        dangNgung = TRANG_THAI_NGUNG.equals(record.getTrangThaiDongBo());
+                        dangNgung = Boolean.FALSE.equals(record.getChoPhepDongBo()) || TRANG_THAI_NGUNG.equals(record.getTrangThaiDongBo());
                         if (!dangNgung) {
                             record.setTrangThaiDongBo(trangThaiDongBo);
                         }
@@ -3411,6 +3423,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 .kenhBanHang(kenh)
                                 .maSanPhamKenh(maVariantKenh)
                                 .trangThaiDongBo(trangThaiDongBo)
+                                .choPhepDongBo(true)
                                 .ngayDongBoCuoi(Instant.now())
                                 .build();
                     }
@@ -3627,7 +3640,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .soLuongKhaDung(soLuongKhaDung)
                 .soLuongDaDay(soDaDay(item))
                 .ngayDayTonCuoi(item.getNgayDayTonCuoi())
-                .choPhepDongBo(true)
+                .choPhepDongBo(item.getChoPhepDongBo() == null || item.getChoPhepDongBo())
                 .trangThaiLienKet(mapStatusToFrontend(item.getTrangThaiDongBo()))
                 .ngayDongBoCuoi(item.getNgayDongBoCuoi())
                 .chiTietLoi(item.getChiTietLoi())
@@ -3677,6 +3690,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         TrangThaiDongBoSanPham record = trangThaiDongBoSanPhamRepository.findById(lienKetId)
                 .orElseThrow(() -> new CommonException(ThongDiep.of("kenhBan.khongTimThayLienKet", lienKetId), HttpStatus.NOT_FOUND, null));
 
+        if (request.getChoPhepDongBo() != null) {
+            record.setChoPhepDongBo(request.getChoPhepDongBo());
+        }
         if (request.getBienTheSanPhamId() != null) {
             BienTheSanPham bt = bienTheSanPhamRepository.findById(request.getBienTheSanPhamId())
                     .orElseThrow(() -> new CommonException(ThongDiep.of("kenhBan.khongTimThayBienThe", request.getBienTheSanPhamId()), HttpStatus.BAD_REQUEST, null));
@@ -3687,7 +3703,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         HttpStatus.BAD_REQUEST, null);
             }
             record.setBienTheSanPham(bt);
-            record.setTrangThaiDongBo("thanh_cong");
+            record.setTrangThaiDongBo(Boolean.FALSE.equals(record.getChoPhepDongBo()) ? "chua_dong_bo" : "thanh_cong");
             record.setChiTietLoi(null);
         } else {
             record.setTrangThaiDongBo("chua_dong_bo");
@@ -3718,7 +3734,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .soLuongKhaDung(BigDecimal.ZERO)
                 .soLuongDaDay(soDaDay(saved))
                 .ngayDayTonCuoi(saved.getNgayDayTonCuoi())
-                .choPhepDongBo(Boolean.TRUE.equals(request.getChoPhepDongBo()))
+                .choPhepDongBo(saved.getChoPhepDongBo() == null || saved.getChoPhepDongBo())
                 .trangThaiLienKet(mapStatusToFrontend(saved.getTrangThaiDongBo()))
                 .ngayDongBoCuoi(saved.getNgayDongBoCuoi())
                 .chiTietLoi(saved.getChiTietLoi())
@@ -5846,8 +5862,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     /** Dòng được đưa vào đợt đẩy tồn: đang đồng bộ, hoặc đang lỗi (đẩy lại để tự hết lỗi). Dòng ngừng thì bỏ qua. */
     static boolean duocDayTon(TrangThaiDongBoSanPham dong) {
-        return dong.getBienTheSanPham() != null
-                && ("thanh_cong".equals(dong.getTrangThaiDongBo()) || "that_bai".equals(dong.getTrangThaiDongBo()));
+        if (dong == null || dong.getBienTheSanPham() == null) return false;
+        if (Boolean.FALSE.equals(dong.getChoPhepDongBo())) return false;
+        if ("chua_dong_bo".equals(dong.getTrangThaiDongBo()) || "ngung_dong_bo".equals(dong.getTrangThaiDongBo())) return false;
+        return "thanh_cong".equals(dong.getTrangThaiDongBo()) || "that_bai".equals(dong.getTrangThaiDongBo());
     }
 
     /**
@@ -8590,7 +8608,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             if (targetSkuId != null) {
                 boolean dangNgung = false;
                 if (record != null) {
-                    dangNgung = TRANG_THAI_NGUNG.equals(record.getTrangThaiDongBo());
+                    dangNgung = Boolean.FALSE.equals(record.getChoPhepDongBo()) || TRANG_THAI_NGUNG.equals(record.getTrangThaiDongBo());
                     record.setMaSanPhamKenh(targetSkuId);
                     if (!dangNgung) {
                         record.setTrangThaiDongBo("thanh_cong");
@@ -8604,6 +8622,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             .maSanPhamKenh(targetSkuId)
                             .trangThaiDongBo("thanh_cong")
                             .chiTietLoi(null)
+                            .choPhepDongBo(true)
                             .ngayDongBoCuoi(now)
                             .build();
                 }
