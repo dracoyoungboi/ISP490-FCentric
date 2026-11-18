@@ -969,23 +969,28 @@ public class OmnichannelOrderSyncJob {
         return synced;
     }
 
+    /**
+     * Câu lỗi có dấu hiệu token TikTok hết hạn / không hợp lệ: mã 105001, 105002 đứng riêng (không khớp
+     * giữa mã đơn dài) hoặc "access token ... expired/invalid". Không dò chữ "token" trơn: lỗi
+     * page_token, lỗi làm mới token… sẽ bị coi nhầm là hết hạn và gọi làm mới token vô ích.
+     */
+    private static final java.util.regex.Pattern DAU_HIEU_TOKEN_TIKTOK_HET_HAN = java.util.regex.Pattern.compile(
+            "(?<!\\d)10500[12](?!\\d)|unauthorized|access[ _]?token.*(expired|invalid)",
+            java.util.regex.Pattern.CASE_INSENSITIVE);
+
     private boolean laLoiTokenTikTok(Throwable ex) {
         if (ex == null) return false;
         if (ex instanceof com.dev.backend.exception.customize.LoiCoMaException lcme) {
             if (com.dev.backend.exception.customize.MaLoi.TIKTOK_TOKEN_EXPIRED.equals(lcme.getMa())) return true;
-            if (org.springframework.http.HttpStatus.UNAUTHORIZED.equals(lcme.getTrangThai())) return true;
+            if (org.springframework.http.HttpStatus.UNAUTHORIZED.equals(lcme.getStatus())) return true;
         }
-        if (ex instanceof org.springframework.web.client.HttpStatusCodeException hsce) {
-            if (hsce.getStatusCode() == org.springframework.http.HttpStatus.UNAUTHORIZED) return true;
+        if (ex instanceof org.springframework.web.client.HttpStatusCodeException hsce
+                && hsce.getStatusCode().value() == org.springframework.http.HttpStatus.UNAUTHORIZED.value()) {
+            return true;
         }
         String msg = ex.getMessage();
-        if (msg != null) {
-            String lower = msg.toLowerCase(java.util.Locale.ROOT);
-            if (lower.contains("401") || lower.contains("unauthorized") || lower.contains("105001") || lower.contains("105002") || lower.contains("token")) {
-                return true;
-            }
-        }
-        return ex.getCause() != null && laLoiTokenTikTok(ex.getCause());
+        if (msg != null && DAU_HIEU_TOKEN_TIKTOK_HET_HAN.matcher(msg).find()) return true;
+        return ex.getCause() != null && ex.getCause() != ex && laLoiTokenTikTok(ex.getCause());
     }
 
     @Transactional(rollbackFor = Exception.class)
