@@ -6,6 +6,7 @@ import com.dev.backend.repository.DonBanHangRepository;
 import com.dev.backend.services.KenhBanHangDongBoService;
 import com.dev.backend.services.KenhBanHangService;
 import com.dev.backend.services.KenhBanHangSyncService;
+import com.dev.backend.workers.OmnichannelOrderSyncJob;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
