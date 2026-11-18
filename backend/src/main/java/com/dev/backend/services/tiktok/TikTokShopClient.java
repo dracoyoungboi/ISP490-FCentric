@@ -239,6 +239,15 @@ public class TikTokShopClient {
      */
     public TikTokProductSearchResponse searchProducts(String appKey, String appSecret, String accessToken,
                                                       String shopCipher, int pageSize, String pageToken) {
+        return searchProducts(appKey, appSecret, accessToken, shopCipher, pageSize, pageToken, null, null);
+    }
+
+    /**
+     * Tìm kiếm sản phẩm TikTok Shop kèm tiêu chí lọc nâng cao (seller_skus, keyword) phục vụ on-demand catalog lookup.
+     */
+    public TikTokProductSearchResponse searchProducts(String appKey, String appSecret, String accessToken,
+                                                      String shopCipher, int pageSize, String pageToken,
+                                                      java.util.List<String> sellerSkus, String keyword) {
         if (accessToken == null || accessToken.isBlank()) {
             throw new LoiThamSoException(ThongDiep.of("kenhBan.accessTokenTrongKhiTimSanPhamTikTok"));
         }
@@ -254,8 +263,20 @@ public class TikTokShopClient {
         }
 
         String apiPath = TikTokShopConstants.PATH_PRODUCTS_SEARCH;
-        // status: ALL để lấy toàn bộ danh mục sản phẩm của shop (ACTIVATE, DRAFT, PENDING, v.v.)
-        String body = "{\"status\":\"ALL\"}";
+        com.fasterxml.jackson.databind.node.ObjectNode bodyNode = objectMapper.createObjectNode();
+        bodyNode.put("status", "ALL");
+        if (sellerSkus != null && !sellerSkus.isEmpty()) {
+            com.fasterxml.jackson.databind.node.ArrayNode skusArr = bodyNode.putArray("seller_skus");
+            for (String s : sellerSkus) {
+                if (s != null && !s.isBlank()) {
+                    skusArr.add(s.trim());
+                }
+            }
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            bodyNode.put("keyword", keyword.trim());
+        }
+        String body = bodyNode.toString();
 
         String fullSignedUrl = buildUrlWithSign(TikTokShopConstants.BASE_URL, apiPath, queryParams, body, appKey, appSecret, shopCipher);
         JsonNode root = executePost(fullSignedUrl, body, accessToken);
@@ -1068,6 +1089,10 @@ public class TikTokShopClient {
                 int code = root.get("code").asInt();
                 String message = root.path("message").asText(null);
                 log.warn("TikTok Shop API trả về mã lỗi nghiệp vụ: code={}, message={}", code, message);
+                if (code == 105001 || code == 105002) {
+                    throw new LoiCoMaException(HttpStatus.UNAUTHORIZED, MaLoi.TIKTOK_TOKEN_EXPIRED,
+                            ThongDiep.of("kenhBan.tiktokTokenHetHan"));
+                }
                 throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.TIKTOK_API_ERROR, message != null
                         ? ThongDiep.of("kenhBan.loiTuTikTok", code, message)
                         : ThongDiep.of("kenhBan.loiTuTikTokMacDinh", code));
@@ -1090,6 +1115,10 @@ public class TikTokShopClient {
         if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
             throw new LoiCoMaException(HttpStatus.TOO_MANY_REQUESTS, MaLoi.TIKTOK_RATE_LIMIT,
                     ThongDiep.of("kenhBan.tiktokVuotGioiHanTanSuat"));
+        }
+        if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+            throw new LoiCoMaException(HttpStatus.UNAUTHORIZED, MaLoi.TIKTOK_TOKEN_EXPIRED,
+                    ThongDiep.of("kenhBan.tiktokTokenHetHan"));
         }
         try {
             JsonNode errorNode = objectMapper.readTree(e.getResponseBodyAsString());
