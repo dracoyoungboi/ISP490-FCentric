@@ -481,13 +481,14 @@ public class OmnichannelOrderSyncJob {
                     }
                 }
 
-                // Sửa cả đơn đã kẹt trước khi nâng cấp; không cần đổi trạng thái kho qua lại để kích hoạt hook.
-                // Chỉ báo tiến trình, không tạo fulfillment, không thay đổi tồn hay tiền.
+                // Đối soát tiến trình: chỉ gọi khi đơn ở kho FCentric và Shopify vẫn còn ở trạng thái unfulfilled / chưa xử lý.
+                // Tránh gọi lặp lại GraphQL làm nghẽn Shopify rate limit.
                 Integer trangThaiKho = existing.getTrangThai();
                 if (reconcileOutbound && kenhBanHangDongBoService != null
                         && List.of(ITrangThaiDonBanHang.CHO_NHAT_HANG,
                                 ITrangThaiDonBanHang.CHO_DONG_GOI, ITrangThaiDonBanHang.DA_DONG_GOI).contains(trangThaiKho == null ? -1 : trangThaiKho)
-                        && !hasDeliveredFulfillment && !"fulfilled".equals(fulfillmentStatus)
+                        && !hasDeliveredFulfillment && !"fulfilled".equalsIgnoreCase(fulfillmentStatus)
+                        && !"in_progress".equalsIgnoreCase(fulfillmentStatus)
                         && !"refunded".equals(financialStatus) && !"partially_refunded".equals(financialStatus)
                         && orderNode.path("refunds").isEmpty() && orderNode.path("returns").isEmpty()) {
                     SauCommit.chay("Đối soát tiến trình đơn Shopify đang xử lý tại kho",

@@ -35,8 +35,9 @@ public class ShopifyWebhookWorker {
         this.localOrders = localOrders;
     }
 
-    // The request also calls kick immediately. This timer recovers after restarts, rejected submissions or failures.
-    @Scheduled(fixedDelay = 1000, initialDelay = 5000, scheduler = "shopifyRealtimeScheduler")
+    // Tác vụ phục hồi dự phòng: chỉ chạy mỗi 60 giây để phục hồi sau restart hoặc rớt mạng.
+    // Các sự kiện webhook thực tế được xử lý ngay lập tức thông qua phương thức kick() bất đồng bộ.
+    @Scheduled(fixedDelay = 60_000, initialDelay = 15_000, scheduler = "shopifyRealtimeScheduler")
     public void kick() {
         if (!running.compareAndSet(false, true)) return;
         try { executor.execute(this::drain); }
