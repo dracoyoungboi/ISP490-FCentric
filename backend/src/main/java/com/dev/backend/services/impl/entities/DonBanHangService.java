@@ -686,6 +686,14 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                     () -> kenhBanHangDongBoService.dongBoTrangThaiDangThucHienShopify(shopifyOrderId));
         }
 
+        if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopee(don.getKenhBanHang().getMaKenh())
+                && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
+                && kenhBanHangDongBoService != null) {
+            String shopeeOrderId = don.getMaDonHangKenh();
+            SauCommit.chay("Đồng bộ gửi sang kho sang Shopee (Người bán đang chuẩn bị hàng)",
+                    () -> kenhBanHangDongBoService.dongBoTrangThaiChuanBiHangShopee(shopeeOrderId));
+        }
+
         // Ghi Audit Trail (lich_su_thay_doi)
         try {
             NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
@@ -1104,12 +1112,12 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 log.info("[CHANNEL-SHIPPED] Đơn {} đang vận chuyển trên sàn -> Chuyển Đã xuất toàn bộ (3)", don.getSoDonHang());
                 return true;
             }
-        } else if (st.equals("ready_to_ship") || st.equals("processed")) {
+        } else if (st.equals("processed")) {
             if (trangThaiHienTai == ITrangThaiDonBanHang.NHAP) {
                 don.setTrangThai(ITrangThaiDonBanHang.CHO_NHAT_HANG);
                 don.setNgayCapNhat(Instant.now());
                 repository.save(don);
-                ghiNhatKyDon(don, "san_sang_xu_ly_tu_san", "Sàn cập nhật sẵn sàng xử lý (" + trangThaiSan + ")");
+                ghiNhatKyDon(don, "san_sang_xu_ly_tu_san", "Sàn cập nhật đang chuẩn bị hàng (" + trangThaiSan + ")");
                 return true;
             }
         } else if (st.contains("failed_delivery") || st.contains("returned") || st.contains("refunded")

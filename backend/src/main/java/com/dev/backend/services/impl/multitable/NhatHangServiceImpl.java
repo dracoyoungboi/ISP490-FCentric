@@ -468,6 +468,13 @@ public class NhatHangServiceImpl implements NhatHangService {
             don.setDanhSachNhatHang(pickList);
             don.setNgayCapNhat(Instant.now());
             maDonList.add(don.getSoDonHang());
+            if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopee(don.getKenhBanHang().getMaKenh())
+                    && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
+                    && kenhBanHangDongBoService != null) {
+                String shopeeOrderId = don.getMaDonHangKenh();
+                SauCommit.chay("Đồng bộ bắt đầu nhặt hàng sang Shopee",
+                        () -> kenhBanHangDongBoService.dongBoTrangThaiChuanBiHangShopee(shopeeOrderId));
+            }
         }
         donBanHangRepository.saveAll(donList);
         pickList.setDonBanHangs(donList);

@@ -40,6 +40,7 @@ import org.springframework.web.client.RestTemplate;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Objects;
 
@@ -1949,6 +1950,17 @@ public class OmnichannelOrderSyncJob {
                     }
                 }
 
+                // 2.1 Đối soát tiến trình: đơn đã gửi sang kho trên FCentric (1, 7, 8) nhưng Shopee vẫn READY_TO_SHIP -> đồng bộ sang PROCESSED
+                Integer trangThaiKho = existing.getTrangThai();
+                if (kenhBanHangDongBoService != null
+                        && "READY_TO_SHIP".equalsIgnoreCase(shopeeStatus)
+                        && trangThaiKho != null
+                        && List.of(ITrangThaiDonBanHang.CHO_NHAT_HANG,
+                                ITrangThaiDonBanHang.CHO_DONG_GOI, ITrangThaiDonBanHang.DA_DONG_GOI).contains(trangThaiKho)) {
+                    SauCommit.chay("Đối soát tiến trình đơn Shopee đã gửi sang kho",
+                            () -> kenhBanHangDongBoService.dongBoTrangThaiChuanBiHangShopee(orderId));
+                }
+
                 // 3. Đồng bộ bổ sung mã vận đơn và đơn vị vận chuyển nếu có
                 String currentNote = existing.getGhiChu() != null ? existing.getGhiChu() : "";
                 if (!currentNote.contains("[VẬN ĐƠN:") && order.getTrackingNumber() != null && !order.getTrackingNumber().isBlank()) {
@@ -2064,16 +2076,15 @@ public class OmnichannelOrderSyncJob {
     }
 
     private static int mapShopeeOrderStatus(String status) {
-        if (status == null) return ITrangThaiDonBanHang.CHO_NHAT_HANG;
+        if (status == null) return ITrangThaiDonBanHang.NHAP;
         return switch (status.toUpperCase()) {
-            case "UNPAID" -> ITrangThaiDonBanHang.NHAP;
-            case "READY_TO_SHIP" -> ITrangThaiDonBanHang.CHO_NHAT_HANG;
-            case "PROCESSED" -> ITrangThaiDonBanHang.CHO_DONG_GOI;
+            case "UNPAID", "READY_TO_SHIP" -> ITrangThaiDonBanHang.NHAP;
+            case "PROCESSED" -> ITrangThaiDonBanHang.CHO_NHAT_HANG;
             case "SHIPPED", "TO_CONFIRM_RECEIVE" -> ITrangThaiDonBanHang.DA_XUAT_TOAN_BO;
             case "COMPLETED" -> ITrangThaiDonBanHang.HOAN_THANH;
             case "CANCELLED", "IN_CANCEL" -> ITrangThaiDonBanHang.DA_HUY;
             case "TO_RETURN", "RETURNED", "RETURN_REFUND" -> ITrangThaiDonBanHang.BI_HOAN_TRA;
-            default -> ITrangThaiDonBanHang.CHO_NHAT_HANG;
+            default -> ITrangThaiDonBanHang.NHAP;
         };
     }
 
