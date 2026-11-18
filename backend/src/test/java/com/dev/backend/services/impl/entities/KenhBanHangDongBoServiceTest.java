@@ -1738,4 +1738,110 @@ class KenhBanHangDongBoServiceTest {
         assertEquals("thanh_cong", dong.getTrangThaiDongBo());
         assertEquals(48, dong.getSoLuongDaDay());
     }
+
+    @Test
+    @DisplayName("TikTok Shop: getLocations lọc bỏ RETURN_WAREHOUSE và không nối trùng nhãn mặc định khi có >= 2 kho bán hàng")
+    void getLocations_tiktokNhieuKhoBanHang_khongNoiHauToKhoMacDinhTrungLap() {
+        var mockClient = mock(com.dev.backend.services.tiktok.TikTokShopClient.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "tiktokShopClient", mockClient);
+
+        KenhBanHang tikTokKenh = KenhBanHang.builder().id(5).maKenh("TIKTOK").tenKenh("TikTok Shop").trangThai(1).build();
+        when(kenhBanHangRepository.findByMaKenh("TIKTOK")).thenReturn(Optional.of(tikTokKenh));
+        when(kenhBanHangService.getTikTokAppKey()).thenReturn("app_k");
+        when(kenhBanHangService.getDecryptedTikTokAppSecret()).thenReturn("app_s");
+        when(kenhBanHangService.getDecryptedTikTokAccessToken()).thenReturn("tok_1");
+        when(kenhBanHangService.getTikTokShopCipher()).thenReturn("ROW_CIPHER");
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_TIKTOK_MA_KHO_SAN"), any())).thenReturn("wh_2");
+
+        var whReturn = com.dev.backend.dto.response.customize.TikTokWarehouseDto.builder()
+                .id("wh_ret_0").name("Kho Hoàn Bưu Cục").type("RETURN_WAREHOUSE").subType("DOMESTIC_WAREHOUSE").isDefault(false).build();
+        var whSales1 = com.dev.backend.dto.response.customize.TikTokWarehouseDto.builder()
+                .id("wh_1").name("Kho Hà Nội").type("SALES_WAREHOUSE").subType("DOMESTIC_WAREHOUSE").isDefault(true).build();
+        var whSales2 = com.dev.backend.dto.response.customize.TikTokWarehouseDto.builder()
+                .id("wh_2").name("Kho Hồ Chí Minh").type("SALES_WAREHOUSE").subType("DOMESTIC_WAREHOUSE").isDefault(false).build();
+
+        var whResp = new com.dev.backend.dto.response.customize.TikTokWarehousesResponse();
+        whResp.setWarehouses(List.of(whReturn, whSales1, whSales2));
+        when(mockClient.getWarehouses("app_k", "app_s", "tok_1", "ROW_CIPHER")).thenReturn(whResp);
+
+        List<com.dev.backend.dto.response.customize.ShopifyLocationDto> ds = service.getLocations("TIKTOK");
+
+        assertEquals(2, ds.size(), "Phải lọc bỏ RETURN_WAREHOUSE, chỉ giữ 2 SALES_WAREHOUSE");
+        assertEquals("wh_1", ds.get(0).getMaKhoSan());
+        assertEquals("Kho Hà Nội", ds.get(0).getTenKhoSan());
+        assertTrue(ds.get(0).isMacDinh());
+        assertEquals("wh_2", ds.get(1).getMaKhoSan());
+        assertEquals("Kho Hồ Chí Minh", ds.get(1).getTenKhoSan());
+        assertFalse(ds.get(1).isMacDinh());
+        verify(dieuHanhHeThongService, never()).setCauHinhString(eq("KENH_TIKTOK_MA_KHO_SAN"), any());
+    }
+
+    @Test
+    @DisplayName("TikTok Shop: Khi đổi mã kho sàn trong luuCaiDat, reset Delta Sync và đẩy tồn ngay sang kho mới")
+    void luuCaiDat_khiDoiMaKhoSanTikTok_resetDeltaSyncVaDayTonSangKhoMoi() {
+        var mockClient = mock(com.dev.backend.services.tiktok.TikTokShopClient.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "tiktokShopClient", mockClient);
+
+        KenhBanHang tikTokKenh = KenhBanHang.builder().id(5).maKenh("TIKTOK").tenKenh("TikTok Shop").trangThai(1).build();
+        BienTheSanPham bt = BienTheSanPham.builder().id(173).maSku("POLO-NEW-WH-01").build();
+        TrangThaiDongBoSanPham dong = TrangThaiDongBoSanPham.builder()
+                .id(503)
+                .kenhBanHang(tikTokKenh)
+                .bienTheSanPham(bt)
+                .maSanPhamKenh("1738587264603882999")
+                .soLuongDaDay(15)
+                .trangThaiDongBo("thanh_cong")
+                .choPhepDongBo(true)
+                .build();
+
+        when(kenhBanHangRepository.findByMaKenh("TIKTOK")).thenReturn(Optional.of(tikTokKenh));
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(5)).thenReturn(List.of(dong));
+        when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(List.of(173)))
+                .thenReturn(List.<Object[]>of(new Object[]{173, BigDecimal.valueOf(15)}));
+
+        when(kenhBanHangService.getTikTokAppKey()).thenReturn("app_k");
+        when(kenhBanHangService.getDecryptedTikTokAppSecret()).thenReturn("app_s");
+        when(kenhBanHangService.getDecryptedTikTokAccessToken()).thenReturn("tok_1");
+        when(kenhBanHangService.getTikTokShopCipher()).thenReturn("ROW_CIPHER");
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_TIKTOK_MA_KHO_SAN"), any()))
+                .thenReturn("wh_cu_1", "wh_moi_2");
+
+        var sku = com.dev.backend.dto.response.customize.TikTokSkuDto.builder()
+                .id("1738587264603882999")
+                .sellerSku("POLO-NEW-WH-01")
+                .inventory(List.of(
+                        new com.dev.backend.dto.response.customize.TikTokSkuDto.Inventory("wh_cu_1", 10),
+                        new com.dev.backend.dto.response.customize.TikTokSkuDto.Inventory("wh_moi_2", 3)))
+                .build();
+        var prod = com.dev.backend.dto.response.customize.TikTokProductDto.builder()
+                .id("77777").status("ACTIVATE").skus(List.of(sku)).build();
+        var searchResp = new com.dev.backend.dto.response.customize.TikTokProductSearchResponse();
+        var searchData = new com.dev.backend.dto.response.customize.TikTokProductSearchResponse.ProductSearchData();
+        searchData.setProducts(List.of(prod));
+        searchResp.setData(searchData);
+        when(mockClient.searchProducts(any(), any(), any(), any(), anyInt(), any())).thenReturn(searchResp);
+
+        var okResp = new com.dev.backend.dto.response.customize.TikTokInventoryUpdateResponse();
+        okResp.setCode(0);
+        when(mockClient.updateProductInventory(any(), any(), any(), any(), eq("77777"), any())).thenReturn(okResp);
+
+        var req = com.dev.backend.dto.request.KenhBanHangCaiDatRequest.builder()
+                .maKhoSan("wh_moi_2")
+                .tenKhoSan("Kho Hồ Chí Minh")
+                .build();
+
+        DongBoTongQuanDto result = service.luuCaiDat("TIKTOK", req);
+
+        assertNotNull(result);
+        verify(dieuHanhHeThongService).setCauHinhString("KENH_TIKTOK_MA_KHO_SAN", "wh_moi_2");
+        verify(dieuHanhHeThongService).setCauHinhString("KENH_TIKTOK_TEN_KHO_SAN", "Kho Hồ Chí Minh");
+        verify(trangThaiDongBoSanPhamRepository, atLeastOnce()).saveAll(any());
+
+        org.mockito.ArgumentCaptor<com.dev.backend.dto.request.TikTokInventoryUpdateRequest> reqCaptor =
+                org.mockito.ArgumentCaptor.forClass(com.dev.backend.dto.request.TikTokInventoryUpdateRequest.class);
+        verify(mockClient).updateProductInventory(any(), any(), any(), any(), eq("77777"), reqCaptor.capture());
+        var sentInvs = reqCaptor.getValue().getSkus().get(0).getInventory();
+        assertTrue(sentInvs.stream().anyMatch(i -> "wh_moi_2".equals(i.getWarehouseId()) && Integer.valueOf(15).equals(i.getQuantity())),
+                "Kho mới wh_moi_2 phải nhận đủ số tồn khả dụng 15 dù soLuongDaDay trước đó cũng là 15");
+    }
 }
