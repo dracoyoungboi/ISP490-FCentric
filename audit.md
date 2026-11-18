@@ -125,6 +125,7 @@
 | **AUDIT-107** | `2026-11-18 04:25:00` | Codex / PhanAnh | Review & fix / Cô lập Shopify | Tra đơn, scheduler, inbox, client, UI, i18n, tests, docs | Tái hiện 12 ca lỗi và sửa chọn nhầm kênh/phản hồi thiếu; tách lịch Shopify, chặn lỗi DDL lan tới khởi động, giới hạn SSE. 387 bài backend đạt, 693 bài frontend đạt và 1 bỏ qua. |
 | **AUDIT-108** | `2026-11-18 09:30:00` | PhanAnh & Antigravity AI | Perf & Fix / Tối ưu Shopify & Chặn đẩy tồn SKU ngừng đồng bộ | `migration_cho_phep_dong_bo.sql`, `TrangThaiDongBoSanPham.java`, `KenhBanHangDongBoServiceImpl.java`, `ShopifyWebhookWorker.java`, `OmnichannelOrderSyncJob.java`, `ChannelSettingsPage.jsx`, `KenhBanHangDongBoServiceTest.java` | Tối ưu triệt để tốc độ Shopify: lùi timer worker từ 1s về 60s, dọn vòng lặp đối soát tiến trình dồn dập trong sync job, ẩn nút cập nhật tức thì khi thiếu secret; Bổ sung cột cho_phep_dong_bo vào DB và entity, sửa toLienKetDto và capNhatLienKet, chặn 100% việc đẩy tồn và tự động tạo mới SKU đã tắt đồng bộ trên cả 4 sàn (Lazada, TikTok, Shopee, Shopify). Backend 64/64 unit tests đạt 100%, frontend 728 tệp i18n sạch 100%. |
 | **AUDIT-109** | `2026-11-18 10:15:00` | PhanAnh & Antigravity AI | Feat, Perf & Fix / Delta Sync Shopify, sửa bộ lọc kênh, hủy liên kết & hoàn thiện 8 trạng thái | `TrangThaiDongBoSanPhamRepository.java`, `KenhBanHangDongBoServiceImpl.java`, `KenhBanHangController.java`, `kenhBanHangService.js`, `ChannelMappingsPage.jsx`, `kenhBan.properties`, `kenhBan_en.properties`, `kenh-ban.json`, `KenhBanHangDongBoServiceTest.java` | Triển khai Delta Sync Shopify giảm 95% API calls (chỉ đẩy SKU đổi tồn, bypass SKU không đổi); Sửa bộ lọc tab liên kết (da_lien_ket, chua_lien_ket, loi) đồng bộ với DB; Thêm API và nút Hủy liên kết SKU khỏi sàn; Hoàn thiện đồng bộ 8 trạng thái đơn hàng Shopify (In Progress, Fulfilled, Delivered, Cancelled, Returned / Refund) chuẩn Sapo/Haravan. Backend 65/65 tests đạt, Frontend 728 tệp i18n sạch 100%. |
+| **AUDIT-110** | `2026-11-18 10:50:00` | PhanAnh & Antigravity AI | Audit & Test / Xác thực tính cô lập đa kênh (Channel Isolation) khi Hủy liên kết hoặc Ngừng hoạt động | `KenhBanHangDongBoServiceImpl.java`, `TrangThaiDongBoSanPhamRepository.java`, `KenhBanHangDongBoServiceTest.java` | Rà soát toàn diện cơ chế cô lập dữ liệu giữa các sàn TMĐT: khẳng định 100% khi Hủy liên kết, tắt đồng bộ hoặc sản phẩm ngừng hoạt động trên Sàn A thì Sàn B hoàn toàn KHÔNG bị hủy, không bị đổi trạng thái do mô hình dữ liệu lưu độc lập theo kenh_ban_id; Bổ sung 2 bài unit tests xác thực tính cô lập, đạt 67/67 tests PASS 100%. |
 
 
 ---
@@ -4083,4 +4084,42 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
   + `ShopifyStatusSyncTest`: **9/9 tests PASS (100%)**.
 - **Frontend:**
   + `npm run i18n:kiem`: **728/728 tệp đạt chuẩn sạch 100%** (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
+
+
+
+### [AUDIT-110] XÁC THỰC VÀ BẢO ĐẢM TÍNH CÔ LẬP ĐA KÊNH (CHANNEL ISOLATION) KHI HỦY LIÊN KẾT HOẶC SẢN PHẨM SÀN NGỪNG HOẠT ĐỘNG
+
+#### Metadata
+- **Thời gian:** 18/11/2026 10:50 (GMT+7)
+- **Tác giả:** PhanAnh & Antigravity AI
+- **Phân hệ:** Omnichannel Product Mapping, Data Isolation, Integrity Guard.
+- **Tệp thay đổi:** 
+  + `backend/src/test/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceTest.java`
+  + `audit.md`
+
+#### Mục tiêu & Phân tích nguyên nhân gốc rễ (RCA)
+1. **Câu hỏi nghiệp vụ & Mối lo ngại của người dùng:**
+   - *Nếu hủy liên kết của một sản phẩm ở Sàn A thì Sàn B có bị hủy liên kết của sản phẩm đó không?*
+   - *Nếu sản phẩm trên Sàn A không còn hoạt động (bị sàn xóa, khóa kiểm duyệt, hết hàng, người bán ẩn) thì Sàn B có bị ảnh hưởng hoặc bị hủy liên kết không?*
+2. **Đối soát kiến trúc và mô hình dữ liệu (Data Architecture):**
+   - Bảng `trang_thai_dong_bo_san_pham` thiết kế quan hệ n-1 độc lập: Mỗi bản ghi đại diện cho 1 liên kết giữa 1 biến thể FCentric (`bien_the_san_pham_id`) và 1 kênh bán cụ thể (`kenh_ban_id`). Khóa chính `id` là của riêng từng dòng liên kết trên từng sàn.
+   - Thao tác Hủy liên kết qua `DELETE /api/v1/kenh-ban-hang/lien-ket/{id}`: Tham số `{id}` là khóa chính của dòng liên kết thuộc Sàn A. Lệnh xóa `trangThaiDongBoSanPhamRepository.delete(record)` chỉ xóa duy nhất bản ghi có ID đó. Bản ghi của Sàn B có `id` khác và `kenh_ban_id` khác nên hoàn toàn không bị ảnh hưởng.
+   - Khi sản phẩm trên Sàn A bị xóa hoặc ngừng bán trên sàn đối tác:
+     Hàm quét danh mục `taiSanPhamTuKenh` được cô lập 100% theo từng kênh (`existingList = findByKenhBanHangId(kenh.getId())`). Do đó, nếu SKU biến mất trên Sàn A, hệ thống chỉ cập nhật bản ghi của Sàn A sang `chua_dong_bo` kèm lý do lỗi của Sàn A. Bản ghi của Sàn B vẫn giữ nguyên 100% trạng thái `thanh_cong` và `cho_phep_dong_bo = true`.
+   - Các luồng đẩy tồn (`dayTonKhoLenKenh`, `dayTonTheoQuyTacDaLuu`, `dayTonKhoKhanCap`): Đều truy vấn theo `kenh.getId()` hoặc duyệt qua từng mapping độc lập. Sàn A dừng đồng bộ thì chỉ bỏ qua Sàn A, Sàn B vẫn nhận tồn khả dụng và đẩy bình thường.
+
+#### Giải pháp kỹ thuật & Chi tiết triển khai
+1. **Bảo vệ tính cô lập đa kênh (Channel Isolation):**
+   - Khẳng định 100% về mặt kiến trúc: Sàn B hoàn toàn độc lập với Sàn A. Mọi thao tác hủy liên kết, tắt công tắc đồng bộ, sửa giá sàn, quét sản phẩm trên Sàn A đều không can thiệp chéo sang Sàn B.
+   - Duy nhất trường hợp sản phẩm/biến thể gốc trong kho FCentric bị xóa hẳn hoặc ngừng kinh doanh toàn hệ thống (`trang_thai = 0`) thì tất cả các sàn mới không còn hàng tồn để đẩy.
+2. **Bổ sung bộ kiểm thử đơn vị (Unit Tests):**
+   - Thêm `xoaLienKet_sanA_khongAnhHuongSanB`: Mô phỏng 1 SKU liên kết đồng thời với Shopify (ID 20) và Shopee (ID 21). Khi gọi `xoaLienKet(20)`, xác minh repository chỉ xóa mapping Shopify, không bao giờ xóa mapping Shopee (`verify(never()).delete(mappingShopee)`), đồng thời Shopee vẫn giữ nguyên `choPhepDongBo = true`, `trangThaiDongBo = thanh_cong` và `maSanPhamKenh`.
+   - Thêm `capNhatLienKet_tatDongBoSanA_khongAnhHuongSanB`: Khi tắt đồng bộ ở Shopify (`choPhepDongBo = false`), xác minh Shopee vẫn giữ nguyên `choPhepDongBo = true`.
+
+#### Kết quả kiểm thử & Đối soát hồi quy
+- **Backend:**
+  + `KenhBanHangDongBoServiceTest`: **67/67 bài tests PASS 100%**.
+- **Frontend:**
+  + `npm run i18n:kiem`: **728/728 tệp đạt chuẩn sạch 100%**.
+
 
