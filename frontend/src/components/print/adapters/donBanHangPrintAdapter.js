@@ -93,8 +93,6 @@ function toDonBanHangPrintModel(raw) {
         buyer: {
             name: dash(kh.tenKhachHang),
             code: textOrNull(kh.maKhachHang),
-            taxCode: textOrNull(kh.maSoThue),
-            contact: textOrNull(kh.nguoiLienHe),
             phone: textOrNull(kh.soDienThoai),
             address: textOrNull(kh.diaChi),
             // Địa chỉ giao của RIÊNG đơn này (có thể khác địa chỉ khách hàng);
@@ -116,8 +114,7 @@ function toDonBanHangPrintModel(raw) {
         notes: textOrNull(don.ghiChu),
         signatures: {
             creator: { name: dash(seller.hoTen) },
-            // Người ký là NGƯỜI đại diện bên mua (khách có thể là cửa hàng/công ty)
-            // — để trống ký và ghi rõ họ tên, không in sẵn tên khách hàng.
+            // Ô trống để khách ký và ghi rõ họ tên, không in sẵn tên khách hàng.
             buyer: { name: "" },
         },
     };

@@ -267,7 +267,7 @@ export const SAMPLE_GOODS_ISSUE_PAYLOAD = {
         donBanHang: {
             soDonHang: "MẪU-SO-0001",
             diaChiGiaoHang: "12 Trần Quang Khải, Quận 1, TP. Hồ Chí Minh",
-            khachHang: { tenKhachHang: "Shop thời trang Hoa Việt", soDienThoai: "0908 555 010" },
+            khachHang: { tenKhachHang: "Trần Thu Hà", soDienThoai: "0908 555 010" },
         },
         nguoiXuat: { hoTen: "Nguyễn Văn An", email: "an.nv@example.com" },
         nguoiDuyet: { hoTen: "Lê Văn Cường", email: "cuong.lv@example.com" },
@@ -311,15 +311,12 @@ export const SAMPLE_SALES_INVOICE_RAW = {
         soDonHang: "MẪU-SO-0001",
         loaiChungTu: "don_ban_hang",
         khachHang: {
-            tenKhachHang: "Shop thời trang Hoa Việt",
+            tenKhachHang: "Trần Thu Hà",
             maKhachHang: "KH-0001",
-            maSoThue: "0318765432",
-            nguoiLienHe: "Chị Thu Hà",
             // API đơn bán che số điện thoại khách (MaskingUtils, SRS 8.1.1) — bản in thật cũng vậy
             soDienThoai: "09***010",
-            email: "thuha@hoaviet.example.com",
+            email: "thuha@example.com",
             diaChi: "789 Lê Văn Sỹ, Quận 3, TP. Hồ Chí Minh",
-            loaiKhachHang: "si",
         },
         khoXuat: { tenKho: "Kho trung tâm", maKho: "KHO-TT" },
         // Đặt 15/09 lúc 09:30 (giờ VN), xuất kho 16/09 — trước ngày của phiếu xuất mẫu
@@ -379,7 +376,6 @@ export const SAMPLE_POS_INVOICE_RAW = {
             tenKhachHang: "Nguyễn Minh Anh",
             maKhachHang: "KH-0102",
             soDienThoai: "09***789",
-            loaiKhachHang: "le",
         },
         khoXuat: { tenKho: "Cửa hàng Quận 1", maKho: "CH-Q1" },
         // Bán lúc 14:42 ngày 16/09 (giờ VN)

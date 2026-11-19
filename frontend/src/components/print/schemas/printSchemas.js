@@ -137,7 +137,7 @@ const thermalInvoiceTemplates = (key) =>
         isDefault: index === 0,
         defaults: {
             sections: {
-                buyer: { taxCode: false, contact: false, address: false, deliveryAddress: false },
+                buyer: { address: false, deliveryAddress: false },
                 items: { showTotal: false },
                 totals: { amountInWords: false },
                 signatures: { creator: false, buyer: false },
@@ -159,14 +159,6 @@ const SALES_INVOICE_SECTIONS = [
         fields: [
             { key: "name", label: "Khách hàng", modelPath: "buyer.name" },
             { key: "code", label: "Mã khách hàng", modelPath: "buyer.code", hideWhenEmpty: true, defaultOn: false },
-            {
-                key: "taxCode",
-                label: "Mã số thuế",
-                modelPath: "buyer.taxCode",
-                hideWhenEmpty: true,
-                hint: "Chỉ in khi khách hàng có mã số thuế",
-            },
-            { key: "contact", label: "Người liên hệ", modelPath: "buyer.contact", hideWhenEmpty: true },
             { key: "phone", label: "Điện thoại", modelPath: "buyer.phone", hideWhenEmpty: true },
             { key: "address", label: "Địa chỉ", modelPath: "buyer.address", hideWhenEmpty: true },
             {
