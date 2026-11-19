@@ -101,6 +101,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     public static final String MA_KENH_SHOPIFY = "SHOPIFY";
     public static final String DEFAULT_API_VERSION = "2024-01";
+    private static final String CAU_HINH_SHOPIFY_TON_THEO_KHO = "SHOPIFY_TON_DA_DAY_KHO";
 
     ShopifyOrderProgressClient shopifyOrderProgressClient = new ShopifyOrderProgressClient();
     @lombok.experimental.NonFinal
@@ -157,6 +158,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     Map<Integer, Instant> lanDayTonCuoi = new java.util.concurrent.ConcurrentHashMap<>();
     // Khóa đẩy tồn theo id kênh: một kênh chỉ một đợt đẩy tồn cùng lúc (trong một máy chủ)
     Map<Integer, ReentrantLock> khoaDayTon = new java.util.concurrent.ConcurrentHashMap<>();
+    // Ảnh chụp số tồn đã đẩy thành công theo từng cặp (bienTheId -> {locationId -> qty}) cho Shopify đa kho
+    final Map<Integer, Map<Long, Integer>> shopifyDaDayTheoKhoCache = new ConcurrentHashMap<>();
+    final Object shopifyTonKhoLock = new Object();
+    @lombok.experimental.NonFinal
+    volatile boolean shopifyTonKhoCacheHydrated = false;
 
     private record DongCanCapNhat(TrangThaiDongBoSanPham dong, int soDay, String skuSan, String sellerSku) {
         public String skuId() {
@@ -4831,15 +4837,34 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int soBoQuaKhongDoi = 0;
         boolean dungTheoYeuCau = false;
         if (loiKenh == null) {
-            // Delta Sync: Lọc danh sách SKU cần đẩy (số tồn thay đổi hoặc trạng thái chưa thành công)
+            KenhKhoMappingConfigDto mappingCfg = layCauHinhKhoMappingDaLuu("SHOPIFY");
+            boolean shopifyDaKho = mappingCfg != null && Boolean.TRUE.equals(mappingCfg.getCheDoDaKho())
+                    && mappingCfg.getDanhSachKho() != null && mappingCfg.getDanhSachKho().size() >= 2;
+            Map<Integer, Boolean> laKhoTongMap = shopifyDaKho ? taiBanDoLaKhoTong() : Collections.emptyMap();
+
+            // Delta Sync: Lọc danh sách SKU cần đẩy (khi bật đa kho Shopify so sánh theo từng cặp bienTheId + locationId)
             List<DongCanCapNhat> dirtyList = new ArrayList<>();
+            Map<Integer, Map<Long, Integer>> expectedTheoSku = new HashMap<>();
             for (TrangThaiDongBoSanPham dong : dongCanDay) {
                 BienTheSanPham bt = dong.getBienTheSanPham();
                 if (bt == null) continue;
-                int soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
-                boolean khongDoi = dong.getSoLuongDaDay() != null
-                        && dong.getSoLuongDaDay().equals(soDay)
-                        && "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
+                boolean khongDoi;
+                int soDay;
+                if (shopifyDaKho && bt.getId() != null) {
+                    Map<Long, Integer> expectedLocs = tinhTonTheoLocationShopify(bt.getId(), mappingCfg, tyLe, tonDem, nguongVe0, laKhoTongMap);
+                    soDay = expectedLocs.values().stream().mapToInt(Integer::intValue).sum();
+                    expectedTheoSku.put(bt.getId(), expectedLocs);
+                    Map<Long, Integer> prevLocs = docTonDaDayTheoKhoShopify(bt.getId());
+                    khongDoi = "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo())
+                            && !expectedLocs.isEmpty()
+                            && prevLocs != null
+                            && prevLocs.equals(expectedLocs);
+                } else {
+                    soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
+                    khongDoi = dong.getSoLuongDaDay() != null
+                            && dong.getSoLuongDaDay().equals(soDay)
+                            && "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
+                }
                 if (khongDoi) {
                     soBoQuaKhongDoi++;
                 } else {
@@ -4851,6 +4876,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     maKenh, dongCanDay.size(), dirtyList.size(), soBoQuaKhongDoi);
 
             theoDoi.batDauDay(dirtyList.size());
+            boolean coCapNhatDaKho = false;
             for (DongCanCapNhat item : dirtyList) {
                 // Throttling 250ms bảo vệ Shopify leaky bucket rate limit khi đẩy danh sách SKU thực tế
                 if (daXuLy > 0) {
@@ -4865,7 +4891,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 TrangThaiDongBoSanPham dong = item.dong();
                 BienTheSanPham bt = dong.getBienTheSanPham();
                 theoDoi.dangDay(item.sellerSku());
-                KetQuaGuiTon kq = dayTonChoDong(dong, ketNoi, item.soDay());
+                Map<Long, Integer> expectedLocs = bt != null ? expectedTheoSku.get(bt.getId()) : null;
+                KetQuaGuiTon kq = expectedLocs != null
+                        ? dayTonChoDongShopifyTheoMap(dong, ketNoi, item.soDay(), expectedLocs)
+                        : dayTonChoDong(dong, ketNoi, item.soDay());
                 if (kq.loiKenh()) {
                     loiKenh = kq.lyDo();
                     break;
@@ -4873,11 +4902,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 daXuLy++;
                 if (kq.thanhCong()) {
                     soThanhCong++;
+                    if (expectedLocs != null) coCapNhatDaKho = true;
                 } else {
                     soLoi++;
                 }
                 trangThaiDongBoSanPhamRepository.save(dong);
                 theoDoi.daDay(item.sellerSku(), kq.thanhCong() ? null : tenHienThi(bt), kq.thanhCong(), kq.lyDo());
+            }
+            if (coCapNhatDaKho) {
+                flushTonDaDayTheoKhoShopify();
             }
         }
         int soChuaDay = (dongCanDay.size() - soBoQuaKhongDoi) - daXuLy;
@@ -4940,8 +4973,24 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     log.warn("[JOB-03 Real-time] Không đẩy tồn khẩn cấp SKU ID {} lên kênh {}: {}", bienTheSanPhamId, maKenhCuaDong, ketNoi.lyDoLoi());
                     continue;
                 }
-                int soDay = soTonDayTheoQuyTacDaLuu(maKenhCuaDong, tinhKhaDungTheoKhoKenh(maKenhCuaDong, bienTheSanPhamId));
-                KetQuaGuiTon kq = dayTonChoDong(m, ketNoi, soDay);
+                KetQuaGuiTon kq;
+                boolean shopifyDaKho = OmnichannelOrderSyncJob.isShopify(maKenhCuaDong);
+                KenhKhoMappingConfigDto mappingCfg = shopifyDaKho ? layCauHinhKhoMappingDaLuu("SHOPIFY") : null;
+                if (mappingCfg != null && Boolean.TRUE.equals(mappingCfg.getCheDoDaKho())
+                        && mappingCfg.getDanhSachKho() != null && mappingCfg.getDanhSachKho().size() >= 2) {
+                    DayTonKenhRequest rule = quyTacDaLuu("SHOPIFY");
+                    BigDecimal tl = rule.getTyLeDayTon() != null ? rule.getTyLeDayTon() : BigDecimal.valueOf(100);
+                    Map<Long, Integer> expectedLocs = tinhTonTheoLocationShopify(
+                            bienTheSanPhamId, mappingCfg, tl, rule.getTonDem(), rule.getNguongVe0(), taiBanDoLaKhoTong());
+                    int soDay = expectedLocs.values().stream().mapToInt(Integer::intValue).sum();
+                    kq = dayTonChoDongShopifyTheoMap(m, ketNoi, soDay, expectedLocs);
+                    if (kq.thanhCong()) {
+                        flushTonDaDayTheoKhoShopify();
+                    }
+                } else {
+                    int soDay = soTonDayTheoQuyTacDaLuu(maKenhCuaDong, tinhKhaDungTheoKhoKenh(maKenhCuaDong, bienTheSanPhamId));
+                    kq = dayTonChoDong(m, ketNoi, soDay);
+                }
                 if (kq.loiKenh()) {
                     log.warn("[JOB-03 Real-time] Không đẩy tồn khẩn cấp SKU ID {} lên kênh {}: {}", bienTheSanPhamId, maKenhCuaDong, kq.lyDo());
                     continue;
@@ -5530,7 +5579,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     public KenhKhoMappingConfigDto layCauHinhKhoMappingDaLuu(String maKenh) {
-        if (maKenh == null || maKenh.isBlank()) return null;
+        if (dieuHanhHeThongService == null || maKenh == null || maKenh.isBlank()) return null;
         String json = dieuHanhHeThongService.getCauHinhString("KENH_" + maKenh.trim().toUpperCase() + "_KHO_MAPPING", null);
         if (json == null || json.isBlank()) return null;
         try {
@@ -6721,6 +6770,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
      * Lỗi SKU: dòng sang "that_bai" kèm lý do. Lỗi cả gian hàng: không đổi dòng.
      */
     KetQuaGuiTon dayTonChoDong(TrangThaiDongBoSanPham dong, KetNoiDayTon ketNoi, int soDay) {
+        return dayTonChoDongShopifyTheoMap(dong, ketNoi, soDay, null);
+    }
+
+    /** Đẩy tồn một dòng liên kết; khi có {@code precomputedShopifyLocs} dùng thẳng để tránh tính lại nhiều lần. */
+    KetQuaGuiTon dayTonChoDongShopifyTheoMap(
+            TrangThaiDongBoSanPham dong,
+            KetNoiDayTon ketNoi,
+            int soDay,
+            Map<Long, Integer> precomputedShopifyLocs) {
         KetQuaGuiTon kq;
         boolean daDungShopifyDaKho = false;
         if (dong.getKenhBanHang() != null && OmnichannelOrderSyncJob.isLazada(dong.getKenhBanHang().getMaKenh())) {
@@ -6735,6 +6793,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             ShopifyVariantInfo vInfo = maSku == null ? null : ketNoi.skuMap().get(maSku.trim().toLowerCase());
             if (vInfo == null || vInfo.getInventoryItemId() == null || vInfo.getInventoryItemId() <= 0) {
                 kq = KetQuaGuiTon.loiSku("Không tìm thấy SKU " + maSku + " trên Shopify");
+            } else if (precomputedShopifyLocs != null && !precomputedShopifyLocs.isEmpty()) {
+                daDungShopifyDaKho = true;
+                kq = dayTonShopifyTheoLocMap(dong, ketNoi, vInfo, precomputedShopifyLocs);
             } else {
                 KenhKhoMappingConfigDto mappingCfg = layCauHinhKhoMappingDaLuu("SHOPIFY");
                 if (mappingCfg != null && Boolean.TRUE.equals(mappingCfg.getCheDoDaKho())
@@ -6862,8 +6923,101 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
-    /** Tính map tồn dự kiến theo từng Shopify Location theo cấu hình đa kho hiện tại (PA 1 Waterfall). */
+    /** Nạp map khoId -> có phải Kho Tổng (1 lần cho cả đợt đồng bộ đa kho). */
+    Map<Integer, Boolean> taiBanDoLaKhoTong() {
+        Map<Integer, Boolean> map = new HashMap<>();
+        if (khoRepository != null) {
+            for (Kho k : khoRepository.findAll()) {
+                map.put(k.getId(), KhoService.laKhoTong(k));
+            }
+        }
+        return map;
+    }
+
+    /** Nạp cache tồn đã đẩy theo từng cặp (bienTheId -> {locationId -> qty}) từ cau_hinh_he_thong. */
+    private void hydrateTonDaDayTheoKhoIfNeeded() {
+        if (shopifyTonKhoCacheHydrated || dieuHanhHeThongService == null) return;
+        synchronized (shopifyTonKhoLock) {
+            if (shopifyTonKhoCacheHydrated) return;
+            try {
+                String json = dieuHanhHeThongService.getCauHinhString(CAU_HINH_SHOPIFY_TON_THEO_KHO, null);
+                if (json != null && !json.isBlank()) {
+                    Map<String, Map<String, Integer>> raw = objectMapper.readValue(json,
+                            new com.fasterxml.jackson.core.type.TypeReference<>() {});
+                    if (raw != null) {
+                        raw.forEach((skuIdStr, locs) -> {
+                            try {
+                                Integer btId = Integer.valueOf(skuIdStr);
+                                Map<Long, Integer> locMap = new LinkedHashMap<>();
+                                if (locs != null) {
+                                    locs.forEach((lStr, qty) -> {
+                                        try {
+                                            locMap.put(Long.valueOf(lStr), qty);
+                                        } catch (NumberFormatException ignored) {}
+                                    });
+                                }
+                                shopifyDaDayTheoKhoCache.put(btId, locMap);
+                            } catch (NumberFormatException ignored) {}
+                        });
+                    }
+                }
+            } catch (Exception ex) {
+                log.debug("[SHOPIFY-MULTI-WH] Không đọc được snapshot tồn đã đẩy theo kho: {}", ex.getMessage());
+            } finally {
+                shopifyTonKhoCacheHydrated = true;
+            }
+        }
+    }
+
+    /** Đọc bản chụp số tồn Shopify đã nhận theo từng Location của một biến thể; null nếu chưa có. */
+    Map<Long, Integer> docTonDaDayTheoKhoShopify(Integer bienTheId) {
+        if (bienTheId == null) return null;
+        hydrateTonDaDayTheoKhoIfNeeded();
+        return shopifyDaDayTheoKhoCache.get(bienTheId);
+    }
+
+    /** Ghi nhận cache per-location sau khi đẩy thành công vào 1 hay nhiều location. */
+    void capNhatCacheTonTheoKhoShopify(Integer bienTheId, Map<Long, Integer> pushedLocs) {
+        if (bienTheId == null || pushedLocs == null) return;
+        synchronized (shopifyTonKhoLock) {
+            shopifyDaDayTheoKhoCache.put(bienTheId, new LinkedHashMap<>(pushedLocs));
+        }
+    }
+
+    /** Lưu đồng bộ snapshot tồn đã đẩy theo Location vào cau_hinh_he_thong (1 dòng duy nhất, không đổi DDL). */
+    void flushTonDaDayTheoKhoShopify() {
+        if (dieuHanhHeThongService == null || shopifyDaDayTheoKhoCache.isEmpty()) return;
+        synchronized (shopifyTonKhoLock) {
+            try {
+                Map<String, Map<String, Integer>> serializable = new LinkedHashMap<>();
+                shopifyDaDayTheoKhoCache.forEach((btId, locs) -> {
+                    if (btId == null || locs == null || locs.isEmpty()) return;
+                    Map<String, Integer> strLocs = new LinkedHashMap<>();
+                    locs.forEach((lId, qty) -> strLocs.put(String.valueOf(lId), qty));
+                    serializable.put(String.valueOf(btId), strLocs);
+                });
+                dieuHanhHeThongService.setCauHinhString(CAU_HINH_SHOPIFY_TON_THEO_KHO, objectMapper.writeValueAsString(serializable));
+            } catch (Exception ex) {
+                log.warn("[SHOPIFY-MULTI-WH] Không lưu được snapshot tồn theo kho: {}", ex.getMessage());
+            }
+        }
+    }
+
+    /** Tính map tồn dự kiến theo từng Shopify Location theo quy tắc đang lưu (PA 1 Waterfall). */
     Map<Long, Integer> tinhTonTheoLocationShopify(Integer bienTheId, KenhKhoMappingConfigDto mappingCfg) {
+        DayTonKenhRequest q = quyTacDaLuu("SHOPIFY");
+        BigDecimal tyLe = q.getTyLeDayTon() != null ? q.getTyLeDayTon() : BigDecimal.valueOf(100);
+        return tinhTonTheoLocationShopify(bienTheId, mappingCfg, tyLe, q.getTonDem(), q.getNguongVe0(), taiBanDoLaKhoTong());
+    }
+
+    /** Overload cho vòng lặp batch: dùng chung {@code laKhoTongMap} và quy tắc đã đọc 1 lần. */
+    Map<Long, Integer> tinhTonTheoLocationShopify(
+            Integer bienTheId,
+            KenhKhoMappingConfigDto mappingCfg,
+            BigDecimal tyLe,
+            int tonDem,
+            int nguongVe0,
+            Map<Integer, Boolean> laKhoTongMap) {
         if (bienTheId == null || mappingCfg == null || mappingCfg.getDanhSachKho() == null) {
             return Collections.emptyMap();
         }
@@ -6872,13 +7026,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .toList();
         if (activeMappings.isEmpty()) {
             return Collections.emptyMap();
-        }
-
-        Map<Integer, Boolean> laKhoTongMap = new HashMap<>();
-        if (khoRepository != null) {
-            for (Kho k : khoRepository.findAll()) {
-                laKhoTongMap.put(k.getId(), KhoService.laKhoTong(k));
-            }
         }
 
         Map<Integer, BigDecimal> tonKhaDungTheoKhoMap = new HashMap<>();
@@ -6891,13 +7038,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 List<Object[]> stocks = tonKhoTongHopRepository.sumFreeToUseTheoKhoVaBienTheIds(id, List.of(bienTheId));
                 return (!stocks.isEmpty() && stocks.get(0)[1] != null) ? (BigDecimal) stocks.get(0)[1] : BigDecimal.ZERO;
             });
-            boolean isTong = laKhoTongMap.getOrDefault(khoId, false);
+            boolean isTong = laKhoTongMap != null && laKhoTongMap.getOrDefault(khoId, false);
             inputs.add(new KhoTonInput(locId, khoId, isTong, kd));
         }
 
-        DayTonKenhRequest q = quyTacDaLuu("SHOPIFY");
-        BigDecimal tyLe = q.getTyLeDayTon() != null ? q.getTyLeDayTon() : BigDecimal.valueOf(100);
-        return phanBoTonDemWaterfall(inputs, tyLe, q.getTonDem(), q.getNguongVe0());
+        return phanBoTonDemWaterfall(inputs, tyLe, tonDem, nguongVe0);
     }
 
     KetQuaGuiTon dayTonShopifyDaKho(
@@ -6909,41 +7054,77 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (bt == null || bt.getId() == null) {
             return KetQuaGuiTon.loiSku("Biến thể không hợp lệ");
         }
-
         Map<Long, Integer> soDayTheoLocation = tinhTonTheoLocationShopify(bt.getId(), mappingCfg);
-        if (soDayTheoLocation.isEmpty()) {
+        KetQuaGuiTon kq = dayTonShopifyTheoLocMap(dong, ketNoi, vInfo, soDayTheoLocation);
+        if (kq.thanhCong()) {
+            flushTonDaDayTheoKhoShopify();
+        }
+        return kq;
+    }
+
+    /** Đẩy lên từng Location có số tồn thay đổi hoặc lần trước chưa xác nhận, cập nhật snapshot từng Location. */
+    KetQuaGuiTon dayTonShopifyTheoLocMap(
+            TrangThaiDongBoSanPham dong,
+            KetNoiDayTon ketNoi,
+            ShopifyVariantInfo vInfo,
+            Map<Long, Integer> soDayTheoLocation) {
+        BienTheSanPham bt = dong.getBienTheSanPham();
+        if (bt == null || bt.getId() == null) {
+            return KetQuaGuiTon.loiSku("Biến thể không hợp lệ");
+        }
+        if (soDayTheoLocation == null || soDayTheoLocation.isEmpty()) {
             return guiTonLenShopify(ketNoi.domain(), ketNoi.token(), ketNoi.locationId(), vInfo.getInventoryItemId(), 0);
         }
 
+        Map<Long, Integer> prevMap = docTonDaDayTheoKhoShopify(bt.getId());
+        boolean skuDangThanhCong = "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
+        Map<Long, Integer> mergedPushed = new LinkedHashMap<>();
         boolean coItNhatMotKhoThanhCong = false;
+        boolean tatCaDongBoXong = true;
         String loiCuoiCung = null;
-        int tongSoDayThucTe = 0;
 
         for (Map.Entry<Long, Integer> entry : soDayTheoLocation.entrySet()) {
             Long locationId = entry.getKey();
             int soDayKho = entry.getValue();
 
+            if (skuDangThanhCong && prevMap != null && Objects.equals(prevMap.get(locationId), soDayKho)) {
+                mergedPushed.put(locationId, soDayKho);
+                coItNhatMotKhoThanhCong = true;
+                continue;
+            }
+
             KetQuaGuiTon subKq = guiTonLenShopify(ketNoi.domain(), ketNoi.token(), locationId, vInfo.getInventoryItemId(), soDayKho);
             if (subKq.thanhCong()) {
                 coItNhatMotKhoThanhCong = true;
-                tongSoDayThucTe += soDayKho;
+                mergedPushed.put(locationId, soDayKho);
                 log.info("[SHOPIFY-MULTI-WH] Đẩy tồn thành công cho SKU {} lên Location {}: {} sp (Buffer Waterfall)",
                         bt.getMaSku(), locationId, soDayKho);
             } else if (subKq.loiKenh()) {
                 return subKq;
             } else {
+                tatCaDongBoXong = false;
                 loiCuoiCung = subKq.lyDo();
+                if (prevMap != null && prevMap.containsKey(locationId)) {
+                    mergedPushed.put(locationId, prevMap.get(locationId));
+                }
                 log.warn("[SHOPIFY-MULTI-WH] Lỗi đẩy tồn SKU {} lên Location {}: {}",
                         bt.getMaSku(), locationId, subKq.lyDo());
             }
         }
 
-        if (coItNhatMotKhoThanhCong) {
+        if (!mergedPushed.isEmpty()) {
+            capNhatCacheTonTheoKhoShopify(bt.getId(), mergedPushed);
+        }
+        if (tatCaDongBoXong && coItNhatMotKhoThanhCong) {
+            int tongSoDayThucTe = soDayTheoLocation.values().stream().mapToInt(Integer::intValue).sum();
             dong.setSoLuongDaDay(tongSoDayThucTe);
             return KetQuaGuiTon.THANH_CONG;
-        } else {
-            return KetQuaGuiTon.loiSku(loiCuoiCung != null ? loiCuoiCung : "Không thể cập nhật tồn lên các địa điểm Shopify");
         }
+        if (coItNhatMotKhoThanhCong) {
+            int tongDaDay = mergedPushed.values().stream().mapToInt(Integer::intValue).sum();
+            dong.setSoLuongDaDay(tongDaDay);
+        }
+        return KetQuaGuiTon.loiSku(loiCuoiCung != null ? loiCuoiCung : "Không thể cập nhật tồn lên các địa điểm Shopify");
     }
 
     KetQuaGuiTon guiTonLenShopee(TrangThaiDongBoSanPham dong, int soDay) {
