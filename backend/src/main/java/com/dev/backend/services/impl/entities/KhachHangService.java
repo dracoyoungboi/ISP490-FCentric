@@ -21,7 +21,9 @@ import com.dev.backend.repository.KhachHangRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
 import com.dev.backend.services.impl.multitable.DieuHanhHeThongServiceImpl;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
+import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.FilterCriteria;
+import com.dev.backend.constant.enums.FilterOperation;
 import com.dev.backend.utils.HoTen;
 import com.dev.backend.utils.NguonKhachHang;
 import com.dev.backend.utils.SoDienThoai;
@@ -78,6 +80,8 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     /** Các ô kiểm trùng (tên trường của API kiểm trùng). */
     public static final String TRUONG_SO_DIEN_THOAI = "soDienThoai";
     public static final String TRUONG_EMAIL = "email";
+    /** Trường lọc ảo theo nguồn khách (giá trị: {@link NguonKhachHang}). */
+    public static final String TRUONG_NGUON = "nguon";
     static final String CAN_LIEN_HE = ThongDiep.vi("banHang.canLienHeKhachHang");
 
     private final KhachHangRepository repository;
@@ -109,15 +113,71 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         return entityManager;
     }
 
-    /** Trường lọc ảo tuKhoa (ô tìm toàn hệ thống, ô tìm trang Khách hàng): tách ra, phần còn lại lọc như cũ. */
+    /**
+     * Danh sách khách cho màn Khách hàng (và số trên tab): cùng bộ lọc như filter, luôn chỉ khách cửa hàng (chốt 20/11).
+     * Khách do đồng bộ đơn sàn tạo vẫn lưu, vẫn gắn đơn và mở được từ đơn bán / báo cáo, chỉ không nằm trong danh sách.
+     */
+    @Transactional(readOnly = true)
+    public Page<KhachHang> filterKhachCuaHang(BaseFilterRequest filter) {
+        BaseFilterRequest yeuCau = filter == null ? new BaseFilterRequest() : filter;
+        List<FilterCriteria> loc = new ArrayList<>(yeuCau.getFilters() == null ? List.of() : yeuCau.getFilters());
+        loc.add(locChiKhachCuaHang());
+        yeuCau.setFilters(loc);
+        return filter(yeuCau);
+    }
+
+    /** Điều kiện lọc "chỉ khách cửa hàng" để ghép vào bộ lọc (trang Khách hàng, ô tìm toàn hệ thống). */
+    public static FilterCriteria locChiKhachCuaHang() {
+        return FilterCriteria.builder().fieldName(TRUONG_NGUON).operation(FilterOperation.EQUALS)
+                .value(NguonKhachHang.CUA_HANG).build();
+    }
+
+    /**
+     * Trường lọc ảo tuKhoa (ô tìm toàn hệ thống, ô tìm trang Khách hàng) và nguon (chỉ dùng trong máy chủ để giữ khách
+     * cửa hàng): tách ra, phần còn lại lọc như cũ.
+     */
     @Override
     protected Specification<KhachHang> createSpecification(List<FilterCriteria> filters) {
+        if (filters != null && filters.stream().anyMatch(f -> f != null && TRUONG_NGUON.equals(f.getFieldName()))) {
+            List<FilterCriteria> conLai = new ArrayList<>();
+            Specification<KhachHang> theoNguon = null;
+            for (FilterCriteria f : filters) {
+                if (f != null && TRUONG_NGUON.equals(f.getFieldName())) {
+                    Specification<KhachHang> mot = theoNguon(f.getValue() == null ? null : String.valueOf(f.getValue()));
+                    theoNguon = theoNguon == null ? mot : theoNguon.and(mot);
+                } else {
+                    conLai.add(f);
+                }
+            }
+            return locTheoTuKhoa(conLai).and(theoNguon);
+        }
+        return locTheoTuKhoa(filters);
+    }
+
+    private Specification<KhachHang> locTheoTuKhoa(List<FilterCriteria> filters) {
         TuKhoaTimKiem.Tach tach = TuKhoaTimKiem.tach(filters);
         if (!tach.coTruong()) {
             return super.createSpecification(filters);
         }
         Specification<KhachHang> conLai = super.createSpecification(tach.conLai());
         return tach.tuKhoa() == null ? conLai : conLai.and(theoTuKhoa(tach.tuKhoa(), tach.chinhXac()));
+    }
+
+    /**
+     * Khách theo nguồn ({@link NguonKhachHang}): nguồn sàn = mã bắt đầu bằng tiền tố của sàn đó; cua_hang = mã không
+     * bắt đầu bằng tiền tố sàn nào. Giá trị lạ: không khách nào (không lẳng lặng bỏ lọc).
+     */
+    static Specification<KhachHang> theoNguon(String nguon) {
+        return (root, query, cb) -> {
+            Expression<String> ma = cb.upper(root.get("maKhachHang"));
+            if (NguonKhachHang.CUA_HANG.equals(nguon)) {
+                return cb.and(NguonKhachHang.cacTienToSan().stream()
+                        .map(tienTo -> cb.notLike(ma, tienTo + "%"))
+                        .toArray(Predicate[]::new));
+            }
+            String tienTo = NguonKhachHang.tienToCuaNguon(nguon);
+            return tienTo == null ? cb.disjunction() : cb.like(ma, tienTo + "%");
+        };
     }
 
     /**
@@ -266,7 +326,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     /**
      * Thêm nhanh khách hàng tại quầy POS (tên + SĐT).
      * - Tên và SĐT theo luật của form khách hàng; SĐT chuẩn hóa như form (bỏ dấu ngăn cách, +84 về 0).
-     * - SĐT đã tồn tại (so trên số đã bỏ dấu ngăn cách) -> 409, data = khách hàng hiện có để thu ngân chọn lại.
+     * - SĐT đã thuộc khách cửa hàng khác (so trên số đã bỏ dấu ngăn cách) -> 409, data = khách đó để thu ngân chọn lại.
      * - Mã khách hàng sinh tự động: KH + SĐT (thêm hậu tố nếu mã đã bị dùng).
      */
     @Transactional
@@ -506,8 +566,9 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     }
 
     /**
-     * SĐT / email không được trùng với khách hàng khác (kể cả khách đã ngưng hoạt động).
-     * Chỉ kiểm giá trị khác null (truy vấn derived với null thành "IS NULL" và khớp mọi khách để trống).
+     * SĐT / email không được trùng với khách cửa hàng khác (kể cả khách đã ngưng hoạt động). Khách sàn không tính: họ không
+     * có ở màn Khách hàng, người mua sàn tới cửa hàng được tạo hồ sơ cửa hàng riêng.
+     * Chỉ kiểm giá trị khác null (null sẽ khớp mọi khách để trống).
      * excludeId: id khách đang sửa (null khi tạo mới).
      */
     private void kiemTraTrung(String sdt, String email, Integer excludeId) {
@@ -534,9 +595,7 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
     private Optional<KhachHang> timTrung(String truong, String giaTri, Integer excludeId) {
         return switch (truong) {
             case TRUONG_SO_DIEN_THOAI -> repository.timTrungSoDienThoai(giaTri, excludeId);
-            case TRUONG_EMAIL -> excludeId == null
-                    ? repository.findFirstByEmail(giaTri)
-                    : repository.findFirstByEmailAndIdNot(giaTri, excludeId);
+            case TRUONG_EMAIL -> repository.timTrungEmail(giaTri, excludeId);
             default -> Optional.empty();
         };
     }
@@ -566,10 +625,11 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
+    /** Khách cửa hàng đang hoạt động để chọn khi bán (POS); khách sàn không chọn ở đây. */
     @Transactional(readOnly = true)
     public List<KhachHangDto> getAllActiveForSales() {
-        return repository.findAll().stream()
-                .filter(kh -> kh.getTrangThai() != null && kh.getTrangThai() == 1)
+        Specification<KhachHang> dangHoatDong = (root, query, cb) -> cb.equal(root.get("trangThai"), 1);
+        return repository.findAll(dangHoatDong.and(theoNguon(NguonKhachHang.CUA_HANG))).stream()
                 .map(mapper::toDto)
                 .toList();
     }
