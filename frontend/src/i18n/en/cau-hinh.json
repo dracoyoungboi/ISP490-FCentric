@@ -507,7 +507,6 @@
   "Đẩy tồn ngay khi còn dưới": "Push stock instantly below",
   "0 là tắt": "0 turns it off",
   "Tiền tố mã khách hàng": "Customer code prefix",
-  "Gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -": "1–10 characters: unaccented capital letters, digits or . _ -",
   "Cách xác nhận chất lượng": "Quality confirmation method",
   "Quét tiếp là Đạt": "Next scan counts as Passed",
   "Mỗi sản phẩm bóp máy quét 1 lần; quét cái kế tiếp là cái trước giữ Đạt. Hàng lỗi quét thêm thẻ KHÔNG ĐẠT. Đề xuất.": "Scan each item once; scanning the next item keeps the previous one as Passed. For defective items, also scan the KHÔNG ĐẠT (fail) card. Recommended.",
@@ -844,5 +843,6 @@
   "Bước nhận và hủy giữa đường luôn là \"Xuất chuyển kho nội bộ\". Chọn \"Xuất kho kiêm vận chuyển nội bộ\" thì AMIS bỏ trống số chứng từ, chờ phát hành hóa đơn điện tử.": "The receive and in-transit cancel steps always use \"Internal transfer issue\". With \"Goods issue with internal transport\", AMIS leaves the document number blank until the e-invoice is issued.",
   "Bắt buộc khi có đơn bán tại quầy trả QR payOS: AMIS chỉ ghi sổ tài khoản ngân hàng khi có số tài khoản. Phải là tài khoản đã khai báo trên AMIS.": "Required for in-store payOS QR sales: AMIS only posts to the bank account when the account number is given. It must be an account set up in AMIS.",
   "{{count}} loại chứng từ và tem sản phẩm, mỗi loại một mẫu đang dùng. Chỉ quản trị viên sửa được mẫu in._one": "{{count}} document type and product labels, one active template each. Only administrators can edit print templates.",
-  "{{count}} loại chứng từ và tem sản phẩm, mỗi loại một mẫu đang dùng. Chỉ quản trị viên sửa được mẫu in._other": "{{count}} document types and product labels, one active template each. Only administrators can edit print templates."
+  "{{count}} loại chứng từ và tem sản phẩm, mỗi loại một mẫu đang dùng. Chỉ quản trị viên sửa được mẫu in._other": "{{count}} document types and product labels, one active template each. Only administrators can edit print templates.",
+  "Gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -; không bắt đầu bằng KH-SHP-, KH-TTS-, KH-LZD-, KH-SP- (dành cho khách từ sàn)": "1–10 characters: unaccented capital letters, digits or . _ -; can't start with KH-SHP-, KH-TTS-, KH-LZD- or KH-SP- (reserved for marketplace customers)"
 }

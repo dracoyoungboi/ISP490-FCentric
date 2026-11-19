@@ -525,5 +525,14 @@
   "Tên khách hàng chỉ gồm chữ cái và dấu cách": "Customer names can only contain letters and spaces",
   "Không chọn được khi bán tại quầy. Lịch sử mua hàng giữ nguyên.": "Can't be selected when selling at the counter. Purchase history is kept.",
   "Thêm khách hàng để theo dõi lịch sử mua.": "Add customers to track their purchase history.",
-  "Xem khách hàng": "View customers"
+  "Xem khách hàng": "View customers",
+  "Lọc khách hàng theo trạng thái": "Filter customers by status",
+  "Ngày thêm": "Added on",
+  "Khách từ {{san}}.": "{{san}} customer.",
+  "Hồ sơ do đồng bộ đơn sàn tạo, không có trong danh sách khách hàng.": "Created by marketplace order sync, so it's not in the customer list.",
+  "Chưa mua": "No purchases yet",
+  "Từ {{count}} đơn, đã trừ {{tien}} trả hàng_one": "From {{count}} order, less {{tien}} in returns",
+  "Từ {{count}} đơn, đã trừ {{tien}} trả hàng_other": "From {{count}} orders, less {{tien}} in returns",
+  "Mã không được bắt đầu bằng {{tienTo}} (dành cho khách từ sàn)": "Code can't start with {{tienTo}} (reserved for marketplace customers)",
+  "Mua {{khi}}": "Bought {{khi}}"
 }
