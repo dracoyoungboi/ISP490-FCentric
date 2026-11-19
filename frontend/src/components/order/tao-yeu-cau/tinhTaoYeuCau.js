@@ -9,11 +9,21 @@
  * Dòng yêu cầu trong màn: `{ bienTheId, soLuong }` — `soLuong` là số, hoặc "" khi đang xóa trống ô (rời ô thì về 1).
  */
 import { docSo, khopTuKhoa, tachTuKhoa } from "../../chung-tu/bangChungTu.js";
-import { docOSoLuong, SO_LUONG_TOI_DA } from "../../ban-hang/tao-bao-gia/tinhTaoBaoGia.js";
 import { SO_GOI_Y_SAN_PHAM } from "../../../config/bangChungTu.js";
 import { t } from "../../../i18n/t.js";
 
-export { docOSoLuong, SO_LUONG_TOI_DA };
+export const SO_LUONG_TOI_DA = 99999;
+
+/**
+ * Ô số lượng: chỉ nhận số nguyên dương. Có ký tự khác chữ số ("3.5", "-2", "2a") thì trả `undefined` để màn GIỮ giá trị
+ * cũ — không lặng lẽ đọc "3.5" thành 35. Trống → "" (rời ô thì màn trả về 1). Quá SO_LUONG_TOI_DA thì kẹp lại.
+ */
+export function docOSoLuong(chu) {
+  const tho = String(chu ?? "").trim();
+  if (tho === "") return "";
+  if (/\D/.test(tho)) return undefined;
+  return Math.min(Number(tho), SO_LUONG_TOI_DA);
+}
 
 /** Khớp máy chủ (YeuCauMuaHangService): ghi chú tối đa, số dòng tối đa mỗi yêu cầu. */
 export const GHI_CHU_TOI_DA = 500;
