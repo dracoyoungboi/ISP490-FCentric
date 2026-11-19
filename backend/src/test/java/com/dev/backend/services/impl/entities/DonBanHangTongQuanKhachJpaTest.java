@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Chạy thật truy vấn gom theo trạng thái của {@link DonBanHangService#tongQuanMuaHangCuaKhach} trên H2
- * (không cần MySQL): đúng khách, không lẫn báo giá, đúng phạm vi vai trò, đơn gần nhất bỏ đơn nháp.
+ * (không cần MySQL): đúng khách, đúng phạm vi vai trò, đơn gần nhất bỏ đơn nháp.
  * Dựng Hibernate trực tiếp (không nạp Spring context) vì một số repository khác dùng truy vấn riêng của MySQL.
  */
 class DonBanHangTongQuanKhachJpaTest {
@@ -104,14 +104,13 @@ class DonBanHangTongQuanKhachJpaTest {
                 .vaiTro(IRoleType.nhan_vien_ban_hang).trangThai(1).build());
         shopify = luu(KenhBanHang.builder().maKenh("SHOPIFY").tenKenh("Shopify").build());
 
-        // Khách KH016: 1 nháp, 2 hoàn thành, 1 chờ nhặt, 1 hủy, 1 hoàn trả + 1 báo giá (không tính)
+        // Khách KH016: 1 nháp, 2 hoàn thành, 1 chờ nhặt, 1 hủy, 1 hoàn trả
         don(khach, "don_ban_hang", ITrangThaiDonBanHang.NHAP, "12600000", "2026-10-17T08:42:00Z", khoHn, nvbhA);
         don(khach, "don_ban_hang", ITrangThaiDonBanHang.CHO_NHAT_HANG, "18400000", "2026-10-16T03:15:00Z", khoHn, nvbhA);
         don(khach, "don_ban_hang", ITrangThaiDonBanHang.HOAN_THANH, "16200000", "2026-10-08T06:47:00Z", khoHcm, nvbhB, shopify);
         don(khach, "don_ban_hang", ITrangThaiDonBanHang.HOAN_THANH, "21300000", "2026-10-03T04:20:00Z", khoHn, nvbhA);
         don(khach, "don_ban_hang", ITrangThaiDonBanHang.DA_HUY, "9800000", "2026-09-27T09:05:00Z", khoHn, nvbhA);
         don(khach, "don_ban_hang", ITrangThaiDonBanHang.BI_HOAN_TRA, "1890000", "2026-10-06T14:10:00Z", khoHcm, nvbhB, shopify);
-        don(khach, "bao_gia", 0, "32500000", "2026-10-18T02:00:00Z", null, nvbhA);
         // Khách khác: không được lẫn vào
         don(khachKhac, "don_ban_hang", ITrangThaiDonBanHang.HOAN_THANH, "99000000", "2026-10-18T01:00:00Z", khoHn, nvbhA);
         em.flush();
@@ -160,7 +159,7 @@ class DonBanHangTongQuanKhachJpaTest {
     }
 
     @Test
-    void quanTriVien_thayDuDonCuaKhach_khongLanBaoGiaVaKhachKhac() {
+    void quanTriVien_thayDuDonCuaKhach_khongLanKhachKhac() {
         SecurityContextHolder.setUser(user(1, Set.of(IRoleType.quan_tri_vien)));
 
         TongQuanMuaHangKhachDto kq = service.tongQuanMuaHangCuaKhach(khach.getId());

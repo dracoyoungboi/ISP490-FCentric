@@ -14,8 +14,8 @@ class SoChungTuTest {
     }
 
     @Test
-    void dayCoLo_layLonNhatCong1_khongTrungSoDaChuyenTuBaoGia() {
-        // Đã có SO…1, SO…2 và SO…7 (chuyển từ BG…7): đếm + 1 ra 4 rồi về sau trùng 7; lớn nhất + 1 ra 8.
+    void dayCoLo_layLonNhatCong1_khongTrungSoDaCo() {
+        // Đã có SO…1, SO…2 và SO…7 (số cũ cấp theo quy tắc khác): đếm + 1 ra 4 rồi về sau trùng 7; lớn nhất + 1 ra 8.
         assertEquals("SO202610248", SoChungTu.tiepTheo("SO20261024", 7L));
     }
 

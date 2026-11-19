@@ -2,8 +2,6 @@ package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IRoleType;
-import com.dev.backend.dto.request.ChiTietDonBanHangCreating;
-import com.dev.backend.dto.request.DonBanHangCreating;
 import com.dev.backend.dto.response.entities.KhoDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.PhanQuyenNguoiDungKhoDto;
@@ -23,9 +21,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.http.HttpStatus;
 
-import java.math.BigDecimal;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -36,9 +32,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * Đợt 3 (M-7): mở đơn / báo giá theo id theo đúng phạm vi của màn danh sách — nhân viên bán hàng chỉ đơn mình tạo,
- * nhân viên / quản lý kho chỉ đơn xuất từ kho mình, quản trị viên tất cả. Kèm: không từ chối lại báo giá đã chốt,
- * phí vận chuyển không âm.
+ * Đợt 3 (M-7): mở đơn theo id theo đúng phạm vi của màn danh sách — nhân viên bán hàng chỉ đơn mình tạo,
+ * nhân viên / quản lý kho chỉ đơn xuất từ kho mình, quản trị viên tất cả.
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -125,16 +120,6 @@ class DonBanHangPhamViTest {
     }
 
     @Test
-    void banHang_baoGiaCuaDongNghiep_khongTuChoiKhongChuyenDuoc() {
-        DonBanHang bg = don("bao_gia", 1, null);
-        dangNhap(NGUOI_KHAC, IRoleType.nhan_vien_ban_hang);
-
-        biChan(() -> service.rejectQuote(DON_ID, "giá cao"));
-        biChan(() -> service.convertToOrder(DON_ID, KHO_A, null, null, null));
-        assertEquals(1, bg.getTrangThai());
-    }
-
-    @Test
     void kho_donXuatTuKhoKhac_biChan() {
         don("don_hang", 3, KHO_B);
         dangNhap(NGUOI_KHAC, IRoleType.quan_ly_kho, KHO_A);
@@ -185,46 +170,5 @@ class DonBanHangPhamViTest {
         service.returnOrder(DON_ID);
         assertEquals(6, tra.getTrangThai());
         verify(bangChung).giaHanLuuTu(eq(DON_ID), argThat(t -> t != null && !t.isBefore(truoc)));
-    }
-
-    // ===== báo giá đã chốt / đã từ chối =====
-
-    @Test
-    void tuChoiBaoGia_daChuyenThanhDonHoacDaTuChoi_baoLoi_trangThaiGiuNguyen() {
-        dangNhap(NGUOI_TAO, IRoleType.nhan_vien_ban_hang);
-        DonBanHang daChot = don("bao_gia", 2, null);
-        assertThrows(CommonException.class, () -> service.rejectQuote(DON_ID, "x"));
-        assertEquals(2, daChot.getTrangThai());
-
-        DonBanHang daTuChoi = don("bao_gia", 4, null);
-        assertThrows(CommonException.class, () -> service.rejectQuote(DON_ID, "x"));
-        assertEquals(4, daTuChoi.getTrangThai());
-        verify(repo, never()).save(any());
-    }
-
-    @Test
-    void tuChoiBaoGia_dangCho_tuChoiDuoc() {
-        dangNhap(NGUOI_TAO, IRoleType.nhan_vien_ban_hang);
-        DonBanHang bg = don("bao_gia", 1, null);
-        service.rejectQuote(DON_ID, "khách chưa cần");
-        assertEquals(4, bg.getTrangThai());
-        assertEquals("khách chưa cần", bg.getLyDoTuChoi());
-    }
-
-    // ===== phí vận chuyển =====
-
-    @Test
-    void phiVanChuyenAm_baoLoi_khiTaoDonVaKhiChuyenBaoGia() {
-        dangNhap(NGUOI_TAO, IRoleType.nhan_vien_ban_hang);
-        DonBanHangCreating yeuCau = DonBanHangCreating.builder().phiVanChuyen(new BigDecimal("-50000"))
-                .chiTiet(List.of(new ChiTietDonBanHangCreating())).build();
-        CommonException taoDon = assertThrows(CommonException.class, () -> service.create(yeuCau));
-        assertTrue(taoDon.getMessage().contains("Phí vận chuyển"), taoDon.getMessage());
-
-        DonBanHang bg = don("bao_gia", 1, null);
-        CommonException chuyen = assertThrows(CommonException.class,
-                () -> service.convertToOrder(DON_ID, KHO_A, null, null, new BigDecimal("-1")));
-        assertTrue(chuyen.getMessage().contains("Phí vận chuyển"), chuyen.getMessage());
-        assertEquals(1, bg.getTrangThai());
     }
 }

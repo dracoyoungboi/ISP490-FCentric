@@ -712,9 +712,8 @@ class NhatHangHoanTatIntegrationTest {
         int donA = taoDonChoXuat(3);
         taoPhieuNhat(donA);
         taoDonChoXuat(1);
-        // Đơn đã hủy và báo giá không giữ hàng
+        // Đơn đã hủy không giữ hàng
         jdbc.update("UPDATE don_ban_hang SET trang_thai = 4 WHERE id = ?", taoDonChoXuat(3));
-        jdbc.update("UPDATE don_ban_hang SET loai_chung_tu = 'bao_gia' WHERE id = ?", taoDonChoXuat(2));
         BigDecimal sanTruoc = tonDayLenSan();
 
         ResponseEntity<Map> qua = goi(HttpMethod.POST, "/api/v1/phieu-chuyen-kho/create", Map.of(
