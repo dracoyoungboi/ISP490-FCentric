@@ -287,12 +287,10 @@ class IRoleTypeTest {
                 Arguments.of(DonBanHangController.class, "GET", "/kpi-hom-nay", Set.of(QT, NVBH)),
                 // Customer: nhân viên bán hàng
                 Arguments.of(KhachHangController.class, "POST", "/filter", Set.of(QT, NVBH)),
-                // POS Payment, thu tiền: nhân viên bán hàng; đối soát, hoàn tiền: quản trị viên
+                // POS Payment, thu tiền: nhân viên bán hàng
                 Arguments.of(PosController.class, "POST", "/checkout", Set.of(QT, NVBH)),
                 Arguments.of(PosController.class, "POST", "/payos/payment-links", Set.of(QT, NVBH)),
                 Arguments.of(PosController.class, "GET", "/payment-methods", Set.of(QT, NVBH)),
-                Arguments.of(ThanhToanController.class, "POST", "/don/{donId}/thu", Set.of(QT, NVBH)),
-                Arguments.of(ThanhToanController.class, "POST", "/don/{donId}/hoan-tien", Set.of(QT)),
                 // Reports (UC 11.3–11.5, Đ3), Administration Dashboard, MISA (Đ4)
                 Arguments.of(AdminDashboardController.class, "GET", "", Set.of(QT)),
                 Arguments.of(AdminDashboardController.class, "GET", "/bao-cao/doanh-thu", Set.of(QT)),

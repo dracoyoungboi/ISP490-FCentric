@@ -151,8 +151,6 @@ class DonBanHangPhamViTest {
         org.springframework.test.util.ReflectionTestUtils.setField(service, "chiTietDonBanHangRepository",
                 mock(com.dev.backend.repository.ChiTietDonBanHangRepository.class));
         org.springframework.test.util.ReflectionTestUtils.setField(service, "phieuXuatKhoRepository", pxRepo);
-        org.springframework.test.util.ReflectionTestUtils.setField(service, "thanhToanDonBanService",
-                mock(ThanhToanDonBanService.class));
         dangNhap(NGUOI_TAO, IRoleType.nhan_vien_ban_hang);
 
         // Đã giao: hạn tính từ ngày giao (khiếu nại số lượng / chất lượng tính từ đây)
