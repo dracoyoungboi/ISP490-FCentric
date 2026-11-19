@@ -22,8 +22,8 @@ import java.util.Map;
  * <pre>có thể chuyển = max(0, (tồn − đang giữ) − max(0, chờ xuất) − phiếu chuyển khác đang giữ chỗ − đang kiểm kê)</pre>
  * Đang kiểm kê: phần của mã ở kho gửi thuộc phạm vi đợt kiểm kê đang mở (KhoaKiemKeGuard.dangKiemKeTheoMa) — không
  * lấy được tới khi đợt kết thúc, nên không cho lập phiếu chuyển giữ chỗ trên số đó (phiếu sẽ kẹt ở bước nhặt).
- * Chờ xuất = đặt − đã xuất thật của đơn bán đang giữ hàng (ITrangThaiDonBanHang.DANG_GIU_HANG) có kho xuất là kho gửi,
- * không gồm báo giá: đúng phần của một kho trong tồn đẩy lên sàn (TonKhoTongHopRepository.sumTongFreeToUseToanChuoi),
+ * Chờ xuất = đặt − đã xuất thật của đơn bán đang giữ hàng (ITrangThaiDonBanHang.DANG_GIU_HANG) có kho xuất là kho gửi:
+ * đúng phần của một kho trong tồn đẩy lên sàn (TonKhoTongHopRepository.sumTongFreeToUseToanChuoi),
  * giống gợi ý kho cho đơn bán. Không trừ thêm phần lô phiếu nhặt / phiếu xuất bán đang giữ: phần đó thuộc chính các
  * đơn ấy, đã nằm trong chờ xuất; phân bổ của phiếu nhặt chuyển kho nằm trong giữ chỗ phiếu chuyển (giữ đủ,
  * GiuChoChuyenKhoService.taiKho).

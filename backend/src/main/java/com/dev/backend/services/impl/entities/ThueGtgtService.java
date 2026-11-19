@@ -17,7 +17,7 @@ import java.util.Comparator;
 /**
  * Thuế GTGT trên hóa đơn bán hàng. Thuế suất lấy từ mức chung của bảng thue_suat_gtgt (Cấu hình › Thuế GTGT) — cùng
  * bảng xuất kế toán dùng, nên hóa đơn in và chứng từ kế toán chung một nguồn.
- * Chụp vào đơn lúc chốt (bán tại quầy, tạo đơn bán, chuyển báo giá thành đơn) khi bật "In thuế GTGT"; đơn bán thường
+ * Chụp vào đơn lúc chốt (bán tại quầy) khi bật "In thuế GTGT"; đơn bán thường
  * chụp lại theo ngày giao hàng khi xuất đủ hàng (thuế suất tính theo lúc giao hàng, giống xuất kế toán). Giá đã gồm
  * thuế: tiền thuế tách ngược từ tổng cộng, số khách trả không đổi. Không có mức chung ở ngày đó thì đơn không mang thuế.
  */

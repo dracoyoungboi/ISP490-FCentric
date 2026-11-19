@@ -15,7 +15,7 @@ public interface ChiTietDonBanHangRepository extends JpaRepository<ChiTietDonBan
     List<ChiTietDonBanHang> findByDonBanHangId(Integer donBanHangId);
 
     /**
-     * Số lượng ĐẶT của đơn bán đang giữ hàng (chỉ đơn bán, không tính báo giá) gom theo (biến thể, kho xuất).
+     * Số lượng ĐẶT của đơn bán đang giữ hàng gom theo (biến thể, kho xuất).
      * Trừ đi số đã xuất thật ({@code ChiTietPhieuXuatKhoRepository.sumDaXuatDonGiuHangTheoKho}) mới ra lượng chờ xuất.
      */
     @Query("""

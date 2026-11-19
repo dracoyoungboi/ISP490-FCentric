@@ -13,7 +13,7 @@ import java.util.List;
 
 /**
  * Báo cáo doanh thu (màn /reports/revenue). Lọc đơn và tính giá vốn như màn Tổng quan (TongQuanAdminRepository):
- * - Chỉ đơn bán (loai_chung_tu = 'don_ban_hang', không lấy báo giá) đã ghi nhận doanh thu (trạng thái 3, 5).
+ * - Chỉ đơn bán (loai_chung_tu = 'don_ban_hang') đã ghi nhận doanh thu (trạng thái 3, 5).
  * - Giá vốn chỉ cộng dòng phiếu xuất CÓ LÔ (số thực xuất, giá vốn của lô). Phiếu xuất của đơn qua nhặt hàng
  *   còn có dòng gốc không lô (số cần xuất); cộng cả hai thì giá vốn bị nhân đôi.
  * Còn khác Tổng quan: chỉ lấy đơn có ngay_giao_hang (Tổng quan lấy ngày phiếu xuất cuối khi thiếu) và nhóm ngày theo
@@ -379,7 +379,7 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
     /**
      * Doanh thu cả kỳ [tu, den) theo người lập đơn, cùng điều kiện đơn với các câu theo ngày: [mã người, họ tên, doanh
      * thu, giá vốn, số đơn]. Mã người: -1 = đơn sàn (đồng bộ từ kênh bán khác POS, không có người lập), 0 = đơn không ghi
-     * người lập, còn lại = id người dùng (đơn tại quầy: thu ngân; đơn từ báo giá: người lập báo giá).
+     * người lập, còn lại = id người dùng (đơn tại quầy: thu ngân; đơn bán thường: người lập đơn).
      */
     @Query(value = """
         SELECT x.nguoi, MAX(x.ho_ten), SUM(x.doanh_thu), SUM(x.gia_von), SUM(x.so_don)

@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * Số tổng hợp đơn bán của một khách hàng (trang chi tiết khách hàng).
  * Cùng phạm vi vai trò với danh sách đơn bán: người dùng chỉ thấy số của những đơn họ được xem.
- * Chỉ tính chứng từ đơn bán (không tính báo giá).
+ * Chỉ tính chứng từ đơn bán.
  */
 @AllArgsConstructor
 @NoArgsConstructor

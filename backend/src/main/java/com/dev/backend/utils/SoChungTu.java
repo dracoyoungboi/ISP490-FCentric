@@ -2,7 +2,7 @@ package com.dev.backend.utils;
 
 /**
  * Cấp số chứng từ theo tiền tố ngày (SO20261024, PX20261024...): số đuôi LỚN NHẤT hiện có + 1.
- * Không dùng "đếm + 1": dãy số có thể có lỗ (chuyển báo giá BG…7 thành đơn SO…7 giữ nguyên số)
+ * Không dùng "đếm + 1": dãy số có thể có lỗ (số cũ cấp theo quy tắc khác, chứng từ đã xóa)
  * -> lần đếm sau ra đúng số đã có, thử lại bao nhiêu lần cũng trùng. Hai giao dịch lấy cùng số
  * cùng lúc thì khóa duy nhất của cột số chứng từ chặn, nơi gọi thử lại và tính lại số lớn nhất.
  */

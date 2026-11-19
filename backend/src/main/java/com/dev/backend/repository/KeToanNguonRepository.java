@@ -88,7 +88,7 @@ public class KeToanNguonRepository {
              GROUP BY id_tham_chieu
             """;
 
-    /** Đơn bán trạng thái 3, 5 (không lấy báo giá), giao đủ trong [tu, den), chưa xuất kế toán. */
+    /** Đơn bán trạng thái 3, 5, giao đủ trong [tu, den), chưa xuất kế toán. */
     public List<NguonKeToan.DonBan> donBanChuaXuat(Instant tu, Instant den) {
         String sql = COT_DON_BAN + NOI_DON_BAN + """
                   LEFT JOIN chung_tu_xuat_ke_toan c ON c.khoa_hieu_luc = CONCAT('ban_hang:', d.id)
