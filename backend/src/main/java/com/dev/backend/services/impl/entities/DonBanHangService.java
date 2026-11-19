@@ -11,8 +11,6 @@ import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import com.dev.backend.constant.variables.ITrangThaiPhieuXuat;
 import com.dev.backend.dto.request.BaseFilterRequest;
-import com.dev.backend.dto.request.ChiTietDonBanHangCreating;
-import com.dev.backend.dto.request.DonBanHangCreating;
 import com.dev.backend.dto.request.FilterCriteria;
 import com.dev.backend.dto.response.customize.BienTheSanPhamSelectDto;
 import com.dev.backend.dto.response.customize.ChiTietTonKhoKhaDungDto;
@@ -44,7 +42,6 @@ import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Path;
 import jakarta.persistence.criteria.Root;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -69,7 +66,6 @@ import com.dev.backend.services.multitable.BangChungDongGoiService;
 import com.dev.backend.services.multitable.NhatHangService;
 import lombok.extern.slf4j.Slf4j;
 import com.dev.backend.utils.SauCommit;
-import com.dev.backend.utils.SoChungTu;
 import com.dev.backend.utils.SoDienThoai;
 import com.dev.backend.utils.TuKhoaTimKiem;
 import org.springframework.context.ApplicationEventPublisher;
@@ -77,16 +73,12 @@ import org.springframework.context.annotation.Lazy;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -98,7 +90,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     /** Trạng thái phiếu nhặt hàng còn hoạt động: đơn thuộc các phiếu này bị khóa, không được hủy. */
     private static final Set<String> PHIEU_NHAT_DANG_HOAT_DONG = Set.of("cho_nhat", "dang_nhat", "da_nhat");
 
-    /** Giá trị cột loai_chung_tu của đơn bán (báo giá là "bao_gia"). */
+    /** Giá trị cột loai_chung_tu của đơn bán. */
     static final String LOAI_CHUNG_TU_DON_BAN = "don_ban_hang";
 
     @Autowired
@@ -116,7 +108,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     @Autowired(required = false)
     private ThongBaoXuatKhoService thongBaoXuatKhoService;
 
-    /** Phần đang kiểm kê theo mã ở kho (gợi ý kho, chốt báo giá thành đơn); null khi unit test dựng tay. */
+    /** Phần đang kiểm kê theo mã ở kho (gợi ý kho khi gửi đơn sang kho); null khi unit test dựng tay. */
     @Autowired(required = false)
     private KhoaKiemKeGuard khoaKiemKeGuard;
 
@@ -211,7 +203,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     }
 
     /**
-     * Đơn (hoặc báo giá) khớp từ khóa: số đơn, mã đơn sàn; qua khách: số điện thoại đã bỏ ký tự ngăn cách (khi từ khóa có
+     * Đơn khớp từ khóa: số đơn, mã đơn sàn; qua khách: số điện thoại đã bỏ ký tự ngăn cách (khi từ khóa có
      * dáng số điện thoại) và tên khách (chỉ khi tìm "chứa"). Khách dùng EXISTS, không join, để đơn không có khách vẫn
      * được tìm theo số đơn.
      */
@@ -271,7 +263,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     }
 
     /**
-     * Điều kiện phạm vi theo vai trò của người dùng hiện tại, thêm vào mọi truy vấn đơn bán / báo giá.
+     * Điều kiện phạm vi theo vai trò của người dùng hiện tại, thêm vào mọi truy vấn đơn bán.
      * Danh sách đơn và các số tổng hợp (vd. trang chi tiết khách hàng) dùng chung hàm này để số luôn khớp danh sách.
      * <ul>
      *   <li>Quản trị viên: không thêm điều kiện.</li>
@@ -339,52 +331,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         return true;
     }
 
-    // Phí vận chuyển không âm: phí âm kéo tổng đơn xuống, lách được chốt giá sàn 90%
-    private static void kiemTraPhiVanChuyen(BigDecimal phi) {
-        if (phi != null && phi.signum() < 0) {
-            throw new CommonException(ThongDiep.of("banHang.phiVanChuyenAm"));
-        }
-    }
-
-    private static final BigDecimal TI_LE_GIA_TOI_THIEU = new BigDecimal("0.9");
-    private static final BigDecimal TI_LE_GIA_TOI_DA = new BigDecimal("1.1");
-
-    /**
-     * Đơn giá trên báo giá chỉ được lệch tối đa 10% so với giá niêm yết của biến thể (90%–110%), cùng quy tắc màn Tạo
-     * báo giá. Mức hiện trong câu lỗi làm tròn vào trong khoảng (tối thiểu làm tròn lên, tối đa làm tròn xuống) như màn.
-     * Biến thể chưa có giá niêm yết (null hoặc 0 — cột gia_ban mặc định 0) thì không có khoảng để so: chặn, báo cập nhật giá.
-     */
-    static void kiemTraGiaThoaThuan(String sku, BigDecimal giaNiemYet, BigDecimal giaThoaThuan) {
-        if (giaNiemYet == null || giaNiemYet.signum() <= 0) {
-            throw new CommonException(ThongDiep.of("banHang.sanPhamChuaCoGiaNiemYet", sku));
-        }
-        if (giaThoaThuan == null) {
-            return; // create() lấy giá niêm yết khi dòng không gửi đơn giá
-        }
-        BigDecimal toiThieu = giaNiemYet.multiply(TI_LE_GIA_TOI_THIEU);
-        if (giaThoaThuan.compareTo(toiThieu) < 0) {
-            throw new CommonException(ThongDiep.of("banHang.giaBanThapHonGiaNiemYet", sku,
-                    dinhDangTien(toiThieu.setScale(0, RoundingMode.CEILING))));
-        }
-        BigDecimal toiDa = giaNiemYet.multiply(TI_LE_GIA_TOI_DA);
-        if (giaThoaThuan.compareTo(toiDa) > 0) {
-            throw new CommonException(ThongDiep.of("banHang.giaBanCaoHonGiaNiemYet", sku,
-                    dinhDangTien(toiDa.setScale(0, RoundingMode.FLOOR))));
-        }
-    }
-
-    /** "108.000 ₫" — đặt cứng dấu chấm ngăn nghìn: JRE thiếu dữ liệu locale vi-VN (ảnh alpine) sẽ in "108,000". */
-    private static String dinhDangTien(BigDecimal so) {
-        DecimalFormatSymbols kyHieu = DecimalFormatSymbols.getInstance(Locale.ROOT);
-        kyHieu.setGroupingSeparator('.');
-        return new DecimalFormat("#,##0", kyHieu).format(so) + " ₫";
-    }
-
     private static void kiemTraPhamVi(DonBanHang don) {
         if (!trongPhamVi(don, SecurityContextHolder.getUser())) {
-            throw new CommonException(HttpStatus.FORBIDDEN, "bao_gia".equals(don.getLoaiChungTu())
-                    ? ThongDiep.of("banHang.baoGiaNgoaiPhamVi", don.getSoDonHang())
-                    : ThongDiep.of("banHang.donNgoaiPhamVi", don.getSoDonHang()));
+            throw new CommonException(HttpStatus.FORBIDDEN, ThongDiep.of("banHang.donNgoaiPhamVi", don.getSoDonHang()));
         }
     }
 
@@ -637,10 +586,6 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .orElseThrow(() -> new CommonException(ThongDiep.of("banHang.donBanKhongTimThayVoiId", id), HttpStatus.NOT_FOUND, null));
         kiemTraPhamVi(don);
 
-        if ("bao_gia".equals(don.getLoaiChungTu())) {
-            throw new CommonException(ThongDiep.of("banHang.baoGiaKhongGuiKho"), HttpStatus.BAD_REQUEST, null);
-        }
-
         if (don.getTrangThai() == null || don.getTrangThai() != 0) {
             throw new CommonException(ThongDiep.of("banHang.chiDonNhapDuocGuiKho"), HttpStatus.BAD_REQUEST, null);
         }
@@ -664,7 +609,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 throw new CommonException(ThongDiep.of("banHang.chonKhoXuat"), HttpStatus.BAD_REQUEST, null);
             }
         }
-        // Cùng quy tắc lúc tạo đơn: kho đang hoạt động và không phải Kho Trung Chuyển (kho ảo)
+        // Kho đang hoạt động và không phải Kho Trung Chuyển (kho ảo)
         KhoService.kiemTraKhoGiaoDich(khoChon, "Kho xuất hàng");
         if (don.getKenhBanHang() != null && (OmnichannelOrderSyncJob.isLazada(don.getKenhBanHang().getMaKenh())
                 || OmnichannelOrderSyncJob.isShopee(don.getKenhBanHang().getMaKenh()))) {
@@ -898,10 +843,6 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .orElseThrow(() -> new LoiChungException(ThongDiep.of("banHang.chungTuKhongTimThay")));
         kiemTraPhamVi(don);
 
-        if ("bao_gia".equals(don.getLoaiChungTu())) {
-            throw new LoiChungException(ThongDiep.of("banHang.baoGiaDungTuChoi"));
-        }
-
         // Đơn đã hủy: không chạy lại các bước phía sau (bấm lại, tab thứ hai, gọi API lặp) — nếu chạy lại
         // sẽ trừ số cần nhặt của phiếu nhặt thêm một lần và sinh lệnh hoàn kệ cho hàng chưa nhặt.
         if (Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(don.getTrangThai())) {
@@ -942,18 +883,6 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         // Thu hồi phiếu xuất chưa xuất (nếu có) liên kết với đơn này (SRS 6.3.2) → 4 (Đã hủy)
         phieuXuatKhoService.huyPhieuXuatNhapTheoDon(don.getId(), "Tự động thu hồi do đơn " + don.getSoDonHang()
                 + " bị hủy: " + lyDoHuy);
-
-        // Khôi phục báo giá gốc nếu có
-        if (don.getSoDonHang() != null && don.getSoDonHang().startsWith("SO")) {
-            String maBaoGiaGoc = don.getSoDonHang().split("-")[0].replaceFirst("^SO", "BG");
-
-            donBanHangRepository.findBySoDonHang(maBaoGiaGoc).ifPresent(baoGiaGoc -> {
-                if ("bao_gia".equals(baoGiaGoc.getLoaiChungTu()) && baoGiaGoc.getTrangThai() == 2) {
-                    baoGiaGoc.setTrangThai(0); // Đưa về lại trạng thái Chờ phản hồi
-                    repository.save(baoGiaGoc);
-                }
-            });
-        }
 
         // Phải thu về 0: đơn đã đặt cọc / thu tiền thành Cần hoàn tiền. Gọi cuối cùng: câu đọc phiếu có khóa giữ khóa
         // tới lúc commit
@@ -1186,253 +1115,6 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .build()));
     }
 
-    @Transactional
-    public DonBanHang create(DonBanHangCreating request) {
-        if (request.getChiTiet() == null || request.getChiTiet().isEmpty()) {
-            throw new LoiChungException(ThongDiep.of("banHang.danhSachSanPhamRong"));
-        }
-        kiemTraPhiVanChuyen(request.getPhiVanChuyen());
-
-        Integer userId = SecurityContextHolder.getUser().getId();
-        NguoiDung nguoiTao = entityManager.find(NguoiDung.class, userId);
-        if (nguoiTao == null) {
-            throw new LoiChungException(ThongDiep.of("banHang.nguoiDungKhongHopLe"));
-        }
-
-        KhachHang khachHang = entityManager.find(KhachHang.class, request.getKhachHangId());
-        if (khachHang == null) {
-            throw new LoiChungException(ThongDiep.of("banHang.khachHangKhongTonTai"));
-        }
-        // Báo giá dẫn tới đơn giao hàng, cần địa chỉ, SĐT và theo dõi phải thu của một khách cụ thể:
-        // khách lẻ mặc định (KHLE) chỉ dùng cho bán tại quầy.
-        if (KhachHang.MA_KHACH_LE.equals(khachHang.getMaKhachHang())) {
-            throw new CommonException(ThongDiep.of("banHang.baoGiaKhongDungKhachLe"));
-        }
-
-        if ("don_ban_hang".equals(request.getLoaiChungTu())) {
-            throw new LoiChungException(ThongDiep.of("banHang.khongTaoDonBanTrucTiep"));
-        }
-
-        String type = "bao_gia";
-
-        Kho khoXuat = null;
-        if (request.getKhoXuatId() != null) {
-            khoXuat = entityManager.find(Kho.class, request.getKhoXuatId());
-            if (khoXuat == null) throw new LoiChungException(ThongDiep.of("banHang.khoDaChonKhongTonTai"));
-            KhoService.kiemTraKhoGiaoDich(khoXuat, "Kho xuất hàng");
-        }
-
-        int retry = 0;
-        int maxRetry = 5;
-
-        while (true) {
-            try {
-                DonBanHang don = DonBanHang.builder()
-                        .soDonHang(generateMaChungTu(type))
-                        .loaiChungTu(type)
-                        .khachHang(khachHang)
-                        .ngayDatHang(Instant.now())
-                        .khoXuat(khoXuat)
-                        .trangThai(0)
-                        .tienHang(BigDecimal.ZERO)
-                        .phiVanChuyen(
-                                request.getPhiVanChuyen() != null
-                                        ? request.getPhiVanChuyen()
-                                        : BigDecimal.ZERO
-                        )
-                        .tongCong(BigDecimal.ZERO)
-                        .trangThaiThanhToan("chua_thanh_toan")
-                        .diaChiGiaoHang(request.getDiaChiGiaoHang())
-                        .ghiChu(request.getGhiChu())
-                        .nguoiTao(nguoiTao)
-                        .build();
-
-                repository.save(don);
-
-                BigDecimal tongTienHang = BigDecimal.ZERO;
-                Set<Integer> variantIds = new HashSet<>();
-
-                for (ChiTietDonBanHangCreating item : request.getChiTiet()) {
-                    if (!variantIds.add(item.getBienTheSanPhamId())) {
-                        throw new LoiChungException(ThongDiep.of("banHang.bienTheTrungTrongChungTu"));
-                    }
-
-                    if (item.getSoLuongDat() == null || item.getSoLuongDat().compareTo(BigDecimal.ZERO) <= 0) {
-                        throw new LoiChungException(ThongDiep.of("banHang.soLuongDatPhaiDuong"));
-                    }
-
-                    BienTheSanPham bienThe = bienTheSanPhamRepository
-                            .findById(item.getBienTheSanPhamId())
-                            .orElseThrow(() -> new LoiChungException(ThongDiep.of("banHang.bienTheKhongTimThay")));
-
-                    if (bienThe.getTrangThai() == null || bienThe.getTrangThai() != 1) {
-                        throw new LoiChungException(ThongDiep.of("banHang.bienTheNgungHoatDong", bienThe.getMaSku()));
-                    }
-
-                    BigDecimal qtyDat = item.getSoLuongDat();
-
-                    BigDecimal giaNiemYet = bienThe.getGiaBan();
-                    BigDecimal giaThoaThuan = item.getDonGia() != null ? item.getDonGia() : giaNiemYet;
-                    kiemTraGiaThoaThuan(bienThe.getMaSku(), giaNiemYet, giaThoaThuan);
-
-                    BigDecimal thanhTien = giaThoaThuan.multiply(qtyDat);
-
-                    ChiTietDonBanHang chiTiet = ChiTietDonBanHang.builder()
-                            .donBanHang(don)
-                            .bienTheSanPham(bienThe)
-                            .soLuongDat(qtyDat)
-                            .soLuongDaGiao(BigDecimal.ZERO)
-                            .donGia(giaThoaThuan)
-                            .thanhTien(thanhTien)
-                            .ghiChu(item.getGhiChu())
-                            .build();
-
-                    chiTietDonBanHangRepository.save(chiTiet);
-                    tongTienHang = tongTienHang.add(thanhTien);
-                }
-
-                don.setTienHang(tongTienHang);
-                don.setTongCong(tongTienHang.add(don.getPhiVanChuyen()));
-                // Đơn bán tạo thẳng (không qua báo giá) chốt lúc tạo: chụp thuế GTGT
-                if (!"bao_gia".equals(don.getLoaiChungTu())) thueGtgtService.chup(don, null);
-                repository.save(don);
-
-                return don;
-
-            } catch (DataIntegrityViolationException ex) {
-                if (isDuplicateSoDonHang(ex) && retry < maxRetry) {
-                    retry++;
-                    continue;
-                }
-                throw ex;
-            }
-        }
-    }
-
-    @Transactional
-    public void convertToOrder(Integer id, Integer khoXuatId, String ghiChu, String diaChi, BigDecimal phiVanChuyen) {
-        DonBanHang baoGia = repository.findById(id)
-                .orElseThrow(() -> new LoiChungException(ThongDiep.of("banHang.baoGiaKhongTimThay")));
-        kiemTraPhamVi(baoGia);
-
-        if (!"bao_gia".equals(baoGia.getLoaiChungTu())) {
-            throw new LoiChungException(ThongDiep.of("banHang.chiBaoGiaDuocChuyenDon"));
-        }
-        if (baoGia.getTrangThai() == 4) {
-            throw new LoiChungException(ThongDiep.of("banHang.baoGiaDaTuChoiKhongTaoDon"));
-        }
-        if (baoGia.getTrangThai() == 2) {
-            throw new LoiChungException(ThongDiep.of("banHang.baoGiaDaChuyenDon"));
-        }
-        kiemTraPhiVanChuyen(phiVanChuyen);
-
-        Kho kho = null;
-        if (khoXuatId != null) {
-            kho = entityManager.find(Kho.class, khoXuatId);
-        }
-        if (kho == null) {
-            throw new LoiChungException(ThongDiep.of("banHang.canKhoXuatDeTaoDon"));
-        }
-        KhoService.kiemTraKhoGiaoDich(kho, "Kho xuất hàng");
-
-        // Cùng công thức tồn khả dụng với modal Gửi sang kho / đẩy tồn sàn: tồn − đang giữ − lượng chờ xuất của đơn khác
-        List<Integer> bienTheBaoGia = baoGia.getChiTietDonBanHangs().stream()
-                .map(ct -> ct.getBienTheSanPham().getId()).distinct().toList();
-        Map<Integer, BigDecimal> khaDungKho = khaDungLoTheoKho(bienTheBaoGia).getOrDefault(kho.getId(), Map.of());
-        Map<Integer, BigDecimal> choXuatKho = choXuatTheoKho(bienTheBaoGia, null).getOrDefault(kho.getId(), Map.of());
-        // Phần đang kiểm kê ở kho xuất không bán được tới khi đợt kết thúc: trừ ra, thiếu vì kiểm kê thì báo đợt
-        KhoaKiemKeGuard.KiemKeTheoMa kiemKe = khoaKiemKeGuard == null ? KhoaKiemKeGuard.KiemKeTheoMa.RONG
-                : khoaKiemKeGuard.dangKiemKeTheoMa(kho.getId(), bienTheBaoGia);
-        for (ChiTietDonBanHang item : baoGia.getChiTietDonBanHangs()) {
-            Integer btId = item.getBienTheSanPham().getId();
-            BigDecimal boKiemKe = khaDungKho.getOrDefault(btId, BigDecimal.ZERO)
-                    .subtract(choXuatKho.getOrDefault(btId, BigDecimal.ZERO));
-            BigDecimal conBanDuoc = boKiemKe.subtract(kiemKe.cua(btId)).max(BigDecimal.ZERO);
-            if (conBanDuoc.compareTo(item.getSoLuongDat()) < 0) {
-                KhoaKiemKeGuard.ThieuDoKiemKe doKiemKe = khoaKiemKeGuard == null ? null : khoaKiemKeGuard.thieuTheoMa(kiemKe, btId,
-                        item.getBienTheSanPham().getMaSku(), kho.getTenKho(), conBanDuoc, boKiemKe.max(BigDecimal.ZERO),
-                        item.getSoLuongDat(), "tạo đơn bán");
-                if (doKiemKe != null) throw doKiemKe.loi();
-                throw new CommonException(ThongDiep.of("banHang.sanPhamKhongDuHangTaoDon", item.getBienTheSanPham().getMaSku(),
-                        kho.getTenKho(), item.getSoLuongDat().stripTrailingZeros().toPlainString(),
-                        conBanDuoc.stripTrailingZeros().toPlainString()));
-            }
-        }
-        String baseSoDonHang = baoGia.getSoDonHang().replaceFirst("^BG", "SO");
-        String newSoDonHang = baseSoDonHang;
-        int version = 1;
-        while (donBanHangRepository.findBySoDonHang(newSoDonHang).isPresent()) {
-            newSoDonHang = baseSoDonHang + "-" + version;
-            version++;
-        }
-
-        DonBanHang donMoi = DonBanHang.builder()
-                .soDonHang(newSoDonHang)
-                .loaiChungTu("don_ban_hang")
-                .khachHang(baoGia.getKhachHang())
-                .khoXuat(kho)
-                .ngayDatHang(Instant.now())
-                .trangThai(0)
-                .tienHang(baoGia.getTienHang())
-                .phiVanChuyen(phiVanChuyen != null ? phiVanChuyen : baoGia.getPhiVanChuyen())
-                .trangThaiThanhToan("chua_thanh_toan")
-                .diaChiGiaoHang(diaChi != null ? diaChi : baoGia.getDiaChiGiaoHang())
-                .ghiChu(ghiChu != null ? ghiChu : baoGia.getGhiChu())
-                .nguoiTao(baoGia.getNguoiTao())
-                .build();
-
-        donMoi.setTongCong(donMoi.getTienHang().add(donMoi.getPhiVanChuyen()));
-        // Chốt đơn từ báo giá: chụp thuế GTGT theo ngày chốt
-        thueGtgtService.chup(donMoi, null);
-        repository.save(donMoi);
-
-        for (ChiTietDonBanHang itemBaoGia : baoGia.getChiTietDonBanHangs()) {
-            ChiTietDonBanHang ctNew = ChiTietDonBanHang.builder()
-                    .donBanHang(donMoi)
-                    .bienTheSanPham(itemBaoGia.getBienTheSanPham())
-                    .soLuongDat(itemBaoGia.getSoLuongDat())
-                    .soLuongDaGiao(BigDecimal.ZERO)
-                    .donGia(itemBaoGia.getDonGia())
-                    .thanhTien(itemBaoGia.getThanhTien())
-                    .ghiChu(itemBaoGia.getGhiChu())
-                    .build();
-            chiTietDonBanHangRepository.save(ctNew);
-        }
-
-        baoGia.setTrangThai(2); // Đã chốt đơn
-        repository.save(baoGia);
-    }
-
-    @Transactional
-    public void rejectQuote(Integer id, String reason) {
-        DonBanHang don = repository.findById(id)
-                .orElseThrow(() -> new LoiChungException(ThongDiep.of("banHang.baoGiaKhongTimThay")));
-        kiemTraPhamVi(don);
-        if (reason != null && reason.trim().length() > 500) {
-            throw new CommonException(ThongDiep.of("banHang.lyDoTuChoiQuaDai"));
-        }
-        if (!"bao_gia".equals(don.getLoaiChungTu())) {
-            throw new LoiChungException(ThongDiep.of("banHang.chiTuChoiBaoGia"));
-        }
-        // Báo giá đã chuyển thành đơn (2) hoặc đã từ chối (4) thì không từ chối lại (cùng quy tắc với chuyển thành đơn)
-        if (Integer.valueOf(2).equals(don.getTrangThai())) {
-            throw new CommonException(ThongDiep.of("banHang.baoGiaDaChuyenDonKhongTuChoi"));
-        }
-        if (Integer.valueOf(4).equals(don.getTrangThai())) {
-            throw new CommonException(ThongDiep.of("banHang.baoGiaDaTuChoiTruocDo"));
-        }
-
-        don.setTrangThai(4); // 4 = Hủy / Từ chối
-        don.setLyDoTuChoi(reason);
-        repository.save(don);
-    }
-
-    private String generateMaChungTu(String type) {
-        String dateStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
-        String prefix = "bao_gia".equals(type) ? "BG" + dateStr : "SO" + dateStr;
-        return SoChungTu.tiepTheo(prefix, ((DonBanHangRepository) repository).soDuoiLonNhat(prefix));
-    }
-
     @Transactional(readOnly = true)
     public List<BienTheSanPhamSelectDto> getActiveVariantsForSale() {
         return bienTheSanPhamRepository
@@ -1454,20 +1136,6 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .toList();
     }
 
-    private String generateSoDonHang() {
-        String dateStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
-        String prefix = "SO" + dateStr;
-        return SoChungTu.tiepTheo(prefix, ((DonBanHangRepository) repository).soDuoiLonNhat(prefix));
-    }
-
-    private boolean isDuplicateSoDonHang(Exception ex) {
-        Throwable cause = ex;
-        while (cause != null) {
-            if (cause.getMessage() != null && cause.getMessage().contains("uk_don_ban_hang_so_don_hang")) return true;
-            cause = cause.getCause();
-        }
-        return false;
-    }
     @Transactional
     public void markAsDelivered(Integer id) {
         DonBanHang don = repository.findById(id)
