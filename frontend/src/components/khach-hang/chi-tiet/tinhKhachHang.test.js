@@ -9,8 +9,6 @@ import {
   luaChonKenh,
   moTaKenhMua,
   ngayBatDau,
-  nhanDiaChi,
-  nhanLoaiKhach,
   tinhKpi,
   tongSoDon,
 } from "./tinhKhachHang.js";
@@ -35,17 +33,11 @@ const TONG_QUAN = {
   ],
 };
 
-test("loại khách, trạng thái, nhãn địa chỉ", () => {
-  assert.equal(nhanLoaiKhach("si"), "Khách sỉ");
-  assert.equal(nhanLoaiKhach("doanh_nghiep"), "Doanh nghiệp");
-  assert.equal(nhanLoaiKhach(""), null);
-  assert.equal(nhanLoaiKhach("la"), null);
+test("trạng thái hoạt động", () => {
   assert.equal(laHoatDong({ trangThai: 1 }), true);
   assert.equal(laHoatDong({ trangThai: "1" }), true);
   assert.equal(laHoatDong({ trangThai: 0 }), false);
   assert.equal(laHoatDong(null), false);
-  assert.equal(nhanDiaChi("doanh_nghiep"), "Địa chỉ trụ sở");
-  assert.equal(nhanDiaChi("le"), "Địa chỉ giao hàng");
 });
 
 test("ngày bắt đầu của N ngày qua theo giờ máy", () => {
