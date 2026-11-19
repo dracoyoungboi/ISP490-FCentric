@@ -195,20 +195,12 @@ public final class BaoCaoDoanhThuExcel extends KhuonExcelBaoCao {
             for (int i = 0; i < cot2.length; i++) o(h2, i, cot2[i], k("tieuDeCot"));
             gop(s, h2.getRowNum(), 3, 5);
             int rTm = r;
-            dongTien(s, r++, "1", "Tiền mặt", null, true, "");
-            int rTm1 = r;
-            dongTien(s, r++, "", "   Bán tại quầy", tt.getTienMatTaiQuay(), false, "Gồm phần tiền mặt khách trả trước khi quét QR");
-            dongTien(s, r++, "", "   Đơn bán thường", tt.getTienMatDonThuong(), false, "Theo phiếu thu");
-            f(s.getRow(rTm), 2, "SUM(" + ref(rTm1, 2) + ":" + ref(rTm1 + 1, 2) + ")", k("tienDam"));
+            dongTien(s, r++, "1", "Tiền mặt tại quầy", tt.getTienMat(), true, "Gồm phần tiền mặt khách trả trước khi quét QR");
             int rCk = r;
-            dongTien(s, r++, "2", "Chuyển khoản", null, true, "");
-            int rCk1 = r;
-            dongTien(s, r++, "", "   QR payOS tại quầy", tt.getQrPayos(), false, "");
-            dongTien(s, r++, "", "   Chuyển khoản ghi tay (đơn bán thường)", tt.getChuyenKhoanGhiTay(), false, "Theo mã giao dịch trên sao kê");
-            f(s.getRow(rCk), 2, "SUM(" + ref(rCk1, 2) + ":" + ref(rCk1 + 1, 2) + ")", k("tienDam"));
+            dongTien(s, r++, "2", "Chuyển khoản (QR payOS tại quầy)", tt.getChuyenKhoan(), true, "");
             int rHoan = r;
             dongTien(s, r++, "3", "Hoàn tiền cho khách", tt.getHoan() == null ? null : tt.getHoan().negate(), true,
-                    tt.getSoPhieuHoan() + " phiếu hoàn");
+                    tt.getSoPhieuHoan() + " phiếu trả hàng tại quầy");
             Row rong2 = s.createRow(r);
             o(rong2, 0, "4", k("stt"));
             o(rong2, 1, "Thu ròng (4 = 1 + 2 + 3)", k("chuDam"));
@@ -216,8 +208,6 @@ public final class BaoCaoDoanhThuExcel extends KhuonExcelBaoCao {
             ghiChu(s, r++, "");
             dongTien(s, r++, "5", "Sàn thu hộ (đơn sàn đã giao)", tt.getSanThuHo(), false,
                     tt.getSoDonSan() + " đơn — đối soát với sàn, không gồm ở mục 4");
-            dongTien(s, r++, "6", "Còn phải thu (tới ngày lập báo cáo)", tt.getConPhaiThu(), false,
-                    tt.getSoDonConPhaiThu() + " đơn bán thường chưa thu đủ");
             if (tt.isTheoKhoPhuTrach() || dt.isTheoKhoPhuTrach()) {
                 o(s, r++, 1, "Chỉ tính các cửa hàng người lập phụ trách.", k("ghiChu"));
             }
