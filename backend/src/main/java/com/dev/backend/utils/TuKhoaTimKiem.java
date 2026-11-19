@@ -28,9 +28,9 @@ public final class TuKhoaTimKiem {
     /** Ký tự thoát trong LIKE ... ESCAPE '!' (như GiaBanBienTheService.tuKhoaLike). */
     public static final char KY_TU_THOAT = '!';
 
-    // Tiền tố mã chứng từ: PX / PXK / PN / PO / PR / LDD / KK / BG / SO; TRF, CK: phần giữa mã phiếu chuyển. Chỉ tính khi
+    // Tiền tố mã chứng từ: PX / PXK / PN / PO / PR / LDD / KK / SO; TRF, CK: phần giữa mã phiếu chuyển. Chỉ tính khi
     // từ khóa đúng bằng tiền tố hoặc tiền tố + "-" ("PX", "PN-RET"), không bắt chữ thường bắt đầu giống tiền tố ("Polo")
-    private static final Pattern TIEN_TO_MA = Pattern.compile("^(PXK?|PN|PO|PR|LDD|TRF|CK|KK|BG|SO)(-|$)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TIEN_TO_MA = Pattern.compile("^(PXK?|PN|PO|PR|LDD|TRF|CK|KK|SO)(-|$)", Pattern.CASE_INSENSITIVE);
 
     private TuKhoaTimKiem() {
     }
