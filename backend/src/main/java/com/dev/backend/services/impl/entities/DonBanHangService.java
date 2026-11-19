@@ -75,6 +75,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -375,40 +376,23 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     /**
      * Số tổng hợp đơn bán của một khách (trang chi tiết khách hàng): tổng chi tiêu, số đơn, trung bình, đơn gần nhất.
-     * Chỉ tính chứng từ đơn bán và cùng phạm vi vai trò với danh sách đơn ({@link #filter}).
+     * Chỉ tính chứng từ đơn bán và cùng phạm vi vai trò với danh sách đơn ({@link #filter}). Quy tắc đơn đã đặt / tính
+     * chi tiêu / trừ tiền trả hàng ở {@link TinhMuaHangKhach} (dùng chung với danh sách khách hàng).
      */
     @Transactional(readOnly = true)
     public TongQuanMuaHangKhachDto tongQuanMuaHangCuaKhach(Integer khachHangId) {
-        List<FilterCriteria> filters = new ArrayList<>();
-        filters.add(FilterCriteria.builder()
-                .fieldName("khachHang.id").operation(FilterOperation.EQUALS).value(khachHangId).build());
-        filters.add(FilterCriteria.builder()
-                .fieldName("loaiChungTu").operation(FilterOperation.EQUALS).value(LOAI_CHUNG_TU_DON_BAN).build());
-        filters.addAll(dieuKienPhamViTheoVaiTro(SecurityContextHolder.getUser()));
-        Specification<DonBanHang> spec = createSpecification(filters);
+        Specification<DonBanHang> spec = phamViDonCuaKhach(List.of(khachHangId));
 
-        // Một truy vấn gom theo trạng thái: số đơn và tổng tiền của từng trạng thái
-        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-        CriteriaQuery<Tuple> cq = cb.createTupleQuery();
-        Root<DonBanHang> root = cq.from(DonBanHang.class);
-        Path<Integer> trangThai = root.get("trangThai");
-        cq.multiselect(trangThai, cb.count(root), cb.sum(root.<BigDecimal>get("tongCong")))
-                .where(spec.toPredicate(root, cq, cb))
-                .groupBy(trangThai);
-
-        Map<Integer, SoLieuTrangThai> theoTrangThai = new HashMap<>();
-        for (Tuple row : entityManager.createQuery(cq).getResultList()) {
-            Integer tt = row.get(0, Integer.class);
-            Long soDon = row.get(1, Long.class);
-            BigDecimal tongTien = row.get(2, BigDecimal.class);
-            // trang_thai NULL coi như Nháp (DEFAULT của cột là 0)
-            theoTrangThai.merge(tt == null ? ITrangThaiDonBanHang.NHAP : tt,
-                    new SoLieuTrangThai(soDon == null ? 0 : soDon, tongTien == null ? BigDecimal.ZERO : tongTien),
-                    SoLieuTrangThai::cong);
+        // Một truy vấn gom theo trạng thái và có / không gắn kênh: số đơn và tổng tiền của từng nhóm
+        List<TinhMuaHangKhach.Dong> dong = new ArrayList<>();
+        for (Tuple row : gomDonTheoNhom(spec)) {
+            dong.add(new TinhMuaHangKhach.Dong(row.get(0, Integer.class), row.get(1) != null,
+                    soNguyen(row.get(2, Long.class)), soTien(row.get(3, BigDecimal.class))));
         }
+        BigDecimal tienTraHang = tienTraHangTheoKhach(spec).getOrDefault(khachHangId, BigDecimal.ZERO);
 
-        // Đơn đã đặt gần nhất: bỏ đơn nháp (notEqual cũng loại trang_thai NULL, khớp cách coi NULL là Nháp ở trên)
-        Specification<DonBanHang> daDat = spec.and((r, q, c) -> c.notEqual(r.get("trangThai"), ITrangThaiDonBanHang.NHAP));
+        // Đơn đã đặt gần nhất (bỏ đơn nháp tạo tay; đơn sàn chờ xử lý vẫn tính)
+        Specification<DonBanHang> daDat = spec.and((r, q, c) -> TinhMuaHangKhach.daDat(r, c));
         TongQuanMuaHangKhachDto.DonGanNhat donGanNhat = specificationExecutor
                 .findAll(daDat, PageRequest.of(0, 1, Sort.by(Sort.Order.desc("ngayDatHang"), Sort.Order.desc("id"))))
                 .stream()
@@ -420,7 +404,8 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                         .build())
                 .orElse(null);
 
-        // Kênh khách đã mua qua (đơn đã đặt): nối trái để đếm cả đơn bán thường (không gắn kênh)
+        // Kênh khách đã mua qua (đơn đã đặt): nối trái để đếm cả đơn không gắn kênh
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Tuple> kq = cb.createTupleQuery();
         Root<DonBanHang> rk = kq.from(DonBanHang.class);
         Join<DonBanHang, KenhBanHang> kenh = rk.join("kenhBanHang", JoinType.LEFT);
@@ -438,50 +423,133 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                         .build())
                 .toList();
 
-        TongQuanMuaHangKhachDto ketQua = tongHopMuaHang(theoTrangThai, donGanNhat);
+        TongQuanMuaHangKhachDto ketQua = tongHopMuaHang(dong, tienTraHang, donGanNhat);
         ketQua.setKenhMua(kenhMua);
         return ketQua;
     }
 
-    /** Số đơn và tổng tiền của một trạng thái. */
-    record SoLieuTrangThai(long soDon, BigDecimal tongTien) {
-        SoLieuTrangThai cong(SoLieuTrangThai khac) {
-            return new SoLieuTrangThai(soDon + khac.soDon, tongTien.add(khac.tongTien));
+    /**
+     * Lần mua gần nhất của nhiều khách một lúc (danh sách khách hàng, một trang): ngày đặt mới nhất của đơn đã đặt.
+     * Cùng quy tắc đơn đã đặt và phạm vi vai trò với {@link #tongQuanMuaHangCuaKhach} (khớp ô "Lần mua gần nhất" ở trang
+     * chi tiết). Khách không có đơn trong phạm vi thì không có trong kết quả. Một truy vấn gom cho cả trang.
+     */
+    @Transactional(readOnly = true)
+    public Map<Integer, Instant> lanMuaGanNhatTheoKhach(Collection<Integer> khachHangIds) {
+        List<Integer> ids = khachHangIds == null ? List.of()
+                : khachHangIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return Map.of();
+        Specification<DonBanHang> spec = phamViDonCuaKhach(ids);
+
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Tuple> cq = cb.createTupleQuery();
+        Root<DonBanHang> root = cq.from(DonBanHang.class);
+        Path<Integer> idKhach = root.get("khachHang").get("id");
+        cq.multiselect(idKhach, cb.greatest(root.<Instant>get("ngayDatHang")))
+                .where(spec.toPredicate(root, cq, cb), TinhMuaHangKhach.daDat(root, cb))
+                .groupBy(idKhach);
+        Map<Integer, Instant> ketQua = new HashMap<>();
+        for (Tuple row : entityManager.createQuery(cq).getResultList()) {
+            Instant ngay = row.get(1, Instant.class);
+            if (ngay != null) ketQua.put(row.get(0, Integer.class), ngay);
         }
+        return ketQua;
+    }
+
+    /** Đơn bán của các khách, trong phạm vi vai trò của người đang xem. */
+    private Specification<DonBanHang> phamViDonCuaKhach(List<Integer> khachHangIds) {
+        List<FilterCriteria> filters = new ArrayList<>();
+        filters.add(khachHangIds.size() == 1
+                ? FilterCriteria.builder().fieldName("khachHang.id").operation(FilterOperation.EQUALS)
+                        .value(khachHangIds.get(0)).build()
+                : FilterCriteria.builder().fieldName("khachHang.id").operation(FilterOperation.IN)
+                        .value(new ArrayList<>(khachHangIds)).build());
+        filters.add(FilterCriteria.builder()
+                .fieldName("loaiChungTu").operation(FilterOperation.EQUALS).value(LOAI_CHUNG_TU_DON_BAN).build());
+        filters.addAll(dieuKienPhamViTheoVaiTro(SecurityContextHolder.getUser()));
+        return createSpecification(filters);
     }
 
     /**
-     * Quy tắc tính (tách riêng để kiểm thử): đơn nháp không tính vào số đơn; đơn đã hủy và bị hoàn trả
-     * vẫn là đơn đã đặt nhưng không tính vào chi tiêu.
+     * Gom đơn theo trạng thái và kênh (nối trái: id kênh null = không gắn kênh). Mỗi dòng: [trạng thái, id kênh, số đơn,
+     * tổng tiền].
      */
-    static TongQuanMuaHangKhachDto tongHopMuaHang(Map<Integer, SoLieuTrangThai> theoTrangThai,
+    private List<Tuple> gomDonTheoNhom(Specification<DonBanHang> spec) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Tuple> cq = cb.createTupleQuery();
+        Root<DonBanHang> root = cq.from(DonBanHang.class);
+        Join<DonBanHang, KenhBanHang> kenh = root.join("kenhBanHang", JoinType.LEFT);
+        Path<Integer> trangThai = root.get("trangThai");
+        Path<Integer> idKenh = kenh.get("id");
+        cq.multiselect(trangThai, idKenh, cb.count(root), cb.sum(root.<BigDecimal>get("tongCong")))
+                .where(spec.toPredicate(root, cq, cb))
+                .groupBy(trangThai, idKenh);
+        return entityManager.createQuery(cq).getResultList();
+    }
+
+    /**
+     * Tiền đã hoàn cho khách qua phiếu trả hàng tại quầy, theo khách: chỉ phiếu của đơn tính chi tiêu (đơn đã hủy / bị
+     * hoàn trả vốn không tính, trừ thêm sẽ thành trừ hai lần).
+     */
+    private Map<Integer, BigDecimal> tienTraHangTheoKhach(Specification<DonBanHang> spec) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Tuple> cq = cb.createTupleQuery();
+        Root<PhieuTraHang> phieu = cq.from(PhieuTraHang.class);
+        Root<DonBanHang> don = cq.from(DonBanHang.class);
+        Path<Integer> idKhach = don.get("khachHang").get("id");
+        cq.multiselect(idKhach, cb.sum(phieu.<BigDecimal>get("tongTienHoan")))
+                .where(cb.equal(phieu.get("donBanHangId"), don.get("id")),
+                        spec.toPredicate(don, cq, cb),
+                        TinhMuaHangKhach.tinhChiTieu(don, cb))
+                .groupBy(idKhach);
+        Map<Integer, BigDecimal> ketQua = new HashMap<>();
+        for (Tuple row : entityManager.createQuery(cq).getResultList()) {
+            ketQua.put(row.get(0, Integer.class), soTien(row.get(1, BigDecimal.class)));
+        }
+        return ketQua;
+    }
+
+    private static long soNguyen(Long so) {
+        return so == null ? 0 : so;
+    }
+
+    private static BigDecimal soTien(BigDecimal tien) {
+        return tien == null ? BigDecimal.ZERO : tien;
+    }
+
+    /**
+     * Quy tắc tính (tách riêng để kiểm thử), xem {@link TinhMuaHangKhach}: đơn nháp tạo tay không tính vào số đơn (đơn
+     * nháp có kênh là đơn sàn chờ xử lý, vẫn tính); đơn đã hủy và bị hoàn trả vẫn là đơn đã đặt nhưng không tính vào chi
+     * tiêu; tiền trả hàng tại quầy trừ khỏi tổng chi tiêu, trung bình tính trên tổng đã trừ.
+     */
+    static TongQuanMuaHangKhachDto tongHopMuaHang(List<TinhMuaHangKhach.Dong> dong, BigDecimal tienTraHang,
                                                  TongQuanMuaHangKhachDto.DonGanNhat donGanNhat) {
         long soDonNhap = 0;
         long soDonHuy = 0;
         long soDonHoanTra = 0;
         long soDonTinhChiTieu = 0;
         long soDonDangXuLy = 0;
-        BigDecimal tongChiTieu = BigDecimal.ZERO;
+        BigDecimal tongTien = BigDecimal.ZERO;
 
-        for (Map.Entry<Integer, SoLieuTrangThai> e : theoTrangThai.entrySet()) {
-            int tt = e.getKey();
-            SoLieuTrangThai so = e.getValue();
+        for (TinhMuaHangKhach.Dong d : dong == null ? List.<TinhMuaHangKhach.Dong>of() : dong) {
+            int tt = TinhMuaHangKhach.trangThai(d.trangThai());
             if (tt != ITrangThaiDonBanHang.HOAN_THANH && tt != ITrangThaiDonBanHang.DA_HUY
                     && tt != ITrangThaiDonBanHang.BI_HOAN_TRA) {
-                soDonDangXuLy += so.soDon();
+                soDonDangXuLy += d.soDon();
             }
-            if (tt == ITrangThaiDonBanHang.NHAP) {
-                soDonNhap += so.soDon();
+            if (!TinhMuaHangKhach.laDaDat(d.trangThai(), d.coKenh())) {
+                soDonNhap += d.soDon();
             } else if (tt == ITrangThaiDonBanHang.DA_HUY) {
-                soDonHuy += so.soDon();
+                soDonHuy += d.soDon();
             } else if (tt == ITrangThaiDonBanHang.BI_HOAN_TRA) {
-                soDonHoanTra += so.soDon();
+                soDonHoanTra += d.soDon();
             } else {
-                soDonTinhChiTieu += so.soDon();
-                tongChiTieu = tongChiTieu.add(so.tongTien());
+                soDonTinhChiTieu += d.soDon();
+                if (d.tongTien() != null) tongTien = tongTien.add(d.tongTien());
             }
         }
 
+        BigDecimal tra = tienTraHang == null ? BigDecimal.ZERO : tienTraHang;
+        BigDecimal tongChiTieu = TinhMuaHangKhach.truTraHang(tongTien, tra);
         return TongQuanMuaHangKhachDto.builder()
                 .soDonDat(soDonTinhChiTieu + soDonHuy + soDonHoanTra)
                 .soDonTinhChiTieu(soDonTinhChiTieu)
@@ -490,6 +558,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .soDonNhap(soDonNhap)
                 .soDonDangXuLy(soDonDangXuLy)
                 .tongChiTieu(tongChiTieu)
+                .tienTraHang(tra)
                 .trungBinhMoiDon(soDonTinhChiTieu == 0
                         ? null
                         : tongChiTieu.divide(BigDecimal.valueOf(soDonTinhChiTieu), 0, RoundingMode.HALF_UP))
