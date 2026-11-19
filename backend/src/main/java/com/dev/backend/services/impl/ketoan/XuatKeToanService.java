@@ -605,7 +605,7 @@ public class XuatKeToanService {
                 .append("của AMIS có lúc báo số dòng thành công sai: kiểm tra lại danh sách chứng từ trên AMIS.").append(n);
         sb.append("Danh mục: chọn phương thức nhập \"Cập nhật\" (mã đã có thì sửa theo tệp, mã mới thì thêm).").append(n);
         sb.append("Khách hàng: đơn sàn ghi theo mã sàn (SAN_LAZADA, SAN_SHOPEE, SAN_TIKTOK, SAN_SHOPIFY), đơn tại quầy ghi").append(n)
-                .append("khách lẻ KHLE; chỉ khách có mã số thuế giữ mã riêng. Công nợ đơn sàn theo dõi theo sàn.").append(n);
+                .append("khách lẻ KHLE; đơn bán thường giữ mã khách riêng. Công nợ đơn sàn theo dõi theo sàn.").append(n);
         sb.append("Tài khoản ").append(lo.cauHinh().getTkNganHang()).append(" (bán tại quầy trả QR payOS): AMIS bắt buộc tài khoản ngân hàng, số").append(n)
                 .append("tài khoản ở cột Nộp vào TK phải đã khai báo ở Danh mục › Tài khoản ngân hàng trên AMIS. Hoàn tiền chuyển").append(n)
                 .append("khoản cho khách trả hàng ghi giảm trừ công nợ; kế toán lập chứng từ chi tiền gửi riêng.").append(n);
@@ -673,14 +673,16 @@ public class XuatKeToanService {
      */
     static String luuYGhepCot(String mau) {
         return switch (mau) {
-            case HoSoAmis.KHACH_HANG, HoSoAmis.NHA_CUNG_CAP -> "Ở bước Ghép dữ liệu, bấm \"Ẩn/hiện thông tin\", tick Điện thoại,"
+            case HoSoAmis.KHACH_HANG -> "Ở bước Ghép dữ liệu, bấm \"Ẩn/hiện thông tin\", tick Điện thoại, Là tổ chức/cá nhân,"
+                    + " Email rồi Đồng ý (AMIS ẩn sẵn 3 cột này, không bật thì mất các thông tin đó).";
+            case HoSoAmis.NHA_CUNG_CAP -> "Ở bước Ghép dữ liệu, bấm \"Ẩn/hiện thông tin\", tick Điện thoại,"
                     + " Là tổ chức/cá nhân, Họ và tên NLH, Email rồi Đồng ý (AMIS ẩn sẵn 4 cột này, không bật thì mất các thông tin đó).";
             case HoSoAmis.VAT_TU_HANG_HOA -> "Ở bước Ghép dữ liệu, nếu \"Ẩn/hiện thông tin\" có cột Là đơn giá bán sau thuế (AMIS bật"
                     + " bán theo đơn giá sau thuế) thì tick cột đó rồi Đồng ý. Không có cột này thì khi AMIS hỏi tiếp tục, chọn Có:"
                     + " đơn giá bán trong danh mục chỉ là giá gợi ý, chứng từ bán đã ghi giá riêng.";
-            case HoSoAmis.BAN_HANG -> "Ở bước Ghép dữ liệu, bấm \"Ẩn/hiện thông tin\", tick Địa chỉ, Mã số thuế, Nộp vào TK rồi Đồng ý"
-                    + " (AMIS ẩn sẵn 3 cột này: không bật thì mất mã số thuế của khách công ty và tài khoản nhận tiền QR, chứng từ"
-                    + " QR không ghi sổ được).";
+            case HoSoAmis.BAN_HANG -> "Ở bước Ghép dữ liệu, bấm \"Ẩn/hiện thông tin\", tick Địa chỉ, Nộp vào TK rồi Đồng ý"
+                    + " (AMIS ẩn sẵn 2 cột này: không bật thì mất địa chỉ khách và tài khoản nhận tiền QR, chứng từ QR không ghi"
+                    + " sổ được).";
             default -> null;
         };
     }

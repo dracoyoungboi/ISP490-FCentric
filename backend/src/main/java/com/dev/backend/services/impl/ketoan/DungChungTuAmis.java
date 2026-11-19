@@ -21,7 +21,7 @@ import java.util.*;
  * vào AMIS doanh nghiệp (TT 99/2025) ngày 14/11/2026.</p>
  *
  * <p>Khách hàng: đơn sàn (Lazada, Shopee, TikTok Shop, Shopify) gom về một mã khách cho mỗi sàn, đơn tại quầy về khách lẻ
- * KHLE; chỉ khách có mã số thuế giữ mã riêng. Doanh nghiệp bán lẻ theo dõi công nợ theo sàn, không theo từng người mua bị
+ * KHLE; đơn bán thường giữ mã khách riêng. Doanh nghiệp bán lẻ theo dõi công nợ theo sàn, không theo từng người mua bị
  * che thông tin; mỗi người mua một mã làm danh mục khách hàng trên AMIS phình hàng nghìn dòng.</p>
  */
 public final class DungChungTuAmis {
@@ -139,7 +139,7 @@ public final class DungChungTuAmis {
     }
 
     /** Khách ghi trên chứng từ (sau khi gom theo kênh). */
-    record KhachCt(String ma, String ten, String diaChi, String maSoThue) {
+    record KhachCt(String ma, String ten, String diaChi) {
     }
 
     public static final class KetQua {
@@ -252,25 +252,21 @@ public final class DungChungTuAmis {
     }
 
     /**
-     * Khách ghi trên chứng từ: có mã số thuế (khách lấy hóa đơn công ty) giữ mã riêng; đơn sàn về mã của sàn; đơn tại quầy
-     * về khách lẻ; còn lại (đơn bán thường, có thể có công nợ) giữ mã riêng.
+     * Khách ghi trên chứng từ: đơn sàn về mã của sàn; đơn tại quầy về khách lẻ; còn lại (đơn bán thường, có thể có công
+     * nợ) giữ mã riêng.
      */
-    KhachCt khach(String ma, String ten, String diaChi, String maSoThue, String maKenh, boolean laPos) {
-        if (maSoThue != null && !maSoThue.isBlank()) {
-            kq.maKhachRieng.add(ma);
-            return new KhachCt(ma, ten, diaChi, maSoThue.trim());
-        }
+    KhachCt khach(String ma, String ten, String diaChi, String maKenh, boolean laPos) {
         String nhom = maNhomKenh(maKenh);
         if (nhom != null) {
             kq.maKhachNhom.add(nhom);
-            return new KhachCt(nhom, TEN_KHACH_NHOM.get(nhom), null, null);
+            return new KhachCt(nhom, TEN_KHACH_NHOM.get(nhom), null);
         }
         if (laPos) {
             kq.maKhachNhom.add(MA_KHACH_LE);
-            return new KhachCt(MA_KHACH_LE, TEN_KHACH_LE, null, null);
+            return new KhachCt(MA_KHACH_LE, TEN_KHACH_LE, null);
         }
         kq.maKhachRieng.add(ma);
-        return new KhachCt(ma, ten, diaChi, null);
+        return new KhachCt(ma, ten, diaChi);
     }
 
     /**
@@ -278,23 +274,23 @@ public final class DungChungTuAmis {
      * công nợ 131 của khách đó được giảm. maKhachBan null = chứng từ bán của bản trước 14/11/2026, khi mọi khách đều ghi
      * mã riêng (chưa gom khách sàn / khách lẻ).
      */
-    KhachCt khachNhuChungTuBan(String maKhachBan, String ma, String ten, String diaChi, String maSoThue) {
+    KhachCt khachNhuChungTuBan(String maKhachBan, String ma, String ten, String diaChi) {
         String maBan = maKhachBan == null || maKhachBan.isBlank() ? ma : maKhachBan.trim();
         if (TEN_KHACH_NHOM.containsKey(maBan)) {
             kq.maKhachNhom.add(maBan);
-            return new KhachCt(maBan, TEN_KHACH_NHOM.get(maBan), null, null);
+            return new KhachCt(maBan, TEN_KHACH_NHOM.get(maBan), null);
         }
         if (MA_KHACH_LE.equals(maBan) && !MA_KHACH_LE.equals(ma)) {
             kq.maKhachNhom.add(MA_KHACH_LE);
-            return new KhachCt(MA_KHACH_LE, TEN_KHACH_LE, null, null);
+            return new KhachCt(MA_KHACH_LE, TEN_KHACH_LE, null);
         }
         kq.maKhachRieng.add(maBan);
-        return new KhachCt(maBan, ten, diaChi, maSoThue == null || maSoThue.isBlank() ? null : maSoThue.trim());
+        return new KhachCt(maBan, ten, diaChi);
     }
 
     private KhachCt khachCuaDon(NguonKeToan.DonBan don) {
         boolean laPos = don.phuongThucPos() != null || "POS".equalsIgnoreCase(don.maKenh());
-        return khach(don.maKhachHang(), don.tenKhachHang(), don.diaChiKhachHang(), don.maSoThueKhachHang(), don.maKenh(), laPos);
+        return khach(don.maKhachHang(), don.tenKhachHang(), don.diaChiKhachHang(), don.maKenh(), laPos);
     }
 
     // ── Bán hàng ───────────────────────────────────────────────────────────
@@ -515,7 +511,6 @@ public final class DungChungTuAmis {
         r.put("Mã khách hàng", kh.ma());
         r.put("Tên khách hàng", kh.ten());
         r.put("Địa chỉ", kh.diaChi());
-        r.put("Mã số thuế", kh.maSoThue());
         if (THU_CHUYEN_KHOAN.equals(phuongThuc)) {
             // TK ngân hàng trên AMIS chi tiết theo tài khoản ngân hàng: thiếu số tài khoản thì không ghi sổ được
             r.put("Nộp vào TK", cauHinh.getSoTkNganHangNhan());
@@ -575,7 +570,6 @@ public final class DungChungTuAmis {
         r.put("Mã khách hàng", kh.ma());
         r.put("Tên khách hàng", kh.ten());
         r.put("Địa chỉ", kh.diaChi());
-        r.put("Mã số thuế", kh.maSoThue());
         r.put("Diễn giải/Lý do chi", dienGiai);
         r.put("TK trả lại", cauHinh.getTkTraLai());
         r.put("TK Công nợ/TK Tiền", tkTien);
@@ -626,8 +620,8 @@ public final class DungChungTuAmis {
             LocalDate ngayThue = ngayGiao == null ? ngay : ngayGiao;
             // Đơn gốc đã giao kế toán: theo mã khách của chứng từ bán; đơn gốc cùng lô / trước mốc: theo luật gom như chứng từ bán
             KhachCt kh = p.donDaGiao()
-                    ? khachNhuChungTuBan(p.maKhachBan(), p.maKhachHang(), p.tenKhachHang(), p.diaChiKhachHang(), p.maSoThueKhachHang())
-                    : khach(p.maKhachHang(), p.tenKhachHang(), p.diaChiKhachHang(), p.maSoThueKhachHang(), p.maKenh(), p.laPos());
+                    ? khachNhuChungTuBan(p.maKhachBan(), p.maKhachHang(), p.tenKhachHang(), p.diaChiKhachHang())
+                    : khach(p.maKhachHang(), p.tenKhachHang(), p.diaChiKhachHang(), p.maKenh(), p.laPos());
             boolean chuyenKhoan = "chuyen_khoan".equals(p.phuongThucHoan());
             String phuongThuc = chuyenKhoan ? GIAM_TRU_CONG_NO : TRA_LAI_TIEN_MAT;
             String tkTien = chuyenKhoan ? cauHinh.getTkPhaiThu() : cauHinh.getTkTienMat();
@@ -730,8 +724,7 @@ public final class DungChungTuAmis {
             if (ngay.isBefore(ngayBan)) {
                 ngay = ngayBan;
             }
-            KhachCt kh = khachNhuChungTuBan(h.maKhachBan(), don.maKhachHang(), don.tenKhachHang(), don.diaChiKhachHang(),
-                    don.maSoThueKhachHang());
+            KhachCt kh = khachNhuChungTuBan(h.maKhachBan(), don.maKhachHang(), don.tenKhachHang(), don.diaChiKhachHang());
             List<Map<String, Object>> rows = new ArrayList<>();
             for (DongTien d : td.dong()) {
                 Map<String, Object> r = dauTraLai(so, ngay, kh, GIAM_TRU_CONG_NO, cauHinh.getTkPhaiThu(), false, null,
@@ -1161,10 +1154,8 @@ public final class DungChungTuAmis {
             r.put("Mã khách hàng", k.ma());
             r.put("Tên khách hàng", k.ten());
             r.put("Địa chỉ", k.diaChi());
-            r.put("Mã số thuế", k.maSoThue());
             r.put("Điện thoại", that(k.soDienThoai()));
-            r.put("Là tổ chức/cá nhân", "doanh_nghiep".equals(k.loai()) ? TO_CHUC : CA_NHAN);
-            r.put("Họ và tên người liên hệ", k.nguoiLienHe());
+            r.put("Là tổ chức/cá nhân", CA_NHAN);
             r.put("Email", that(k.email()));
             dongKh.add(r);
         }
