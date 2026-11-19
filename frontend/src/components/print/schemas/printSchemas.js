@@ -262,22 +262,8 @@ const SALES_INVOICE_SECTIONS = [
                 hideWhenZero: true,
                 hint: "Chỉ in khi khách trả tiền mặt và có tiền thừa",
             },
-            // Đơn bán thường thu theo phiếu (đặt cọc, thu nhiều lần); đơn khác không có dữ liệu nên tự ẩn
-            {
-                key: "paid",
-                label: "Đã thanh toán",
-                modelPath: "payment.paid",
-                hint: "Chỉ in khi đơn bán thường đã ghi nhận thu tiền",
-            },
-            {
-                key: "due",
-                label: "Còn phải thu",
-                modelPath: "payment.due",
-                emphasis: true,
-                hint: "Chỉ in khi đơn bán thường còn thiếu tiền",
-            },
         ],
-        // Dòng chữ in sau "Còn phải thu" (đơn thu một phần) — ghi rõ là đọc số Tổng thanh toán, không phải số còn nợ
+        // Đọc số Tổng thanh toán bằng chữ
         words: { key: "amountInWords", label: "Tổng thanh toán bằng chữ", modelPath: "amountInWords" },
     },
     { key: "notes", type: "notes", title: "Ghi chú", path: "notes" },

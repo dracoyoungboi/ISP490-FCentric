@@ -25,12 +25,10 @@ export const SALES_ORDER_STATUS = DON_BAN_HANG_STATUS;
 
 export const PAYMENT_STATUS = DON_BAN_HANG_THANH_TOAN;
 
-/** Hình thức thu tiền (pos_payment.phuong_thuc tại quầy; TIEN_MAT / CHUYEN_KHOAN: phiếu thu đơn bán thường). */
+/** Hình thức thu tiền tại quầy (pos_payment.phuong_thuc). */
 export const PAYMENT_METHOD = {
     CASH: "Tiền mặt",
-    TIEN_MAT: "Tiền mặt",
     PAYOS: "Chuyển khoản",
-    CHUYEN_KHOAN: "Chuyển khoản",
 };
 
 /** Mã kênh của màn bán tại quầy — in "Bán tại quầy" thay cho tên kênh kỹ thuật "POS". */
@@ -141,10 +139,8 @@ export function thueGtgt(don) {
 export function toSalesInvoicePrintModel(raw) {
     const model = toDonBanHangPrintModel(raw);
     const don = raw?.donBanHang || {};
-    // Đơn bán thường: trạng thái tính từ phiếu (null = đơn cũ chưa theo dõi thanh toán, không in tình trạng)
-    const tt = raw?.thanhToan;
-    const donThuong = Boolean(tt?.donThuong) && !raw?.thanhToanTaiQuay;
-    const trangThaiTT = donThuong ? tt.trangThai : don.trangThaiThanhToan;
+    // Trạng thái lưu trên đơn (trống = đơn bán thường cũ chưa theo dõi thanh toán, không in tình trạng)
+    const trangThaiTT = don.trangThaiThanhToan;
     const status = trangThaiTT ? PAYMENT_STATUS[trangThaiTT] || { label: dash(trangThaiTT) } : { label: null };
 
     // Sổ thu tại quầy: hình thức, tiền khách đưa, tiền thừa (đơn khác không có -> null, dòng tự ẩn)
@@ -154,15 +150,9 @@ export function toSalesInvoicePrintModel(raw) {
     const tienMatTruoc = toNumeric(thu?.tienMatTruoc);
     const ketHop = tienMatTruoc > 0;
     const tienChuyenKhoan = ketHop ? Math.max((toNumeric(thu.soTienThu) ?? 0) - tienMatTruoc, 0) : null;
-    // Đơn bán thường (thu theo phiếu ghi nhận: đặt cọc, thu nhiều lần): cách trả đã dùng, số đã thu và còn phải thu
-    const phieuThu = donThuong ? (tt.phieu ?? []).filter((p) => p.loai === "THU" && p.trangThai === "HIEU_LUC") : [];
-    const cachTraThuong = [...new Set(phieuThu.map((p) => PAYMENT_METHOD[p.phuongThuc] ?? p.phuongThuc))].join(" + ") || null;
-    const daThu = donThuong ? toNumeric(tt.daThu) : null;
-    const conLai = donThuong ? toNumeric(tt.conLai) : null;
     const method = ketHop
         ? `${PAYMENT_METHOD.CASH} + ${PAYMENT_METHOD.PAYOS}`
-        : thu?.phuongThuc ? PAYMENT_METHOD[thu.phuongThuc] ?? thu.phuongThuc
-            : donThuong ? cachTraThuong : null;
+        : thu?.phuongThuc ? PAYMENT_METHOD[thu.phuongThuc] ?? thu.phuongThuc : null;
     const isCash = thu?.phuongThuc === "CASH";
     const change = isCash ? toNumeric(thu.soTienThua) : null;
 
@@ -183,9 +173,6 @@ export function toSalesInvoicePrintModel(raw) {
             received: isCash ? formatPrintMoney(thu.soTienThu) : null,
             changeRaw: change,
             change: isCash ? formatPrintMoney(change ?? 0) : null,
-            // Đơn bán thường đã thu một phần trở lên: in Đã thanh toán; còn thiếu thì in Còn phải thu
-            paid: daThu > 0 ? formatPrintMoney(daThu) : null,
-            due: daThu > 0 && conLai > 0 ? formatPrintMoney(conLai) : null,
         },
     };
 }
