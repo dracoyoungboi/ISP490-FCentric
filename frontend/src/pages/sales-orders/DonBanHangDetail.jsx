@@ -319,6 +319,11 @@ function ChiTietDonBanHang({ id }) {
     });
 
   const inVanDonSan = async () => {
+    // Shopee: mở thẳng giao diện in A6 nội bộ (tự nhúng vận đơn chuẩn sàn bên trong) thay vì bật tab popup mới
+    if (laShopee) {
+      navigate(`/sales-orders/${id}/print-packing-slip`);
+      return;
+    }
     try {
       setDangTaiVanDon(true);
       const blob = await donBanHangService.layVanDonSan(id);
