@@ -17,7 +17,7 @@ function chuNoiLamViec(dsKho) {
  * Hàng tiêu đề của trang danh sách: tiêu đề trang bên trái, nút chính bên phải, cùng một hàng cao 36px.
  * - title: mặc định lấy tên trang từ layout (trùng nhãn menu bên trái); truyền vào nếu cần tên khác.
  * - scope: phạm vi dữ liệu cho người không phải quản trị viên (R3), hiện thành nhãn nhỏ cạnh tiêu đề,
- *   ví dụ "Báo giá bạn tạo". Phạm vi theo kho thì truyền `noiLamViec` thay vì tự ghi chữ.
+ *   ví dụ "Đơn bán hàng bạn tạo". Phạm vi theo kho thì truyền `noiLamViec` thay vì tự ghi chữ.
  * - noiLamViec: các kho (có tenKho) mà danh sách bị giới hạn theo; null / không truyền = không giới hạn (quản trị viên)
  *   hoặc chưa tải xong. Một tên cho mọi trang: "Nơi làm việc: …", khớp ô ở đáy menu (PQ-17, 08/11/2026). Nhân viên
  *   chỉ có một kho thì không hiện vì đáy menu (điện thoại: đầu trang) đã ghi; mảng rỗng: "Chưa có nơi làm việc".

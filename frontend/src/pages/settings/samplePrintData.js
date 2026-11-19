@@ -6,10 +6,7 @@ import { toGoodsReceiptPrintModel } from "@/components/print/adapters/goodsRecei
 import { toEcommercePrintModel } from "@/components/print/adapters/ecommercePrintAdapter";
 import { toGoodsIssuePrintModel } from "@/components/print/adapters/goodsIssuePrintAdapter";
 import { toPosReturnPrintModel } from "@/components/print/adapters/posReturnPrintAdapter";
-import {
-    toSalesQuotationPrintModel,
-    toSalesInvoicePrintModel,
-} from "@/components/print/adapters/donBanHangPrintAdapter";
+import { toSalesInvoicePrintModel } from "@/components/print/adapters/donBanHangPrintAdapter";
 
 /**
  * Dữ liệu mẫu CHỈ dùng trong editor / bản xem trước. Trang in thật chỉ dùng
@@ -303,52 +300,6 @@ export const SAMPLE_GOODS_ISSUE_PAYLOAD = {
     },
 };
 
-/** Báo giá bán — shape DonBanHangDetailResponse (loaiChungTu báo giá). */
-export const SAMPLE_SALES_QUOTATION_RAW = {
-    donBanHang: {
-        id: 0,
-        soDonHang: "MẪU-BG-0001",
-        loaiChungTu: "bao_gia",
-        khachHang: {
-            tenKhachHang: "Shop thời trang Hoa Việt",
-            maKhachHang: "KH-0001",
-            nguoiLienHe: "Chị Thu Hà",
-            // API đơn bán che số điện thoại khách (MaskingUtils, SRS 8.1.1) — bản in thật cũng vậy
-            soDienThoai: "09***010",
-            email: "thuha@hoaviet.example.com",
-            diaChi: "789 Lê Văn Sỹ, Quận 3, TP. Hồ Chí Minh",
-        },
-        ngayDatHang: "2026-09-12T11:00:00Z",
-        diaChiGiaoHang: "12 Trần Quang Khải, Quận 1, TP. Hồ Chí Minh",
-        trangThai: 0,
-        tienHang: 4250000,
-        phiVanChuyen: 50000,
-        tongCong: 4300000,
-        ghiChu: "Báo giá có hiệu lực 30 ngày kể từ ngày lập.",
-        nguoiTao: {
-            hoTen: "Phạm Quốc Huy",
-            email: "huy.pq@example.com",
-            soDienThoai: "0909 000 009",
-        },
-    },
-    chiTiet: [
-        {
-            tenSanPham: "Áo thun nam cổ tròn / Trắng / L",
-            sku: "ATN-001-WHT-L",
-            donGia: 200000,
-            soLuongDat: 10,
-            thanhTien: 2000000,
-        },
-        {
-            tenSanPham: "Quần kaki nam ống đứng / Xám / XL",
-            sku: "QK-002-GRY-XL",
-            donGia: 450000,
-            soLuongDat: 5,
-            thanhTien: 2250000,
-        },
-    ],
-};
-
 /**
  * Hóa đơn bán hàng khổ tờ (A4/A5) — shape DonBanHangDetailResponse (loaiChungTu "don_ban_hang").
  * CÙNG đơn với phiếu xuất kho mẫu MẪU-PXK-0001 (khách, hàng, địa chỉ giao, kho): đơn bán
@@ -609,8 +560,6 @@ export function getSamplePrintModel(documentType) {
             return toEcommercePrintModel(SAMPLE_ECOMMERCE_PACKING_SLIP_PAYLOAD);
         case "goods_issue":
             return toGoodsIssuePrintModel(SAMPLE_GOODS_ISSUE_PAYLOAD);
-        case "sales_quotation":
-            return toSalesQuotationPrintModel(SAMPLE_SALES_QUOTATION_RAW);
         case "sales_invoice":
             return toSalesInvoicePrintModel(SAMPLE_SALES_INVOICE_RAW);
         case "pos_invoice":

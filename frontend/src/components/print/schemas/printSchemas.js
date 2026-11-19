@@ -958,96 +958,6 @@ export const PRINT_SCHEMAS = {
         ],
     },
 
-    sales_quotation: {
-        key: "sales_quotation",
-        slug: "sales-quotation",
-        description: "Gửi khách hàng trước khi chốt đơn",
-        label: "Báo giá bán",
-        docTitle: "BẢNG BÁO GIÁ",
-        hasRealPrintRoute: true,
-        paperProfiles: ["A4", "A5"],
-        templates: sheetTemplates("sales_quotation"),
-        footerNote: "",
-        sections: [
-            {
-                key: "customer",
-                type: "info",
-                title: "Kính gửi",
-                columns: 1,
-                half: true,
-                fields: [
-                    { key: "name", label: "Khách hàng", modelPath: "buyer.name", essential: true },
-                    { key: "code", label: "Mã khách hàng", modelPath: "buyer.code", hideWhenEmpty: true },
-                    { key: "contact", label: "Người liên hệ", modelPath: "buyer.contact", hideWhenEmpty: true },
-                    { key: "phone", label: "Điện thoại", modelPath: "buyer.phone", hideWhenEmpty: true },
-                    { key: "address", label: "Địa chỉ", modelPath: "buyer.address", hideWhenEmpty: true },
-                    {
-                        key: "deliveryAddress",
-                        label: "Địa chỉ giao hàng",
-                        modelPath: "buyer.deliveryAddress",
-                        hideWhenEmpty: true,
-                        hint: "Chỉ in khi báo giá có địa chỉ giao hàng",
-                    },
-                ],
-            },
-            {
-                key: "quoteInfo",
-                type: "info",
-                title: "Người báo giá",
-                columns: 1,
-                half: true,
-                fields: [
-                    // Họ tên người báo giá in ở ô ký — ở đây chỉ in cách liên hệ
-                    { key: "contactPhone", label: "Điện thoại", modelPath: "creator.phone", hideWhenEmpty: true },
-                    { key: "contactEmail", label: "Email", modelPath: "creator.email", hideWhenEmpty: true },
-                    { key: "status", label: "Trạng thái", modelPath: "status", kind: "badge", defaultOn: false },
-                ],
-            },
-            {
-                key: "items",
-                type: "items",
-                essentialShow: true,
-                title: "Danh sách sản phẩm",
-                path: "items",
-                totals: [{ label: "Tổng số lượng", modelPath: "totalQuantity", column: "quantity" }],
-                columns: [
-                    { key: "productName", label: "Tên sản phẩm", path: "name", essential: true },
-                    { key: "sku", label: "Mã SKU", path: "sku", kind: "code" },
-                    { key: "quantity", label: "Số lượng", path: "quantity", essential: true, kind: "qty" },
-                    { key: "unitPrice", label: "Đơn giá", path: "unitPrice", essential: true, kind: "money" },
-                    { key: "amount", label: "Thành tiền", path: "amount", essential: true, kind: "money" },
-                ],
-            },
-            {
-                key: "totals",
-                type: "summary",
-                title: "Tổng cộng",
-                rows: [
-                    // Không có phí nào cộng thêm thì "Tổng tiền hàng" trùng "Tổng cộng" — chỉ in một dòng
-                    { key: "items", label: "Tổng tiền hàng", modelPath: "totals.items", hideWhenSameAs: "totals.grandTotal" },
-                    { key: "shipping", label: "Phí vận chuyển", modelPath: "totals.shipping", rawPath: "totals.shippingRaw", hideWhenZero: true },
-                    { key: "grandTotal", label: "Tổng cộng", modelPath: "totals.grandTotal", emphasis: true, essential: true },
-                ],
-                words: { key: "amountInWords", label: "Bằng chữ", modelPath: "amountInWords" },
-            },
-            { key: "notes", type: "notes", title: "Điều khoản & ghi chú", path: "notes" },
-            {
-                key: "signatures",
-                type: "signatures",
-                title: "Chữ ký",
-                blocks: [
-                    {
-                        key: "buyer",
-                        label: "Khách hàng xác nhận",
-                        path: "signatures.buyer",
-                        hint: "Ô trống — khách hàng ký và ghi rõ họ tên",
-                    },
-                    { key: "creator", label: "Người báo giá", path: "signatures.creator" },
-                ],
-            },
-        ],
-    },
-
     sales_invoice: {
         key: "sales_invoice",
         slug: "sales-invoice",
@@ -1105,7 +1015,7 @@ export const PRINT_DOCUMENT_GROUPS = (() => {
     const groups = [
         { key: "mua-hang", label: "Mua hàng", types: ["purchase_request", "quotation_request", "purchase_order"] },
         { key: "kho", label: "Kho", types: ["goods_receipt", "goods_issue"] },
-        { key: "ban-hang", label: "Bán hàng", types: ["sales_quotation", "sales_invoice", "pos_invoice", "pos_return"] },
+        { key: "ban-hang", label: "Bán hàng", types: ["sales_invoice", "pos_invoice", "pos_return"] },
     ];
     const grouped = new Set(groups.flatMap((group) => group.types));
     const others = PRINT_DOCUMENT_TYPES.map((schema) => schema.key).filter((key) => !grouped.has(key));
