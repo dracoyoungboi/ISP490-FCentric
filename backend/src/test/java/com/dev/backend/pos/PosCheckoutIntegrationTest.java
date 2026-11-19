@@ -587,9 +587,9 @@ class PosCheckoutIntegrationTest {
         String active = "09" + suffix;
         String inactive = "08" + suffix;
         jdbc.update("DELETE FROM khach_hang WHERE ma_khach_hang LIKE 'KHIT%'");
-        jdbc.update("INSERT INTO khach_hang (ma_khach_hang, ten_khach_hang, so_dien_thoai, loai_khach_hang, trang_thai) VALUES (?, ?, ?, 'le', 1)",
+        jdbc.update("INSERT INTO khach_hang (ma_khach_hang, ten_khach_hang, so_dien_thoai, trang_thai) VALUES (?, ?, ?, 1)",
                 "KHIT" + active, "Khách IT " + active, active);
-        jdbc.update("INSERT INTO khach_hang (ma_khach_hang, ten_khach_hang, so_dien_thoai, loai_khach_hang, trang_thai) VALUES (?, ?, ?, 'le', 0)",
+        jdbc.update("INSERT INTO khach_hang (ma_khach_hang, ten_khach_hang, so_dien_thoai, trang_thai) VALUES (?, ?, ?, 0)",
                 "KHIT" + inactive, "Khách IT ngừng " + inactive, inactive);
         try {
             HttpHeaders h = new HttpHeaders();

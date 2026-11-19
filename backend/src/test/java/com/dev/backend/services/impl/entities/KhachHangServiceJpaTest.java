@@ -112,7 +112,6 @@ class KhachHangServiceJpaTest {
         KhachHang daLuu = repository.findById(tuTao.getId()).orElseThrow();
         assertEquals(tuTao.getMaKhachHang(), daLuu.getMaKhachHang(), "mã tạm không được còn lại trong CSDL");
         assertEquals(1, daLuu.getTrangThai());
-        assertEquals("le", daLuu.getLoaiKhachHang());
     }
 
     @Test

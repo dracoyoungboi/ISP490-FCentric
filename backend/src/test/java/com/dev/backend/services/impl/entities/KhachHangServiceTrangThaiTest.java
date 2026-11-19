@@ -49,7 +49,7 @@ class KhachHangServiceTrangThaiTest {
         khach = KhachHang.builder()
                 .id(16).maKhachHang("KH016").tenKhachHang("Công ty TNHH Thời trang Minh Khôi")
                 .soDienThoai("0912345678").email("muahang@minhkhoi.example.vn")
-                .loaiKhachHang("doanh_nghiep").trangThai(1)
+                .trangThai(1)
                 .build();
     }
 
@@ -64,7 +64,6 @@ class KhachHangServiceTrangThaiTest {
         assertEquals("Công ty TNHH Thời trang Minh Khôi", dto.getTenKhachHang());
         assertEquals("0912345678", dto.getSoDienThoai());
         assertEquals("muahang@minhkhoi.example.vn", dto.getEmail());
-        assertEquals("doanh_nghiep", dto.getLoaiKhachHang());
     }
 
     @Test
