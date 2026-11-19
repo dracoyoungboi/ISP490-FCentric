@@ -2,8 +2,8 @@ import apiClient from "./apiClient";
 
 /**
  * Mã khách hàng lẻ (walk-in) theo chính sách hợp đồng Phase 01 mục 6.1:
- * bản ghi thật có ma_khach_hang = KHLE, loai_khach_hang = 'le' (được seed
- * ở Phase 03 qua migration additive). Phase 02: nếu bản ghi chưa tồn tại,
+ * bản ghi thật có ma_khach_hang = KHLE (được seed ở Phase 03 qua migration
+ * additive). Phase 02: nếu bản ghi chưa tồn tại,
  * POS KHÔNG mặc định chọn khách nào và bắt chọn tường minh — không dùng id demo.
  */
 export const WALKIN_CUSTOMER_CODE = "KHLE";

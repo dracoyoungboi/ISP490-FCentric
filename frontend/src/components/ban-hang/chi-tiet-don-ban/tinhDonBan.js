@@ -174,7 +174,7 @@ export function phieuDaXuatCuoi(ct) {
 /**
  * Tiền của đơn: hiện NGUYÊN 3 số máy chủ trả (không tự cộng). `lechTong` khi tiền hàng + phí ≠ tổng cộng: đơn sàn (tổng
  * theo sàn gồm thuế, phí), hoặc đơn cũ mà xác nhận xuất kho từng ghi đè phí bằng cước thực tế (trước 25/10/2026; nay cước
- * lưu trên phiếu xuất, migration-2026-10-25 khôi phục phí đơn bán buôn).
+ * lưu trên phiếu xuất, migration-2026-10-25 khôi phục phí của các đơn tạo tay trước đây).
  * Đơn sàn: tiền hàng = current_subtotal_price của Shopify, có thể khác tổng các dòng
  * (giảm giá, dòng chưa liên kết SKU bị bỏ qua) → `lechDong`, `chenhDong` (số dương).
  */
