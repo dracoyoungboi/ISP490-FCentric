@@ -1110,5 +1110,10 @@
   "Danh sách trả hàng": "Return lists",
   "Không tìm thấy đơn hàng": "Order not found",
   "Đơn hàng có thể đã bị xóa hoặc bạn không có quyền truy cập.": "The order may have been deleted or you do not have permission to access it.",
-  "Không thể tải tem vận đơn từ sàn: {{error}}": "Could not download shipping label from marketplace: {{error}}"
+  "Không thể tải tem vận đơn từ sàn: {{error}}": "Could not download shipping label from marketplace: {{error}}",
+  "Shopify gợi ý": "Shopify suggestion",
+  "Nhận tại cửa hàng": "Store pickup",
+  "Shopify gợi ý xuất từ {{tenKho}}{{phuongThuc}}.": "Shopify suggests issuing from {{tenKho}}{{phuongThuc}}.",
+  " · Khách chọn nhận tại cửa hàng": " · Customer chose store pickup",
+  "Đơn Shopify đang tách từ nhiều điểm giao nhận trên sàn. Khi điều tiết về một kho, hệ thống tự chuyển vị trí xử lý trên Shopify.": "This Shopify order spans multiple fulfillment locations. Dispatching it to one warehouse updates the assigned location on Shopify."
 }
