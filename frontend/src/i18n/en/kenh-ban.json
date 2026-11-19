@@ -985,5 +985,21 @@
   "Bạn đang chuyển kho đồng bộ của kênh {{tenSan}} từ {{khoCu}} sang {{khoMoi}}. Hệ thống sẽ tự động chuyển sản phẩm đang đồng bộ sang kho mới và đẩy lại tồn kho lên sàn.": "You are switching the sync warehouse for {{tenSan}} from {{khoCu}} to {{khoMoi}}. FCentric will move synced products to the new warehouse and push inventory to the channel.",
   "Chuyển kho và đồng bộ": "Switch warehouse and sync",
   "Đã chuyển kho và đồng bộ sản phẩm sang {{khoMoi}}.": "Switched warehouse and synced products to {{khoMoi}}.",
-  "Không chuyển được kho đồng bộ.": "Could not switch sync warehouse."
+  "Không chuyển được kho đồng bộ.": "Could not switch sync warehouse.",
+  "Vận đơn AWB chính thức Shopee": "Official Shopee AWB shipping label",
+  "Vận đơn AWB chính thức Shopee (PDF chuẩn sàn)": "Official Shopee AWB shipping label (marketplace PDF)",
+  "Mở PDF trong tab mới": "Open PDF in new tab",
+  "Tải PDF A6": "Download A6 PDF",
+  "Ẩn xem trước": "Hide preview",
+  "Xem bản in nhiệt": "View thermal label",
+  "Đang tải vận đơn Shopee chuẩn A6...": "Loading Shopee A6 shipping label...",
+  "Đã tải vận đơn chuẩn HTML từ Shopee": "Loaded official HTML shipping label from Shopee",
+  "Tải vận đơn": "Download label",
+  "Mở trong tab mới": "Open in new tab",
+  "Xem bản mẫu A6": "View internal A6 template",
+  "Quay lại vận đơn Shopee": "Back to Shopee label",
+  "Thử tải lại": "Retry",
+  "Đang tải vận đơn từ Shopee...": "Loading shipping label from Shopee...",
+  "Shopee chưa trả tệp vận đơn chính thức cho đơn này — đang hiển thị tem in nhiệt A6 nội bộ FCentric.": "Shopee has not returned an official shipping label file for this order yet — showing FCentric internal A6 thermal label.",
+  "Không thể tải vận đơn từ Shopee: {{error}}. Đang hiển thị tem in nhiệt A6 nội bộ FCentric.": "Could not load Shopee shipping label: {{error}}. Showing FCentric internal A6 thermal label."
 }
