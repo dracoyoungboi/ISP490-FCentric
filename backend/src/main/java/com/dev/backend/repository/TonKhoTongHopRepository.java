@@ -21,8 +21,8 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
     /**
      * Lấy thông tin tồn kho tổng hợp theo từng biến thể sản phẩm và kho.
      * Bao gồm cả những biến thể chưa có dữ liệu tồn kho (số lượng = 0).
-     * Chờ xuất (outgoing) = đặt − đã xuất thật của đơn bán đang giữ hàng (ITrangThaiDonBanHang.DANG_GIU_HANG),
-     * không tính báo giá; không dùng soLuongDaGiao (chỉ ghi khi giao thành công nên xuất một phần bị trừ hai lần).
+     * Chờ xuất (outgoing) = đặt − đã xuất thật của đơn bán đang giữ hàng (ITrangThaiDonBanHang.DANG_GIU_HANG);
+     * không dùng soLuongDaGiao (chỉ ghi khi giao thành công nên xuất một phần bị trừ hai lần).
      * * Điều kiện lọc:
      * - Sản phẩm cha đang hoạt động (trangThai IN (0, 1))
      * - Biến thể đang hoạt động (trangThai = 1)
@@ -159,7 +159,7 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
     /**
      * Tồn khả dụng toàn chuỗi (Free to Use) đẩy lên sàn, không âm:
      *   Σ (tồn − đang giữ) ở các kho bán được (đang hoạt động, không phải Kho Trung Chuyển)
-     *   − lượng chờ xuất (đặt − đã xuất thật) của MỌI đơn bán đang giữ hàng (không tính báo giá).
+     *   − lượng chờ xuất (đặt − đã xuất thật) của MỌI đơn bán đang giữ hàng.
      * "Đang giữ" (so_luong_da_dat) là hàng POS payOS / phiếu xuất chuyển kho đã giữ; đơn bán giữ hàng qua lượng chờ xuất
      * nên không bị trừ hai lần.
      */

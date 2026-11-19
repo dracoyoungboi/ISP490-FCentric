@@ -4,7 +4,6 @@ import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.BaseFilterRequest;
-import com.dev.backend.dto.request.DonBanHangCreating;
 import com.dev.backend.dto.request.LyDoHuyRequest;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.BienTheSanPhamSelectDto;
@@ -15,7 +14,6 @@ import com.dev.backend.dto.response.entities.DonBanHangDto;
 import com.dev.backend.entities.DonBanHang;
 import com.dev.backend.mapper.DonBanHangMapper;
 import com.dev.backend.services.impl.entities.DonBanHangService;
-import com.dev.backend.utils.GioiHanSoThapPhan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -172,27 +170,6 @@ public class DonBanHangController {
                         .build()
         );
     }
-    @PostMapping("/create")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.nhan_vien_ban_hang
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
-    public ResponseEntity<ResponseData<DonBanHangDto>> create(
-            @RequestBody DonBanHangCreating request
-    ) {
-
-        DonBanHang don = donBanHangService.create(request);
-        return ResponseEntity.ok(
-                ResponseData.<DonBanHangDto>builder()
-                        .status(200)
-                        .data(donBanHangMapper.toDto(don))
-                        .message(ThongDiep.dich("banHang.taoDonBanThanhCong"))
-                        .build()
-        );
-    }
     @GetMapping("/variants-for-create")
     @RequireAuth(
             // nhan_vien_kho: màn Tạo phiếu chuyển kho (POST /phieu-chuyen-kho/create mở cho nhân viên kho) cần danh sách này
@@ -237,63 +214,6 @@ public class DonBanHangController {
                         .build()
         );
     }
-    @PutMapping("/{id}/convert-to-order")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.nhan_vien_ban_hang
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
-    public ResponseEntity<ResponseData<String>> convertToOrder(
-            @PathVariable Integer id,
-            @RequestBody java.util.Map<String, Object> body
-    ) {
-        Integer khoXuatId = body.get("khoXuatId") != null ? Integer.valueOf(body.get("khoXuatId").toString()) : null;
-        String ghiChu = body.get("ghiChu") != null ? body.get("ghiChu").toString() : null;
-        String diaChi = body.get("diaChiGiaoHang") != null ? body.get("diaChiGiaoHang").toString() : null;
-        // Map<String, Object> không đi qua bộ đọc BigDecimal của Jackson: kiểm giới hạn tay (số mũ khổng lồ làm treo máy chủ)
-        java.math.BigDecimal phiVanChuyen = body.get("phiVanChuyen") != null
-                ? GioiHanSoThapPhan.kiemTra(new java.math.BigDecimal(body.get("phiVanChuyen").toString()), ThongDiep.of("nhan.phiVanChuyen"))
-                : null;
-
-        donBanHangService.convertToOrder(id, khoXuatId, ghiChu, diaChi, phiVanChuyen);
-
-        return ResponseEntity.ok(
-                ResponseData.<String>builder()
-                        .status(200)
-                        .data("Success")
-                        .message(ThongDiep.dich("banHang.daChapNhanBaoGia"))
-                        .error(null)
-                        .build()
-        );
-    }
-
-    @PutMapping("/{id}/reject-quote")
-    @RequireAuth(
-            roles = {
-                    IRoleType.quan_tri_vien,
-                    IRoleType.nhan_vien_ban_hang
-            },
-            rolesLogic = RequireAuth.LogicType.OR
-    )
-    public ResponseEntity<ResponseData<String>> rejectQuote(
-            @PathVariable Integer id,
-            @RequestBody java.util.Map<String, String> body
-    ) {
-        String reason = body.get("reason");
-        donBanHangService.rejectQuote(id, reason);
-
-        return ResponseEntity.ok(
-                ResponseData.<String>builder()
-                        .status(200)
-                        .data("Success")
-                        .message(ThongDiep.dich("banHang.daTuChoiBaoGia"))
-                        .error(null)
-                        .build()
-        );
-    }
-
     @PutMapping("/{id}/return")
     @RequireAuth(
             roles = {

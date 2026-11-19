@@ -80,7 +80,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 import static com.dev.backend.dto.response.TongQuanVaiTroResponse.KHOI_BAN_CHAY;
-import static com.dev.backend.dto.response.TongQuanVaiTroResponse.KHOI_BAO_GIA;
 import static com.dev.backend.dto.response.TongQuanVaiTroResponse.KHOI_BO_SUNG;
 import static com.dev.backend.dto.response.TongQuanVaiTroResponse.KHOI_CAN_MUA;
 import static com.dev.backend.dto.response.TongQuanVaiTroResponse.KHOI_CHI_SO;
@@ -123,10 +122,8 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
     /* Cấu hình hệ thống (cau_hinh_he_thong) và giá trị dùng khi chưa cấu hình */
     static final String CH_GIO_CHO_LAU = "PICK_WAIT_WARN_HOURS";
     static final String CH_NGAY_CHO_BAO_GIA = "RFQ_WAIT_WARN_DAYS";
-    static final String CH_NGAY_THEO_DOI_BAO_GIA = "QUOTE_FOLLOWUP_DAYS";
     static final int GIO_CHO_LAU_MAC_DINH = 2;
     static final int NGAY_CHO_BAO_GIA_MAC_DINH = 2;
-    static final int NGAY_THEO_DOI_BAO_GIA_MAC_DINH = 3;
 
     static final int SO_DONG_BO_SUNG = 3;
     static final int SO_DONG_VIEC = 8;
@@ -137,7 +134,6 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
     static final int SO_DONG_CAN_MUA = 5;
     static final int SO_MA_XET_CAN_MUA = 500;
     static final int SO_DON_CUA_TOI = 50;
-    static final int SO_BAO_GIA = 50;
     static final int SO_BAN_CHAY = 5;
     static final int SO_SAN_PHAM_TRA_TON = 6;
     static final int DO_DAI_TU_KHOA_TOI_DA = 100;
@@ -244,8 +240,7 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
         final List<String> khoiLoi = Collections.synchronizedList(new ArrayList<>());
         final CauHinh cauHinh = new CauHinh(
                 cauHinh(CH_GIO_CHO_LAU, GIO_CHO_LAU_MAC_DINH),
-                cauHinh(CH_NGAY_CHO_BAO_GIA, NGAY_CHO_BAO_GIA_MAC_DINH),
-                cauHinh(CH_NGAY_THEO_DOI_BAO_GIA, NGAY_THEO_DOI_BAO_GIA_MAC_DINH));
+                cauHinh(CH_NGAY_CHO_BAO_GIA, NGAY_CHO_BAO_GIA_MAC_DINH));
         final int nguong = cauHinh("DEFAULT_MIN_STOCK_ALERT", NGUONG_TON_MAC_DINH);
         final int heSoDu = cauHinh("SURPLUS_STOCK_RATIO", HE_SO_DU_MAC_DINH);
         final LocalDateTime mocChoLau = bayGio.minusHours(cauHinh.gioChoLau());
@@ -529,8 +524,6 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
         });
 
         var don = bc.chay(KHOI_DON, () -> repo.donCuaToi(nguoiDungId, bc.mocChoLau, SO_DON_CUA_TOI));
-        var baoGia = bc.chay(KHOI_BAO_GIA, () -> repo.baoGiaCuaToi(nguoiDungId,
-                bc.bayGio.minusDays(bc.cauHinh.ngayTheoDoiBaoGia()), SO_BAO_GIA));
 
         List<BanChayDong> banChay = bc.chay(KHOI_BAN_CHAY, () -> {
             List<SanPhamBanChayDong> dong = admin.sanPhamBanChay(bc.ngay(-6), bc.ngay(1), k, SO_BAN_CHAY);
@@ -539,7 +532,7 @@ public class TongQuanVaiTroServiceImpl implements TongQuanVaiTroService {
             return dong.stream().map(r -> new BanChayDong(r.sanPhamId(), r.maSanPham(), r.tenSanPham(),
                     so(r.soLuong()), Math.max(0, so(con.get(r.sanPhamId()))))).toList();
         });
-        return new BanHang(chiSo, theoGio, don, baoGia, banChay);
+        return new BanHang(chiSo, theoGio, don, banChay);
     }
 
     /**

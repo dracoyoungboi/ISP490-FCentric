@@ -35,7 +35,7 @@ export const CO_TRANG_LO = Object.freeze([10, 20]);
 /** Tóm tắt màu · kích cỡ của một nhóm đang thu gọn: mỗi vế hiện tối đa ngần này giá trị, còn lại ghi "+n". */
 export const SO_MUC_TOM_TAT = 6;
 
-/** Hộp chọn kho theo tồn khả dụng (Gửi sang kho, Chốt thành đơn): có quá số kho này thì hiện ô tìm kho. */
+/** Hộp chọn kho theo tồn khả dụng (Gửi sang kho): có quá số kho này thì hiện ô tìm kho. */
 export const NGUONG_TIM_KHO = 5;
 
 /** Hộp chọn kho: số mặt hàng thiếu hiện dưới một kho thiếu hàng; còn lại ghi "Còn n mặt hàng thiếu khác". */
@@ -62,12 +62,6 @@ export const CHAT_LUONG_QUAY_VIDEO = Object.freeze({ rong: 1280, cao: 720, bitGi
 
 /** Dung lượng tối đa một video đóng gói (MB) — trùng MAX_VIDEO_SIZE của máy chủ; tệp lớn hơn bị chặn trước khi tải. */
 export const DUNG_LUONG_VIDEO_TOI_DA_MB = 100;
-
-/** Số ký tự tối đa của lý do khách từ chối báo giá bán (ô lý do ở Chi tiết báo giá; máy chủ lưu cột không giới hạn). */
-export const LY_DO_KHACH_TU_CHOI_TOI_DA = 500;
-
-/** Số đơn tối đa lấy về khi tìm các đơn bán sinh từ một báo giá (mỗi lần chốt lại sau khi hủy thêm một đơn "-n"). */
-export const SO_DON_TU_BAO_GIA_TOI_DA = 50;
 
 /** Số lời gọi API chạy cùng lúc khi tải thêm theo từng dòng (lô của từng dòng phiếu xuất, lô kế thừa của phiếu nhập). */
 export const SO_VIEC_DONG_THOI = 4;
@@ -103,16 +97,8 @@ export const DUNG_SAI_GIO_KIEM_KE_MS = 120000;
 /** Ghi chú khi tạo đợt kiểm kê: số ký tự tối đa. */
 export const GHI_CHU_KIEM_KE_TOI_DA = 500;
 
-/**
- * Màn Tạo báo giá bán: đơn giá mỗi dòng trong khoảng [TOI_THIEU, TOI_DA] × giá niêm yết của biến thể (máy chủ chặn cùng
- * khoảng: DonBanHangService.kiemTraGiaThoaThuan). Ghi chú / địa chỉ giao: số ký tự tối đa (máy chủ lưu cột không giới
- * hạn). Ô tìm sản phẩm / khách hàng: số gợi ý hiện tối đa (gõ thêm để lọc).
- */
-export const TI_LE_GIA_BAO_GIA = Object.freeze({ toiThieu: 0.9, toiDa: 1.1 });
-export const GHI_CHU_BAO_GIA_TOI_DA = 500;
-export const DIA_CHI_GIAO_TOI_DA = 500;
+/** Màn Tạo yêu cầu nhập hàng, ô tìm sản phẩm: số gợi ý hiện tối đa (gõ thêm để lọc). */
 export const SO_GOI_Y_SAN_PHAM = 20;
-export const SO_GOI_Y_KHACH = 8;
 
 /** Màn Gửi yêu cầu báo giá, cột "Gửi đến": số nhà cung cấp đã chọn hiện trước; còn lại gom "và n nhà cung cấp khác". */
 export const SO_NCC_GUI_HIEN = 6;

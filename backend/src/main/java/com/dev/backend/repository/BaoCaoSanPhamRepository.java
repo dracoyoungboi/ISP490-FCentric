@@ -21,7 +21,7 @@ import java.util.Set;
 /**
  * Số liệu của Báo cáo sản phẩm (/reports/products). Lọc đơn như Báo cáo doanh thu (DoanhThuReportRepository) để tổng
  * khớp nhau:
- * - Chỉ đơn bán (loai_chung_tu = 'don_ban_hang', không lấy báo giá), trạng thái 3 (đã xuất toàn bộ) và 5 (hoàn thành);
+ * - Chỉ đơn bán (loai_chung_tu = 'don_ban_hang'), trạng thái 3 (đã xuất toàn bộ) và 5 (hoàn thành);
  *   đơn 6 (bị hoàn trả) chỉ đếm vào số hoàn. Ngày tính là ngay_giao_hang, khoảng [tu, den + 1 ngày).
  * - Doanh thu hàng của dòng = thành tiền − giảm giá dòng (đơn Shopify), gồm thuế GTGT, không gồm phí vận chuyển.
  * - Giá vốn chỉ cộng dòng phiếu xuất hoàn tất CÓ LÔ (dòng gốc không lô của phiếu qua nhặt hàng là số cần xuất).

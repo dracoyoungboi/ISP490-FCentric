@@ -38,7 +38,7 @@ public class TimKiemDto {
 
     /**
      * Một dòng kết quả. {@code loai}: sanPham | donBan | khachHang | nhaCungCap | chungTu; với chứng từ thì
-     * {@code loaiChungTu}: phieuXuat | phieuNhap | phieuChuyen | donMua | yeuCauNhap | kiemKe | baoGia.
+     * {@code loaiChungTu}: phieuXuat | phieuNhap | phieuChuyen | donMua | yeuCauNhap | kiemKe.
      * {@code truongKhop}: trường mã đã khớp (sku, maVachSku, maVach, maVachNcc, maSanPham, maDonSan, sdt, maSoThue,
      * email, ma) để giao diện ghi "Khớp SKU …"; khớp theo tên thì để trống.
      */

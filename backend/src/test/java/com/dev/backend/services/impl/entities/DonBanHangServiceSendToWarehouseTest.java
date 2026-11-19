@@ -168,17 +168,6 @@ class DonBanHangServiceSendToWarehouseTest {
     }
 
     @Test
-    void sendToWarehouse_thatBai_loaiChungTuBaoGia() {
-        donDraft.setLoaiChungTu("bao_gia");
-        when(donBanHangRepository.findById(120)).thenReturn(Optional.of(donDraft));
-
-        CommonException ex = assertThrows(CommonException.class, () -> service.sendToWarehouse(120, 2));
-        assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
-        assertTrue(ex.getMessage().contains("Báo giá không thể gửi sang kho"));
-        verify(donBanHangRepository, never()).save(any());
-    }
-
-    @Test
     void getKhoKhaDung_thanhCong_kho1DuHang_kho2ThieuHang_sapXepChuan() {
         SanPhamQuanAo sp = SanPhamQuanAo.builder().id(1).tenSanPham("Áo Thun Polo").build();
         MauSac mauTrang = MauSac.builder().id(1).tenMau("Trắng").build();

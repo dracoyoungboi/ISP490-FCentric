@@ -20,11 +20,11 @@ export const TEN_NGAN_BANG_CHUNG = Object.freeze({
 const TRANG_THAI_CO_KHOI = new Set([TT.CHO_DONG_GOI, TT.DA_DONG_GOI, TT.DA_XUAT_MOT_PHAN, TT.DA_XUAT_KHO, TT.HOAN_THANH, TT.BI_HOAN_TRA, TT.DA_HUY]);
 
 /**
- * Có tải và hiện khối không: đơn bán (không phải báo giá, không phải đơn tại quầy — bán tại quầy không qua đóng gói),
- * đã tới bước đóng gói, và người xem có vai trò bán hàng hoặc kho (máy chủ mở GET bằng chứng cho đúng các vai trò này).
+ * Có tải và hiện khối không: đơn không bán tại quầy (bán tại quầy không qua đóng gói), đã tới bước đóng gói, và người
+ * xem có vai trò bán hàng hoặc kho (máy chủ mở GET bằng chứng cho đúng các vai trò này).
  */
-export function coKhoiBangChung({ trangThai, laPos = false, laBaoGia = false, laBan = false, laKho = false } = {}) {
-  if (laPos || laBaoGia || !(laBan || laKho)) return false;
+export function coKhoiBangChung({ trangThai, laPos = false, laBan = false, laKho = false } = {}) {
+  if (laPos || !(laBan || laKho)) return false;
   return TRANG_THAI_CO_KHOI.has(Number(trangThai));
 }
 

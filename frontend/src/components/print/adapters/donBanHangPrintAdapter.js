@@ -1,4 +1,3 @@
-import { BAO_GIA_STATUS } from "@/constants/baoGia";
 import { DON_BAN_HANG_STATUS, DON_BAN_HANG_THANH_TOAN } from "@/constants/donBanHang";
 import { trangThaiLa } from "@/constants/trangThaiChung";
 import {
@@ -13,19 +12,15 @@ import {
 import { docSoTienBangChu } from "./soTienBangChu";
 
 /**
- * Adapter cho BÁO GIÁ BÁN và HÓA ĐƠN BÁN HÀNG — cùng một thực thể backend
- * `don_ban_hang` (phân biệt bằng `loaiChungTu`), dữ liệu từ API
+ * Adapter cho HÓA ĐƠN BÁN HÀNG — bảng `don_ban_hang`, dữ liệu từ API
  * `GET /api/v1/don-ban-hang/{id}/detail` (DonBanHangDetailResponse).
  * Số hóa đơn = số đơn hàng (SO…); hóa đơn in từ trang đơn bán và từ màn bán tại quầy.
  *
- * Lưu ý: API không có chiết khấu, thuế GTGT, số tiền còn nợ hay hạn hiệu lực
- * báo giá — chỉ in những gì API thật sự trả về. Tiền khách đưa / tiền thừa chỉ
+ * Lưu ý: chỉ in những gì API thật sự trả về. Tiền khách đưa / tiền thừa chỉ
  * có với đơn bán tại quầy (sổ thu POS, `thanhToanTaiQuay`).
  * Thông tin cửa hàng (đơn vị bán) đã ở đầu phiếu; người lập chỉ in ở ô ký.
  */
 // Trạng thái dùng chung hằng số với danh sách + trang chi tiết (một tên cho mỗi trạng thái).
-export const SALES_QUOTATION_STATUS = BAO_GIA_STATUS;
-
 export const SALES_ORDER_STATUS = DON_BAN_HANG_STATUS;
 
 export const PAYMENT_STATUS = DON_BAN_HANG_THANH_TOAN;
@@ -60,8 +55,8 @@ function channelLabel(don) {
     return joinParts([kenh.tenKenh, maSan ? `#${maSan.replace(/^#/, "")}` : null]);
 }
 
-/** Phần chung của cả hai loại chứng từ bán hàng. */
-function toDonBanHangPrintModel(raw, { statusMap }) {
+/** Đầu phiếu, người mua, dòng hàng, tổng tiền và ô ký của hóa đơn. */
+function toDonBanHangPrintModel(raw) {
     const don = raw?.donBanHang || {};
     const kh = don.khachHang || {};
     const seller = don.nguoiTao || {};
@@ -82,7 +77,7 @@ function toDonBanHangPrintModel(raw, { statusMap }) {
     });
 
     // Mã lạ hiện rõ mã — không mượn tên trạng thái "Nháp"
-    const status = statusMap[don.trangThai] || trangThaiLa(don.trangThai);
+    const status = SALES_ORDER_STATUS[don.trangThai] || trangThaiLa(don.trangThai);
     const totalQuantity = details.reduce((sum, item) => sum + (toNumeric(item.soLuongDat) ?? 0), 0);
     const shipping = toNumeric(don.phiVanChuyen);
 
@@ -98,8 +93,6 @@ function toDonBanHangPrintModel(raw, { statusMap }) {
         buyer: {
             name: dash(kh.tenKhachHang),
             code: textOrNull(kh.maKhachHang),
-            taxCode: textOrNull(kh.maSoThue),
-            contact: textOrNull(kh.nguoiLienHe),
             phone: textOrNull(kh.soDienThoai),
             address: textOrNull(kh.diaChi),
             // Địa chỉ giao của RIÊNG đơn này (có thể khác địa chỉ khách hàng);
@@ -121,16 +114,10 @@ function toDonBanHangPrintModel(raw, { statusMap }) {
         notes: textOrNull(don.ghiChu),
         signatures: {
             creator: { name: dash(seller.hoTen) },
-            // Người ký là NGƯỜI đại diện bên mua (khách có thể là cửa hàng/công ty)
-            // — để trống ký và ghi rõ họ tên, không in sẵn tên khách hàng.
+            // Ô trống để khách ký và ghi rõ họ tên, không in sẵn tên khách hàng.
             buyer: { name: "" },
         },
     };
-}
-
-export function toSalesQuotationPrintModel(raw) {
-    const model = toDonBanHangPrintModel(raw, { statusMap: SALES_QUOTATION_STATUS });
-    return { ...model, watermark: null };
 }
 
 /**
@@ -152,7 +139,7 @@ export function thueGtgt(don) {
 }
 
 export function toSalesInvoicePrintModel(raw) {
-    const model = toDonBanHangPrintModel(raw, { statusMap: SALES_ORDER_STATUS });
+    const model = toDonBanHangPrintModel(raw);
     const don = raw?.donBanHang || {};
     // Đơn bán thường: trạng thái tính từ phiếu (null = đơn cũ chưa theo dõi thanh toán, không in tình trạng)
     const tt = raw?.thanhToan;

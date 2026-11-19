@@ -1617,7 +1617,6 @@ public class OmnichannelOrderSyncJob {
                 .soDienThoai(phone.isBlank() ? null : phone)
                 .email(email.isBlank() ? null : email)
                 .diaChi(fullAddress)
-                .loaiKhachHang("le")
                 .trangThai(1)
                 .build();
         return luuKhachTuSan(moi, INguonNhatKy.lazada);
@@ -1659,7 +1658,6 @@ public class OmnichannelOrderSyncJob {
                 .tenKhachHang(name)
                 .soDienThoai(phone.isBlank() ? null : phone)
                 .diaChi(fullAddress)
-                .loaiKhachHang("le")
                 .trangThai(1)
                 .build();
         return luuKhachTuSan(moi, INguonNhatKy.tiktok);
@@ -1678,7 +1676,6 @@ public class OmnichannelOrderSyncJob {
                     .moi(NhatKyNghiepVu.anh(
                             "maKhachHang", daLuu.getMaKhachHang(),
                             "tenKhachHang", daLuu.getTenKhachHang(),
-                            "loaiKhachHang", daLuu.getLoaiKhachHang(),
                             "soDienThoai", daLuu.getSoDienThoai(),
                             "email", daLuu.getEmail(),
                             "diaChi", daLuu.getDiaChi(),
@@ -2148,7 +2145,6 @@ public class OmnichannelOrderSyncJob {
                 .tenKhachHang(name)
                 .soDienThoai(maskedPhone)
                 .diaChi(fullAddress)
-                .loaiKhachHang("le")
                 .trangThai(1)
                 .build();
         return luuKhachTuSan(kh, INguonNhatKy.shopee);

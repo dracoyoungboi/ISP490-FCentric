@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { FilePlus2, FileText, SearchX, ShoppingBag } from "lucide-react";
+import { SearchX, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import EmptyState from "@/components/shared/EmptyState";
@@ -7,21 +7,14 @@ import ErrorState from "@/components/shared/ErrorState";
 import FilterSelect from "@/components/shared/FilterSelect";
 import ListToolbar from "@/components/shared/ListToolbar";
 import SearchInput from "@/components/shared/SearchInput";
-import StatusTabs from "@/components/shared/StatusTabs";
 import TablePagination from "@/components/shared/TablePagination";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { donBanHangService } from "@/services/donBanHangService";
 import { getApiErrorMessage } from "@/utils/apiError";
-import { BangBaoGiaKhachHang, BangDonKhachHang } from "./BangGiaoDichKhachHang";
-import {
-  LUA_CHON_THOI_GIAN,
-  SAP_XEP_MOI_NHAT,
-  dieuKienBaoGia,
-  dieuKienDon,
-  luaChonKenh,
-} from "./tinhKhachHang";
+import { BangDonKhachHang } from "./BangGiaoDichKhachHang";
+import { LUA_CHON_THOI_GIAN, SAP_XEP_MOI_NHAT, dieuKienDon, luaChonKenh } from "./tinhKhachHang";
 import { t } from "@/i18n";
 
 const TRE_TIM_KIEM_MS = 350;
@@ -56,28 +49,15 @@ async function taiTrang(goi, trang, kichThuoc) {
 }
 
 /**
- * Cột trái của thân khối: tab Đơn hàng / Báo giá của khách, mỗi tab một bảng phân trang ở máy chủ
- * (nhiều đơn không làm trang dài ra: màn rộng thì thân bảng tự cuộn, phân trang luôn ở đáy khối).
- * Hàng tab và bộ lọc dùng chung ListToolbar / StatusTabs / FilterSelect / SearchInput / TablePagination như các trang danh sách.
+ * Cột trái của thân khối: đơn hàng của khách, phân trang ở máy chủ (nhiều đơn không làm trang dài ra: màn rộng thì thân
+ * bảng tự cuộn, phân trang luôn ở đáy khối). Hàng tiêu đề (vẽ như tab đang chọn của StatusTabs) và bộ lọc dùng chung
+ * ListToolbar / FilterSelect / SearchInput / TablePagination như các trang danh sách.
  *
- * - `tongDon`: tổng số đơn (kể cả nháp) theo số tổng hợp — số trên tab và điều kiện hiện bộ lọc; `undefined` khi chưa có.
+ * - `tongDon`: tổng số đơn (kể cả nháp) theo số tổng hợp — số cạnh tiêu đề và điều kiện hiện bộ lọc; `undefined` khi chưa có.
  * - `kenhMua`: kênh khách đã mua, làm lựa chọn lọc kênh (chỉ hiện khi khách mua qua từ 2 kênh).
- * - `xemBaoGia`: vai trò thấy báo giá (vai trò kho chỉ thấy chứng từ của kho mình, báo giá chưa có kho nên ẩn tab).
- * - `ghiChuPhamVi` / `ghiChuPhamViBaoGia`: câu phạm vi dữ liệu theo vai trò (tab Đơn / tab Báo giá), hiện ở chân bảng.
+ * - `ghiChuPhamVi`: câu phạm vi dữ liệu theo vai trò, hiện ở chân bảng.
  */
-export default function GiaoDichKhachHang({
-  khachHangId,
-  tab,
-  onDoiTab,
-  tongDon,
-  kenhMua,
-  xemBaoGia,
-  coTheTaoBaoGia,
-  coTheTaoDon,
-  onTaoBaoGia,
-  ghiChuPhamVi,
-  ghiChuPhamViBaoGia,
-}) {
+export default function GiaoDichKhachHang({ khachHangId, tongDon, kenhMua, ghiChuPhamVi }) {
   // ── Bộ lọc đơn (ô tìm có trễ để không gọi máy chủ theo từng phím) ─────────
   const [oTim, setOTim] = useState("");
   const [tuKhoa, setTuKhoa] = useState("");
@@ -85,8 +65,6 @@ export default function GiaoDichKhachHang({
   const [thoiGian, setThoiGian] = useState("");
   const [trangDon, setTrangDon] = useState(0);
   const [soDongDon, setSoDongDon] = useState(SO_DONG_MAC_DINH);
-  const [trangBg, setTrangBg] = useState(0);
-  const [soDongBg, setSoDongBg] = useState(SO_DONG_MAC_DINH);
 
   useEffect(() => {
     const moi = oTim.trim();
@@ -116,47 +94,24 @@ export default function GiaoDichKhachHang({
       soDongDon,
     );
   }, [khachHangId, tuKhoa, kenh, thoiGian, trangDon, soDongDon]);
-  const donQ = useTaiDuLieu(taiDon, `don-kh-${khachHangId}|${tuKhoa}|${kenh}|${thoiGian}|${trangDon}|${soDongDon}`, {
+  const q = useTaiDuLieu(taiDon, `don-kh-${khachHangId}|${tuKhoa}|${kenh}|${thoiGian}|${trangDon}|${soDongDon}`, {
     enabled: Boolean(khachHangId),
   });
-
-  // ── Báo giá ───────────────────────────────────────────────────────────────
-  const taiBaoGia = useCallback(
-    () =>
-      taiTrang(
-        (page) =>
-          donBanHangService.filter({ filters: dieuKienBaoGia(khachHangId), sorts: SAP_XEP_MOI_NHAT, page, size: soDongBg }),
-        trangBg,
-        soDongBg,
-      ),
-    [khachHangId, trangBg, soDongBg],
-  );
-  const bgQ = useTaiDuLieu(taiBaoGia, `bg-kh-${khachHangId}|${trangBg}|${soDongBg}`, {
-    enabled: Boolean(khachHangId) && xemBaoGia,
-  });
-
-  const laTabDon = tab === "don-hang" || !xemBaoGia;
-  const q = laTabDon ? donQ : bgQ;
   const dong = q.data?.content ?? [];
   const tong = q.data?.totalElements ?? 0;
 
   // Tổng số đơn khi không lọc: lấy từ số tổng hợp; chưa có thì dùng tổng của danh sách lúc chưa lọc
-  const tongDonKhongLoc = tongDon ?? (!dangLoc && donQ.data ? donQ.data.totalElements : undefined);
-  const hienLoc = laTabDon && (dangLoc || (tongDonKhongLoc ?? 0) >= SO_DON_HIEN_LOC);
+  const tongDonKhongLoc = tongDon ?? (!dangLoc && q.data ? q.data.totalElements : undefined);
+  const hienLoc = dangLoc || (tongDonKhongLoc ?? 0) >= SO_DON_HIEN_LOC;
   const luaChonKenhDs = luaChonKenh(kenhMua);
   const hienLocKenh = kenh !== "" || luaChonKenhDs.length > 2;
-
-  const tabs = [
-    { value: "don-hang", label: t("Đơn hàng"), count: tongDonKhongLoc },
-    xemBaoGia ? { value: "bao-gia", label: t("Báo giá"), count: bgQ.data?.totalElements } : null,
-  ].filter(Boolean);
 
   let noiDung;
   if (q.error && !q.loiTaiLai) {
     noiDung = (
       <ErrorState
         className="kh-trong min-h-56"
-        title={laTabDon ? t("Không tải được đơn hàng của khách") : t("Không tải được báo giá của khách")}
+        title={t("Không tải được đơn hàng của khách")}
         description={getApiErrorMessage(q.error, t("Kiểm tra kết nối rồi thử lại."))}
         onRetry={q.reload}
       />
@@ -164,7 +119,7 @@ export default function GiaoDichKhachHang({
   } else if (q.data === undefined) {
     noiDung = <KhungDangTai />;
   } else if (dong.length === 0) {
-    if (laTabDon && dangLoc) {
+    if (dangLoc) {
       noiDung = (
         <EmptyState
           className="kh-trong min-h-56"
@@ -179,51 +134,33 @@ export default function GiaoDichKhachHang({
         />
       );
     } else {
-      const nutTaoBaoGia = coTheTaoBaoGia ? (
-        <Button type="button" onClick={onTaoBaoGia} className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">
-          <FilePlus2 className="size-4" aria-hidden="true" />
-          {t("Tạo báo giá")}
-        </Button>
-      ) : null;
-      noiDung = laTabDon ? (
+      noiDung = (
         <EmptyState
           className="kh-trong min-h-56"
           icon={ShoppingBag}
           title={t("Chưa có đơn hàng")}
-          description={t("Đơn bán tạo từ báo giá khách đồng ý, đơn Shopify và đơn tại quầy của khách này sẽ hiện ở đây.")}
-          action={nutTaoBaoGia}
-        />
-      ) : (
-        <EmptyState
-          className="kh-trong min-h-56"
-          icon={FileText}
-          title={t("Chưa có báo giá")}
-          description={t("Báo giá gửi cho khách hàng này sẽ hiện ở đây; khách đồng ý thì tạo đơn bán ngay từ báo giá.")}
-          action={nutTaoBaoGia}
+          description={t("Đơn tại quầy và đơn từ sàn của khách này sẽ hiện ở đây.")}
         />
       );
     }
   } else {
-    noiDung = laTabDon ? (
-      <BangDonKhachHang dons={dong} />
-    ) : (
-      <BangBaoGiaKhachHang baoGias={dong} coTheTaoDon={coTheTaoDon} />
-    );
+    noiDung = <BangDonKhachHang dons={dong} />;
   }
 
-  // Câu phạm vi đã dịch nên không ghép chữ: tab Báo giá dùng câu riêng
-  const ghiChu = (laTabDon ? ghiChuPhamVi : ghiChuPhamViBaoGia) || "";
+  const ghiChu = ghiChuPhamVi || "";
 
   return (
     <section aria-label={t("Giao dịch của khách hàng")} className="kh-giao-dich flex min-w-0 flex-col">
       <ListToolbar
         tabs={
-          <StatusTabs
-            label={t("Loại giao dịch")}
-            tabs={tabs}
-            value={laTabDon ? "don-hang" : "bao-gia"}
-            onChange={onDoiTab}
-          />
+          <h2 className="-mb-px inline-flex h-12 items-center gap-2 border-b-2 border-bo-primary px-2.5 text-sm font-semibold text-bo-foreground">
+            {t("Đơn hàng")}
+            {tongDonKhongLoc > 0 ? (
+              <span className="inline-flex h-5 min-w-[22px] items-center justify-center rounded-full bg-bo-primary-soft px-1.5 text-xs font-semibold tabular-nums text-bo-primary">
+                {tongDonKhongLoc.toLocaleString("vi-VN")}
+              </span>
+            ) : null}
+          </h2>
         }
         hasFilter={hienLoc && dangLoc}
         onClear={xoaLoc}
@@ -279,8 +216,8 @@ export default function GiaoDichKhachHang({
 
       <div
         id="vung-giao-dich-kh"
-        role="tabpanel"
-        aria-label={laTabDon ? t("Đơn hàng của khách hàng, mới nhất ở trên") : t("Báo giá của khách hàng")}
+        role="region"
+        aria-label={t("Đơn hàng của khách hàng, mới nhất ở trên")}
         aria-busy={q.loading || undefined}
         className={cn(
           "kh-bang min-w-0 flex-1 overflow-x-auto transition-opacity",
@@ -294,19 +231,14 @@ export default function GiaoDichKhachHang({
         <div className="mt-auto border-t border-bo-border px-4 py-3 sm:px-6">
           {tong > 0 ? (
             <TablePagination
-              page={q.data.number ?? (laTabDon ? trangDon : trangBg)}
-              size={laTabDon ? soDongDon : soDongBg}
+              page={q.data.number ?? trangDon}
+              size={soDongDon}
               total={tong}
-              totalLabel={laTabDon ? t("đơn", { context: "don_vi" }) : t("báo giá", { context: "don_vi" })}
-              onPageChange={laTabDon ? setTrangDon : setTrangBg}
+              totalLabel={t("đơn", { context: "don_vi" })}
+              onPageChange={setTrangDon}
               onSizeChange={(n) => {
-                if (laTabDon) {
-                  setSoDongDon(n);
-                  setTrangDon(0);
-                } else {
-                  setSoDongBg(n);
-                  setTrangBg(0);
-                }
+                setSoDongDon(n);
+                setTrangDon(0);
               }}
               extra={ghiChu ? <span className="text-xs text-bo-muted">{ghiChu}</span> : null}
             />

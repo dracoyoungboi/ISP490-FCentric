@@ -581,54 +581,15 @@ class PosCheckoutIntegrationTest {
     }
 
     @Test
-    void t18_hoiQuy_taoDonBanHangTrucTiep_vanBiChan_baoGiaVanChay() {
-        String cashier = createCashier("nhan_vien_ban_hang", 1);
-        Integer khach = khachHangId();
-        HttpHeaders h = new HttpHeaders();
-        h.setContentType(MediaType.APPLICATION_JSON);
-        h.setBearerAuth(cashier.replace("Bearer ", ""));
-
-        // tạo trực tiếp don_ban_hang vẫn bị chặn (giữ nguyên điều kiện cũ)
-        Map<String, Object> direct = Map.of(
-                "loaiChungTu", "don_ban_hang",
-                "khachHangId", khach,
-                "khoXuatId", 1,
-                "chiTiet", List.of(Map.of("bienTheSanPhamId", 93, "soLuongDat", 1, "donGia", 120000)));
-        ResponseEntity<Map> blocked = rest.exchange("/api/v1/don-ban-hang/create", HttpMethod.POST,
-                new HttpEntity<>(direct, h), Map.class);
-        // Hành vi legacy GIỮ NGUYÊN: service ném RuntimeException -> handler trả 500
-        // (không sửa code cũ trong phase POS; message chặn vẫn đúng)
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, blocked.getStatusCode());
-        assertTrue(String.valueOf(blocked.getBody().get("message")).contains("không cho phép"));
-
-        // báo giá vẫn tạo được -> convert-to-order vẫn chạy
-        Map<String, Object> quote = Map.of(
-                "loaiChungTu", "bao_gia",
-                "khachHangId", khach,
-                "khoXuatId", 1,
-                "chiTiet", List.of(Map.of("bienTheSanPhamId", 93, "soLuongDat", 1, "donGia", 120000)));
-        ResponseEntity<Map> quoteRes = rest.exchange("/api/v1/don-ban-hang/create", HttpMethod.POST,
-                new HttpEntity<>(quote, h), Map.class);
-        assertEquals(HttpStatus.OK, quoteRes.getStatusCode());
-        int bgId = ((Number) ((Map<String, Object>) quoteRes.getBody().get("data")).get("id")).intValue();
-
-        ResponseEntity<Map> converted = rest.exchange("/api/v1/don-ban-hang/" + bgId + "/convert-to-order",
-                HttpMethod.PUT, new HttpEntity<>(Map.of("khoXuatId", 1), h), Map.class);
-        assertEquals(HttpStatus.OK, converted.getStatusCode());
-        assertEquals(1, jdbc.queryForObject(
-                "SELECT COUNT(*) FROM don_ban_hang WHERE loai_chung_tu = 'don_ban_hang' AND so_don_hang LIKE 'SO%'", Integer.class));
-    }
-
-    @Test
     void t19_timKhachPos_serverSide_khachLeDauTien_boKhachNgungHoatDong() {
         String cashier = createCashier("nhan_vien_ban_hang", 1);
         String suffix = String.format("%08d", System.nanoTime() % 100_000_000L);
         String active = "09" + suffix;
         String inactive = "08" + suffix;
         jdbc.update("DELETE FROM khach_hang WHERE ma_khach_hang LIKE 'KHIT%'");
-        jdbc.update("INSERT INTO khach_hang (ma_khach_hang, ten_khach_hang, so_dien_thoai, loai_khach_hang, trang_thai) VALUES (?, ?, ?, 'le', 1)",
+        jdbc.update("INSERT INTO khach_hang (ma_khach_hang, ten_khach_hang, so_dien_thoai, trang_thai) VALUES (?, ?, ?, 1)",
                 "KHIT" + active, "Khách IT " + active, active);
-        jdbc.update("INSERT INTO khach_hang (ma_khach_hang, ten_khach_hang, so_dien_thoai, loai_khach_hang, trang_thai) VALUES (?, ?, ?, 'le', 0)",
+        jdbc.update("INSERT INTO khach_hang (ma_khach_hang, ten_khach_hang, so_dien_thoai, trang_thai) VALUES (?, ?, ?, 0)",
                 "KHIT" + inactive, "Khách IT ngừng " + inactive, inactive);
         try {
             HttpHeaders h = new HttpHeaders();

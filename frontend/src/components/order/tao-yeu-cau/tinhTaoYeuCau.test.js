@@ -17,6 +17,7 @@ import {
   homNayVN,
   isoNgay,
   doiSoLuongDong,
+  docOSoLuong,
   dongBang,
   idYeuCauMoi,
   laGoiY,
@@ -318,4 +319,16 @@ test("idYeuCauMoi / docDeXuatDuongDan", () => {
     { dong: { bienTheId: 2, soLuong: 1 }, khoTong: null, khoDeXuat: "3", khongThay: false, coSoLuong: false, ten: null });
   assert.deepEqual(docDeXuatDuongDan(new URLSearchParams("bienTheId=999&ten=%C3%81o%20gi%C3%B3"), CM, dsKhoTong),
     { dong: null, khoTong: null, khoDeXuat: null, khongThay: true, coSoLuong: false, ten: "Áo gió" });
+});
+
+test("docOSoLuong: chỉ số nguyên dương, ký tự lạ thì giữ số cũ (undefined)", () => {
+  assert.equal(docOSoLuong("12"), 12);
+  assert.equal(docOSoLuong(" 3 "), 3);
+  assert.equal(docOSoLuong(""), "");
+  assert.equal(docOSoLuong("3.5"), undefined);
+  assert.equal(docOSoLuong("3,5"), undefined);
+  assert.equal(docOSoLuong("-2"), undefined);
+  assert.equal(docOSoLuong("2a"), undefined);
+  assert.equal(docOSoLuong("0"), 0);
+  assert.equal(docOSoLuong("1000000"), SO_LUONG_TOI_DA);
 });

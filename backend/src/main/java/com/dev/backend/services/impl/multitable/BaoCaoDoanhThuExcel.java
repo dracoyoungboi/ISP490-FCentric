@@ -71,7 +71,7 @@ public final class BaoCaoDoanhThuExcel extends KhuonExcelBaoCao {
         f(cong, 7, "IF(" + ref(r, 3) + "=0,\"\"," + ref(r, 6) + "/" + ref(r, 3) + ")", k("congTyLe"));
         f(cong, 9, "IF(" + ref(r, 8) + "=0,\"\",(" + ref(r, 3) + "-" + ref(r, 8) + ")/" + ref(r, 8) + ")", k("congTyLe"));
         r += 2;
-        o(s, r++, 1, "Ghi chú: Bán tại quầy gồm đơn tạo từ màn bán tại quầy; Đơn bán trực tiếp là đơn bán thường (qua báo giá);"
+        o(s, r++, 1, "Ghi chú: Bán tại quầy gồm đơn tạo từ màn bán tại quầy; Đơn bán trực tiếp là đơn bán thường (không bán tại quầy, không từ sàn);"
                 + " các kênh còn lại là đơn đồng bộ từ sàn / web. Đơn bị hoàn chỉ đếm, không cộng vào doanh thu.", k("ghiChu"));
         o(s, r, 1, lapLuc(tin), k("ghiChu"));
 
@@ -86,7 +86,7 @@ public final class BaoCaoDoanhThuExcel extends KhuonExcelBaoCao {
         doRongCot(s, 6, 30, 10, 18, 11, 16, 18, 18, 10);
         int r = dauTrang(s, tin, "DOANH THU THEO NHÂN VIÊN", 8,
                 "Kỳ báo cáo: " + tenKy + " (" + khoang(dt.getTuNgay(), dt.getDenNgay()) + ")",
-                "Nhân viên là người lập đơn: thu ngân với đơn bán tại quầy, người lập báo giá với đơn bán thường");
+                "Nhân viên là người lập đơn: thu ngân với đơn bán tại quầy, người lập đơn với đơn bán thường");
         int h = r;
         tieuDe(s, r++, 30, "STT", "Nhân viên", "Số đơn", "Doanh thu", "Tỷ trọng", "Trung bình một đơn", "Giá vốn",
                 "Lợi nhuận gộp", "Biên lãi");

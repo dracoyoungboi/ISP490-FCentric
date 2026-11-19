@@ -87,7 +87,6 @@ public class TimKiemService {
         VAI_TRO_CHUNG_TU.put("donMua", Set.of(IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_mua_hang, IRoleType.nhan_vien_kho));
         VAI_TRO_CHUNG_TU.put("yeuCauNhap", Set.of(IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_mua_hang));
         VAI_TRO_CHUNG_TU.put("kiemKe", VAI_TRO_KHO);
-        VAI_TRO_CHUNG_TU.put("baoGia", Set.of(IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang));
     }
 
     private static final List<String> THU_TU_NHOM = List.of(SAN_PHAM, DON_BAN, KHACH_HANG, NHA_CUNG_CAP, CHUNG_TU);
@@ -439,7 +438,6 @@ public class TimKiemService {
             case "donMua" -> timDonMua(tk);
             case "yeuCauNhap" -> timYeuCauNhap(tk, user, vaiTro);
             case "kiemKe" -> timKiemKe(tk);
-            case "baoGia" -> timBaoGia(tk);
             default -> null;
         };
     }
@@ -531,15 +529,5 @@ public class TimKiemService {
         return new LoaiKetQua(khop.stream().limit(SO_DONG_TOI_DA).map(d -> chungTu("kiemKe", d.getId(), d.getMaDotKiemKe())
                 .ten(d.getTenDotKiemKe()).phu(d.getKho() == null ? null : d.getKho().getTenKho())
                 .trangThai(d.getTrangThai() == null ? null : d.getTrangThai().intValue()).build()).toList(), khop.size());
-    }
-
-    /** Báo giá bán: cùng hàm lọc và phạm vi vai trò với trang Báo giá. */
-    private LoaiKetQua timBaoGia(String tk) {
-        Page<DonBanHang> trang = donBanHangService.filter(yeuCau(List.of(
-                loc("loaiChungTu", FilterOperation.EQUALS, "bao_gia"),
-                loc("soDonHang", FilterOperation.LIKE, tk)), "id", SO_DONG_TOI_DA));
-        return new LoaiKetQua(trang.getContent().stream().map(d -> chungTu("baoGia", d.getId(), d.getSoDonHang())
-                .phu(d.getKhachHang() == null ? null : d.getKhachHang().getTenKhachHang()).trangThai(d.getTrangThai()).build()).toList(),
-                trang.getTotalElements());
     }
 }

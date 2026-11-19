@@ -196,9 +196,6 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
         if (don == null) {
             throw new CommonException(ThongDiep.of("chungTuKho.donBanKhongTonTai"), HttpStatus.NOT_FOUND, null);
         }
-        if (!"don_ban_hang".equals(don.getLoaiChungTu())) {
-            throw new CommonException(ThongDiep.of("chungTuKho.chiTaoPhieuXuatChoDonBan"), HttpStatus.CONFLICT, null);
-        }
         Integer ttDon = don.getTrangThai();
         if (Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(ttDon)) {
             throw new CommonException(ThongDiep.of("chungTuKho.donBanDaHuy"), HttpStatus.CONFLICT, null);

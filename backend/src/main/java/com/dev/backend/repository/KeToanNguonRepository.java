@@ -49,7 +49,7 @@ public class KeToanNguonRepository {
     private static final String COT_DON_BAN = """
             SELECT d.id, d.so_don_hang, d.ngay_giao_hang, d.tien_hang, d.phi_van_chuyen, d.tong_cong, d.thue_suat_gtgt,
                    d.ma_don_hang_kenh, kb.ma_kenh, kb.ten_kenh,
-                   kh.ma_khach_hang, kh.ten_khach_hang, kh.dia_chi, kh.ma_so_thue,
+                   kh.ma_khach_hang, kh.ten_khach_hang, kh.dia_chi,
                    -- Đơn bán tại quầy (có pos_payment, luôn thu đủ tổng cộng): tiền mặt -> CASH (111), QR payOS
                    -- -> PAYOS (112), tiền mặt trả trước + QR -> KET_HOP (tạm 131, kèm cảnh báo cách tách).
                    -- Đơn khác -> NULL (131): tiền thu đơn thường (thanh_toan_don_ban) kế toán lập phiếu thu riêng.
@@ -88,7 +88,7 @@ public class KeToanNguonRepository {
              GROUP BY id_tham_chieu
             """;
 
-    /** Đơn bán trạng thái 3, 5 (không lấy báo giá), giao đủ trong [tu, den), chưa xuất kế toán. */
+    /** Đơn bán trạng thái 3, 5, giao đủ trong [tu, den), chưa xuất kế toán. */
     public List<NguonKeToan.DonBan> donBanChuaXuat(Instant tu, Instant den) {
         String sql = COT_DON_BAN + NOI_DON_BAN + """
                   LEFT JOIN chung_tu_xuat_ke_toan c ON c.khoa_hieu_luc = CONCAT('ban_hang:', d.id)
@@ -127,7 +127,6 @@ public class KeToanNguonRepository {
                 rs.getString("ma_khach_hang"),
                 rs.getString("ten_khach_hang"),
                 rs.getString("dia_chi"),
-                rs.getString("ma_so_thue"),
                 rs.getString("ma_kho"),
                 so(rs, "tien_hang"),
                 so(rs, "phi_van_chuyen"),
@@ -176,7 +175,7 @@ public class KeToanNguonRepository {
         String sql = """
                 SELECT p.id, p.so_phieu, p.ngay_tao, p.tong_tien_hoan, p.phuong_thuc_hoan,
                        d.id AS don_id, d.so_don_hang, d.ngay_giao_hang, cb.id IS NOT NULL AS don_da_giao, cb.ma_khach AS ma_khach_ban,
-                       kh.ma_khach_hang, kh.ten_khach_hang, kh.dia_chi, kh.ma_so_thue, kb.ma_kenh,
+                       kh.ma_khach_hang, kh.ten_khach_hang, kh.dia_chi, kb.ma_kenh,
                        (kb.ma_kenh = 'POS' OR EXISTS (SELECT 1 FROM pos_payment pp WHERE pp.don_ban_hang_id = d.id)) AS la_pos,
                        kn.ma_kho AS ma_kho_nhan, pn.so_phieu_nhap
                   FROM phieu_tra_hang p
@@ -202,7 +201,6 @@ public class KeToanNguonRepository {
                 rs.getString("ma_khach_hang"),
                 rs.getString("ten_khach_hang"),
                 rs.getString("dia_chi"),
-                rs.getString("ma_so_thue"),
                 rs.getString("ma_kenh"),
                 rs.getBoolean("la_pos"),
                 rs.getString("ma_kho_nhan"),
@@ -510,15 +508,14 @@ public class KeToanNguonRepository {
             return List.of();
         }
         String sql = """
-                SELECT ma_khach_hang, ten_khach_hang, dia_chi, ma_so_thue, so_dien_thoai, email, nguoi_lien_he, loai_khach_hang
+                SELECT ma_khach_hang, ten_khach_hang, dia_chi, so_dien_thoai, email
                   FROM khach_hang
                  WHERE ma_khach_hang IN (:ma)
                  ORDER BY id
                 """;
         return jdbc.query(sql, new MapSqlParameterSource("ma", maDaDung), (rs, i) ->
                 new NguonKeToan.KhachHangKt(rs.getString("ma_khach_hang"), rs.getString("ten_khach_hang"),
-                        rs.getString("dia_chi"), rs.getString("ma_so_thue"), rs.getString("so_dien_thoai"),
-                        rs.getString("email"), rs.getString("nguoi_lien_he"), rs.getString("loai_khach_hang")));
+                        rs.getString("dia_chi"), rs.getString("so_dien_thoai"), rs.getString("email")));
     }
 
     public List<NguonKeToan.NhaCungCapKt> nhaCungCap() {

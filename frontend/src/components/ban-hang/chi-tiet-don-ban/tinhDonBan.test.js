@@ -12,7 +12,6 @@ import {
   laGhiChuTuSinh,
   lyDoKhoaHuy,
   lyDoSanHuy,
-  maBaoGiaGoc,
   phieuDaXuatCuoi,
   tachTenDong,
   thanhToanDonBan,
@@ -70,14 +69,6 @@ test("loại đơn: tại quầy theo thanhToanTaiQuay, sàn theo kênh hoặc m
   assert.equal(laDonSan(don(shopify)), true);
   assert.equal(laDonSan(don({ maDonHangKenh: "  " })), false);
   assert.equal(laDonSan(don({ maDonHangKenh: "123" })), true);
-});
-
-test("maBaoGiaGoc: SO→BG bỏ hậu tố, không suy với đơn tại quầy / đơn sàn", () => {
-  assert.equal(maBaoGiaGoc("SO202610217"), "BG202610217");
-  assert.equal(maBaoGiaGoc("SO202610217-1"), "BG202610217");
-  assert.equal(maBaoGiaGoc("SO202610171", { laPos: true }), null);
-  assert.equal(maBaoGiaGoc("SHP-1021", { laSan: true }), null);
-  assert.equal(maBaoGiaGoc("DH1"), null);
 });
 
 test("lyDoSanHuy, ghi chú tự sinh", () => {
@@ -211,8 +202,6 @@ test("tienDonBan: không tự cộng, báo lệch", () => {
 
 test("hauQuaHuy và thanh toán", () => {
   assert.deepEqual(hauQuaHuy(ct()), ["Trả số hàng của đơn về tồn có thể bán của Kho tổng."]);
-  assert.equal(hauQuaHuy(ct(), { baoGia: { ma: "BG1", chacChan: true } })[1], "Báo giá BG1 đang Đã chốt đơn sẽ trở lại Chờ phản hồi.");
-  assert.equal(hauQuaHuy(ct(), { baoGia: { ma: "BG1" } })[1], "Báo giá BG1 (nếu đang Đã chốt đơn) sẽ trở lại Chờ phản hồi.");
   const san = hauQuaHuy(ct({ ...shopify, trangThaiThanhToan: "da_thanh_toan" }));
   assert.equal(san.length, 3);
   assert.match(san[2], /Không tự hoàn tiền/);

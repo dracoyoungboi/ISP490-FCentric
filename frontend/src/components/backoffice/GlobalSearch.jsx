@@ -11,7 +11,6 @@ import { SIDEBAR_FOOTER_SECTION, SIDEBAR_MENU, SIDEBAR_SECTIONS } from "@/compon
 import { useKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
 import apiClient from "@/services/apiClient";
 import { getDonBanHangStatus } from "@/constants/donBanHang";
-import { getBaoGiaStatus } from "@/constants/baoGia";
 import { getDonMuaHangStatus } from "@/constants/donMuaHang";
 import { getGoodsReceiptStatus } from "@/constants/goodsReceipt";
 import { getPhieuChuyenKhoStatus } from "@/constants/phieuChuyenKho";
@@ -43,7 +42,7 @@ const NHOM = {
   donBan: { key: "donBan", label: t("Đơn bán"), trangDanhSach: "/sales-orders", icon: ShoppingCart, goiY: t("Nhập số đơn, mã đơn sàn hoặc số điện thoại khách.") },
   khachHang: { key: "khachHang", label: t("Khách hàng"), trangDanhSach: "/customers", icon: UserRound, goiY: t("Nhập tên, mã hoặc số điện thoại khách hàng.") },
   nhaCungCap: { key: "nhaCungCap", label: t("Nhà cung cấp"), trangDanhSach: "/supplier", icon: Building2, goiY: t("Nhập tên, mã, mã số thuế hoặc số điện thoại nhà cung cấp.") },
-  chungTu: { key: "chungTu", label: t("Chứng từ"), trangDanhSach: null, icon: FileText, goiY: t("Nhập mã phiếu, mã đơn mua, mã báo giá hoặc mã đợt kiểm kê.") },
+  chungTu: { key: "chungTu", label: t("Chứng từ"), trangDanhSach: null, icon: FileText, goiY: t("Nhập mã phiếu, mã đơn mua hoặc mã đợt kiểm kê.") },
   manHinh: { key: "manHinh", label: t("Màn hình"), trangDanhSach: null, icon: LayoutGrid, goiY: t("Nhập tên màn hình cần mở.") },
 };
 
@@ -51,7 +50,7 @@ const NHOM = {
 const THU_TU_THEO_VAI_TRO = {
   quan_ly_kho: ["sanPham", "chungTu", "donBan", "nhaCungCap"],
   nhan_vien_kho: ["sanPham", "chungTu", "donBan"],
-  nhan_vien_ban_hang: ["khachHang", "donBan", "sanPham", "chungTu"],
+  nhan_vien_ban_hang: ["khachHang", "donBan", "sanPham"],
   nhan_vien_mua_hang: ["nhaCungCap", "chungTu", "sanPham"],
   quan_tri_vien: ["donBan", "sanPham", "khachHang", "chungTu", "nhaCungCap"],
 };
@@ -60,7 +59,6 @@ const THU_TU_MAC_DINH = ["sanPham", "donBan", "khachHang", "nhaCungCap", "chungT
 /** Trang danh sách của các loại chứng từ: có ít nhất một trang được vào thì có nhóm Chứng từ. */
 const TRANG_CHUNG_TU = [
   "/goods-issues", "/goods-receipts", "/transfer-tickets", "/purchase-orders", "/purchase-requests", "/stock-take",
-  "/sales-quotations",
 ];
 
 // i18n-giu-nguyen: nhãn tiếng Việt truyền cho StatusBadge (badge tự dịch lúc vẽ)
@@ -80,7 +78,6 @@ const LOAI_CHUNG_TU = {
   donMua: { ten: t("Đơn mua hàng"), to: (id) => `/purchase-orders/${id}`, quyTrinh: "donMua", nhan: (m) => getDonMuaHangStatus(m.trangThai).label },
   yeuCauNhap: { ten: t("Yêu cầu nhập hàng"), to: (id) => `/purchase-requests/${id}`, quyTrinh: "yeuCauNhap", nhan: (m) => getYeuCauNhapHangStatus(m.trangThai).label },
   kiemKe: { ten: t("Đợt kiểm kê"), to: (id) => `/stock-take/${id}`, quyTrinh: "kiemKe", nhan: (m) => TRANG_THAI_KIEM_KE[m.trangThai] },
-  baoGia: { ten: t("Báo giá"), to: (id) => `/sales-quotations/${id}`, quyTrinh: "baoGiaBan", nhan: (m) => getBaoGiaStatus(m.trangThai).label },
 };
 
 /** Tên trường mã đã khớp, để ghi "Khớp SKU …" (truongKhop do máy chủ trả). Mã chính của dòng thì không ghi. */

@@ -201,9 +201,9 @@ public class ThanhToanDonBanService {
                 .build();
     }
 
-    /** Đơn bán thường: chứng từ đơn bán, không đồng bộ từ sàn, không bán tại quầy (có sổ thu POS). */
+    /** Đơn bán thường: không đồng bộ từ sàn, không bán tại quầy (có sổ thu POS). */
     boolean laDonThuong(DonBanHang don) {
-        return !"bao_gia".equals(don.getLoaiChungTu()) && !laDonSan(don)
+        return !laDonSan(don)
                 && (don.getId() == null || (!posPaymentRepository.existsByDonBanHangId(don.getId())
                         && !posCheckoutRequestRepository.existsByDonBanHangId(don.getId())));
     }
@@ -217,7 +217,7 @@ public class ThanhToanDonBanService {
 
     /**
      * Ghi nhận khách trả tiền cho đơn bán thường (đặt cọc từ lúc Nháp, thu nhiều lần): tiền mặt hoặc chuyển khoản (bắt
-     * buộc mã giao dịch). Không cho báo giá, đơn tại quầy (thu ở màn Bán hàng), đơn sàn (thanh toán theo sàn), đơn đã hủy
+     * buộc mã giao dịch). Không cho đơn tại quầy (thu ở màn Bán hàng), đơn sàn (thanh toán theo sàn), đơn đã hủy
      * / bị hoàn trả. Số vượt phần còn phải thu phải được xác nhận (choThuThua), đơn thành Cần hoàn tiền. Tiền mặt ghi ngày
      * hôm nay. Chuyển khoản tính đã thu ngay; quản trị viên ghi thì coi như đã đối chiếu sao kê, người khác ghi thì chờ
      * quản trị viên đối chiếu (hậu kiểm). Nhân viên chỉ ghi lùi ngày tối đa {@value #MAX_NGAY_THU_LUI_NHAN_VIEN} ngày.
@@ -240,7 +240,6 @@ public class ThanhToanDonBanService {
                         req.getMaThamChieu(), req.getNgayThu());
             }
         }
-        if ("bao_gia".equals(don.getLoaiChungTu())) throw new CommonException(ThongDiep.of("banHang.baoGiaChuaThuTien"));
         if (laDonSan(don)) {
             throw new CommonException(ThongDiep.of("banHang.donSanKhongThuTien", don.getSoDonHang()),
                     HttpStatus.CONFLICT, null);
@@ -533,18 +532,9 @@ public class ThanhToanDonBanService {
         return ids.stream().map(id -> so.getOrDefault(id, "#" + id)).toList();
     }
 
-    /**
-     * Ngày lập chứng từ để chặn ngày thu: đơn chuyển từ báo giá (SO… ↔ BG…) lấy ngày lập báo giá — khách có thể chuyển
-     * cọc từ lúc còn báo giá. Không xác định được thì null (không chặn).
-     */
-    private LocalDate ngayMoChungTu(DonBanHang don) {
+    /** Ngày lập đơn để chặn ngày thu trước ngày lập; không xác định được thì null (không chặn). */
+    private static LocalDate ngayMoChungTu(DonBanHang don) {
         Instant mo = don.getNgayTao();
-        String so = don.getSoDonHang();
-        if (so != null && so.startsWith("SO")) {
-            Instant bg = donBanHangRepository.findBySoDonHang(so.split("-")[0].replaceFirst("^SO", "BG"))
-                    .map(DonBanHang::getNgayTao).orElse(null);
-            if (bg != null && (mo == null || bg.isBefore(mo))) mo = bg;
-        }
         return mo == null ? null : mo.atZone(VN).toLocalDate();
     }
 

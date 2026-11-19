@@ -32,7 +32,6 @@ const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const SO_DIEN_THOAI_REGEX = /^(0[35789][0-9]{8}|02[0-9]{9}|1[89]00[0-9]{4,6})$/;
 
 // Trùng MA_SO_THUE_PATTERN của backend (như công ty): 10 số, đơn vị phụ thuộc thêm "-3 số", hộ / cá nhân 12 số.
-// Khách hàng kiểm thêm số kiểm tra (validations/maSoThue.js).
 const MA_SO_THUE_REGEX = /^(\d{10}(-\d{3})?|\d{12})$/;
 export const MA_SO_THUE_MESSAGE = t("Mã số thuế gồm 10 số (đơn vị phụ thuộc thêm -3 số) hoặc 12 số");
 

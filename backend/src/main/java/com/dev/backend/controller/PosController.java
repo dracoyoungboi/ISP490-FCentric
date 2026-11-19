@@ -35,7 +35,7 @@ import java.util.Map;
 /**
  * API POS: catalog/tra cứu (Phase 02) + checkout tiền mặt & phục hồi (Phase 03).
  * Checkout bị khóa bởi config `pos.checkout-enabled=false` (mặc định tắt) cho tới
- * khi nghiệm thu — không gọi lại API báo giá/xuất kho cũ để mô phỏng checkout.
+ * khi nghiệm thu — không gọi lại API xuất kho cũ để mô phỏng checkout.
  */
 @RestController
 @RequestMapping("/api/v1/pos")

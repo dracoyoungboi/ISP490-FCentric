@@ -761,7 +761,6 @@ public class KhoaKiemKeGuard {
             Map.entry("hoàn kệ", "khoVanHanh.thaoTacHoanKe"),
             Map.entry("nhặt ở kệ này", "khoVanHanh.thaoTacNhatOKeNay"),
             Map.entry("chuyển kho", "khoVanHanh.thaoTacChuyenKho"),
-            Map.entry("tạo đơn bán", "khoVanHanh.thaoTacTaoDonBan"),
             Map.entry("nhận hàng hoàn trả (hàng vẫn ở kho trung chuyển)", "khoVanHanh.thaoTacNhanHangHoanTra"),
             Map.entry("đổi loại kho", "khoVanHanh.thaoTacDoiLoaiKho"),
             Map.entry("đổi loại khu vực", "khoVanHanh.thaoTacDoiLoaiKhuVuc"));

@@ -84,7 +84,7 @@ public class KhachHangController {
     }
 
     /**
-     * Kiểm trùng trước khi lưu (form Thêm / Sửa khách báo ngay khi rời ô): truong = soDienThoai | email | maSoThue.
+     * Kiểm trùng trước khi lưu (form Thêm / Sửa khách báo ngay khi rời ô): truong = soDienThoai | email.
      * So như lúc lưu (số điện thoại đã bỏ dấu ngăn cách, +84 về 0). data = khách đang dùng giá trị, null nếu chưa ai dùng.
      * POST để số điện thoại / email không nằm trên URL (nhật ký truy cập, lịch sử trình duyệt).
      */

@@ -2,7 +2,7 @@ package com.dev.backend.dto.request;
 
 import lombok.*;
 
-/** Kiểm trùng khách (POST /api/v1/khach-hang/kiem-trung): truong = soDienThoai | email | maSoThue; boQuaId = khách đang sửa. */
+/** Kiểm trùng khách (POST /api/v1/khach-hang/kiem-trung): truong = soDienThoai | email; boQuaId = khách đang sửa. */
 @Getter
 @Setter
 @NoArgsConstructor

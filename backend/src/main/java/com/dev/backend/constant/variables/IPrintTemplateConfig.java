@@ -19,7 +19,6 @@ public interface IPrintTemplateConfig {
             "purchase_order",
             "goods_receipt",
             "goods_issue",
-            "sales_quotation",
             "sales_invoice",
             // Hóa đơn bán hàng in tại quầy (máy in nhiệt K80/K57) — mẫu riêng để đơn bán in A4/A5 không đổi theo
             "pos_invoice",

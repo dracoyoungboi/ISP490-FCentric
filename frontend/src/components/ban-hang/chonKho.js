@@ -1,6 +1,6 @@
 /*
  * Hàm thuần của hộp chọn kho theo tồn khả dụng (GET /don-ban-hang/{id}/kho-kha-dung): dùng cho "Gửi sang kho" ở
- * Chi tiết đơn bán hàng (và "Chốt thành đơn" của báo giá khi được duyệt). Không React, chạy được bằng `node --test`.
+ * Chi tiết đơn bán hàng. Không React, chạy được bằng `node --test`.
  *
  * Mỗi kho của máy chủ (KhoKhaDungDto): `{ khoId, maKho, tenKho, diaChi, duHang, soLuongMatHangDu, tongSoMatHang,
  * chiTietTonKho: [{ bienTheId, maSku, tenSanPham, tenBienThe, soLuongDat, tonKhaDung, duHang }] }`.

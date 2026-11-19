@@ -207,7 +207,7 @@ public class NhatHangServiceImpl implements NhatHangService {
         Specification<DonBanHang> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            // Chỉ lấy đơn bán hàng (loại bỏ báo giá)
+            // Chỉ lấy đơn bán hàng
             predicates.add(cb.equal(root.get("loaiChungTu"), "don_ban_hang"));
 
             // 1 Chờ nhặt hàng; 2 Đã xuất một phần (dữ liệu cũ) nhặt tiếp phần còn lại — phiếu xuất bán hàng chỉ sinh

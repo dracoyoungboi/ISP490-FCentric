@@ -4,8 +4,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 /**
- * Thêm nhanh khách hàng tại quầy POS: chỉ cần tên + số điện thoại.
- * Mã khách hàng do server sinh, loại khách mặc định là khách lẻ.
+ * Thêm nhanh khách hàng tại quầy POS: chỉ cần tên + số điện thoại. Mã khách hàng do server sinh.
  */
 @AllArgsConstructor
 @Getter

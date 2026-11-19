@@ -31,7 +31,6 @@ export const TEN_KHOI = {
   canMua: t("Cần mua thêm"),
   theoGio: t("Doanh thu trong ngày"),
   don: t("Đơn của bạn"),
-  baoGia: t("Báo giá"),
   banChay: t("Bán chạy"),
 };
 
@@ -746,14 +745,6 @@ export function chuYDon(o, thoiDiem) {
   if (o.chuY === "nhap") return t("Chưa gửi kho");
   if (o.chuY === "cho_lau") return t("Chờ {{ngayDat}}", { ngayDat: khoangCho(o.ngayDat, thoiDiem) });
   return null;
-}
-
-/** "Gửi sáng nay" / "Gửi hôm qua" / "Gửi 4 ngày trước". */
-export function guiLuc(ngayTao, thoiDiem) {
-  const n = soNgayGiua(ngayTao, thoiDiem);
-  if (n <= 0) return t("Gửi lúc {{ngayTao}}", { ngayTao: gioPhutNgan(ngayTao) });
-  if (n === 1) return t("Gửi hôm qua");
-  return t("Gửi {{count}} ngày trước", { count: n });
 }
 
 /** Bỏ dấu để so khớp gợi ý (gõ không dấu cũng được). */

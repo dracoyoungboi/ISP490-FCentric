@@ -7,24 +7,8 @@ import { t } from "../../../i18n/t.js";
 /** Trạng thái khách hàng (cột khach_hang.trang_thai). */
 export const TRANG_THAI_KHACH = { HOAT_DONG: 1, NGUNG_HOAT_DONG: 0 };
 
-export const LOAI_KHACH = {
-  le: t("Khách lẻ"),
-  si: t("Khách sỉ"),
-  doanh_nghiep: t("Doanh nghiệp"),
-};
-
-/** Tên loại khách; chưa phân loại (hoặc giá trị lạ) thì null. */
-export function nhanLoaiKhach(loai) {
-  return LOAI_KHACH[loai] ?? null;
-}
-
 export function laHoatDong(khachHang) {
   return Number(khachHang?.trangThai) === TRANG_THAI_KHACH.HOAT_DONG;
-}
-
-/** Doanh nghiệp ghi địa chỉ trụ sở, khách lẻ / sỉ ghi địa chỉ giao hàng. */
-export function nhanDiaChi(loai) {
-  return loai === "doanh_nghiep" ? t("Địa chỉ trụ sở") : t("Địa chỉ giao hàng");
 }
 
 /** Giá trị lọc kênh của đơn không gắn kênh (đơn bán thường tạo trên hệ thống). */
@@ -92,13 +76,6 @@ export function dieuKienDon({ khachHangId, tuKhoa = "", kenh = "", thoiGian = ""
     dk.push({ fieldName: "ngayDatHang", operation: "GREATER_THAN_OR_EQUAL", value: ngayBatDau(thoiGian, homNay) });
   }
   return dk;
-}
-
-export function dieuKienBaoGia(khachHangId) {
-  return [
-    { fieldName: "khachHang.id", operation: "EQUALS", value: Number(khachHangId) },
-    { fieldName: "loaiChungTu", operation: "EQUALS", value: "bao_gia" },
-  ];
 }
 
 /** "hôm nay" / "hôm qua" / "N ngày trước", tính theo ngày lịch của máy. */
@@ -188,16 +165,10 @@ export function tinhKpi(tongQuan, homNay = new Date()) {
   ];
 }
 
-/** Ghi chú cột Ghi chú của báo giá: báo giá bị từ chối ghi lý do, còn lại ghi chú của báo giá. */
-export function ghiChuBaoGia(baoGia) {
-  if (Number(baoGia?.trangThai) === 4 && baoGia?.lyDoTuChoi?.trim()) return t("Lý do: {{lyDo}}", { lyDo: baoGia.lyDoTuChoi.trim() });
-  return baoGia?.ghiChu?.trim() || "";
-}
-
 /** Câu phạm vi dữ liệu theo vai trò (khớp DonBanHangService.dieuKienPhamViTheoVaiTro ở máy chủ). */
-export function ghiChuPhamVi({ laQuanTriVien, laVaiTroKho, laBanHang, laBaoGia = false }) {
+export function ghiChuPhamVi({ laQuanTriVien, laVaiTroKho, laBanHang }) {
   if (laQuanTriVien) return "";
-  if (laVaiTroKho) return laBaoGia ? t("Chỉ hiện báo giá xuất từ nơi làm việc của bạn.") : t("Chỉ tính đơn xuất từ nơi làm việc của bạn.");
-  if (laBanHang) return laBaoGia ? t("Chỉ hiện báo giá do bạn tạo.") : t("Chỉ tính đơn do bạn tạo.");
+  if (laVaiTroKho) return t("Chỉ tính đơn xuất từ nơi làm việc của bạn.");
+  if (laBanHang) return t("Chỉ tính đơn do bạn tạo.");
   return "";
 }

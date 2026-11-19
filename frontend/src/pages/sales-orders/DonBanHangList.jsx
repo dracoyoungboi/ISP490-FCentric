@@ -9,7 +9,6 @@ import {
   Calendar,
   Eye,
   FileText,
-  Plus,
   SearchX,
   ShoppingCart,
 } from "lucide-react";
@@ -368,20 +367,7 @@ export default function DonBanHangList() {
 
   return (
     <PageContainer fill className="space-y-4">
-      <ListPageHeader
-        scope={scopeNote}
-        noiLamViec={noiLamViec}
-        actions={
-          !isKhoRole ? (
-            <Link to="/sales-orders/create">
-              <Button className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">
-                <Plus className="size-4" />
-                {t("Tạo đơn bán")}
-              </Button>
-            </Link>
-          ) : null
-        }
-      />
+      <ListPageHeader scope={scopeNote} noiLamViec={noiLamViec} />
 
       <MockModeNotice show={isChannelOrderMock} />
 
@@ -509,7 +495,7 @@ export default function DonBanHangList() {
             <EmptyState
               icon={ShoppingCart}
               title={t("Chưa có đơn bán hàng")}
-              description={t("Đơn bán hàng được tạo khi chốt báo giá, bán tại quầy hoặc nhận từ sàn.")}
+              description={t("Đơn bán hàng được tạo khi bán tại quầy hoặc nhận từ sàn.")}
             />
           )
         ) : (

@@ -22,15 +22,13 @@ const MO = "text-bo-muted";
 /**
  * Cột phải của Chi tiết đơn bán hàng: Khách hàng · Giao hàng (kho xuất; vận chuyển, mã vận đơn, ghi chú khi xuất tách từ
  * ghi chú của phiếu đã xuất) · Bằng chứng đóng gói (chỉ xem, từ bước đóng gói trở đi) · kênh bán (ID đơn trên sàn) ·
- * Người tạo, Ghi chú · Chứng từ liên quan (báo giá gốc,
- * phiếu nhặt, các phiếu xuất — quá SO_PHIEU_XUAT_HIEN thì gom "Xem thêm").
+ * Người tạo, Ghi chú · Chứng từ liên quan (phiếu nhặt, các phiếu xuất — quá SO_PHIEU_XUAT_HIEN thì gom "Xem thêm").
  *
  * - `ct`: DonBanHangDetailResponse. `laBan`, `laKho`: vai trò (tên khách là liên kết với bán hàng; phiếu nhặt, phiếu xuất
  *   mở màn kho với vai trò kho).
- * - `baoGia`: `{ ma, id?, trangThai? }` báo giá gốc suy từ mã đơn (có `id` khi đã tra được qua /filter) hoặc null.
  * - Phiếu xuất với nhân viên bán hàng mở trang xem `/goods-issues/:id/view` như màn cũ.
  */
-export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false, baoGia = null }) {
+export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false }) {
   const [xemHetPx, setXemHetPx] = useState(false);
   const don = ct.donBanHang;
   const khach = don.khachHang;
@@ -63,16 +61,6 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false, baoG
   const px = dsPhieuXuat(ct);
   const pxHien = xemHetPx || px.length <= SO_PHIEU_XUAT_HIEN ? px : px.slice(0, SO_PHIEU_XUAT_HIEN);
   const lienQuan = [
-    baoGia?.ma
-      ? {
-        khoa: "bao-gia",
-        loai: t("Báo giá"),
-        ma: baoGia.ma,
-        to: laBan && baoGia.id ? `/sales-quotations/${baoGia.id}` : undefined,
-        trangThai: laBan ? baoGia.trangThai : undefined,
-        quyTrinh: "baoGiaBan",
-      }
-      : null,
     ct.maPickList
       ? {
         khoa: "phieu-nhat",
@@ -148,7 +136,7 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false, baoG
         />
       </NhomThuocTinh>
 
-      {coKhoiBangChung({ trangThai: don.trangThai, laPos, laBaoGia: don.loaiChungTu === "bao_gia", laBan, laKho }) ? (
+      {coKhoiBangChung({ trangThai: don.trangThai, laPos, laBan, laKho }) ? (
         <KhoiBangChungDongGoi donId={don.id} trangThai={don.trangThai} />
       ) : null}
 

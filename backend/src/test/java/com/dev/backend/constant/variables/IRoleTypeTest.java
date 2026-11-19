@@ -282,7 +282,6 @@ class IRoleTypeTest {
                 // Sales Order: nhân viên bán hàng; riêng send-to-warehouse mở thêm cho quản lý kho để service cô lập Quản lý Kho Tổng với đơn Shopify
                 Arguments.of(DonBanHangController.class, "POST", "/filter", Set.of(QT, QLK, NVK, NVBH)),
                 Arguments.of(DonBanHangController.class, "GET", "/{id}/detail", Set.of(QT, QLK, NVK, NVBH)),
-                Arguments.of(DonBanHangController.class, "POST", "/create", Set.of(QT, NVBH)),
                 Arguments.of(DonBanHangController.class, "PUT", "/{id}/cancel", Set.of(QT, NVBH)),
                 Arguments.of(DonBanHangController.class, "PUT", "/{id}/send-to-warehouse", Set.of(QT, NVBH, QLK)),
                 Arguments.of(DonBanHangController.class, "GET", "/kpi-hom-nay", Set.of(QT, NVBH)),

@@ -463,9 +463,9 @@ function CustomerDialog({ state, actions, onClose }) {
     setQuickExisting(null);
     setQuickAddOpen(true);
   };
-  // Cùng luật với form Thêm khách hàng: tên khách lẻ như họ tên; SĐT bỏ dấu ngăn cách, +84 về 0, luật số của khách lẻ (di động / máy bàn, không nhận tổng đài).
+  // Cùng luật với form Thêm khách hàng: tên như họ tên; SĐT bỏ dấu ngăn cách, +84 về 0, di động / máy bàn, không nhận tổng đài.
   const phoneDigits = chuanHoaSoDienThoaiKhiNhap(quickPhone);
-  const quickNameError = quickName.trim() ? loiTenKhachHang(quickName, 'le') : '';
+  const quickNameError = quickName.trim() ? loiTenKhachHang(quickName) : '';
   const quickPhoneError = phoneDigits ? loiSoDienThoai(phoneDigits) : '';
   // Báo lỗi khi đã rời ô hoặc đã gõ đủ dài, không báo đỏ ngay từ chữ / chữ số đầu tiên
   const [daRoi, setDaRoi] = useState({ ten: false, sdt: false });
@@ -502,7 +502,7 @@ function CustomerDialog({ state, actions, onClose }) {
         {matchingCustomers.length ? matchingCustomers.map((customer) => (
           <li key={customer.id}>
             <button className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left transition hover:bg-slate-50" onClick={() => { actions.onSelectCustomer(customer); closeCustomerDialog(); }} type="button">
-              <span className="min-w-0"><span className="block truncate text-sm font-medium text-bo-foreground">{customer.name}</span><span className="mt-0.5 block text-xs text-bo-muted">{customer.phone || customer.tier}</span></span>
+              <span className="min-w-0"><span className="block truncate text-sm font-medium text-bo-foreground">{customer.name}</span><span className="mt-0.5 block text-xs text-bo-muted">{customer.phone || customer.code}</span></span>
               {state.customer?.id === customer.id ? <Check aria-hidden="true" className="shrink-0 text-bo-primary" size={17} /> : <ChevronRight aria-hidden="true" className="shrink-0 text-bo-muted" size={16} />}
             </button>
           </li>

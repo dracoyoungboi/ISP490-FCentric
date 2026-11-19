@@ -64,11 +64,11 @@ export const VAI_TRO_TAO_DON_MUA = Object.freeze([QTV, QLK, NVMH]);
 /** "Customer – View / Add / Edit". */
 export const VAI_TRO_KHACH_HANG = Object.freeze([QTV, NVBH]);
 /**
- * Xem đơn bán, báo giá bán: nhân viên bán hàng; nhân viên kho chỉ xem ("Sales Order" Restricted). Quản lý kho xem chỉ
+ * Xem đơn bán: nhân viên bán hàng; nhân viên kho chỉ xem ("Sales Order" Restricted). Quản lý kho xem chỉ
  * đọc như nhân viên kho (nhập hàng khách trả mở từ chi tiết đơn).
  */
 export const VAI_TRO_DON_BAN = Object.freeze([QTV, NVBH, NVK, QLK]);
-/** Tạo, xử lý đơn bán và báo giá. */
+/** Xử lý đơn bán: in hóa đơn, ghi nhận thanh toán. */
 export const VAI_TRO_GHI_DON_BAN = Object.freeze([QTV, NVBH]);
 /** "POS Payment", "POS Return & Exchange": bán và trả hàng tại quầy. */
 export const VAI_TRO_BAN_TAI_QUAY = Object.freeze([QTV, NVBH]);

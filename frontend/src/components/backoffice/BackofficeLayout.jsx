@@ -250,11 +250,6 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             title: t("Chi tiết đơn bán hàng"),
         },
         {
-            key: "CREATE_SALES_ORDER",
-            match: (path) => path === "/sales-orders/create",
-            title: t("Tạo đơn bán hàng"),
-        },
-        {
             key: "BAO_CAO_DOANH_THU",
             match: (path) => path === "/reports/revenue",
             title: t("Báo cáo doanh thu"),
@@ -381,22 +376,6 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             key: "PURCHASE_ORDER_DETAIL",
             match: (path) => /^\/purchase-orders\/\d+$/.test(path),
             title: t("Chi tiết đơn mua hàng"),
-        },
-        {
-            key: "SALE_QUOTATION",
-            match: (path) => path === "/sales-quotations",
-            title: t("Báo giá"),
-        },
-        {
-            key: "SALE_QUOTATION_CREATE",
-            match: (path) => path === "/sales-quotations/create",
-            title: t("Tạo báo giá"),
-        },
-        {
-            key: "SALE_QUOTATION_DETAIL",
-            ownTitle: true,
-            match: (path) => /^\/sales-quotations\/\d+$/.test(path),
-            title: t("Chi tiết báo giá"),
         },
         // Trung tâm Cấu hình: SettingsLayout tự vẽ tiêu đề mục; đây chỉ đặt tên tab trình duyệt
         ...SETTINGS_PAGES.map((page) => ({

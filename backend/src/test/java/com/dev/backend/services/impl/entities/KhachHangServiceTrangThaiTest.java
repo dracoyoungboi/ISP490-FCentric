@@ -30,7 +30,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * Ngừng / cho phép hoạt động khách hàng từ trang chi tiết (PUT /khach-hang/{id} chỉ gửi trangThai)
- * và lịch sử mua hàng không lẫn báo giá.
+ * và lịch sử mua hàng.
  */
 @ExtendWith(MockitoExtension.class)
 class KhachHangServiceTrangThaiTest {
@@ -49,7 +49,7 @@ class KhachHangServiceTrangThaiTest {
         khach = KhachHang.builder()
                 .id(16).maKhachHang("KH016").tenKhachHang("Công ty TNHH Thời trang Minh Khôi")
                 .soDienThoai("0912345678").email("muahang@minhkhoi.example.vn")
-                .loaiKhachHang("doanh_nghiep").trangThai(1)
+                .trangThai(1)
                 .build();
     }
 
@@ -64,7 +64,6 @@ class KhachHangServiceTrangThaiTest {
         assertEquals("Công ty TNHH Thời trang Minh Khôi", dto.getTenKhachHang());
         assertEquals("0912345678", dto.getSoDienThoai());
         assertEquals("muahang@minhkhoi.example.vn", dto.getEmail());
-        assertEquals("doanh_nghiep", dto.getLoaiKhachHang());
     }
 
     @Test
@@ -90,18 +89,16 @@ class KhachHangServiceTrangThaiTest {
     }
 
     @Test
-    void lichSuMuaHang_boBaoGia_donKhongKenhLaBanThuong() {
+    void lichSuMuaHang_donKhongKenhLaBanThuong() {
         when(repository.findById(16)).thenReturn(Optional.of(khach));
         DonBanHang donShopify = DonBanHang.builder().id(1).soDonHang("SHP-1012").loaiChungTu("don_ban_hang")
                 .ngayDatHang(Instant.parse("2026-10-14T13:31:00Z")).tongCong(new BigDecimal("2350000"))
                 .kenhBanHang(KenhBanHang.builder().id(3).maKenh("SHOPIFY").tenKenh("Shopify").build())
                 .build();
-        DonBanHang baoGia = DonBanHang.builder().id(2).soDonHang("BG202610151").loaiChungTu("bao_gia")
-                .ngayDatHang(Instant.parse("2026-10-15T02:00:00Z")).tongCong(new BigDecimal("32500000")).build();
         DonBanHang donThuong = DonBanHang.builder().id(3).soDonHang("SO202610121").loaiChungTu("don_ban_hang")
                 .ngayDatHang(Instant.parse("2026-10-12T02:02:00Z")).tongCong(new BigDecimal("24750000")).build();
         when(donBanHangRepository.findByKhachHangIdOrderByNgayDatHangDesc(16))
-                .thenReturn(List.of(baoGia, donShopify, donThuong));
+                .thenReturn(List.of(donShopify, donThuong));
 
         KhachHangDetailDto detail = service.getKhachHangDetail(16);
 

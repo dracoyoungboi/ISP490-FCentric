@@ -80,7 +80,7 @@ test("nhãn có số tra theo mẫu", () => {
 test("phân màu đã chốt (bảng 10) cho các nhãn chính", () => {
   const mong = {
     "Nháp": "cho", "Chờ nhặt hàng": "cho", "Chờ nhập kho": "cho", "Chờ xuất": "cho", "Tạm dừng": "cho",
-    "Đang vận chuyển": "dang", "Đã duyệt": "dang", "Đã xuất kho": "dang", "Chờ phản hồi": "dang", "Đang nhặt": "dang",
+    "Đang vận chuyển": "dang", "Đã duyệt": "dang", "Đã xuất kho": "dang", "Đang nhặt": "dang",
     "Chờ duyệt": "canChuY", "Đã nhận báo giá": "canChuY", "Sắp hết hàng": "canChuY", "Cất về kệ": "canChuY", "Hàng trả lại": "canChuY",
     "Hoàn thành": "xong", "Đã nhập kho": "xong", "Đã xuất": "xong", "Hoạt động": "xong", "Đã chuyển thành đơn mua hàng": "xong",
     "Đã hủy": "dong", "Từ chối": "dong", "Ngừng hoạt động": "dong", "Bị hoàn trả": "dong", "Đã xóa": "dong",
@@ -101,7 +101,7 @@ test("tên đã đổi: tên mới có nhóm, tên cũ không còn trong bảng"
 test("mọi nhãn trong các bảng trạng thái ở constants/* đều có nhóm", () => {
   const bang = [
     "donBanHang.js", "donMuaHang.js", "phieuXuatKho.js", "phieuChuyenKho.js", "yeuCauNhapHang.js",
-    "goodsReceipt.js", "outbound.js", "baoGia.js", "nhapKho.js", "channel.js", "trangThaiChung.js",
+    "goodsReceipt.js", "outbound.js", "nhapKho.js", "channel.js", "trangThaiChung.js",
   ];
   let dem = 0;
   for (const tep of bang) {
@@ -274,7 +274,7 @@ test("StatusBadge: khung bo 6px, không còn viên tròn, mọi màu nhóm có t
 
 test("mọi nhãn trong bảng trạng thái chứng từ đều vẽ được trong quy trình của nó (vòng hoặc khung)", () => {
   const CAP = {
-    donBan: ["donBanHang.js", "DON_BAN_HANG_STATUS"], baoGiaBan: ["baoGia.js", "BAO_GIA_STATUS"],
+    donBan: ["donBanHang.js", "DON_BAN_HANG_STATUS"],
     phieuNhat: ["outbound.js", "PICK_LIST_STATUS"], phieuXuat: ["phieuXuatKho.js", "PHIEU_XUAT_KHO_STATUS"],
     chuyenKho: ["phieuChuyenKho.js", "PHIEU_CHUYEN_KHO_STATUS"], phieuNhap: ["goodsReceipt.js", "GOODS_RECEIPT_STATUS"],
     yeuCauNhap: ["yeuCauNhapHang.js", "YEU_CAU_NHAP_HANG_STATUS"], yeuCauBaoGia: ["donMuaHang.js", "BAO_GIA_NCC_STATUS"],

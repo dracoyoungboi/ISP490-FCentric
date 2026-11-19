@@ -98,7 +98,6 @@ const MENU = [
     roles: [QTV, NVB, NVK, QLK],
     children: [
       { to: "/customers", roles: [QTV, NVB] },
-      { to: "/sales-quotations", roles: [QTV, NVB] },
       { to: "/sales-orders", roles: [QTV, NVB, NVK, QLK] },
       { to: "/pos", roles: [QTV, NVB] },
     ],
@@ -177,7 +176,7 @@ test("màn hình theo vai trò khớp quy tắc lọc của sidebar", () => {
   assert.equal(nvk.duongDan.length, 17);
   assert.equal(nvk.soNhom, 6);
   assert.equal(manHinhCuaVaiTro(MENU, NVM).duongDan.length, 10);
-  assert.equal(manHinhCuaVaiTro(MENU, NVB).duongDan.length, 9);
+  assert.equal(manHinhCuaVaiTro(MENU, NVB).duongDan.length, 8);
   assert.deepEqual(manHinhCuaVaiTro(MENU, VAI_TRO_DA_BO), { duongDan: [], soNhom: 0 });
   // Mục không khai báo roles mở cho mọi vai trò nhân sự, nhưng không mở cho mã lạ
   const menuMo = [{ to: "/dashboard" }];

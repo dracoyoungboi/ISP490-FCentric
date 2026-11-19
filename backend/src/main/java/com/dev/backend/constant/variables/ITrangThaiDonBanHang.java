@@ -13,9 +13,9 @@ import java.util.List;
 public interface ITrangThaiDonBanHang {
     int NHAP = 0;             // Nháp
     int CHO_NHAT_HANG = 1;    // Đã gửi kho, chờ nhặt hàng (kể cả khi đang nằm trong phiếu nhặt chưa nhặt xong)
-    int DANG_XUAT_KHO = 2;    // Đã xuất một phần (còn hàng chưa xuất) / báo giá đã chốt
+    int DANG_XUAT_KHO = 2;    // Đã xuất một phần (còn hàng chưa xuất)
     int DA_XUAT_TOAN_BO = 3;  // Đã xuất toàn bộ (đang giao)
-    int DA_HUY = 4;           // Đã hủy / từ chối
+    int DA_HUY = 4;           // Đã hủy
     int HOAN_THANH = 5;       // Hoàn thành (đơn POS kết thúc ở đây)
     int BI_HOAN_TRA = 6;      // Bị hoàn trả
     int CHO_DONG_GOI = 7;     // Đã nhặt xong, có phiếu xuất nháp, chờ đóng gói (Scan-to-Pack)

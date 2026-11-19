@@ -22,16 +22,16 @@ public final class NguonKeToan {
      * (POS, SHOPIFY, LAZADA, SHOPEE…, null với đơn bán thường) — để gom khách sàn thành một mã khách khi xuất.
      */
     public record DonBan(int id, String soDon, Instant ngayGiaoHang, String maKhachHang, String tenKhachHang,
-                         String diaChiKhachHang, String maSoThueKhachHang, String maKho, BigDecimal tienHang,
+                         String diaChiKhachHang, String maKho, BigDecimal tienHang,
                          BigDecimal phiVanChuyen, BigDecimal tongCong, String phuongThucPos, boolean laShopify,
                          String maDonKenh, String tenKenh, String soPhieuXuat, BigDecimal tienMatDaThu,
                          BigDecimal nganHangDaThu, BigDecimal thueSuatHoaDon, String maKenh) {
 
         public DonBan(int id, String soDon, Instant ngayGiaoHang, String maKhachHang, String tenKhachHang,
-                      String diaChiKhachHang, String maSoThueKhachHang, String maKho, BigDecimal tienHang,
+                      String diaChiKhachHang, String maKho, BigDecimal tienHang,
                       BigDecimal phiVanChuyen, BigDecimal tongCong, String phuongThucPos, boolean laShopify,
                       String maDonKenh, String tenKenh, String soPhieuXuat) {
-            this(id, soDon, ngayGiaoHang, maKhachHang, tenKhachHang, diaChiKhachHang, maSoThueKhachHang, maKho, tienHang,
+            this(id, soDon, ngayGiaoHang, maKhachHang, tenKhachHang, diaChiKhachHang, maKho, tienHang,
                     phiVanChuyen, tongCong, phuongThucPos, laShopify, maDonKenh, tenKenh, soPhieuXuat, null, null, null,
                     null);
         }
@@ -78,9 +78,7 @@ public final class NguonKeToan {
     public record HangHoa(String maSku, String tenHang, String donViTinh, Integer danhMucId, BigDecimal giaBan) {
     }
 
-    /** loai: le / si / doanh_nghiep (null với khách tạo từ Shopify). */
-    public record KhachHangKt(String ma, String ten, String diaChi, String maSoThue, String soDienThoai, String email,
-                              String nguoiLienHe, String loai) {
+    public record KhachHangKt(String ma, String ten, String diaChi, String soDienThoai, String email) {
     }
 
     public record NhaCungCapKt(String ma, String ten, String diaChi, String maSoThue, String soDienThoai, String email,
@@ -119,7 +117,7 @@ public final class NguonKeToan {
      */
     public record PhieuTraQuay(int id, String soPhieu, Instant ngay, int donId, String soDon, Instant ngayGiaoDon,
                                boolean donDaGiao, String maKhachHang, String tenKhachHang, String diaChiKhachHang,
-                               String maSoThueKhachHang, String maKenh, boolean laPos, String maKhoNhan,
+                               String maKenh, boolean laPos, String maKhoNhan,
                                String soPhieuNhap, BigDecimal tongTienHoan, String phuongThucHoan, String maKhachBan) {
     }
 

@@ -22,10 +22,6 @@ export const donBanHangService = {
     const res = await apiClient.put(`/api/v1/don-ban-hang/${id}/cancel`, { lyDo });
     return res.data;
   },
-  async create(payload) {
-    const res = await apiClient.post("/api/v1/don-ban-hang/create", payload);
-    return res.data;
-  },
   getVariantsForCreate() {
     return apiClient.get("/api/v1/don-ban-hang/variants-for-create");
   },
@@ -34,15 +30,6 @@ export const donBanHangService = {
   },
   async markAsDelivered(id) {
     const res = await apiClient.put(`/api/v1/don-ban-hang/${id}/mark-delivered`);
-    return res.data;
-  },
-  async convertToOrder(id, payload) {
-    const res = await apiClient.put(`/api/v1/don-ban-hang/${id}/convert-to-order`, payload);
-    return res.data;
-  },
-  
-  async rejectQuote(id, payload) {
-    const res = await apiClient.put(`/api/v1/don-ban-hang/${id}/reject-quote`, payload);
     return res.data;
   },
   async layVanDonSan(id) {

@@ -43,7 +43,6 @@ import {
   VAI_TRO_DANH_SACH_KHO,
   VAI_TRO_DON_BAN,
   VAI_TRO_DON_MUA,
-  VAI_TRO_GHI_DON_BAN,
   VAI_TRO_GUI_YEU_CAU_BAO_GIA,
   VAI_TRO_IN_TEM,
   VAI_TRO_KENH_BAN,
@@ -252,12 +251,6 @@ export const SIDEBAR_MENU = [
     section: "main",
     roles: VAI_TRO_DON_BAN,
     children: [
-      {
-        label: t("Báo giá"),
-        to: "/sales-quotations",
-        nhom: CHUNG_TU,
-        roles: VAI_TRO_GHI_DON_BAN,
-      },
       {
         label: t("Đơn bán hàng"),
         to: "/sales-orders",
