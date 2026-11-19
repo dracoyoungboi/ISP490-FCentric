@@ -15,6 +15,7 @@ import com.dev.backend.entities.KenhBanHang;
 import com.dev.backend.entities.KhachHang;
 import com.dev.backend.entities.Kho;
 import com.dev.backend.entities.NguoiDung;
+import com.dev.backend.entities.PhieuTraHang;
 import com.dev.backend.repository.DonBanHangRepository;
 import jakarta.persistence.Embeddable;
 import jakarta.persistence.Entity;
@@ -129,13 +130,13 @@ class DonBanHangTongQuanKhachJpaTest {
         return entity;
     }
 
-    private void don(KhachHang kh, String loai, int trangThai, String tongCong, String ngay, Kho kho, NguoiDung nguoiTao) {
-        don(kh, loai, trangThai, tongCong, ngay, kho, nguoiTao, null);
+    private DonBanHang don(KhachHang kh, String loai, int trangThai, String tongCong, String ngay, Kho kho, NguoiDung nguoiTao) {
+        return don(kh, loai, trangThai, tongCong, ngay, kho, nguoiTao, null);
     }
 
-    private void don(KhachHang kh, String loai, int trangThai, String tongCong, String ngay, Kho kho, NguoiDung nguoiTao,
+    private DonBanHang don(KhachHang kh, String loai, int trangThai, String tongCong, String ngay, Kho kho, NguoiDung nguoiTao,
                      KenhBanHang kenh) {
-        luu(DonBanHang.builder()
+        return luu(DonBanHang.builder()
                 .kenhBanHang(kenh)
                 .soDonHang("DH" + (++stt))
                 .loaiChungTu(loai)
@@ -279,5 +280,94 @@ class DonBanHangTongQuanKhachJpaTest {
         assertEquals(0, kq.getSoDonDat());
         assertNull(kq.getDonGanNhat());
         assertEquals(List.of(), donBanHangRepository.findByKhachHangIdOrderByNgayDatHangDesc(moi.getId()));
+    }
+    // ───────── Đơn sàn chờ xử lý, trả hàng tại quầy, danh sách nhiều khách (danh sách khách hàng 19/11) ─────────
+
+    private void phieuTra(DonBanHang donGoc, String tienHoan) {
+        luu(PhieuTraHang.builder()
+                .soPhieu("RET-" + (++stt))
+                .requestId("req-" + stt)
+                .donBanHangId(donGoc.getId())
+                .khoBanId(khoHn.getId())
+                .khoNhanId(khoHn.getId())
+                .hinhThuc(PhieuTraHang.HINH_THUC_TRA_HANG)
+                .tongSoLuong(BigDecimal.ONE)
+                .soLuongDat(BigDecimal.ONE)
+                .soLuongLoi(BigDecimal.ZERO)
+                .tongTienHoan(new BigDecimal(tienHoan))
+                .phuongThucHoan(PhieuTraHang.HOAN_TIEN_MAT)
+                .quaHan(false)
+                .nguoiLapId(nvbhA.getId())
+                .ngayTao(Instant.parse("2026-10-20T02:00:00Z"))
+                .build());
+    }
+
+    @Test
+    void donSanChoXuLy_tinhLaDaDat_vaLaDonGanNhat() {
+        SecurityContextHolder.setUser(user(1, Set.of(IRoleType.quan_tri_vien)));
+        KenhBanHang shopee = luu(KenhBanHang.builder().maKenh("SHOPEE").tenKenh("Shopee").build());
+        KhachHang khachSan = luu(KhachHang.builder().maKhachHang("KH-SHP-261119PTYDU4S3").tenKhachHang("****").trangThai(1).build());
+        don(khachSan, "don_ban_hang", ITrangThaiDonBanHang.NHAP, "289000", "2026-11-19T02:00:00Z", khoHn, null, shopee);
+        em.flush();
+
+        TongQuanMuaHangKhachDto kq = service.tongQuanMuaHangCuaKhach(khachSan.getId());
+
+        assertEquals(1, kq.getSoDonDat());
+        assertEquals(0, kq.getSoDonNhap());
+        assertEquals(0, new BigDecimal("289000").compareTo(kq.getTongChiTieu()));
+        assertNotNull(kq.getDonGanNhat(), "đơn sàn chờ xử lý là lần mua gần nhất");
+        assertEquals(1, kq.getKenhMua().size());
+        assertEquals("SHOPEE", kq.getKenhMua().get(0).getMaKenh());
+    }
+
+    @Test
+    void traHangTaiQuay_truKhoiChiTieu_boQuaPhieuCuaDonDaHoanTra() {
+        SecurityContextHolder.setUser(user(1, Set.of(IRoleType.quan_tri_vien)));
+        KhachHang ngoc = luu(KhachHang.builder().maKhachHang("KH0987654321").tenKhachHang("Ngọc").trangThai(1).build());
+        DonBanHang pos = don(ngoc, "don_ban_hang", ITrangThaiDonBanHang.HOAN_THANH, "1870000", "2026-11-12T03:00:00Z", khoHn, nvbhA);
+        DonBanHang hoanTra = don(ngoc, "don_ban_hang", ITrangThaiDonBanHang.BI_HOAN_TRA, "500000", "2026-11-10T03:00:00Z", khoHn, nvbhA);
+        em.flush();
+        phieuTra(pos, "150000");
+        phieuTra(pos, "100000");
+        phieuTra(hoanTra, "500000");
+        em.flush();
+
+        TongQuanMuaHangKhachDto kq = service.tongQuanMuaHangCuaKhach(ngoc.getId());
+
+        assertEquals(0, new BigDecimal("250000").compareTo(kq.getTienTraHang()), "không trừ phiếu của đơn bị hoàn trả");
+        assertEquals(0, new BigDecimal("1620000").compareTo(kq.getTongChiTieu()));
+        assertEquals(0, new BigDecimal("1620000").compareTo(kq.getTrungBinhMoiDon()));
+    }
+
+    @Test
+    void danhSach_lanMuaGanNhat_khopTrangChiTiet_boNhapTaoTay() {
+        SecurityContextHolder.setUser(user(1, Set.of(IRoleType.quan_tri_vien)));
+        KhachHang chuaMua = luu(KhachHang.builder().maKhachHang("KH0903111222").tenKhachHang("Hà").trangThai(1).build());
+        KenhBanHang shopee = luu(KenhBanHang.builder().maKenh("SHOPEE").tenKenh("Shopee").build());
+        // Khách khác: thêm đơn sàn chờ xử lý (Nháp có kênh) mới hơn, vẫn là lần mua gần nhất
+        don(khachKhac, "don_ban_hang", ITrangThaiDonBanHang.NHAP, "289000", "2026-10-19T01:00:00Z", khoHn, null, shopee);
+        // Khách chưa mua: chỉ có đơn nháp tạo tay, không tính
+        don(chuaMua, "don_ban_hang", ITrangThaiDonBanHang.NHAP, "500000", "2026-10-20T01:00:00Z", khoHn, nvbhA);
+        em.flush();
+
+        java.util.Map<Integer, Instant> lan = service.lanMuaGanNhatTheoKhach(
+                List.of(khach.getId(), khachKhac.getId(), chuaMua.getId()));
+
+        assertEquals(service.tongQuanMuaHangCuaKhach(khach.getId()).getDonGanNhat().getNgayDatHang(), lan.get(khach.getId()),
+                "khớp lần mua gần nhất ở trang chi tiết (bỏ đơn nháp 17/10)");
+        assertEquals(Instant.parse("2026-10-19T01:00:00Z"), lan.get(khachKhac.getId()));
+        assertNull(lan.get(chuaMua.getId()), "chỉ có nháp tạo tay: chưa mua");
+        assertTrue(service.lanMuaGanNhatTheoKhach(List.of()).isEmpty());
+        assertTrue(service.lanMuaGanNhatTheoKhach(null).isEmpty());
+    }
+
+    @Test
+    void danhSach_nhanVienBanHang_chiTinhDonMinhTao() {
+        SecurityContextHolder.setUser(user(nvbhB.getId(), Set.of(IRoleType.nhan_vien_ban_hang)));
+
+        java.util.Map<Integer, Instant> lan = service.lanMuaGanNhatTheoKhach(List.of(khach.getId(), khachKhac.getId()));
+
+        assertEquals(Instant.parse("2026-10-08T06:47:00Z"), lan.get(khach.getId()), "đơn mới nhất của nhân viên B");
+        assertNull(lan.get(khachKhac.getId()), "đơn của nhân viên A không tính");
     }
 }
