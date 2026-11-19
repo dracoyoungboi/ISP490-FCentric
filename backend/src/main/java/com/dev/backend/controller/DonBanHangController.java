@@ -123,11 +123,13 @@ public class DonBanHangController {
         );
     }
 
+    // Quản lý kho chỉ qua cổng với đơn Shopify ở Kho Tổng (DonBanHangService.duocDieuTietDonSan kiểm chặt); QTV/NVBH giữ nguyên.
     @PutMapping("/{id}/send-to-warehouse")
     @RequireAuth(
             roles = {
                     IRoleType.quan_tri_vien,
-                    IRoleType.nhan_vien_ban_hang
+                    IRoleType.nhan_vien_ban_hang,
+                    IRoleType.quan_ly_kho
             },
             rolesLogic = RequireAuth.LogicType.OR
     )
