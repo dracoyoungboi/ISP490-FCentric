@@ -47,14 +47,14 @@ function DongPhuBienThe({ d }) {
 }
 
 /**
- * Bảng hàng của đơn bán và báo giá bán (dùng chung hai màn): tên dòng của máy chủ "Tên / Màu / Cỡ" đã tách thành sản
+ * Bảng hàng của đơn bán: tên dòng của máy chủ "Tên / Màu / Cỡ" đã tách thành sản
  * phẩm + biến thể (tinhDonBan.dongHangBan), gom theo sản phẩm. Cột: Sản phẩm · Đơn giá · SL · Thành tiền.
  * - Sản phẩm một biến thể: một dòng (tên, biến thể · SKU).
  * - Nhiều biến thể: dòng nhóm (đơn giá chung nếu cùng giá, tổng SL, tổng tiền) + từng biến thể.
  * - Quá NGUONG_CONG_CU dòng: ô tìm, "Mở tất cả / Thu gọn tất cả", phân trang theo sản phẩm; quá NGUONG_THU_GON: thu gọn.
  * - Khối hẹp (< 672px): ẩn cột Đơn giá, đơn giá xuống dòng phụ.
  * Chấm màu và ảnh khi máy chủ trả mã màu / ảnh (máy chủ cũ không có: chấm xám, ảnh mặc định).
- * `bang`: useBangChungTu của các dòng. `tenChungTu`: "đơn bán hàng" | "báo giá" (câu khi chưa có dòng, ô tìm).
+ * `bang`: useBangChungTu của các dòng. `tenChungTu`: tên chứng từ trong câu khi chưa có dòng và ô tìm.
  * `children`: phần dưới bảng (tổng tiền).
  */
 export default function BangHangBan({ bang, tenChungTu = t("đơn bán hàng"), nhanTim = t("Tìm trong đơn"), children }) {

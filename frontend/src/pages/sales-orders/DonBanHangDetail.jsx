@@ -39,7 +39,6 @@ import {
   laDonSan,
   laDonTaiQuay,
   lyDoSanHuy,
-  maBaoGiaGoc,
   tenKenhCua,
   thanhToanDonBan,
   thaoTacDonBan,
@@ -48,7 +47,6 @@ import {
 } from "@/components/ban-hang/chi-tiet-don-ban/tinhDonBan";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import StatusBadge from "@/components/shared/StatusBadge";
-import { getBaoGiaStatus } from "@/constants/baoGia";
 import { DON_BAN_HANG_DA_KET_THUC_KHONG_THU, DON_BAN_HANG_THANH_TOAN, getDonBanHangStatus } from "@/constants/donBanHang";
 import { TRANG_THAI_DON } from "@/constants/trangThaiXuatBan";
 import useQuayLai from "@/hooks/useQuayLai";
@@ -100,14 +98,6 @@ function ChiTietDonBanHang({ id }) {
   const q = useTaiDuLieu(taiDon, `don-ban-${id}`, { enabled: Boolean(id) });
   const ct = q.data?.donBanHang && String(q.data.donBanHang.id) === String(id) ? q.data : null;
   const don = ct?.donBanHang ?? null;
-  const laBaoGia = don?.loaiChungTu === "bao_gia";
-
-  // Mở mã của báo giá ở màn đơn: chuyển sang chi tiết báo giá (cùng bảng don_ban_hang)
-  useEffect(() => {
-    if (laBaoGia) navigate(`/sales-quotations/${id}`, { replace: true });
-  }, [laBaoGia, id, navigate]);
-
-  // ── Báo giá gốc (suy SO → BG như backend): bán hàng tra trạng thái thật qua /filter; kho chỉ thấy mã ──
   const laPos = laDonTaiQuay(ct);
   const laSan = laDonSan(don);
   const laLazada = laDonLazada(don);
@@ -115,21 +105,6 @@ function ChiTietDonBanHang({ id }) {
   const laShopify = laDonShopify(don);
   const laSanXuatKhoTong = laLazada || laShopee;
   const hoTroInVanDonSan = laSan && !laShopify && don?.trangThai !== TRANG_THAI_DON.DA_HUY;
-  const maBG = don && !laBaoGia ? maBaoGiaGoc(don.soDonHang, { laPos, laSan }) : null;
-  const taiBaoGia = useCallback(async () => {
-    const page = await donBanHangService.filter({
-      page: 0,
-      size: 5,
-      filters: [
-        { fieldName: "loaiChungTu", operation: "EQUALS", value: "bao_gia" },
-        { fieldName: "soDonHang", operation: "EQUALS", value: maBG },
-      ],
-      sorts: [],
-    });
-    return (page?.content ?? []).find((bg) => bg?.soDonHang === maBG) ?? null;
-  }, [maBG]);
-  // Khóa có trạng thái đơn: hủy đơn đưa báo giá về Chờ phản hồi nên tra lại
-  const qBaoGia = useTaiDuLieu(taiBaoGia, `bao-gia-goc-${maBG}-${don?.trangThai}`, { enabled: Boolean(maBG && laBan) });
 
   const [hop, setHop] = useState(""); // "" | "guiKho" | "huy" | "daGiao" | "hoanTra"
   const [dangChay, setDangChay] = useState(""); // thao tác đang gửi lên máy chủ
@@ -159,8 +134,8 @@ function ChiTietDonBanHang({ id }) {
   const bang = useBangChungTu(dong, { tongTheo: TONG_THEO });
 
   // ── Đang tải / lỗi / không tìm thấy ────────────────────────────────────
-  if (!ct || laBaoGia) {
-    if (laBaoGia || q.loading || (!q.error && q.data === undefined)) {
+  if (!ct) {
+    if (q.loading || (!q.error && q.data === undefined)) {
       return (
         <PageContainer className="flex min-h-full flex-col">
           <KhungDangTai nhan={t("Đang tải đơn bán hàng")} />
@@ -187,24 +162,6 @@ function ChiTietDonBanHang({ id }) {
   const buoc = buocDonBan(ct);
   const tien = tienDonBan(don, dong, { laSan });
   const thanhToan = thanhToanDonBan(ct);
-
-  // Báo giá gốc cho cột phải và hộp hủy:
-  // - tra được (bán hàng): mã, liên kết, trạng thái thật;
-  // - quản trị viên tra không thấy (không giới hạn phạm vi): đơn không từ báo giá → không hiện;
-  // - nhân viên bán hàng tra không thấy (/filter chỉ trả báo giá của chính họ), tra lỗi, vai trò kho: chỉ hiện mã.
-  const bgTim = qBaoGia.data;
-  const daTraBaoGia = laBan && !qBaoGia.error && qBaoGia.data !== undefined;
-  const baoGia = !maBG
-    ? null
-    : daTraBaoGia && bgTim
-      ? { ma: maBG, id: bgTim.id, trangThai: getBaoGiaStatus(bgTim.trangThai).label, chacChan: Number(bgTim.trangThai) === 2 }
-      : daTraBaoGia && laQtv
-        ? null
-        : laBan && qBaoGia.loading && qBaoGia.data === undefined
-          ? null
-          : { ma: maBG, chacChan: false };
-  // Hộp hủy: báo giá đã biết không ở Đã chốt đơn thì bỏ dòng; chưa biết thì ghi "nếu đang Đã chốt đơn"
-  const baoGiaHuy = baoGia && (baoGia.chacChan || !baoGia.id) ? baoGia : null;
 
   // ── Thao tác ────────────────────────────────────────────────────────────
   const moHop = (loai) => {
@@ -509,7 +466,7 @@ function ChiTietDonBanHang({ id }) {
             />
           </BangHangBan>
         }
-        cotPhai={<ThuocTinhDonBan ct={ct} laBan={laBan} laKho={laKho} baoGia={baoGia} />}
+        cotPhai={<ThuocTinhDonBan ct={ct} laBan={laBan} laKho={laKho} />}
       />
 
       <HopGuiSangKho
@@ -534,7 +491,7 @@ function ChiTietDonBanHang({ id }) {
         onXacNhan={huyDon}
       >
         <ul className={`${GHI_CHU_HOP} m-0 list-disc pl-7`}>
-          {hauQuaHuy(ct, { baoGia: baoGiaHuy }).map((cau) => (
+          {hauQuaHuy(ct).map((cau) => (
             <li key={cau}>{cau}</li>
           ))}
         </ul>

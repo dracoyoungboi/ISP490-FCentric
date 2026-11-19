@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Dải tổng tiền dưới bảng hàng của đơn bán / báo giá bán: bên trái `trai` (thanh toán, câu ghi chú), bên phải các dòng
+ * Dải tổng tiền dưới bảng hàng của đơn bán: bên trái `trai` (thanh toán, câu ghi chú), bên phải các dòng
  * `muc: [{ ma, nhan, giaTri, tong, con, ghiChu }]` (`tong`: dòng Tổng cộng, chữ lớn, có vạch trên; `con`: phần "trong
  * đó" của dòng tổng ngay trên, thụt vào, chữ nhỏ; `ghiChu`: câu chú thích không có số, trải hết hàng). `chuThich`: câu
  * nhỏ dưới tổng (vd. tiền hàng + phí khác tổng cộng). Số hiện nguyên như máy chủ trả, màn không tự cộng.

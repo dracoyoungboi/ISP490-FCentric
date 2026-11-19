@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useId, useRef } from "react";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { soVN } from "@/components/chung-tu/bangChungTu";
@@ -9,13 +9,11 @@ import { t } from "@/i18n";
 const giongId = (a, b) => a != null && b != null && String(a) === String(b);
 
 /**
- * Danh sách chọn kho theo tồn khả dụng (một lựa chọn), dùng cho "Gửi sang kho" và "Chốt thành đơn":
+ * Danh sách chọn kho theo tồn khả dụng (một lựa chọn), dùng cho "Gửi sang kho":
  * mỗi kho một ô (tên, mã kho, địa chỉ, thẻ "Đủ hàng (5/5)" / "Thiếu hàng (2/5)"), kho hiện tại của đơn có nhãn ghim.
  *
  * - `ds`: các kho đã xếp và lọc (chonKho.xepKho / locKho). `coTim`: hiện ô tìm (chonKho.coTimKho trên tổng số kho).
- * - `chonId` + `onChon(id)`: kho đang chọn.
- * - `khoaKhoThieu = false` (Gửi sang kho): kho thiếu vẫn chọn được, chọn rồi thì hiện các mặt hàng thiếu "cần · còn".
- *   `true` (Chốt thành đơn — máy chủ chặn): kho thiếu không chọn được, bấm vào thì mở / đóng danh sách mặt hàng thiếu.
+ * - `chonId` + `onChon(id)`: kho đang chọn. Kho thiếu vẫn chọn được, chọn rồi thì hiện các mặt hàng thiếu "cần · còn".
  * - `khoHienTaiId`: kho hiện tại của đơn (nhãn "Kho hiện tại của đơn"); không có thì bỏ nhãn.
  */
 export default function DanhSachChonKho({
@@ -26,12 +24,9 @@ export default function DanhSachChonKho({
   chonId,
   onChon,
   khoHienTaiId = null,
-  khoaKhoThieu = false,
   nhan = t("Kho xuất"),
   khoa = false,
 }) {
-  // Kho thiếu đang mở danh sách mặt hàng thiếu (chỉ khi khoaKhoThieu)
-  const [moThieu, setMoThieu] = useState({});
   const mang = Array.isArray(ds) ? ds : [];
   const idGoc = useId();
   const nutRef = useRef([]);
@@ -49,7 +44,7 @@ export default function DanhSachChonKho({
     suKien.preventDefault();
     nutRef.current[j]?.focus();
     const k = mang[j];
-    if (k && !khoa && !(khoaKhoThieu && !k.duHang)) onChon?.(idKho(k));
+    if (k && !khoa) onChon?.(idKho(k));
   };
 
   return (
@@ -67,17 +62,9 @@ export default function DanhSachChonKho({
       <div role="radiogroup" aria-label={nhan} className="grid max-h-80 gap-2 overflow-y-auto p-px">
         {mang.map((kho, i) => {
           const id = idKho(kho);
-          const thieu = !kho.duHang;
-          const tat = khoaKhoThieu && thieu;
-          const chon = !tat && giongId(id, chonId);
-          const moCt = thieu && (khoaKhoThieu ? Boolean(moThieu[id]) : chon);
-          const ct = moCt ? matHangThieu(kho) : null;
+          const chon = giongId(id, chonId);
+          const ct = chon && !kho.duHang ? matHangThieu(kho) : null;
           const idCt = `${idGoc}-thieu-${id}`;
-          const bam = () => {
-            if (khoa) return;
-            if (tat) setMoThieu((cu) => ({ ...cu, [id]: !cu[id] }));
-            else onChon?.(id);
-          };
           return (
             <button
               key={id}
@@ -87,31 +74,29 @@ export default function DanhSachChonKho({
               type="button"
               role="radio"
               aria-checked={chon}
-              aria-disabled={tat || khoa || undefined}
+              aria-disabled={khoa || undefined}
               aria-describedby={ct ? idCt : undefined}
               tabIndex={i === viTriTab ? 0 : -1}
-              onClick={bam}
+              onClick={() => !khoa && onChon?.(id)}
               onKeyDown={(suKien) => diChuyen(suKien, i)}
               className={cn(
                 "grid w-full grid-cols-[18px_minmax(0,1fr)] items-start gap-x-3 gap-y-0.5 rounded-lg border bg-bo-surface p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 sm:grid-cols-[18px_minmax(0,1fr)_auto]",
-                tat
-                  ? "cursor-pointer border-bo-border bg-bo-surface-subtle"
-                  : chon
-                    ? "border-bo-primary bg-bo-primary-soft/40 ring-1 ring-bo-primary"
-                    : "border-bo-border hover:border-slate-300 hover:bg-bo-surface-subtle",
+                chon
+                  ? "border-bo-primary bg-bo-primary-soft/40 ring-1 ring-bo-primary"
+                  : "border-bo-border hover:border-slate-300 hover:bg-bo-surface-subtle",
               )}
             >
               <span
                 aria-hidden="true"
                 className={cn(
                   "mt-0.5 grid size-[18px] place-items-center rounded-full border-[1.5px] bg-bo-surface",
-                  chon ? "border-bo-primary" : tat ? "border-slate-300 bg-slate-100" : "border-slate-400",
+                  chon ? "border-bo-primary" : "border-slate-400",
                 )}
               >
                 {chon ? <span className="size-2 rounded-full bg-bo-primary" /> : null}
               </span>
               <span className="min-w-0">
-                <span className={cn("text-sm font-semibold leading-5", tat ? "text-bo-muted" : "text-bo-foreground")}>
+                <span className="text-sm font-semibold leading-5 text-bo-foreground">
                   {kho.tenKho || "—"}
                 </span>
                 {kho.maKho ? <span className="ml-1.5 font-mono text-[11px] font-medium text-bo-muted">{kho.maKho}</span> : null}
@@ -126,7 +111,6 @@ export default function DanhSachChonKho({
               </span>
               <span className="col-start-2 text-[13px] leading-5 text-bo-muted">
                 {kho.diaChi || "—"}
-                {tat ? t(" · bấm để xem mặt hàng thiếu") : null}
               </span>
               {kho.maDotKiemKe ? (
                 <span className="col-start-2 text-[13px] font-medium leading-5 text-amber-700">

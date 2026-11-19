@@ -6,7 +6,7 @@ import ChannelLogo, { BieuTuongTaiQuay } from "@/components/channel/ChannelLogo"
 
 /**
  * Biểu tượng kênh đứng trước số đơn (PA A, chốt 02/11): logo sàn 16 px thay cho thẻ chữ màu.
- * Đơn không gắn kênh (chốt từ báo giá, và cả đơn tại quầy vì POS hiện không gắn kênh) hiện cửa hàng xám để số đơn
+ * Đơn không gắn kênh (đơn bán thường cũ, và cả đơn tại quầy vì POS hiện không gắn kênh) hiện cửa hàng xám để số đơn
  * các dòng vẫn thẳng cột; biểu tượng tại quầy chỉ dành cho đơn còn gắn kênh POS.
  * Rê chuột hiện tên gian hàng; trình đọc màn hình đọc tên kênh.
  */

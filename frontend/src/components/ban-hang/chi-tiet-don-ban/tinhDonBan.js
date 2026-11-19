@@ -98,16 +98,6 @@ export function lyDoSanHuy(lyDoTuChoi) {
 }
 
 /**
- * Mã báo giá gốc suy từ mã đơn như backend (DonBanHangService.cancel): "SO202610217-1" → "BG202610217".
- * Không suy với đơn tại quầy và đơn sàn (cùng tiền tố SO nhưng không từ báo giá). Không khớp → null.
- */
-export function maBaoGiaGoc(soDonHang, { laPos = false, laSan = false } = {}) {
-  const so = String(soDonHang ?? "").trim();
-  if (laPos || laSan || !/^SO/.test(so)) return null;
-  return so.split("-")[0].replace(/^SO/, "BG");
-}
-
-/**
  * Tách tên dòng của máy chủ "Tên sản phẩm / Màu / Cỡ" (ChiTietDonBanHangMapper.tenHienThi: thiếu phần nào bỏ phần đó).
  * Tách từ phải để tên sản phẩm có " / " vẫn giữ nguyên. Chỉ có một phần sau tên thì không biết là màu hay cỡ:
  * xếp vào màu (dòng hàng không có mã màu nên không vẽ chấm màu).
@@ -120,7 +110,7 @@ export function tachTenDong(ten) {
 }
 
 /**
- * Dòng chứng từ (bangChungTu.js) từ `chiTiet` của đơn bán / báo giá: gom theo id sản phẩm khi máy chủ trả `sanPhamId`
+ * Dòng chứng từ (bangChungTu.js) từ `chiTiet` của đơn bán: gom theo id sản phẩm khi máy chủ trả `sanPhamId`
  * (máy chủ cũ: theo tên), màu / mã màu / cỡ / ảnh, `nhanBienThe` "Màu / Cỡ", số lượng đặt, đơn giá và thành tiền.
  */
 export function dongHangBan(chiTiet) {
@@ -404,20 +394,13 @@ export function cauLechDong({ tenKenh = t("sàn"), chenh }) {
 }
 
 /**
- * Hệ quả của "Hủy đơn" (hiện trong hộp xác nhận), đúng việc backend làm: trả hàng về tồn có thể bán; báo giá gốc đang
- * Đã chốt đơn về Chờ phản hồi (`baoGia`: `{ ma, chacChan }` — `chacChan` khi đã tra được báo giá ở Đã chốt đơn, không thì
- * ghi "nếu đang Đã chốt đơn" vì người xem không tra được trạng thái); đơn sàn: gửi yêu cầu hủy sang
- * sàn sau khi lưu, lỗi thì đơn vẫn hủy ở FCentric, không tự hoàn tiền.
+ * Hệ quả của "Hủy đơn" (hiện trong hộp xác nhận), đúng việc backend làm: trả hàng về tồn có thể bán; đơn sàn: gửi yêu
+ * cầu hủy sang sàn sau khi lưu, lỗi thì đơn vẫn hủy ở FCentric, không tự hoàn tiền.
  */
-export function hauQuaHuy(ct, { baoGia = null } = {}) {
+export function hauQuaHuy(ct) {
   const don = ct?.donBanHang;
   const tenKho = don?.khoXuat?.tenKho || t("kho xuất");
   const ds = [t("Trả số hàng của đơn về tồn có thể bán của {{tenKho}}.", { tenKho })];
-  if (baoGia?.ma) {
-    ds.push(baoGia.chacChan
-      ? t("Báo giá {{ma}} đang Đã chốt đơn sẽ trở lại Chờ phản hồi.", { ma: baoGia.ma })
-      : t("Báo giá {{ma}} (nếu đang Đã chốt đơn) sẽ trở lại Chờ phản hồi.", { ma: baoGia.ma }));
-  }
   if (laDonSan(don)) {
     const tenKenh = tenKenhCua(don);
     ds.push(t("Gửi yêu cầu hủy sang {{tenKenh}} sau khi lưu. Nếu {{tenKenh}} báo lỗi, đơn vẫn hủy ở FCentric.", { tenKenh }));
