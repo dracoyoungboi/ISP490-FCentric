@@ -26,7 +26,7 @@ export const HINH_THUC_CHUYEN_KHO = [
 export const TAI_KHOAN = [
   { key: "tkTienMat", nhan: t("Tiền mặt"), goiY: "111", moTa: t("Bán tại quầy thu tiền mặt") },
   { key: "tkNganHang", nhan: t("Tiền gửi ngân hàng"), goiY: "112", moTa: t("Bán tại quầy chuyển khoản (payOS)") },
-  { key: "tkPhaiThu", nhan: t("Phải thu khách hàng"), goiY: "131", moTa: t("Bán buôn, đơn Shopify, đơn tại quầy trả kết hợp (tạm)") },
+  { key: "tkPhaiThu", nhan: t("Phải thu khách hàng"), goiY: "131", moTa: t("Đơn Shopify, đơn tại quầy trả kết hợp (tạm)") },
   { key: "tkDoanhThu", nhan: t("Doanh thu"), goiY: "5111", moTa: t("Mọi chứng từ bán hàng") },
   { key: "tkChietKhau", nhan: t("Chiết khấu"), goiY: "5211", moTa: t("Giảm giá đơn Shopify") },
   { key: "tkThueDauRa", nhan: t("Thuế GTGT đầu ra"), goiY: "33311", moTa: t("Thuế trên chứng từ bán hàng") },
