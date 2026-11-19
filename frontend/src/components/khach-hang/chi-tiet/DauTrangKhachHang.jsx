@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Check, CircleCheck, CirclePause, Copy, Ellipsis, FilePlus2, History, Mail, Pencil, Phone } from "lucide-react";
+import { ArrowLeft, Check, CircleCheck, CirclePause, Copy, Ellipsis, History, Mail, Pencil, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -27,26 +27,14 @@ const MUC_MENU = "cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-s
  *
  * Thao tác theo quyền (backend vẫn là chốt chặn thật):
  * - `coTheSua` (quản trị viên, quản lý kho, NV bán hàng): Chỉnh sửa, Ngừng / Cho phép hoạt động (trong ⋯, kèm một dòng hệ quả).
- * - `coTheTaoBaoGia` (quản trị viên, NV bán hàng) và khách đang hoạt động: nút chính Tạo báo giá — đơn bán được tạo
- *   từ báo giá khách đồng ý (tab Báo giá có "Tạo đơn bán" ở từng báo giá chờ phản hồi).
- * Điện thoại: hai nút lớn Gọi và Gửi email; Chỉnh sửa, Tạo báo giá chuyển vào ⋯.
+ * Điện thoại: hai nút lớn Gọi và Gửi email; Chỉnh sửa chuyển vào ⋯.
  * Màn tự vẽ tiêu đề nên phải "nhận" tiêu đề để layout không vẽ thêm tiêu đề dự phòng.
  */
-export default function DauTrangKhachHang({
-  khachHang,
-  coTheSua,
-  coTheTaoBaoGia,
-  onQuayLai,
-  onChinhSua,
-  onDoiTrangThai,
-  onTaoBaoGia,
-  onLichSu,
-}) {
+export default function DauTrangKhachHang({ khachHang, coTheSua, onQuayLai, onChinhSua, onDoiTrangThai, onLichSu }) {
   useClaimPageTitle(true);
 
   const dangHoatDong = laHoatDong(khachHang);
-  const hienTaoBaoGia = coTheTaoBaoGia && dangHoatDong;
-  const coMenu = coTheSua || hienTaoBaoGia || Boolean(onLichSu);
+  const coMenu = coTheSua || Boolean(onLichSu);
   const [moMenu, setMoMenu] = useState(false);
   const { daChep, saoChep, quenDaChep, taiCho } = useSaoChep();
   const henDongMenu = useRef(0);
@@ -152,12 +140,6 @@ export default function DauTrangKhachHang({
               align="end"
               className="z-50 w-[288px] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
             >
-              {hienTaoBaoGia ? (
-                <DropdownMenuItem onClick={onTaoBaoGia} className={`${MUC_MENU} sm:hidden`}>
-                  <FilePlus2 className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
-                  {t("Tạo báo giá")}
-                </DropdownMenuItem>
-              ) : null}
               {coTheSua ? (
                 <DropdownMenuItem onClick={onChinhSua} className={`${MUC_MENU} sm:hidden`}>
                   <Pencil className="mt-0.5 size-4 text-slate-400" aria-hidden="true" />
@@ -201,8 +183,8 @@ export default function DauTrangKhachHang({
                       </span>
                       <span className="text-xs leading-4 text-bo-muted">
                         {dangHoatDong
-                          ? t("Không chọn được khi tạo báo giá và bán tại quầy. Lịch sử giữ nguyên.")
-                          : t("Chọn lại được khi tạo báo giá và bán tại quầy.")}
+                          ? t("Không chọn được khi bán tại quầy. Lịch sử giữ nguyên.")
+                          : t("Chọn lại được khi bán tại quầy.")}
                       </span>
                     </span>
                   </DropdownMenuItem>
@@ -219,16 +201,6 @@ export default function DauTrangKhachHang({
           <Button type="button" variant="outline" onClick={onChinhSua} className={`gap-1.5 max-sm:hidden ${NUT_VIEN}`}>
             <Pencil className="size-4" aria-hidden="true" />
             {t("Chỉnh sửa")}
-          </Button>
-        ) : null}
-        {hienTaoBaoGia ? (
-          <Button
-            type="button"
-            onClick={onTaoBaoGia}
-            className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover max-sm:hidden"
-          >
-            <FilePlus2 className="size-4" aria-hidden="true" />
-            {t("Tạo báo giá")}
           </Button>
         ) : null}
       </div>

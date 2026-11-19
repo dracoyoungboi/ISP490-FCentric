@@ -94,13 +94,6 @@ export function dieuKienDon({ khachHangId, tuKhoa = "", kenh = "", thoiGian = ""
   return dk;
 }
 
-export function dieuKienBaoGia(khachHangId) {
-  return [
-    { fieldName: "khachHang.id", operation: "EQUALS", value: Number(khachHangId) },
-    { fieldName: "loaiChungTu", operation: "EQUALS", value: "bao_gia" },
-  ];
-}
-
 /** "hôm nay" / "hôm qua" / "N ngày trước", tính theo ngày lịch của máy. */
 export function cachDay(thoiDiem, homNay = new Date()) {
   const d = thoiDiem ? new Date(thoiDiem) : null;
@@ -188,16 +181,10 @@ export function tinhKpi(tongQuan, homNay = new Date()) {
   ];
 }
 
-/** Ghi chú cột Ghi chú của báo giá: báo giá bị từ chối ghi lý do, còn lại ghi chú của báo giá. */
-export function ghiChuBaoGia(baoGia) {
-  if (Number(baoGia?.trangThai) === 4 && baoGia?.lyDoTuChoi?.trim()) return t("Lý do: {{lyDo}}", { lyDo: baoGia.lyDoTuChoi.trim() });
-  return baoGia?.ghiChu?.trim() || "";
-}
-
 /** Câu phạm vi dữ liệu theo vai trò (khớp DonBanHangService.dieuKienPhamViTheoVaiTro ở máy chủ). */
-export function ghiChuPhamVi({ laQuanTriVien, laVaiTroKho, laBanHang, laBaoGia = false }) {
+export function ghiChuPhamVi({ laQuanTriVien, laVaiTroKho, laBanHang }) {
   if (laQuanTriVien) return "";
-  if (laVaiTroKho) return laBaoGia ? t("Chỉ hiện báo giá xuất từ nơi làm việc của bạn.") : t("Chỉ tính đơn xuất từ nơi làm việc của bạn.");
-  if (laBanHang) return laBaoGia ? t("Chỉ hiện báo giá do bạn tạo.") : t("Chỉ tính đơn do bạn tạo.");
+  if (laVaiTroKho) return t("Chỉ tính đơn xuất từ nơi làm việc của bạn.");
+  if (laBanHang) return t("Chỉ tính đơn do bạn tạo.");
   return "";
 }

@@ -20,7 +20,6 @@ import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
 import { layLichSuDanhMuc } from "@/services/nhatKyService";
 import { ghiChuPhamVi, laHoatDong, tinhKpi, tongSoDon } from "@/components/khach-hang/chi-tiet/tinhKhachHang";
 import useQuayLai from "@/hooks/useQuayLai";
-import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { getKhachHangById, getTongQuanMuaHang } from "@/services/khachHangService";
 import { WALKIN_CUSTOMER_CODE } from "@/services/posService";
@@ -31,11 +30,7 @@ import { VAI_TRO_KHACH_HANG } from "@/constants/vaiTroTheoNghiepVu";
 
 // Khớp quyền ở backend (KhachHangController): sửa hồ sơ và đổi trạng thái (SRS 4.4 "Customer").
 const QUYEN_SUA_KHACH = VAI_TRO_KHACH_HANG;
-// DonBanHangController: tạo báo giá / đơn bán (create, convert-to-order).
-const QUYEN_BAN_HANG = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_BAN_HANG];
 const VAI_TRO_KHO = [ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO];
-
-const TAB_HOP_LE = ["don-hang", "bao-gia"];
 
 export default function KhachHangDetails() {
   const { id } = useParams();
@@ -43,14 +38,10 @@ export default function KhachHangDetails() {
   const location = useLocation();
 
   const coTheSua = hasAnyRole(QUYEN_SUA_KHACH);
-  const coTheBanHang = hasAnyRole(QUYEN_BAN_HANG);
   const laQuanTriVien = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
   const laVaiTroKho = hasAnyRole(VAI_TRO_KHO);
   const laBanHang = hasAnyRole([ROLES.NHAN_VIEN_BAN_HANG]);
-  // Vai trò kho chỉ thấy chứng từ của kho mình (máy chủ lọc theo kho xuất); báo giá chưa gắn kho nên không có gì để xem
-  const xemBaoGia = laQuanTriVien || (laBanHang && !laVaiTroKho);
   const phamVi = ghiChuPhamVi({ laQuanTriVien, laVaiTroKho, laBanHang });
-  const phamViBaoGia = ghiChuPhamVi({ laQuanTriVien, laVaiTroKho, laBanHang, laBaoGia: true });
 
   const [moTrangThai, setMoTrangThai] = useState(false);
   // Lịch sử thay đổi khách hàng: chỉ quản trị viên (máy chủ cũng chỉ cho quản trị viên)
@@ -81,9 +72,6 @@ export default function KhachHangDetails() {
   const tongQuan = tongQuanQ.data?.khachHangId === id ? tongQuanQ.data : undefined;
   const kpi = useMemo(() => tinhKpi(tongQuan), [tongQuan]);
   const loiTongQuan = Boolean(tongQuanQ.error) && !tongQuanQ.loiTaiLai;
-
-  // ── Tab (lưu trên đường dẫn ?tab=) ──────────────────────────────────────
-  const [tab, setTab] = useTabTrenUrl(xemBaoGia ? TAB_HOP_LE : ["don-hang"], "don-hang", { ten: "tab" });
 
   // Có trang trước trong ứng dụng thì lùi lại; mở thẳng bằng đường dẫn thì về danh sách khách hàng
   const quayLai = useQuayLai("/customers");
@@ -136,7 +124,6 @@ export default function KhachHangDetails() {
   const laKhachLe = khachHang.maKhachHang === WALKIN_CUSTOMER_CODE;
   const suaDuoc = coTheSua && !laKhachLe;
   const chinhSua = suaDuoc ? moSua : undefined;
-  const taoBaoGia = () => navigate(`/sales-quotations/create?khachHangId=${id}`);
 
   // Lưu xong cập nhật tại chỗ (không tải lại trang, không thêm bước vào lịch sử trình duyệt).
   const handleDaSua = (moi) => {
@@ -156,11 +143,9 @@ export default function KhachHangDetails() {
         <DauTrangKhachHang
           khachHang={khachHang}
           coTheSua={suaDuoc}
-          coTheTaoBaoGia={coTheBanHang && !laKhachLe}
           onQuayLai={quayLai}
           onChinhSua={() => moSua()}
           onDoiTrangThai={() => setMoTrangThai(true)}
-          onTaoBaoGia={taoBaoGia}
           onLichSu={laQuanTriVien ? () => setMoLichSu(true) : undefined}
         />
 
@@ -186,7 +171,7 @@ export default function KhachHangDetails() {
               <CirclePause className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <span>
                 <span className="font-semibold text-bo-foreground">{t("Khách hàng đang ngừng hoạt động.")}</span>{" "}
-                {t("Không chọn được khi tạo báo giá và bán tại quầy. Lịch sử mua hàng giữ nguyên.")}
+                {t("Không chọn được khi bán tại quầy. Lịch sử mua hàng giữ nguyên.")}
               </span>
             </span>
             {suaDuoc ? (
@@ -217,16 +202,9 @@ export default function KhachHangDetails() {
           <GiaoDichKhachHang
             key={id}
             khachHangId={id}
-            tab={tab}
-            onDoiTab={setTab}
             tongDon={tongQuan ? tongSoDon(tongQuan) : undefined}
             kenhMua={tongQuan?.kenhMua}
-            xemBaoGia={xemBaoGia}
-            coTheTaoBaoGia={coTheBanHang && dangHoatDong && !laKhachLe}
-            coTheTaoDon={coTheBanHang}
-            onTaoBaoGia={taoBaoGia}
             ghiChuPhamVi={phamVi}
-            ghiChuPhamViBaoGia={phamViBaoGia}
           />
           <ThuocTinhKhachHang khachHang={khachHang} kenhMua={tongQuan?.kenhMua} onChinhSua={chinhSua} />
         </div>

@@ -93,7 +93,7 @@ function NoiDung({ khachHang: khachLucMo, onClose, onChanged, soDonDangXuLy }) {
           <div className="space-y-2 text-sm leading-6 text-bo-muted">
             {dangHoatDong ? (
               <>
-                <p>{t("{{ten}} sẽ không chọn được khi tạo báo giá mới và khi bán tại quầy.", { ten })}</p>
+                <p>{t("{{ten}} sẽ không chọn được khi bán tại quầy.", { ten })}</p>
                 <ul className="list-disc space-y-1 pl-5">
                   {soDonDangXuLy === undefined ? (
                     <li>{t("Đơn đang xử lý của khách vẫn nhặt hàng, giao hàng bình thường.")}</li>
@@ -106,7 +106,7 @@ function NoiDung({ khachHang: khachLucMo, onClose, onChanged, soDonDangXuLy }) {
                 </ul>
               </>
             ) : (
-              <p>{t("{{ten}} sẽ chọn lại được khi tạo báo giá và bán tại quầy.", { ten })}</p>
+              <p>{t("{{ten}} sẽ chọn lại được khi bán tại quầy.", { ten })}</p>
             )}
           </div>
         </AlertDialogDescription>
