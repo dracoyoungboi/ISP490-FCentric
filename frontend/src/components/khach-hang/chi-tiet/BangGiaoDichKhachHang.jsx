@@ -2,11 +2,7 @@ import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { getChannelName } from "@/constants/channel";
-import {
-  DON_BAN_HANG_DA_KET_THUC_KHONG_THU,
-  DON_BAN_HANG_THANH_TOAN,
-  getDonBanHangStatus,
-} from "@/constants/donBanHang";
+import { DON_BAN_HANG_THANH_TOAN, getDonBanHangStatus } from "@/constants/donBanHang";
 import { formatCurrency, formatDate } from "@/utils/formatters";
 import { t } from "@/i18n";
 
@@ -109,11 +105,6 @@ function BangDonDayDu({ dons }) {
         {dons.map((d) => {
           const tt = getDonBanHangStatus(d.trangThai);
           const thanhToan = DON_BAN_HANG_THANH_TOAN[d.trangThaiThanhToan]?.label ?? d.trangThaiThanhToan ?? "—";
-          // Nhắc thu tiền: đơn chưa thu đủ còn hiệu lực (đơn đã hủy / hoàn trả không còn phải thu; đơn sàn thanh toán theo sàn)
-          const canThu =
-            (d.trangThaiThanhToan === "chua_thanh_toan" || d.trangThaiThanhToan === "thanh_toan_mot_phan") &&
-            !d.kenhBanHang && !d.maDonHangKenh &&
-            !DON_BAN_HANG_DA_KET_THUC_KHONG_THU.includes(Number(d.trangThai));
           return (
             <tr key={d.id} className={DONG}>
               <th scope="row" className={O_DAU}>
@@ -134,7 +125,7 @@ function BangDonDayDu({ dons }) {
               <td className={O}>
                 <StatusBadge quyTrinh="donBan" label={tt.label} />
               </td>
-              <td className={cn(O, "whitespace-nowrap", canThu ? "font-medium text-bo-warning" : "text-slate-700")}>
+              <td className={cn(O, "whitespace-nowrap text-slate-700")}>
                 {thanhToan}
               </td>
               <td className={cn(O_CUOI, "whitespace-nowrap font-semibold text-bo-foreground")}>{formatCurrency(d.tongCong)}</td>
