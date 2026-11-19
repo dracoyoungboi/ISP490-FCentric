@@ -82,7 +82,6 @@ const KhachHangDetails = taiTrang(() => import("./pages/customer/KhachHangDetail
 const ProductAttributeHub = taiTrang(() => import("@/pages/attribute/ProductAttributeHub"));
 const DonBanHangList = taiTrang(() => import("./pages/sales-orders/DonBanHangList"));
 const DonBanHangDetail = taiTrang(() => import("./pages/sales-orders/DonBanHangDetail"));
-const DonBanHangCreate = taiTrang(() => import("./pages/sales-orders/DonBanHangCreate"));
 const DoiSoatChuyenKhoan = taiTrang(() => import("./pages/pos-transfers/DoiSoatChuyenKhoan"));
 const PosReturnsPage = taiTrang(() => import("./pages/pos/returns/PosReturnsPage"));
 const PosReturnPrintPage = taiTrang(() => import("./pages/pos/returns/PosReturnPrintPage"));
@@ -117,10 +116,6 @@ const LichSuGiaoDichKhoList = taiTrang(() => import("./pages/lich-su-giao-dich-k
 const QuotationRequestList = taiTrang(() => import("./pages/order/QuotationRequestList"));
 const QuotationRequestCreate = taiTrang(() => import("./pages/order/QuotationRequestCreate"));
 const PurchaseOrderCreateManual = taiTrang(() => import("./pages/order/PurchaseOrderCreateManual"));
-const BaoGiaList = taiTrang(() => import("./pages/sales-orders/Bao-gia/BaoGiaList"));
-const BaoGiaCreate = taiTrang(() => import("./pages/sales-orders/Bao-gia/BaoGiaCreate"));
-const BaoGiaDetail = taiTrang(() => import("./pages/sales-orders/Bao-gia/BaoGiaDetail"));
-const BaoGiaPrint = taiTrang(() => import("./pages/sales-orders/Bao-gia/BaoGiaPrint"));
 const PurchaseRequestList = taiTrang(() => import("./pages/order/PurchaseRequestList"));
 const CreatePurchaseRequestPage = taiTrang(() => import("./pages/order/CreatePurchaseRequestPage"));
 const SendQuotationRequestPage = taiTrang(() => import("./pages/order/SendQuotationRequestPage"));
@@ -153,9 +148,6 @@ const OAuthCallbackPage = taiTrang(() => import("./pages/channels/OAuthCallbackP
  * Vai trò chặn đường dẫn lấy từ constants/vaiTroTheoNghiepVu.js (ma trận phân quyền SRS 4.4), cùng nguồn với menu,
  * khớp @RequireAuth của API chính mà trang gọi.
  */
-// Báo giá bán: cùng vai trò xem đơn bán (quản lý kho, nhân viên kho chỉ xem; nhân viên mua hàng bị chặn)
-const VAI_TRO_XEM_BAO_GIA_BAN = VAI_TRO_DON_BAN;
-
 /** Đường dẫn cũ /supplier/view/:id → trang chi tiết /supplier/:id (giống /customers/:id, /users/:id). */
 function SupplierViewRedirect() {
   const { id } = useParams();
@@ -384,18 +376,9 @@ const CAY_DUONG_DAN = (
         <Route path="/sales-orders" element={<DonBanHangList />} />
         <Route path="/sales-orders/:id" element={<DonBanHangDetail />} />
       </Route>
-      {/* Tạo đơn từ báo giá: khớp PUT /don-ban-hang/{id}/convert-to-order (quản trị viên, nhân viên bán hàng) */}
-      <Route element={<RequireRole roles={VAI_TRO_GHI_DON_BAN} />}>
-        <Route path="/sales-orders/create" element={<DonBanHangCreate />} />
-        {/* Tạo báo giá: khớp @RequireAuth của POST /don-ban-hang/create (quản trị viên, nhân viên bán hàng) */}
-        <Route path="/sales-quotations/create" element={<BaoGiaCreate />} />
-      </Route>
-      {/* Danh sách, chi tiết báo giá: quản trị viên, nhân viên bán hàng thao tác; quản lý kho, nhân viên kho chỉ xem
-          (khớp @RequireAuth của POST /don-ban-hang/filter, GET /don-ban-hang/{id}/detail) — nhân viên mua hàng bị chặn */}
-      <Route element={<RequireRole roles={VAI_TRO_XEM_BAO_GIA_BAN} />}>
-        <Route path="/sales-quotations" element={<BaoGiaList />} />
-        <Route path="/sales-quotations/:id" element={<BaoGiaDetail />} />
-      </Route>
+      {/* Đã bỏ báo giá bán và màn Tạo đơn bán (chỉ bán lẻ): đường dẫn cũ về danh sách đơn bán */}
+      <Route path="/sales-orders/create" element={<Navigate to="/sales-orders" replace />} />
+      <Route path="/sales-quotations/*" element={<Navigate to="/sales-orders" replace />} />
 
       {/* Chuyen kho noi bo: vai trò kho (PhieuChuyenKhoController) */}
       <Route element={<RequireRole roles={VAI_TRO_KHO} />}>
@@ -566,9 +549,6 @@ const CAY_DUONG_DAN = (
       </Route>
       <Route element={<RequireRole roles={["quan_tri_vien", "quan_ly_kho"]} />}>
         <Route path="/stock-take/:id/print-adjustment" element={<InKiemKe loai="dieu-chinh" />} />
-      </Route>
-      <Route element={<RequireRole roles={VAI_TRO_XEM_BAO_GIA_BAN} />}>
-        <Route path="/sales-quotations/:id/print" element={<BaoGiaPrint />} />
       </Route>
       {/* Hóa đơn bán hàng: SRS 4.4 "Invoice" chỉ nhân viên bán hàng (và quản trị viên) */}
       <Route element={<RequireRole roles={VAI_TRO_GHI_DON_BAN} />}>
