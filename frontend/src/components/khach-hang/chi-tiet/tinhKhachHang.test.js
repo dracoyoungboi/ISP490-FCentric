@@ -94,7 +94,9 @@ test("tổng số đơn trên tab gồm cả đơn nháp", () => {
 });
 
 test("bốn ô tình hình mua hàng của khách đã mua", () => {
-  const [chiTieu, soDon, trungBinh, ganNhat] = tinhKpi(TONG_QUAN, HOM_NAY);
+  const kpi = tinhKpi(TONG_QUAN, HOM_NAY);
+  assert.deepEqual(kpi.map((o) => o.ma), ["chi-tieu", "so-don", "trung-binh", "gan-nhat"]);
+  const [chiTieu, soDon, trungBinh, ganNhat] = kpi;
   assert.equal(chiTieu.giaTri, tien(159800000));
   assert.equal(chiTieu.phu, "Từ 10 đơn, không tính hủy và hoàn trả");
   assert.equal(soDon.giaTri, "12");

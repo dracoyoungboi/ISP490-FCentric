@@ -191,7 +191,9 @@ test("hauQuaHuy và thanh toán", () => {
   const san = hauQuaHuy(ct({ ...shopify, trangThaiThanhToan: "da_thanh_toan" }));
   assert.equal(san.length, 3);
   assert.match(san[2], /Không tự hoàn tiền/);
-  assert.equal(thanhToanDonBan(ct()).maTrangThai, null);
+  // Đơn bán thường cũ: trạng thái lưu trên đơn, trống là chưa theo dõi (kèm câu trung tính)
+  assert.deepEqual(thanhToanDonBan(ct()), { maTrangThai: null, chu: "Hệ thống không theo dõi thanh toán của đơn này." });
+  assert.deepEqual(thanhToanDonBan(ct({ trangThaiThanhToan: "da_thanh_toan" })), { maTrangThai: "da_thanh_toan", chu: null });
   assert.equal(thanhToanDonBan(ct(shopify)).maTrangThai, "chua_thanh_toan");
   const pos = thanhToanDonBan(ct({}, { thanhToanTaiQuay: { phuongThuc: "PAYOS", ngayThu: "x" } }));
   assert.equal(pos.phuongThuc, "Chuyển khoản qua PayOS");

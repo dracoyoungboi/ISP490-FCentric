@@ -15,14 +15,14 @@ const tomTat = (rows) => rows.map((row) => [row.key, row.label, row.value]);
 const DON_TAI_QUAY = {
     totals: { items: "120.000 ₫", shippingRaw: 0, shipping: "0 ₫", grandTotal: "120.000 ₫" },
     vat: { included: true, preTax: "109.091 ₫", rate: "10%", amount: "10.909 ₫" },
-    payment: { cashPart: "20.000 ₫", transferPart: "100.000 ₫", received: null, changeRaw: null, change: null, paid: null, due: null },
+    payment: { cashPart: "20.000 ₫", transferPart: "100.000 ₫", received: null, changeRaw: null, change: null },
 };
 
-/** Đơn bán thường: 1.000.000 ₫ hàng + 30.000 ₫ phí vận chuyển, đã gồm thuế 10% trên tổng, đã thu 500.000 ₫. */
+/** Đơn bán thường: 1.000.000 ₫ hàng + 30.000 ₫ phí vận chuyển, đã gồm thuế 10% trên tổng. */
 const DON_GIAO_HANG = {
     totals: { items: "1.000.000 ₫", shippingRaw: 30000, shipping: "30.000 ₫", grandTotal: "1.030.000 ₫" },
     vat: { included: true, preTax: "936.364 ₫", rate: "10%", amount: "93.636 ₫" },
-    payment: { cashPart: null, transferPart: null, received: null, changeRaw: null, change: null, paid: "500.000 ₫", due: "530.000 ₫" },
+    payment: { cashPart: null, transferPart: null, received: null, changeRaw: null, change: null },
 };
 
 test("hóa đơn tại quầy có thuế, trả kết hợp: Tổng thanh toán trước, thuế là phần 'trong đó', rồi tiền mặt + chuyển khoản", () => {
@@ -45,10 +45,9 @@ test("hóa đơn tại quầy có thuế, trả kết hợp: Tổng thanh toán 
 test("có phí vận chuyển: phần thuế treo dưới Tổng thanh toán (thuế tính trên cả phí), không dưới Tổng tiền hàng", () => {
     const rows = dongKhoiTong(khoiTong(HD), macDinh(HD), DON_GIAO_HANG);
     assert.deepEqual(rows.map((row) => row.key), [
-        "items", "shipping", "grandTotal", "vatNote", "vatPreTax", "vatAmount", "paid", "due",
+        "items", "shipping", "grandTotal", "vatNote", "vatPreTax", "vatAmount",
     ]);
-    assert.deepEqual(rows.filter((row) => row.emphasis).map((row) => row.key), ["grandTotal", "due"]);
-    assert.deepEqual(rows.filter((row) => row.afterSub).map((row) => row.key), ["paid"]);
+    assert.deepEqual(rows.filter((row) => row.emphasis).map((row) => row.key), ["grandTotal"]);
 });
 
 test("tắt thuế suất: nhãn chỉ còn 'Thuế GTGT'; nhãn tự đặt vẫn kèm thuế suất", () => {
@@ -75,7 +74,7 @@ test("đơn không mang thuế, trả tiền mặt: không có nhóm thuế, kh�
     const model = {
         totals: { items: "850.000 ₫", shippingRaw: 0, shipping: "0 ₫", grandTotal: "850.000 ₫" },
         vat: null,
-        payment: { cashPart: null, transferPart: null, received: "1.000.000 ₫", changeRaw: 150000, change: "150.000 ₫", paid: null, due: null },
+        payment: { cashPart: null, transferPart: null, received: "1.000.000 ₫", changeRaw: 150000, change: "150.000 ₫" },
     };
     const rows = dongKhoiTong(khoiTong(POS), macDinh(POS), model);
     assert.deepEqual(tomTat(rows), [
