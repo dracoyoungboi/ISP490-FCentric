@@ -67,7 +67,6 @@ public class ThongBaoService {
             LOAI_DOT_KIEM_KE = "dot_kiem_ke",
             LOAI_PHIEU_XUAT_KHO = "phieu_xuat_kho",
             LOAI_THANH_TOAN_QR = "pos_payos_payment",
-            LOAI_PHIEU_THU = "thanh_toan_don_ban",
             LOAI_KENH_BAN_HANG = "kenh_ban_hang",
             LOAI_NGUOI_DUNG = "nguoi_dung",
             LOAI_NHA_CUNG_CAP = "nha_cung_cap";
@@ -81,7 +80,6 @@ public class ThongBaoService {
             Map.entry(LOAI_DOT_KIEM_KE, "Kiểm kê"),
             Map.entry(LOAI_PHIEU_XUAT_KHO, "Xuất kho"),
             Map.entry(LOAI_THANH_TOAN_QR, "Thanh toán"),
-            Map.entry(LOAI_PHIEU_THU, "Thanh toán"),
             Map.entry(LOAI_KENH_BAN_HANG, "Kênh bán hàng"),
             Map.entry(LOAI_NGUOI_DUNG, "Tài khoản"),
             Map.entry(LOAI_NHA_CUNG_CAP, "Nhà cung cấp"));
@@ -96,7 +94,6 @@ public class ThongBaoService {
             Map.entry(LOAI_DOT_KIEM_KE, "ton_kho"),
             Map.entry(LOAI_PHIEU_XUAT_KHO, "don_hang"),
             Map.entry(LOAI_THANH_TOAN_QR, "don_hang"),
-            Map.entry(LOAI_PHIEU_THU, "don_hang"),
             Map.entry(LOAI_KENH_BAN_HANG, "he_thong"),
             Map.entry(LOAI_NGUOI_DUNG, "he_thong"),
             Map.entry(LOAI_NHA_CUNG_CAP, "he_thong"));
