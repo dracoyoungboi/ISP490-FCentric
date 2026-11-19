@@ -48,8 +48,10 @@ public class BangChungDongGoiServiceImpl implements BangChungDongGoiService {
     public static final long MAX_VIDEO_SIZE = 100L * 1024 * 1024;
     /**
      * Số ngày lưu tệp bằng chứng, tính từ ngày xuất kho (lúc tải lên tạm tính từ hôm đó). Phủ khiếu nại trên sàn (15 ngày
-     * sau khi nhận + tranh chấp), hàng hư hỏng với hãng vận chuyển (1 tháng sau khi phát, Luật Bưu chính Điều 38) và thiếu
-     * hàng của khách doanh nghiệp (3 tháng sau khi giao, Luật Thương mại Điều 318). Hạn thật xem {@link #hanLuuThucTe}.
+     * sau khi nhận + tranh chấp) và hàng hư hỏng với hãng vận chuyển (1 tháng sau khi phát, Luật Bưu chính Điều 38). Mốc
+     * 90 ngày đặt từ khi còn bán sỉ, để phủ khiếu nại thiếu hàng của khách doanh nghiệp (3 tháng sau khi giao, Luật Thương
+     * mại Điều 318); nay chỉ bán lẻ nhưng vẫn giữ 90 ngày cho đến khi nghiệp vụ chốt lại. Hạn thật xem
+     * {@link #hanLuuThucTe}.
      */
     public static final int SO_NGAY_LUU = 90;
 
