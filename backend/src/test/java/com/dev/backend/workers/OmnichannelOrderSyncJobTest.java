@@ -497,4 +497,74 @@ class OmnichannelOrderSyncJobTest {
         assertFalse(result);
         verify(sync).dongBoTrangThaiChuanBiHangShopee("261119XYZ");
     }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("Shopify đa kho: Kéo đơn mới LUÔN giữ khoXuat = Kho Tổng dù FO gán Location chi nhánh HCM, lưu gợi ý vào ShopifyOrderRoutingService")
+    void processSingleOrder_shopifyDaKho_giuKhoTongVaLuuGoiY() throws Exception {
+        var khoTong = com.dev.backend.entities.Kho.builder()
+                .id(1).maKho("KHO_TONG").tenKho("Kho Tổng").loaiKho("kho_tong").trangThai(1).build();
+        var khoHcm = com.dev.backend.entities.Kho.builder()
+                .id(2).maKho("CN_HCM").tenKho("Kho Chi Nhánh HCM").loaiKho("cua_hang").trangThai(1).build();
+        when(khoRepository.findByTrangThai(1)).thenReturn(List.of(khoTong, khoHcm));
+
+        String mappingJson = """
+                {
+                  "cheDoDaKho": true,
+                  "danhSachKho": [
+                    { "maKhoSan": "11111", "tenKhoSan": "Kho Tổng", "khoIdFCentric": 1, "laMacDinh": true, "kichHoat": true },
+                    { "maKhoSan": "22222", "tenKhoSan": "HCM Branch", "khoIdFCentric": 2, "laMacDinh": false, "kichHoat": true }
+                  ]
+                }
+                """;
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_SHOPIFY_KHO_MAPPING"), any())).thenReturn(mappingJson);
+
+        var routingService = spy(new com.dev.backend.services.shopify.ShopifyOrderRoutingService());
+        org.springframework.test.util.ReflectionTestUtils.setField(routingService, "dieuHanhHeThongService", dieuHanhHeThongService);
+        org.springframework.test.util.ReflectionTestUtils.setField(job, "shopifyOrderRoutingService", routingService);
+
+        KenhBanHang kenh = KenhBanHang.builder().id(1).maKenh("SHOPIFY").tenKenh("Shopify").build();
+        when(donBanHangRepository.findByKenhBanHangIdAndMaDonHangKenh(1, "778899001")).thenReturn(Optional.empty());
+        when(donBanHangRepository.findBySoDonHang("SHP-2099")).thenReturn(Optional.empty());
+        when(khachHangRepository.findFirstBySoDienThoai("0912345678")).thenReturn(Optional.of(KhachHang.builder().id(6).build()));
+
+        String orderJson = """
+                {
+                  "id": 778899001,
+                  "order_number": 2099,
+                  "financial_status": "paid",
+                  "current_subtotal_price": "350000.00",
+                  "total_price": "350000.00",
+                  "total_shipping_price_set": { "shop_money": { "amount": "0.00" } },
+                  "customer": { "first_name": "Lê", "last_name": "C", "phone": "0912345678" },
+                  "fulfillment_orders_gql": [
+                    {
+                      "id": "81001",
+                      "status": "OPEN",
+                      "assignedLocationId": "22222",
+                      "assignedLocationName": "HCM Branch",
+                      "deliveryMethodType": "PICK_UP",
+                      "skus": ["AO-01"]
+                    }
+                  ],
+                  "line_items": []
+                }
+                """;
+
+        assertTrue(job.processSingleOrder(mapper.readTree(orderJson), kenh));
+
+        ArgumentCaptor<DonBanHang> donCaptor = ArgumentCaptor.forClass(DonBanHang.class);
+        verify(donBanHangRepository).save(donCaptor.capture());
+        DonBanHang saved = donCaptor.getValue();
+        assertNotNull(saved.getKhoXuat());
+        assertEquals(1, saved.getKhoXuat().getId(), "Đơn Shopify mới kéo về phải luôn giữ nguyên ở Kho Tổng để QLK Kho Tổng điều tiết");
+        assertTrue(saved.getGhiChu() != null && saved.getGhiChu().contains("[GỢI Ý KHO: HCM Branch -> Kho Chi Nhánh HCM]"),
+                "Ghi chú thực tế: " + saved.getGhiChu());
+        assertTrue(saved.getGhiChu().contains("[NHẬN TẠI CỬA HÀNG]"));
+
+        ArgumentCaptor<com.dev.backend.dto.channel.warehouse.ShopifyOrderRoutingMeta> metaCaptor =
+                ArgumentCaptor.forClass(com.dev.backend.dto.channel.warehouse.ShopifyOrderRoutingMeta.class);
+        verify(routingService).save(metaCaptor.capture());
+        assertEquals(2, metaCaptor.getValue().getKhoDeXuatId());
+        assertEquals("PICK_UP", metaCaptor.getValue().getDeliveryMethodType());
+    }
 }
