@@ -20,7 +20,7 @@ export const ROLES = [
   {
     value: "nhan_vien_ban_hang",
     label: "Nhân viên bán hàng",
-    moTa: "Bán tại quầy, báo giá và đơn bán cho khách.",
+    moTa: "Bán và trả hàng tại quầy, theo dõi đơn bán.",
   },
   {
     value: "nhan_vien_mua_hang",

@@ -4,7 +4,6 @@ import { Area, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from 
 import { Loader2, Search } from "lucide-react";
 import KhungBieuDo from "@/components/shared/KhungBieuDo";
 import StatusBadge from "@/components/shared/StatusBadge";
-import { getBaoGiaStatus } from "@/constants/baoGia";
 import { getDonBanHangStatus } from "@/constants/donBanHang";
 import { cn } from "@/lib/utils";
 import { dashboardService } from "@/services/dashboardService";
@@ -17,12 +16,12 @@ import { duongDanBaoCaoSanPham } from "@/pages/bao-cao/tinhBaoCaoSanPham";
 import { BoCuc, CAM, ChuGiai, DO, DaySo, FOCUS, NutBang, ThaoTacNhanh, VIEN, XANH } from "@/pages/dashboard/vai-tro/khung";
 import { phimTab } from "@/pages/dashboard/vai-tro/banPhim";
 import { THU_TU } from "@/pages/dashboard/vai-tro/lop";
-import { chuYDon, diemTheoGio, giaBan, gioPhut, guiLuc, nhanGio, tenBienThe, theSoBanHang, vachGio, vachTron } from "@/pages/dashboard/vai-tro/soLieuVaiTro";
+import { chuYDon, diemTheoGio, giaBan, gioPhut, nhanGio, tenBienThe, theSoBanHang, vachGio, vachTron } from "@/pages/dashboard/vai-tro/soLieuVaiTro";
 import { t } from "@/i18n";
 
 /**
  * Tổng quan của NHÂN VIÊN BÁN HÀNG tại kho làm việc (ô đầu trang). Hàng 1: 4 ô số. Cột chính: doanh thu cộng dồn
- * trong ngày so với cùng thứ tuần trước · đơn của bạn (3 tab). Cột phải: bán nhanh · tra còn hàng (ngay cạnh nút bán,
+ * trong ngày so với cùng thứ tuần trước · đơn của bạn (2 tab). Cột phải: bán nhanh · tra còn hàng (ngay cạnh nút bán,
  * khách hỏi là tra được) · bán chạy. Điện thoại: nút bán ngay sau ô số. "Của bạn" là chứng từ bạn tạo.
  */
 export default function DashboardSalesStaff() {
@@ -50,12 +49,10 @@ export default function DashboardSalesStaff() {
                   key="don"
                   className={THU_TU[2]}
                   don={b?.don}
-                  baoGia={b?.baoGia}
                   tom={b?.chiSo?.donCuaToi}
                   thoiDiem={thoiDiem}
                   loading={loading}
-                  loiDon={loi("don")}
-                  loiBaoGia={loi("baoGia")}
+                  error={loi("don")}
                   onRetry={reload}
                 />,
               ]}
@@ -66,8 +63,8 @@ export default function DashboardSalesStaff() {
                   tieuDe={t("Bán hàng")}
                   ds={[
                     { ten: t("Bán tại quầy"), to: "/pos" },
-                    { ten: t("Tạo đơn"), to: "/sales-orders/create" },
-                    { ten: t("Tạo báo giá"), to: "/sales-quotations/create" },
+                    { ten: t("Trả hàng"), to: "/pos/returns" },
+                    { ten: t("Xem khách hàng"), to: "/customers" },
                   ]}
                 />,
                 <TraTon key="tra" className={THU_TU[3]} />,
@@ -204,36 +201,32 @@ function TipGio({ active, payload }) {
   );
 }
 
-/* ---------- Đơn của bạn: 3 tab — cần chú ý · đang xử lý · báo giá chờ khách ---------- */
+/* ---------- Đơn của bạn: 2 tab — cần chú ý · đang xử lý ---------- */
 const TAB_DON = [
   { key: "chuY", ten: t("Cần chú ý"), trong: t("Không có đơn nào cần chú ý.") },
   { key: "dang", ten: t("Đang xử lý"), trong: t("Không có đơn nào đang xử lý.") },
-  { key: "baoGia", ten: t("Báo giá"), trong: t("Không có báo giá nào đang chờ khách.") },
 ];
 
-function DonCuaBan({ don, baoGia, tom, thoiDiem, className, loading, loiDon, loiBaoGia, onRetry }) {
+function DonCuaBan({ don, tom, thoiDiem, className, loading, error, onRetry }) {
   const nhom = {
     chuY: (don ?? []).filter((o) => o.chuY),
     dang: (don ?? []).filter((o) => !o.chuY),
-    baoGia: baoGia ?? [],
   };
   // Số trên tab lấy từ tổng của máy chủ (danh sách chỉ trả tối đa 50 đơn mới nhất); không có thì đếm danh sách
   const soTab = {
     chuY: tom ? tom.canChuY : nhom.chuY.length,
     dang: tom ? tom.tong - tom.canChuY : nhom.dang.length,
-    baoGia: nhom.baoGia.length,
   };
   const [tab, setTab] = useState(null);
-  const tabHien = tab ?? (nhom.chuY.length ? "chuY" : nhom.dang.length || !nhom.baoGia.length ? "dang" : "baoGia");
-  const loiTab = tabHien === "baoGia" ? loiBaoGia : loiDon;
+  const tabHien = tab ?? (nhom.chuY.length ? "chuY" : "dang");
   const tabInfo = TAB_DON.find((tt) => tt.key === tabHien);
   return (
     <Card
       className={className}
       title={t("Đơn của bạn")}
-      right={<MoreLink to={tabHien === "baoGia" ? "/sales-quotations?trangThai=cho-phan-hoi" : "/sales-orders"}>{tabHien === "baoGia" ? t("Tất cả báo giá") : t("Tất cả đơn")}</MoreLink>}
+      right={<MoreLink to="/sales-orders">{t("Tất cả đơn")}</MoreLink>}
       loading={loading}
-      error={loiDon && loiBaoGia}
+      error={error}
       onRetry={onRetry}
     >
       {/* Hẹp thì cuộn ngang (ẩn thanh cuộn); -mb-px để gạch chân tab đè lên viền dưới mà không tràn dọc */}
@@ -270,30 +263,20 @@ function DonCuaBan({ don, baoGia, tom, thoiDiem, className, loading, loiDon, loi
         </div>
       </div>
       <div id="don-ds" role="tabpanel" aria-labelledby={`don-tab-${tabHien}`}>
-        {loiTab ? (
-          <p className={cn(LE, "flex items-center justify-between gap-3 py-4 text-sm text-bo-muted")}>
-            {t("Chưa tải được danh sách này.")}
-            <button type="button" onClick={onRetry} className={cn(FOCUS, "cursor-pointer rounded text-[13px] font-medium text-bo-primary")}>
-              {t("Thử lại")}
-            </button>
-          </p>
-        ) : nhom[tabHien].length === 0 ? (
+        {nhom[tabHien].length === 0 ? (
           <p className={cn(LE, "py-4 text-sm text-bo-muted")}>{tabInfo.trong}</p>
         ) : (
           <ul>
             {nhom[tabHien].map((o) => {
-              const laBaoGia = tabHien === "baoGia";
-              const ghiChu = laBaoGia ? guiLuc(o.ngayTao, thoiDiem) : chuYDon(o, thoiDiem);
-              const canhBao = laBaoGia ? o.quaHan : Boolean(o.chuY);
-              const nhan = laBaoGia ? getBaoGiaStatus(0).label : getDonBanHangStatus(o.trangThai).label;
+              const ghiChu = chuYDon(o, thoiDiem);
               return (
                 <li key={o.id} className={cn("border-t first:border-t-0", VIEN)}>
-                  <Link to={laBaoGia ? `/sales-quotations/${o.id}` : `/sales-orders/${o.id}`} className={cn(LE, FOCUS, "flex min-h-[60px] items-center gap-3 py-2.5 transition-colors hover:bg-[#fafbfc]")}>
+                  <Link to={`/sales-orders/${o.id}`} className={cn(LE, FOCUS, "flex min-h-[60px] items-center gap-3 py-2.5 transition-colors hover:bg-[#fafbfc]")}>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm">
                         <b className="font-semibold">{o.ma}</b> <span className="text-bo-muted">· {o.khachHang ?? t("Khách lẻ")}</span>
                       </span>
-                      {ghiChu ? <span className={cn("block text-xs", canhBao ? cn("font-medium", CAM) : "text-bo-muted")}>{ghiChu}</span> : null}
+                      {ghiChu ? <span className={cn("block text-xs", o.chuY ? cn("font-medium", CAM) : "text-bo-muted")}>{ghiChu}</span> : null}
                       <span className="block text-xs text-bo-muted @min-[520px]:hidden">{formatTien(o.giaTri)}</span>
                     </span>
                     <span className="hidden shrink-0 text-sm tabular-nums text-bo-foreground @min-[520px]:block">{formatTien(o.giaTri)}</span>
@@ -301,7 +284,7 @@ function DonCuaBan({ don, baoGia, tom, thoiDiem, className, loading, loiDon, loi
                         không lấn sang cột giá trị; nhãn lạ dài hơn thì nới cột. Hẹp (< 520px) không còn cột giá trị nên bỏ bề
                         rộng tối thiểu để nhường chỗ cho mã · khách. */}
                     <span className="flex min-w-[144px] shrink-0 justify-end @max-[520px]:min-w-0">
-                      <StatusBadge quyTrinh={laBaoGia ? "baoGiaBan" : "donBan"} label={nhan} />
+                      <StatusBadge quyTrinh="donBan" label={getDonBanHangStatus(o.trangThai).label} />
                     </span>
                   </Link>
                 </li>
