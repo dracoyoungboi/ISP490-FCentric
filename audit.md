@@ -134,6 +134,7 @@
 | **AUDIT-116** | `2026-11-19 00:22:00` | PhanAnh & Antigravity AI | Fix, Feat & UX / Khắc phục lỗi in vận đơn Shopee `shipping_document_should_print_first`, chuyển kho chuẩn Sapo cho TikTok Shop & Shopee + Pop-up xác nhận, đồng bộ tức thời hoàn trả Shopify & đối soát 2 chiều Shopee | `ShopeeClient.java`, `DonBanHangService.java`, `KenhBanHangController.java`, `ShopifyOrderSnapshotClient.java`, `OmnichannelOrderSyncJob.java`, `KenhBanHangServiceImpl.java`, `KenhBanHangDongBoServiceImpl.java`, `noiDungSan.js`, `ChannelSettingsPage.jsx`, `kenh-ban.json`, `ShopeeClientTest.java`, `KenhBanHangDongBoServiceTest.java`, `OmnichannelOrderSyncJobTest.java`, `audit.md` | Giải quyết triệt để lỗi `logistics.shipping_document_should_print_first` khi in vận đơn A6 Shopee (`shipOrderAuto`, truyền `tracking_number` vào `create_shipping_document`, fallback `NORMAL_AIR_WAYBILL`, chặn PDF trả JSON lỗi 200 qua `laJsonLoiShopee`); Triển khai chuyển đổi kho chuẩn Sapo cho TikTok Shop (gọi `editProduct` với `sku.id = null` gắn SKU sang kho mới, cập nhật `maSanPhamKenh`, tự phục hồi `12052533` nếu bị sàn khóa) và Shopee (`get_warehouse_detail`, `get_address_list`, chọn kho FCentric nguồn, truyền `location_id` đa kho); Hiển thị Pop-up xác nhận chuyển sản phẩm sang kho mới (`ConfirmModal`) trên `ChannelSettingsPage.jsx`; Đồng bộ tức thời yêu cầu hoàn trả Shopify (`returnStatus = RETURN_REQUESTED / IN_PROGRESS`) sang `Bị hoàn trả (6)`; Nâng cấp hủy/giao Shopee 2 chiều (`getOrderDetail` + `IN_CANCEL`); 250/250 backend omnichannel unit tests & 728/728 frontend i18n check PASS 100%. |
 | **AUDIT-117** | `2026-11-19 01:18:00` | PhanAnh & Antigravity AI | Fix & Sync / Khắc phục lỗi biên dịch `HashMap`, đồng bộ trạng thái "Gửi sang kho" Shopee -> `PROCESSED` và sửa luồng in vận đơn A6 Shopee (`SHOPEE_OFFICIAL`, xác thực JWT, unwrap `ResponseData`) | `OmnichannelOrderSyncJob.java`, `DonBanHangService.java`, `NhatHangServiceImpl.java`, `PhieuXuatKhoService.java`, `SalesOrderPackingSlipPrint.jsx`, `ShopeeAwbDocument.jsx`, `DonBanHangServiceGiaoHangSanTest.java`, `OmnichannelOrderSyncJobTest.java`, `audit.md` | Bổ sung `import java.util.HashMap;` khắc phục lỗi biên dịch tại `OmnichannelOrderSyncJob.java:389`; Đổi ánh xạ đơn Shopee `READY_TO_SHIP -> 0 (Nháp)` và `PROCESSED -> 1 (Chờ nhặt hàng)`, đồng bộ ngay `dongBoTrangThaiChuanBiHangShopee` (chuyển Shopee sang `PROCESSED` - Người bán đang chuẩn bị hàng) ngay lúc "Gửi sang kho" (`sendToWarehouse`) thay vì đợi hoàn tất nhặt hàng, kèm đối soát tiến trình và kích hoạt bảo vệ khi tạo Pick List (`taoPickList`); Sửa 3 điểm nghẽn in tem A6 Shopee: bổ sung `SHOPEE_OFFICIAL` trong `PhieuXuatKhoService` (tránh fallback Lazada), unwrap `ResponseData` trong `SalesOrderPackingSlipPrint.jsx`, và gọi `apiClient` đính JWT + mặc định hiển thị tem A6 trong `ShopeeAwbDocument.jsx`; Đạt 252/252 backend omnichannel tests, `vite build` & 728/728 frontend `i18n:kiem` PASS 100%. |
 | **AUDIT-118** | `2026-11-19 09:07:20` | PhanAnh & Antigravity AI | Fix & UX / Nhúng trực tiếp vận đơn Shopee vào giao diện in A6 hệ thống thay cho tab popup mới | `DonBanHangDetail.jsx`, `SalesOrderPackingSlipPrint.jsx`, `ShopeeAwbDocument.jsx`, `shopeeAwbHelpers.js`, `shopeeAwbHelpers.test.js`, `shopeeAwb.css`, `kenh-ban.json`, `audit.md` | Rà soát rule/skill in A6 và sửa triệt để việc bấm in vận đơn đơn Shopee từ chi tiết đơn hàng bật tab popup ngoài; Chuyển `DonBanHangDetail.jsx` (`laShopee`) điều hướng thẳng tới `/sales-orders/:id/print-packing-slip`; Bổ sung trích xuất `[VẬN ĐƠN]`, `[ĐƠN VỊ]`, COD và khối lượng ước tính tại `SalesOrderPackingSlipPrint.jsx`; Refactor `ShopeeAwbDocument.jsx` sửa thứ tự React hooks & `trackingCode` fallback `"—"`, tự động tải `/api/v1/don-ban-hang/{id}/van-don-san` qua `apiClient` (kèm JWT), nhúng trực tiếp PDF (`%PDF` qua Blob URL) hoặc HTML chính thức của sàn vào `<iframe class="sawb-pdf-viewer pdoc-pdf-frame">` tích hợp với `PrintRoutePage.handlePrint()`, fallback về tem nhiệt A6 FCentric khi sàn chưa trả tệp; Cập nhật `@media print` & layout `.sawb-page-container` tại `shopeeAwb.css`; Đạt 58/58 print & order unit tests, 0 lỗi ESLint, 728/728 `i18n:kiem` và `vite build` PASS 100%. |
+| **AUDIT-119** | `2026-11-19 10:34:28` | PhanAnh & Antigravity AI | Fix, UX & Docs / Triển khai Phương án C (nhúng gọn vận đơn Shopee giống TikTok Shop) và lưu kế hoạch nâng cấp Phương án A & B | `ShopeeAwbDocument.jsx`, `shopeeAwb.css`, `kenh-ban.json`, `docs/ke-hoach-nang-cap-in-van-don-a6-shopee.md`, `audit.md` | Triển khai Phương án C theo yêu cầu chuẩn giao diện TikTok Shop: gỡ bỏ hoàn toàn thanh hộp nút thừa (`.sawb-official-pdf-section`) phía trên khung PDF ở giữa màn hình tại `ShopeeAwbDocument.jsx` và thu gọn fallback về thẳng tem nhiệt A6 `.sawb-card` (chỉ giữ cảnh báo khi lỗi kết nối/HTTP); Sửa độ rộng `.sawb-page-container`, `.sawb-wrapper`, `.sawb-official-pdf-embed-wrapper` tại `shopeeAwb.css` từ `100mm` về `100%` (khớp lọt lòng `p-[3mm]` của `PrintLayout` A6, hết tràn lệch phải, đồng nhất `height: 144mm; border: 1.5px solid #000000` với `tiktokShopAwb.css`); Dọn 12 khóa dịch toolbar không còn dùng tại `en/kenh-ban.json`; Lưu đầy đủ lộ trình nâng cấp **Phương án A** (full khung trình duyệt PDF ở giữa) & **Phương án B** (`autoPrint` khi PDF sẵn sàng) tại `docs/ke-hoach-nang-cap-in-van-don-a6-shopee.md`; Đạt 58/58 unit tests, 0 lỗi ESLint, 728/728 `i18n:kiem` & `vite build` (22.79s) PASS 100%. |
 
 
 ---
@@ -4551,6 +4552,43 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
 - **i18n & Build Frontend:**
   + `npm run i18n:kiem`: **728/728 tệp sạch 100%** (`Chưa bọc: 0`, `Thiếu bản dịch: 0`, `Lệch: 0`).
   + `npm run build` (`vite build`): **3504 modules transformed, built in 17.12s**.
+
+---
+
+### [AUDIT-119] TRIỂN KHAI PHƯƠNG ÁN C CHO VẬN ĐƠN SHOPEE A6 (ĐỒNG NHẤT TIKTOK SHOP) VÀ LƯU LỘ TRÌNH NÂNG CẤP PHƯƠNG ÁN A & B
+
+#### Metadata
+- **Thời gian:** 19/11/2026 10:34 (GMT+7)
+- **Tác giả:** PhanAnh & Antigravity AI
+- **Phân hệ:** Shopee A6 Waybill Viewer (`ShopeeAwbDocument.jsx`, `shopeeAwb.css`) & Upgrade Roadmap (`docs/ke-hoach-nang-cap-in-van-don-a6-shopee.md`).
+- **Tệp thay đổi:**
+  + `frontend/src/components/print/ShopeeAwbDocument.jsx`
+  + `frontend/src/components/print/shopeeAwb.css`
+  + `frontend/src/i18n/en/kenh-ban.json`
+  + `docs/ke-hoach-nang-cap-in-van-don-a6-shopee.md` (tạo mới)
+  + `audit.md`
+
+#### Mục tiêu & Phân tích nguyên nhân gốc rễ (Root Cause Analysis - RCA)
+1. **Khối nút phụ & hộp bao ngoài tại khung PDF giữa màn hình làm giao diện khác với TikTok Shop:**
+   - Trong ảnh thực tế từ phiếu xuất `PXK-20261118-042`, khối `.sawb-official-pdf-section` ("Vận đơn AWB chính thức Shopee (PDF chuẩn sàn)" + 3 nút) nằm bên trên khung PDF trong vùng giấy `PrintLayout`, trong khi `TikTokShopAwbDocument.jsx` không render thanh nút nào ở giữa màn hình mà chỉ nhúng thẳng khung PDF A6.
+   - Do `PrintLayout` bọc A6 bằng `w-[100mm] p-[3mm]` (vùng nội dung lọt lòng rộng `94mm`), việc đặt `width: 100mm` ở `.sawb-page-container` và `.sawb-wrapper` khiến khung PDF Shopee bị tràn lệch sang mép phải `3mm`.
+   - Khi Shopee API fallback từ `THERMAL_AIR_WAYBILL` sang `NORMAL_AIR_WAYBILL` (khổ PDF A4 đặt tem ở 1/4 góc trên-trái), việc co trong khung `100mm` làm tem SPX nhỏ hơn — người dùng lựa chọn giữ **Phương án C** gọn như TikTok Shop trước và lưu **Phương án A & B** vào tài liệu nâng cấp sau này.
+
+#### Giải pháp kỹ thuật & Chi tiết triển khai
+1. **Triển khai Phương án C (`ShopeeAwbDocument.jsx`, `shopeeAwb.css`, `en/kenh-ban.json`):**
+   - Gỡ bỏ hoàn toàn khối `.sawb-official-pdf-section` (badge + 3 nút `Mở PDF trong tab mới`, `Tải PDF A6`, `Xem bản mẫu A6`) và state `simulatedForKey` / `rawBlob` không còn sử dụng.
+   - Khi sàn trả PDF hoặc HTML thật: chỉ render duy nhất `<div className="sawb-official-pdf-embed-wrapper"><iframe className="sawb-pdf-viewer pdoc-pdf-frame" /></div>`.
+   - Khi ở trạng thái `fallback` (sàn chưa trả tệp gốc): render thẳng `.sawb-wrapper` (`.sawb-card`) giống hệt cơ chế TikTok Shop; chỉ hiện `.sawb-warning-banner.no-print` kèm nút **Thử tải lại** khi thực sự có lỗi kết nối/HTTP.
+   - Đổi `width` của `.sawb-page-container` và `.sawb-wrapper` sang `100%` (khớp lọt lòng `p-[3mm]` của `PrintLayout`), đồng nhất `.sawb-official-pdf-embed-wrapper` (`height: 144mm; border: 1.5px solid #000000; border-radius: 4px`) với `tiktokShopAwb.css`, và dọn 12 khóa dịch thừa tại `en/kenh-ban.json`.
+2. **Lưu trữ kế hoạch nâng cấp Phương án A & B (`docs/ke-hoach-nang-cap-in-van-don-a6-shopee.md`):**
+   - Tài liệu hóa giải pháp **Phương án A** (bung full workspace PDF viewer của trình duyệt ở vùng giữa qua `PrintLayout`, xử lý rõ PDF A4 `NORMAL_AIR_WAYBILL` không cần thêm thư viện ngoài) và **Phương án B** (`autoPrint` đồng bộ callback `onPdfReady` qua `PrintRoutePage`).
+
+#### Kết quả kiểm thử & Đối soát hồi quy
+- **Unit Tests Frontend (`node --test` 8 tệp nhóm print & sales-orders):** **58/58 tests PASS 100%**.
+- **ESLint:** `npx eslint` trên 5 tệp JS/JSX liên quan — **0 errors, 0 warnings**.
+- **i18n & Build Frontend:**
+  + `npm run i18n:kiem`: **728/728 tệp sạch 100%** (`Chưa bọc: 0`, `Thiếu bản dịch: 0`, `Lệch: 0`).
+  + `npm run build` (`vite build`): **3504 modules transformed, built in 22.79s**.
 
 
 
