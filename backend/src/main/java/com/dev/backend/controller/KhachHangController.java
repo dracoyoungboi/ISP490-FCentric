@@ -8,6 +8,7 @@ import com.dev.backend.dto.request.KhachHangCreating;
 import com.dev.backend.dto.request.KhachHangKiemTrung;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.KhachHangDetailDto;
+import com.dev.backend.dto.response.customize.KhachHangDongDto;
 import com.dev.backend.dto.response.customize.TongQuanMuaHangKhachDto;
 import com.dev.backend.dto.response.entities.KhachHangDto;
 import com.dev.backend.entities.KhachHang;
@@ -23,7 +24,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/khach-hang")
@@ -38,7 +41,7 @@ public class KhachHangController {
     @Autowired
     private DonBanHangService donBanHangService;
 
-    // SRS 4.4 "Customer": chỉ quản trị viên và nhân viên bán hàng
+    // SRS 4.4 "Customer": chỉ quản trị viên và nhân viên bán hàng. Chỉ khách cửa hàng (số trên tab trang Khách hàng).
     @PostMapping("/filter")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
     public ResponseEntity<ResponseData<Page<KhachHangDto>>> filter(@RequestBody BaseFilterRequest filter) {
@@ -47,8 +50,28 @@ public class KhachHangController {
                         .status(HttpStatus.OK.value())
                         .message("Success")
                         .data(
-                                khachHangMapper.toDtoPage(khachHangService.filter(filter))
+                                khachHangMapper.toDtoPage(khachHangService.filterKhachCuaHang(filter))
                         )
+                        .build()
+        );
+    }
+
+    /**
+     * Danh sách khách hàng (trang Khách hàng): chỉ khách cửa hàng, cùng bộ lọc với /filter (kể cả trường ảo tuKhoa), mỗi
+     * dòng thêm lần mua gần nhất trong phạm vi vai trò của người xem. /filter dùng để đếm số trên tab (không tốn truy vấn
+     * gom).
+     */
+    @PostMapping("/danh-sach")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
+    public ResponseEntity<ResponseData<Page<KhachHangDongDto>>> danhSach(@RequestBody BaseFilterRequest filter) {
+        Page<KhachHangDto> trang = khachHangMapper.toDtoPage(khachHangService.filterKhachCuaHang(filter));
+        Map<Integer, Instant> lanMua = donBanHangService.lanMuaGanNhatTheoKhach(
+                trang.getContent().stream().map(KhachHangDto::getId).toList());
+        return ResponseEntity.ok(
+                ResponseData.<Page<KhachHangDongDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .message("Success")
+                        .data(trang.map(kh -> KhachHangDongDto.tu(kh, lanMua.get(kh.getId()))))
                         .build()
         );
     }
