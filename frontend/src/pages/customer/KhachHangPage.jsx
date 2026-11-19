@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import apiClient from "@/services/apiClient";
-import { CircleCheck, CirclePause, Eye, Pencil, Plus, User, Mail, Phone, Users, SearchX } from "lucide-react";
+import { CircleCheck, CirclePause, Eye, Pencil, Plus, Mail, Phone, Users, SearchX } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import KhachHangFormDialog from "@/components/khach-hang/KhachHangFormDialog";
@@ -17,13 +17,10 @@ import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
-import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
 import TablePagination from "@/components/shared/TablePagination";
 import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
-import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
-import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import useTuKhoaTuUrl, { docTuKhoaUrl } from "@/hooks/useTuKhoaTuUrl";
 import { toast } from "@/lib/thongBaoNhanh";
@@ -40,26 +37,6 @@ const TO_DONG_MOI_MS = 4000;
 // Gõ ô tìm kiếm: chờ người dùng ngừng gõ một chút rồi mới gọi API
 const SEARCH_DEBOUNCE_MS = 300;
 
-// Tên loại khách hàng (giữ nguyên 3 giá trị nghiệp vụ). Loại là phân loại, hiện chữ thường, không tô màu.
-const LOAI_KHACH_HANG_MAP = {
-    le: { label: t("Khách lẻ") },
-    doanh_nghiep: { label: t("Doanh nghiệp") },
-    si: { label: t("Khách sỉ") }
-};
-// Tên loại cho thẻ (điện thoại) và dòng phụ (máy tính bảng); khách chưa lưu loại -> "Chưa phân loại" như ô của bảng
-const tenLoaiKhachHang = (loai) => LOAI_KHACH_HANG_MAP[loai]?.label ?? (loai || t("Chưa phân loại"));
-
-// Tab theo loại khách hàng (bố cục A+G), thứ tự giữ như bộ lọc loại cũ.
-// Giá trị tab là mã loại trong code, nằm trên URL ?loai= (tab "Tất cả" không ghi lên URL).
-const LOAI_TAB_MAC_DINH = "tat-ca";
-const LOAI_TABS = [
-    { value: LOAI_TAB_MAC_DINH, label: t("Tất cả") },
-    { value: "le", label: LOAI_KHACH_HANG_MAP.le.label },
-    { value: "si", label: LOAI_KHACH_HANG_MAP.si.label },
-    { value: "doanh_nghiep", label: LOAI_KHACH_HANG_MAP.doanh_nghiep.label }
-];
-const LOAI_TAB_VALUES = LOAI_TABS.map((tab) => tab.value);
-
 // Trạng thái vẫn là ô chọn (SRS 1.5.1); một tên "Ngừng hoạt động" cho cả bộ lọc, bảng và hộp thoại đổi trạng thái
 const TRANG_THAI_FILTER_OPTIONS = [
     { value: "all", label: t("Tất cả trạng thái") },
@@ -67,10 +44,10 @@ const TRANG_THAI_FILTER_OPTIONS = [
     { value: "0", label: t("Ngừng hoạt động") }
 ];
 
-// Điều kiện lọc dùng chung cho danh sách và số trên tab (chỉ khác điều kiện loại)
-function buildKhachHangFilters({ keyword, loai, trangThai }) {
+// Điều kiện lọc của danh sách
+function buildKhachHangFilters({ keyword, trangThai }) {
     // Khách lẻ mặc định (KHLE) là khách của hệ thống cho bán tại quầy, không phải một khách hàng:
-    // không hiện trong danh sách, không tính vào số trên tab (như KiotViet, Sapo).
+    // không hiện trong danh sách (như KiotViet, Sapo).
     const filters = [
         { fieldName: "maKhachHang", operation: "NOT_IN", value: [WALKIN_CUSTOMER_CODE], logicType: "AND" }
     ];
@@ -82,16 +59,6 @@ function buildKhachHangFilters({ keyword, loai, trangThai }) {
             fieldName: "tuKhoa",
             operation: "LIKE",
             value: keyword,
-            logicType: "AND"
-        });
-    }
-
-    // Loại khách hàng filter
-    if (loai && loai !== LOAI_TAB_MAC_DINH) {
-        filters.push({
-            fieldName: "loaiKhachHang",
-            operation: "EQUALS",
-            value: loai,
             logicType: "AND"
         });
     }
@@ -133,8 +100,6 @@ export default function KhachHangPage() {
     useTuKhoaTuUrl(setSearchQuery);
     // Từ khóa thực sự gửi lên server (trễ SEARCH_DEBOUNCE_MS sau lần gõ cuối, hoặc ngay khi Enter)
     const [debouncedSearch, setDebouncedSearch] = useState(() => docTuKhoaUrl(window.location.search).trim());
-    // Tab loại khách hàng nằm trên URL ?loai= (F5 / quay lại từ chi tiết vẫn đúng tab)
-    const [loaiKhachHang, setLoaiKhachHang] = useTabTrenUrl(LOAI_TAB_VALUES, LOAI_TAB_MAC_DINH, { ten: "loai" });
     const [trangThai, setTrangThai] = useState("all");
     const [loadError, setLoadError] = useState(null);
     // Đánh số mỗi lần tải danh sách: phản hồi về muộn của lần tải cũ bị bỏ qua
@@ -153,7 +118,7 @@ export default function KhachHangPage() {
         const seq = ++requestSeq.current;
         if (!silent) setLoading(true);
         try {
-            const filters = buildKhachHangFilters({ keyword: debouncedSearch, loai: loaiKhachHang, trangThai });
+            const filters = buildKhachHangFilters({ keyword: debouncedSearch, trangThai });
 
             const filterRequest = {
                 filters,
@@ -194,7 +159,7 @@ export default function KhachHangPage() {
         } finally {
             if (seq === requestSeq.current) setLoading(false);
         }
-    }, [currentPage, pageSize, debouncedSearch, loaiKhachHang, trangThai]);
+    }, [currentPage, pageSize, debouncedSearch, trangThai]);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect
     // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.
@@ -202,27 +167,8 @@ export default function KhachHangPage() {
         queueMicrotask(() => loadKhachHangs());
     }, [loadKhachHangs]);
 
-    // Số trên tab: cùng từ khóa + trạng thái đang lọc, chỉ thay điều kiện loại (R1);
-    // cùng điều kiện "loaiKhachHang EQUALS" của danh sách nên số khớp số dòng khi bấm tab
-    const tabCounts = useDemTheoTrangThai(
-        LOAI_TAB_VALUES,
-        async (loai) => {
-            const data = await khachHangService.filter({
-                filters: buildKhachHangFilters({ keyword: debouncedSearch, loai, trangThai }),
-                sorts: [],
-                page: 0,
-                size: 1
-            });
-            return data.totalElements || 0;
-        },
-        `${debouncedSearch}|${trangThai}`
-    );
-
-    // Quay lại tab thì tải lại ngầm danh sách + số trên tab (khách mới có thể được tạo ở quầy POS)
-    useTaiLaiKhiQuayLai(() => {
-        tabCounts.reload();
-        loadKhachHangs({ silent: true });
-    }, { bat: !loading });
+    // Quay lại tab thì tải lại ngầm danh sách (khách mới có thể được tạo ở quầy POS)
+    useTaiLaiKhiQuayLai(() => loadKhachHangs({ silent: true }), { bat: !loading });
 
     // Áp dụng từ khóa tìm kiếm và quay về trang đầu (chỉ khi từ khóa thực sự đổi)
     const applySearch = useCallback((term) => {
@@ -249,18 +195,12 @@ export default function KhachHangPage() {
         applySearch("");
     };
 
-    // Đổi tab loại: ghi lên URL và về trang đầu
-    const handleLoaiKhachHangChange = (value) => {
-        setLoaiKhachHang(value);
-        setCurrentPage(0);
-    };
-
     const handleTrangThaiChange = (value) => {
         setTrangThai(value);
         setCurrentPage(0);
     };
 
-    // "Xóa lọc": bỏ từ khóa + trạng thái, giữ tab loại đang chọn
+    // "Xóa lọc": bỏ từ khóa + trạng thái
     const handleResetFilters = () => {
         setSearchQuery("");
         setDebouncedSearch("");
@@ -268,10 +208,7 @@ export default function KhachHangPage() {
         setCurrentPage(0);
     };
 
-    const handleRetry = () => {
-        loadKhachHangs();
-        tabCounts.reload();
-    };
+    const handleRetry = () => loadKhachHangs();
 
     // Nhấn vào dòng -> xem chi tiết; bỏ qua khi người dùng đang bôi đen chữ (vd. copy SĐT, email)
     const handleRowClick = (khachHang) => {
@@ -290,10 +227,8 @@ export default function KhachHangPage() {
         if (laSua) {
             setKhachHangs((prev) => prev.map((item) => (item.id === saved?.id ? { ...item, ...saved } : item)));
             toast.success(t("Đã lưu thông tin khách hàng \"{{ten}}\"", { ten: saved?.tenKhachHang ?? "" }));
-            tabCounts.reload();
             return;
         }
-        tabCounts.reload();
         if (!saved?.id) {
             // Máy chủ cũ chưa trả khách vừa tạo: tải lại danh sách.
             toast.success(t("Đã thêm khách hàng"));
@@ -307,10 +242,7 @@ export default function KhachHangPage() {
         setLoadError(null);
         setHighlightId(saved.id);
         setCurrentPage(0);
-        const tabLoai = LOAI_TABS.find((tab) => tab.value === saved.loaiKhachHang);
-        const khacTab = loaiKhachHang !== LOAI_TAB_MAC_DINH && saved.loaiKhachHang !== loaiKhachHang;
         toast.success(t("Đã thêm khách hàng {{maKhachHang}}", { maKhachHang: saved.maKhachHang }), {
-            description: khacTab && tabLoai ? t("Khách mới nằm ở tab {{tab}}.", { tab: tabLoai.label }) : undefined,
             action: { label: "Xem", onClick: () => navigate(`/customers/${saved.id}`) },
         });
     };
@@ -318,17 +250,8 @@ export default function KhachHangPage() {
     const handleTrangThaiDoi = (moi) => {
         setKhachHangs((prev) => prev.map((item) => (item.id === moi.id ? { ...item, ...moi } : item)));
         toast.success(laHoatDong(moi) ? t("Đã cho phép khách hàng hoạt động lại") : t("Đã ngừng hoạt động khách hàng"));
-        tabCounts.reload();
         // Đang lọc theo trạng thái thì dòng vừa đổi không còn thuộc bộ lọc: tải lại ngầm.
         if (trangThai !== "all") loadKhachHangs({ silent: true });
-    };
-
-    // Render helpers
-    const getLoaiKhachHangBadge = (loai) => {
-        // Khách tạo trước khi backend lưu loại có loaiKhachHang = null -> "Chưa phân loại" (chữ xám)
-        const item = LOAI_KHACH_HANG_MAP[loai];
-        if (!item) return <span className="whitespace-nowrap text-bo-muted">{loai || t("Chưa phân loại")}</span>;
-        return <span className="whitespace-nowrap text-slate-700">{item.label}</span>;
     };
 
     const totalPages = Math.ceil(totalItems / pageSize);
@@ -344,15 +267,8 @@ export default function KhachHangPage() {
         setCurrentPage(0);
     };
 
-    // Bộ lọc ngoài tab loại (nút "Xóa lọc" chỉ xóa các bộ lọc này)
+    // Bộ lọc đang bật (nút "Xóa lọc" xóa các bộ lọc này)
     const hasActiveFilters = Boolean(searchQuery.trim() || debouncedSearch || trangThai !== "all");
-
-    // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs
-    const loaiTabs = LOAI_TABS.map((tab) => ({
-        ...tab,
-        count: loadError ? null : tabCounts.counts[tab.value],
-    }));
-    const loaiTabLabel = LOAI_TABS.find((tab) => tab.value === loaiKhachHang)?.label;
 
     return (
         <PageContainer fill className="space-y-4">
@@ -375,18 +291,7 @@ export default function KhachHangPage() {
             <TableShell
                 fill
                 toolbar={
-                    <ListToolbar
-                        tabs={
-                            <StatusTabs
-                                label={t("Lọc khách hàng theo loại")}
-                                tabs={loaiTabs}
-                                value={loaiKhachHang}
-                                onChange={handleLoaiKhachHangChange}
-                            />
-                        }
-                        hasFilter={hasActiveFilters}
-                        onClear={handleResetFilters}
-                    >
+                    <ListToolbar hasFilter={hasActiveFilters} onClear={handleResetFilters}>
                         <SearchInput
                             label={t("Tìm khách hàng")}
                             placeholder={t("Tìm theo tên, mã, SĐT, email...")}
@@ -442,26 +347,11 @@ export default function KhachHangPage() {
                                 </Button>
                             }
                         />
-                    ) : loaiKhachHang !== LOAI_TAB_MAC_DINH ? (
-                        <EmptyState
-                            icon={Users}
-                            title={t("Không có khách hàng nào thuộc loại \"{{loai}}\"", { loai: loaiTabLabel })}
-                            description={t("Chọn tab Tất cả để xem mọi khách hàng.")}
-                            action={
-                                <Button
-                                    variant="outline"
-                                    onClick={() => handleLoaiKhachHangChange(LOAI_TAB_MAC_DINH)}
-                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
-                                >
-                                    {t("Xem tất cả")}
-                                </Button>
-                            }
-                        />
                     ) : (
                         <EmptyState
                             icon={Users}
                             title={t("Chưa có khách hàng")}
-                            description={t("Thêm khách hàng để lập đơn bán hàng và theo dõi lịch sử mua.")}
+                            description={t("Thêm khách hàng để theo dõi lịch sử mua.")}
                             action={
                                 coTheSua ? (
                                     <Button
@@ -477,7 +367,7 @@ export default function KhachHangPage() {
                     )
                 ) : (
                     <>
-                    {/* Điện thoại: mỗi khách một thẻ, chạm thẻ mở chi tiết — tên + trạng thái, mã · loại, người liên hệ;
+                    {/* Điện thoại: mỗi khách một thẻ, chạm thẻ mở chi tiết — tên + trạng thái, mã;
                         chân thẻ: SĐT · email và nút Gọi. Sửa / đổi trạng thái nằm ở trang chi tiết (nút "…") */}
                     <ul className="divide-y divide-bo-border md:hidden">
                         {khachHangs.map((khachHang) => {
@@ -494,17 +384,9 @@ export default function KhachHangPage() {
                                             {/* i18n-giu-nguyen: StatusBadge tự dịch */}
                                             <StatusBadge doiTuong="nguoi" label={khachHang.trangThai === 1 ? "Hoạt động" : "Ngừng hoạt động"} />
                                         </span>
-                                        <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[13px] text-bo-muted">
-                                            <span className="shrink-0 font-semibold tracking-wide text-bo-primary">{khachHang.maKhachHang}</span>
-                                            <span aria-hidden="true">·</span>
-                                            <span className="min-w-0 truncate">{tenLoaiKhachHang(khachHang.loaiKhachHang)}</span>
+                                        <span className="mt-0.5 block text-[13px] font-semibold tracking-wide text-bo-primary">
+                                            {khachHang.maKhachHang}
                                         </span>
-                                        {khachHang.nguoiLienHe ? (
-                                            <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[13px] text-bo-muted">
-                                                <User className="size-3.5 shrink-0" aria-hidden="true" />
-                                                <span className="min-w-0 truncate">{khachHang.nguoiLienHe}</span>
-                                            </span>
-                                        ) : null}
                                     </Link>
                                     {lienHe ? (
                                         <div className={`flex items-center justify-between gap-3 px-4 pb-2.5 ${khachHang.soDienThoai ? "min-h-9" : ""}`}>
@@ -530,9 +412,9 @@ export default function KhachHangPage() {
                             );
                         })}
                     </ul>
-                    {/* Máy tính bảng dọc (cảm ứng): bỏ cột STT, Loại KH, Thao tác để bảng vừa khung, không vuốt ngang;
-                        loại khách xuống dưới mã KH (Xem chi tiết = chạm dòng, Sửa / đổi trạng thái ở trang chi tiết) */}
-                    <table className="w-full min-w-[900px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
+                    {/* Máy tính bảng dọc (cảm ứng): bỏ cột STT, Thao tác để bảng vừa khung, không vuốt ngang
+                        (Xem chi tiết = chạm dòng, Sửa / đổi trạng thái ở trang chi tiết) */}
+                    <table className="w-full min-w-[800px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className="h-10 w-14 whitespace-nowrap px-3 text-center text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
@@ -543,9 +425,6 @@ export default function KhachHangPage() {
                                 </th>
                                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     {t("Khách hàng")}
-                                </th>
-                                <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">
-                                    {t("Loại KH")}
                                 </th>
                                 <th className="h-10 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted">
                                     {t("Liên hệ")}
@@ -572,22 +451,9 @@ export default function KhachHangPage() {
                                         <span className="font-semibold tracking-wide text-bo-primary">
                                             {khachHang.maKhachHang}
                                         </span>
-                                        <div className="mt-0.5 hidden whitespace-nowrap text-xs text-bo-muted cam-ung:max-lg:block">
-                                            {tenLoaiKhachHang(khachHang.loaiKhachHang)}
-                                        </div>
                                     </td>
-                                    <td className="px-3 py-3">
-                                        <div className="font-semibold text-bo-foreground">
-                                            {khachHang.tenKhachHang}
-                                        </div>
-                                        {khachHang.nguoiLienHe && (
-                                            <div className="mt-0.5 flex items-center gap-1 text-xs text-bo-muted">
-                                                <User className="size-3 shrink-0" /> {khachHang.nguoiLienHe}
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td className="px-3 py-3 cam-ung:max-lg:hidden">
-                                        {getLoaiKhachHangBadge(khachHang.loaiKhachHang)}
+                                    <td className="px-3 py-3 font-semibold text-bo-foreground">
+                                        {khachHang.tenKhachHang}
                                     </td>
                                     <td className="px-3 py-3">
                                         {/* Chỉ hiện thông tin khách có (không xếp hai dấu "—"); số điện thoại hay dùng nhất nên chữ đậm hơn */}

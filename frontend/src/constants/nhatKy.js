@@ -1,5 +1,4 @@
 import { TRANG_THAI_KE_CHON } from "@/constants/nhapKho";
-import { nhanLoaiKhach } from "@/components/khach-hang/chi-tiet/tinhKhachHang";
 import { LOAI_KHO_OPTIONS } from "@/pages/warehouse/loaiKho";
 import { formatDateTime } from "@/utils/dateTime";
 
@@ -165,6 +164,8 @@ const LOAI_CO_TRANG_THAI_HOAT_DONG = [
 // Kệ: trạng thái là mã chữ (HOAT_DONG / BAO_TRI), nhãn lấy từ danh sách chọn của màn Vị trí kệ
 const TRANG_THAI_KE = Object.fromEntries(TRANG_THAI_KE_CHON.map((t) => [t.ma, t.ten]));
 const NHAN_LOAI_KHO = Object.fromEntries(LOAI_KHO_OPTIONS.map((o) => [o.value, o.label]));
+// Loại khách đã bỏ (19/11/2026, chỉ còn bán lẻ): giữ nhãn để đọc nhật ký cũ
+const NHAN_LOAI_KHACH_CU = { le: "Khách lẻ", si: "Khách sỉ", doanh_nghiep: "Doanh nghiệp" };
 
 // Tra nhãn chỉ theo khóa của chính bảng: khóa lạ trùng tên thuộc tính có sẵn (constructor, __proto__) không trả
 // hàm / đối tượng làm hỏng màn
@@ -219,7 +220,7 @@ export function hienGiaTri(v, { loai, truong } = {}) {
   }
   if (typeof v === "string") {
     if (truong === "loaiKho") return tra(NHAN_LOAI_KHO, v) ?? v;
-    if (truong === "loaiKhachHang") return nhanLoaiKhach(v) ?? v;
+    if (truong === "loaiKhachHang") return tra(NHAN_LOAI_KHACH_CU, v) ?? v;
     // Logo: tên đối tượng lưu trữ ("thuong-hieu/…-uuid.png") khó đọc — chỉ giữ tên tệp
     if (truong === "logo") return v.split("/").pop() || v;
     if (LA_NGAY_GIO_ISO.test(v)) return formatDateTime(v) ?? v;

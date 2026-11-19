@@ -72,9 +72,9 @@ export const themKhachHang = async (values) => {
 };
 
 /**
- * Khách khác đang dùng số điện thoại / email / mã số thuế này (kiểm tra khi rời ô, trước khi lưu); không có thì null.
+ * Khách khác đang dùng số điện thoại / email này (kiểm tra khi rời ô, trước khi lưu); không có thì null.
  * Máy chủ so như lúc lưu: số điện thoại đã bỏ dấu ngăn cách, "+84" về "0" (khách tạo từ đơn sàn lưu "+84 912…").
- * `truong`: "soDienThoai" | "email" | "maSoThue"; `boQuaId`: khách đang sửa.
+ * `truong`: "soDienThoai" | "email"; `boQuaId`: khách đang sửa.
  */
 export const timKhachTrungLienHe = async (truong, giaTri, { boQuaId, signal } = {}) => {
   // POST để số điện thoại / email không nằm trên URL (nhật ký truy cập, lịch sử trình duyệt)

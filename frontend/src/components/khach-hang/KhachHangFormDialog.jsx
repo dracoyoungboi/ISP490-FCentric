@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
-import { AlertCircle, Info, Loader2, Lock, Pencil, Plus, UserPlus, X } from "lucide-react";
+import { AlertCircle, Loader2, Lock, Pencil, Plus, UserPlus, X } from "lucide-react";
 
 import {
   AlertDialog,
@@ -17,27 +16,19 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { themKhachHang, timKhachTrungLienHe, updateKhachHang } from "@/services/khachHangService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import {
-  LOAI_KHACH_HANG,
   NHAN_O,
   THU_TU_O,
   cacOThayDoi,
   canKiemTrung,
   chuanHoaMaKhiNhap,
-  chuanHoaMaSoThueKhiNhap,
   chuanHoaSoDienThoaiKhiNhap,
   formThemCoNhap,
   formTuKhachHang,
-  goiYDiaChi,
-  goiYTen,
-  hienMaSoThue,
-  hienNguoiLienHe,
   kiemTraForm,
-  nhanDiaChi,
   oCuaThongBaoMayChu,
   payloadSua,
   payloadThem,
@@ -50,26 +41,22 @@ const CONTROL_CLASS =
 const CONTROL_ERROR_CLASS = "border-bo-danger focus-visible:border-bo-danger focus-visible:ring-bo-danger/15";
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 // Hai ô liên hệ ràng buộc nhau ("cần ít nhất một"): sửa ô này thì kiểm tra lại cả ô kia.
-// Luật tên và số điện thoại phụ thuộc loại khách: đổi loại thì kiểm lại hai ô này.
-const LIEN_QUAN = { soDienThoai: ["email"], email: ["soDienThoai"], loaiKhachHang: ["tenKhachHang", "soDienThoai"] };
+const LIEN_QUAN = { soDienThoai: ["email"], email: ["soDienThoai"] };
 // Ô kiểm trùng với khách khác khi rời ô (máy chủ cũng chặn khi lưu).
-const O_KIEM_TRUNG = ["soDienThoai", "email", "maSoThue"];
+const O_KIEM_TRUNG = ["soDienThoai", "email"];
 
-// Cả form chỉ đánh dấu ô bắt buộc (*); ô không đánh dấu là để trống được. `labelExtra`: phần thêm sau nhãn (nút ⓘ).
-function Field({ id, label, required = false, labelExtra, hint, error, kiemTra, extra, className, children }) {
+// Cả form chỉ đánh dấu ô bắt buộc (*); ô không đánh dấu là để trống được.
+function Field({ id, label, required = false, error, kiemTra, extra, className, children }) {
   return (
     <div className={cn("min-w-0 space-y-1.5", className)}>
-      <div className="flex items-center gap-1">
-        <Label htmlFor={id} className="gap-0.5 text-sm font-medium text-bo-foreground">
-          {label}
-          {required ? (
-            <span aria-hidden="true" className="text-bo-danger">
-              *
-            </span>
-          ) : null}
-        </Label>
-        {labelExtra}
-      </div>
+      <Label htmlFor={id} className="gap-0.5 text-sm font-medium text-bo-foreground">
+        {label}
+        {required ? (
+          <span aria-hidden="true" className="text-bo-danger">
+            *
+          </span>
+        ) : null}
+      </Label>
       {children}
       {error ? (
         <p id={`${id}-message`} className="flex items-start gap-1.5 text-xs leading-5 text-bo-danger">
@@ -84,10 +71,6 @@ function Field({ id, label, required = false, labelExtra, hint, error, kiemTra, 
           <Loader2 className="size-3.5 shrink-0 animate-spin" aria-hidden="true" />
           {kiemTra}
         </p>
-      ) : hint ? (
-        <p id={`${id}-message`} className="text-xs leading-5 text-bo-muted">
-          {hint}
-        </p>
       ) : null}
     </div>
   );
@@ -97,9 +80,7 @@ function Field({ id, label, required = false, labelExtra, hint, error, kiemTra, 
  * Popup Thêm / Sửa khách hàng (chốt 19/10/2026), dùng ở danh sách và trang chi tiết khách hàng.
  * - `khachHang` có giá trị = sửa (mã cố định, chỉ hiện ở dòng mô tả); không có = thêm mới (mã để trống thì tự tạo).
  * - Không có ô trạng thái: khách mới luôn Hoạt động; ngừng / cho phép hoạt động là thao tác riêng (nút ⋯).
- * - Loại khách lên đầu: đổi gợi ý tên, hiện Người liên hệ cho khách sỉ / doanh nghiệp, đổi nhãn địa chỉ.
- *   Khách chưa phân loại không bị chọn sẵn Khách lẻ.
- * - Lỗi hiện ngay dưới từng ô; trùng số điện thoại / email / mã số thuế báo ngay khi rời ô, kèm link mở khách đã có.
+ * - Lỗi hiện ngay dưới từng ô; trùng số điện thoại / email báo ngay khi rời ô, kèm link mở khách đã có.
  * - Sửa: chỉ gửi các ô đã đổi; chưa đổi gì thì nút Lưu mờ.
  * - Đóng (✕, Hủy, Esc, bấm ra ngoài) khi có thay đổi thì hỏi lại; đang lưu thì không đóng được.
  * - `oMoDau`: ô đặt con trỏ khi mở (VD "email" khi bấm "Chưa có email · Thêm").
@@ -147,7 +128,6 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
   const [submitting, setSubmitting] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const inputRefs = useRef({});
-  const loaiRef = useRef(null);
   const formRef = useRef(form);
   const kiemTraRefs = useRef({});
   const returnFocusRef = useRef(null);
@@ -167,16 +147,10 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
   const tuyChon = { laSua, banDau };
   const doiDs = laSua ? cacOThayDoi(form, banDau) : [];
   const isDirty = laSua ? doiDs.length > 0 : formThemCoNhap(form);
-  const coNguoiLienHe = hienNguoiLienHe(form, banDau);
-  const coMaSoThue = hienMaSoThue(form, banDau);
   const oDau = oMoDau && THU_TU_O.includes(oMoDau) ? oMoDau : "tenKhachHang";
 
   const focusField = (name) => {
-    // Loại khách: focus ô đang chọn, chưa chọn thì ô đầu (cách nhóm radio của trình duyệt).
-    const element =
-      name === "loaiKhachHang"
-        ? loaiRef.current?.querySelector('[data-state="checked"]') ?? loaiRef.current?.querySelector('[role="radio"]')
-        : inputRefs.current[name];
+    const element = inputRefs.current[name];
     if (!element) return;
     element.focus();
     const end = element.value?.length;
@@ -203,17 +177,11 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
     }
     // Ô đã báo lỗi: kiểm tra lại ngay (lỗi trùng / lỗi máy chủ cũng mất khi giá trị đổi).
     const loi = kiemTraForm(next, tuyChon);
-    // Đổi loại không đổi số: số đang báo trùng với khách khác vẫn trùng, giữ câu báo trùng.
+    // Ô liên quan không đổi giá trị: đang báo trùng với khách khác thì vẫn trùng, giữ câu báo trùng.
     const loiO = (field) => loi[field] || (field !== name && trung[field] ? thongBaoTrung(field, trung[field]) : "");
     [name, ...(LIEN_QUAN[name] ?? [])].forEach((field) => {
       if (errors[field]) setFieldError(field, loiO(field));
     });
-    // Đổi sang Khách lẻ mà tên có số / ký tự của tên cửa hàng, hay số là tổng đài 1800/1900: báo ngay, không đợi bấm Lưu.
-    if (name === "loaiKhachHang") {
-      ["tenKhachHang", "soDienThoai"].forEach((field) => {
-        if (String(next[field] ?? "").trim() && loi[field]) setFieldError(field, loi[field]);
-      });
-    }
   };
 
   const kiemTrung = async (name, giaTri) => {
@@ -268,12 +236,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
       laSua ? t("Không thể lưu thay đổi. Vui lòng thử lại.") : t("Không thể thêm khách hàng. Vui lòng thử lại."),
     );
     const field = oCuaThongBaoMayChu(message);
-    if (
-      field &&
-      !(laSua && field === "maKhachHang") &&
-      !(field === "nguoiLienHe" && !coNguoiLienHe) &&
-      !(field === "maSoThue" && !coMaSoThue)
-    ) {
+    if (field && !(laSua && field === "maKhachHang")) {
       setFieldError(field, message);
       // Chờ render xong (ô hết readOnly) rồi mới focus vào ô cần sửa.
       setTimeout(() => focusField(field), 0);
@@ -312,10 +275,9 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
     }
   };
 
-  const describedBy = (name, coGoiY = false) =>
-    errors[name] || dangKiem[name] || coGoiY ? `${fieldId(name)}-message` : undefined;
+  const describedBy = (name) => (errors[name] || dangKiem[name] ? `${fieldId(name)}-message` : undefined);
 
-  const textInputProps = (name, coGoiY = false) => ({
+  const textInputProps = (name) => ({
     id: fieldId(name),
     ref: (element) => {
       inputRefs.current[name] = element;
@@ -325,7 +287,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
     readOnly: submitting,
     autoComplete: "off",
     "aria-invalid": errors[name] ? true : undefined,
-    "aria-describedby": describedBy(name, coGoiY),
+    "aria-describedby": describedBy(name),
     className: cn(CONTROL_CLASS, errors[name] && CONTROL_ERROR_CLASS),
     onChange: (event) => changeField(name, event.target.value),
   });
@@ -346,7 +308,6 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
     ) : null;
 
   const TitleIcon = laSua ? Pencil : UserPlus;
-  const chuaPhanLoai = laSua && !form.loaiKhachHang;
 
   return (
     <>
@@ -387,7 +348,7 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
             <DialogDescription className="text-sm text-bo-muted">
               {laSua
                 ? t("Ngừng hoặc cho phép hoạt động ở nút ⋯ trên trang khách hàng.")
-                : t("Khách mới ở trạng thái Hoạt động, chọn được ngay khi tạo báo giá, bán tại quầy.")}
+                : t("Khách mới ở trạng thái Hoạt động, chọn được ngay khi bán tại quầy.")}
             </DialogDescription>
           </DialogHeader>
           <button
@@ -419,101 +380,11 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
             </div>
           ) : null}
 
-          <div className="space-y-1.5">
-            <span id={fieldId("loai-nhan")} className="text-sm font-medium text-bo-foreground">
-              {t("Loại khách hàng")}
-            </span>
-            <RadioGroupPrimitive.Root
-              ref={loaiRef}
-              value={form.loaiKhachHang}
-              onValueChange={(value) => changeField("loaiKhachHang", value)}
-              disabled={submitting}
-              aria-labelledby={fieldId("loai-nhan")}
-              aria-describedby={errors.loaiKhachHang ? `${fieldId("loaiKhachHang")}-message` : undefined}
-              className="grid grid-cols-3 gap-2"
-            >
-              {LOAI_KHACH_HANG.map((loai) => (
-                <RadioGroupPrimitive.Item
-                  key={loai.value}
-                  value={loai.value}
-                  className="group flex min-w-0 items-start gap-2.5 rounded-lg border border-bo-border bg-white px-3 py-2.5 text-left text-bo-foreground transition-colors hover:border-slate-400 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-bo-primary/15 disabled:cursor-not-allowed disabled:opacity-60 data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary-soft/60 data-[state=checked]:shadow-[inset_0_0_0_1px_var(--color-bo-primary)] max-sm:flex-col max-sm:items-center max-sm:gap-1 max-sm:px-1.5 max-sm:py-2.5 max-sm:text-center"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] border-slate-400 bg-bo-surface group-data-[state=checked]:border-bo-primary"
-                  >
-                    <span className="size-2 rounded-full bg-bo-primary opacity-0 group-data-[state=checked]:opacity-100" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold leading-5 max-sm:text-[13px]">{loai.label}</span>
-                    <span className="block text-xs leading-4 text-bo-muted max-sm:hidden">{loai.moTa}</span>
-                  </span>
-                </RadioGroupPrimitive.Item>
-              ))}
-            </RadioGroupPrimitive.Root>
-            {errors.loaiKhachHang ? (
-              <p id={`${fieldId("loaiKhachHang")}-message`} className="flex items-start gap-1.5 text-xs leading-5 text-bo-danger">
-                <AlertCircle className="mt-[3px] size-3.5 shrink-0" aria-hidden="true" />
-                <span>{errors.loaiKhachHang}</span>
-              </p>
-            ) : null}
-            {chuaPhanLoai ? (
-              <p className="flex items-start gap-2 rounded-md border border-slate-100 bg-bo-surface-subtle px-2.5 py-2 text-xs leading-[18px] text-slate-600">
-                <Info className="mt-px size-3.5 shrink-0 text-bo-muted" aria-hidden="true" />
-                <span>
-                  {t("Khách này chưa được phân loại (thường do tạo tự động từ đơn Shopify). Chọn loại nếu đã biết; để trống vẫn lưu được.")}
-                </span>
-              </p>
-            ) : null}
-          </div>
-
-          {/* Khách lẻ: Tên | Mã. Khách sỉ / doanh nghiệp (hoặc khách đã có mã số thuế): Tên trải hết hàng (tên công ty dài),
-              Mã số thuế | Mã chung hàng dưới. Thêm và Sửa cùng bố cục: khi sửa, mã hiện ở ô khóa. */}
-          <div className="mt-4 grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-            <Field
-              id={fieldId("tenKhachHang")}
-              label={t("Tên khách hàng")}
-              required
-              error={errors.tenKhachHang}
-              className={coMaSoThue ? "sm:col-span-2" : undefined}
-            >
-              <Input {...textInputProps("tenKhachHang")} aria-required="true" placeholder={goiYTen(form.loaiKhachHang)} />
+          {/* Tên | Mã. Thêm và Sửa cùng bố cục: khi sửa, mã hiện ở ô khóa. */}
+          <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+            <Field id={fieldId("tenKhachHang")} label={t("Tên khách hàng")} required error={errors.tenKhachHang}>
+              <Input {...textInputProps("tenKhachHang")} aria-required="true" placeholder={t("VD: Nguyễn Văn An")} />
             </Field>
-            {coMaSoThue ? (
-              <Field
-                id={fieldId("maSoThue")}
-                label={t("Mã số thuế")}
-                labelExtra={
-                  // Popover (bấm / chạm để mở), không dùng Tooltip: tooltip không mở khi chạm trên điện thoại.
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label={t("Mã số thuế in ở mục Người mua trên hóa đơn; cần khi khách lấy hóa đơn GTGT")}
-                        className="-m-1 inline-flex rounded p-1 text-slate-400 hover:text-bo-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
-                      >
-                        <Info className="size-3.5" aria-hidden="true" />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent side="top" align="start" className="w-64 p-3 text-xs leading-5 text-bo-foreground">
-                      {t("In ở mục Người mua trên hóa đơn; cần khi khách lấy hóa đơn GTGT.")}
-                    </PopoverContent>
-                  </Popover>
-                }
-                error={errors.maSoThue}
-                kiemTra={dangKiem.maSoThue ? t("Đang kiểm tra trùng mã số thuế...") : ""}
-                extra={moKhachTrung("maSoThue")}
-              >
-                <Input
-                  {...textInputProps("maSoThue")}
-                  // Không dùng inputMode="numeric": bàn phím số của iOS không có dấu "-" để gõ mã đơn vị phụ thuộc.
-                  placeholder={t("VD: {{viDu}}", { viDu: "0312345673" })}
-                  spellCheck={false}
-                  className={cn(CONTROL_CLASS, "tabular-nums", errors.maSoThue && CONTROL_ERROR_CLASS)}
-                  onChange={(event) => changeField("maSoThue", chuanHoaMaSoThueKhiNhap(event.target.value))}
-                />
-              </Field>
-            ) : null}
             {laSua ? (
               <Field id={fieldId("maKhachHang")} label={t("Mã khách hàng")}>
                 <div className="relative">
@@ -554,18 +425,6 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
               <span className="text-xs text-bo-muted">{t("Cần ít nhất số điện thoại hoặc email")}</span>
             </div>
             <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-              {coNguoiLienHe ? (
-                <Field
-                  id={fieldId("nguoiLienHe")}
-                  label={t("Người liên hệ")}
-                  error={errors.nguoiLienHe}
-                  hint={t("Người đặt hàng, nhận báo giá bên phía khách")}
-                  className="sm:col-span-2"
-                >
-                  <Input {...textInputProps("nguoiLienHe", true)} placeholder={t("VD: Trần Thị Mai")} />
-                </Field>
-              ) : null}
-
               <Field
                 id={fieldId("soDienThoai")}
                 label={t("Số điện thoại")}
@@ -599,15 +458,9 @@ function KhachHangForm({ khachHang, oMoDau, onClose, onSaved }) {
                 />
               </Field>
 
-              <Field
-                id={fieldId("diaChi")}
-                label={nhanDiaChi(form.loaiKhachHang)}
-                error={errors.diaChi}
-                hint={goiYDiaChi(form.loaiKhachHang)}
-                className="sm:col-span-2"
-              >
+              <Field id={fieldId("diaChi")} label={t("Địa chỉ")} error={errors.diaChi} className="sm:col-span-2">
                 <Textarea
-                  {...textInputProps("diaChi", true)}
+                  {...textInputProps("diaChi")}
                   rows={2}
                   placeholder={t("VD: 27 Trần Phú, Hải Châu, Đà Nẵng")}
                   className={cn(

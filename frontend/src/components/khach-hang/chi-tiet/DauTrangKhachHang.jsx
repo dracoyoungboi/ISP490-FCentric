@@ -15,7 +15,7 @@ import StatusBadge from "@/components/shared/StatusBadge";
 import { CAU_HINH_THONG_BAO_NHANH } from "@/config/thongBaoNhanh";
 import useSaoChep from "@/hooks/useSaoChep";
 import { formatDate } from "@/utils/formatters";
-import { laHoatDong, nhanLoaiKhach } from "./tinhKhachHang";
+import { laHoatDong } from "./tinhKhachHang";
 import { t } from "@/i18n";
 
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
@@ -23,7 +23,7 @@ const MUC_MENU = "cursor-pointer items-start gap-2 rounded-md px-2.5 py-2 text-s
 
 /**
  * Đầu khối của màn Chi tiết khách hàng (bản một khối, chốt 18/10/2026): nút quay lại, tên + trạng thái,
- * dòng phụ (mã + nút sao chép · loại khách · khách từ ngày tạo).
+ * dòng phụ (mã + nút sao chép · khách từ ngày tạo).
  *
  * Thao tác theo quyền (backend vẫn là chốt chặn thật):
  * - `coTheSua` (quản trị viên, quản lý kho, NV bán hàng): Chỉnh sửa, Ngừng / Cho phép hoạt động (trong ⋯, kèm một dòng hệ quả).
@@ -61,7 +61,6 @@ export default function DauTrangKhachHang({ khachHang, coTheSua, onQuayLai, onCh
 
   const soDienThoai = khachHang.soDienThoai?.trim();
   const email = khachHang.email?.trim();
-  const loai = nhanLoaiKhach(khachHang.loaiKhachHang);
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-4 sm:px-6 sm:py-5">
@@ -93,12 +92,13 @@ export default function DauTrangKhachHang({ khachHang, coTheSua, onQuayLai, onCh
                 <NutSaoChep giaTri={khachHang.maKhachHang} nhan={t("Sao chép mã khách hàng")} className="ml-0.5 size-6" />
               </span>
             ) : null}
-            {/* Điện thoại: loại khách xuống dòng riêng, không mở đầu dòng bằng dấu "·" */}
-            <span className="max-sm:basis-full">
-              {khachHang.maKhachHang ? <span className="max-sm:hidden">· </span> : null}
-              {loai ?? t("Chưa phân loại")}
-              {khachHang.ngayTao ? ` · ${t("khách từ {{ngay}}", { ngay: formatDate(khachHang.ngayTao) })}` : ""}
-            </span>
+            {/* Điện thoại: ngày tạo xuống dòng riêng, không mở đầu dòng bằng dấu "·" */}
+            {khachHang.ngayTao ? (
+              <span className="max-sm:basis-full">
+                {khachHang.maKhachHang ? <span className="max-sm:hidden">· </span> : null}
+                {t("Khách từ {{ngay}}", { ngay: formatDate(khachHang.ngayTao) })}
+              </span>
+            ) : null}
           </p>
         </div>
       </div>
