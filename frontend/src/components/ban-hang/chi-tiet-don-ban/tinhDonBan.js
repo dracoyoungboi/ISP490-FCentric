@@ -249,9 +249,11 @@ export function lyDoKhoaHuy(ct) {
  *   chờ xuất), tạo lại phiếu xuất (Chờ nhặt hàng / Đã xuất một phần, phiếu nhặt Đã nhặt, không còn phiếu xuất mở).
  * Đơn tại quầy (tạo thẳng ở Hoàn thành) không có hủy.
  */
-export function thaoTacDonBan(ct, { laBan = false, laKho = false } = {}) {
+export function thaoTacDonBan(ct, { laBan = false, laKho = false, laQuanLyKhoTong = false } = {}) {
   const tt = Number(ct?.donBanHang?.trangThai);
   const laPos = laDonTaiQuay(ct);
+  const laShopify = laDonShopify(ct?.donBanHang);
+  const coTheGuiKhoShopify = laShopify && (laQuanLyKhoTong || Boolean(ct?.coTheGuiSangKho));
   const pxMo = phieuXuatDangMo(ct);
   const daNhat = ct?.trangThaiPhieuNhat === "da_nhat";
   const menuHuy = laBan && !laPos && [TT.NHAP, TT.CHO_NHAT_HANG, TT.CHO_DONG_GOI, TT.DA_DONG_GOI, TT.DA_XUAT_MOT_PHAN].includes(tt);
@@ -260,7 +262,7 @@ export function thaoTacDonBan(ct, { laBan = false, laKho = false } = {}) {
     menuHoanTra: laBan && (tt === TT.DA_XUAT_MOT_PHAN || tt === TT.DA_XUAT_KHO),
     menuHuy,
     lyDoKhoaHuy: menuHuy ? lyDoKhoaHuy(ct) : "",
-    nutGuiKho: laBan && tt === TT.NHAP,
+    nutGuiKho: tt === TT.NHAP && (laBan || coTheGuiKhoShopify),
     nutDaGiao: laBan && tt === TT.DA_XUAT_KHO,
     nutDongGoi: laKho && tt === TT.CHO_DONG_GOI,
     nutXuat: laKho && tt === TT.DA_DONG_GOI && Boolean(pxMo),
@@ -337,7 +339,7 @@ export function buocDonBan(ct) {
  * Các dòng thông báo trong khối (chỉ khi có việc phải biết) `{ ma, tone, chu, lienKet? }`; `lienKet: "donChoXuat"` →
  * nút "Mở Đơn chờ xuất" (chỉ vai trò kho). `tenKho`: kho xuất của đơn. Câu theo bản demo đã chốt.
  */
-export function thongBaoDonBan(ct, { laBan = false, laKho = false } = {}) {
+export function thongBaoDonBan(ct, { laBan = false, laKho = false, laQuanLyKhoTong = false } = {}) {
   const don = ct?.donBanHang;
   if (!don) return [];
   const tt = Number(don.trangThai);
@@ -345,6 +347,8 @@ export function thongBaoDonBan(ct, { laBan = false, laKho = false } = {}) {
   const them = (ma, tone, chu, lienKet) => ds.push({ ma, tone, chu, lienKet: lienKet ?? null });
   const tenKho = don.khoXuat?.tenKho || t("kho xuất");
   const laSan = laDonSan(don);
+  const laShopify = laDonShopify(don);
+  const coTheDieuTiet = laBan || (laShopify && (laQuanLyKhoTong || Boolean(ct?.coTheGuiSangKho)));
   const tenKenh = tenKenhCua(don);
   const pl = String(ct.maPickList ?? "").trim();
   const daNhat = ct.trangThaiPhieuNhat === "da_nhat";
@@ -352,9 +356,20 @@ export function thongBaoDonBan(ct, { laBan = false, laKho = false } = {}) {
   if (laDonTaiQuay(ct)) {
     them("taiQuay", "neutral", t("Đã thu tiền và trừ tồn ở {{tenKho}} ngay lúc bán.", { tenKho }));
   } else if (tt === TT.NHAP) {
-    if (!laBan) them("nhap", "neutral", t("Đơn nháp, bán hàng chưa gửi sang kho."));
+    if (!coTheDieuTiet) them("nhap", "neutral", t("Đơn nháp, bán hàng chưa gửi sang kho."));
     else if (laSan) them("nhap", "info", t("Đơn {{tenKenh}} tự về {{tenKho}}. Chọn kho gần khách rồi gửi sang kho.", { tenKenh, tenKho }));
     else them("nhap", "info", t("Đơn nháp đã trừ vào tồn có thể bán của {{tenKho}}, chưa giữ lô. Gửi sang kho để kho bắt đầu nhặt hàng.", { tenKho }));
+
+    if (coTheDieuTiet && laShopify) {
+      if (ct?.tenKhoDeXuat) {
+        const laPickup = ["PICK_UP", "PICKUP"].includes(String(ct?.phuongThucGiaoSan ?? "").toUpperCase());
+        const phuongThuc = laPickup ? t(" · Khách chọn nhận tại cửa hàng") : "";
+        them("shopifyGoiY", "info", t("Shopify gợi ý xuất từ {{tenKho}}{{phuongThuc}}.", { tenKho: ct.tenKhoDeXuat, phuongThuc }));
+      }
+      if (ct?.tachNhieuKhoSan) {
+        them("shopifyTachKho", "warn", t("Đơn Shopify đang tách từ nhiều điểm giao nhận trên sàn. Khi điều tiết về một kho, hệ thống tự chuyển vị trí xử lý trên Shopify."));
+      }
+    }
   } else if (tt === TT.CHO_NHAT_HANG && !pl) {
     them("choGom", "neutral", t("Đơn đang ở Đơn chờ xuất của {{tenKho}}, chờ kho gom vào phiếu nhặt hàng.", { tenKho }), laKho ? "donChoXuat" : null);
   } else if (tt === TT.CHO_NHAT_HANG && daNhat) {

@@ -4,6 +4,7 @@ import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHang
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import apiClient from "@/services/apiClient";
 import { getMineKhoList } from "@/services/khoService";
+import { laKhoTong } from "@/utils/kho";
 import {
   Calendar,
   Eye,
@@ -277,12 +278,14 @@ export default function DonBanHangList() {
     `${filters.keyword}|${kenh}|${filters.ngayDatHang}|${filters.thanhToan}`
   );
 
-  // ── Dòng chú ý: đơn nháp chưa gửi kho trong phạm vi danh sách, bỏ qua các bộ lọc khác (R4) ──
-  const canSeeDrafts = roles.includes(ROLE.NHAN_VIEN_BAN_HANG) || isAdmin;
+  // ── Dòng chú ý: đơn nháp chưa gửi kho trong phạm vi danh sách (QL Kho Tổng chỉ xem đơn nháp Shopify), bỏ qua các bộ lọc khác (R4) ──
+  const laQuanLyKhoTong = isAdmin || (roles.includes(ROLE.QUAN_LY_KHO) && Array.isArray(khoPhuTrach) && khoPhuTrach.some(laKhoTong));
+  const laChiQlkTongShopify = userRoles !== null && !isAdmin && !roles.includes(ROLE.NHAN_VIEN_BAN_HANG) && laQuanLyKhoTong;
+  const canSeeDrafts = roles.includes(ROLE.NHAN_VIEN_BAN_HANG) || isAdmin || laChiQlkTongShopify;
   const donNhap = useDemTheoTrangThai(
     [TAB_NHAP],
-    () => countOrders(buildFilterList({ trangThai: [0] })),
-    "don-nhap",
+    () => countOrders(buildFilterList({ kenh: laChiQlkTongShopify ? "shopify" : "", trangThai: [0] })),
+    laChiQlkTongShopify ? "don-nhap-shopify" : "don-nhap",
     { enabled: userRoles !== null && canSeeDrafts }
   );
 
@@ -314,11 +317,11 @@ export default function DonBanHangList() {
     if (kenh) changeKenh("");
   };
 
-  // Nút của dòng chú ý: mở tab Nháp, bỏ các bộ lọc khác (kể cả kênh) để số dòng khớp số trong câu
+  // Nút của dòng chú ý: mở tab Nháp, bỏ các bộ lọc khác (kể cả kênh trừ QL Kho Tổng chỉ điều tiết Shopify) để số dòng khớp số trong câu
   const showDrafts = () => {
     setSearchText("");
     setFilters((p) => ({ ...p, keyword: "", ngayDatHang: "", thanhToan: "", page: 0 }));
-    setTab(TAB_NHAP, { kenh: null });
+    setTab(TAB_NHAP, { kenh: laChiQlkTongShopify ? "shopify" : null });
   };
 
   const handleRetry = () => {
