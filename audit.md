@@ -133,6 +133,7 @@
 | **AUDIT-115** | `2026-11-18 21:35:00` | PhanAnh & Antigravity AI | Bug Fix, Sync & Warehouse Switch / Xử lý triệt để cơ chế chọn & chuyển kho bán hàng TikTok Shop, reset Delta Sync & tự phục hồi `editProduct` | `KenhBanHangDongBoServiceImpl.java`, `KenhBanHangDongBoServiceTest.java`, `audit.md` | Giải đáp giới hạn Read-only của TikTok Seller Center `is_default` trên `GET /logistics/202309/warehouses`; Sửa `getLocations("TIKTOK")` không gắn trùng nhãn `" (Kho bán hàng mặc định)"` khi có >= 2 kho bán hàng và lưu đủ `MA_KHO_SAN` + `TEN_KHO_SAN`; Nâng cấp `luuCaiDat` khi đổi `maKhoSan` để đồng bộ `KENH_<MA>_KHO_MAPPING`, xóa `CACHED_TIKTOK_PRODUCT_SIGNATURES`, reset `soLuongDaDay = null` vượt qua Delta Sync và đẩy tồn ngay sang kho mới; Đưa `warehouseId` vào `productSignature` và bổ sung tự phục hồi `12052533` kèm cập nhật cache `skuToInventories` trong `capNhatSanPhamLenTikTok`; Bổ sung 2 unit tests, đạt 205/205 backend tests PASS 100% và Frontend 728/728 tệp i18n sạch 100%. |
 | **AUDIT-116** | `2026-11-19 00:22:00` | PhanAnh & Antigravity AI | Fix, Feat & UX / Khắc phục lỗi in vận đơn Shopee `shipping_document_should_print_first`, chuyển kho chuẩn Sapo cho TikTok Shop & Shopee + Pop-up xác nhận, đồng bộ tức thời hoàn trả Shopify & đối soát 2 chiều Shopee | `ShopeeClient.java`, `DonBanHangService.java`, `KenhBanHangController.java`, `ShopifyOrderSnapshotClient.java`, `OmnichannelOrderSyncJob.java`, `KenhBanHangServiceImpl.java`, `KenhBanHangDongBoServiceImpl.java`, `noiDungSan.js`, `ChannelSettingsPage.jsx`, `kenh-ban.json`, `ShopeeClientTest.java`, `KenhBanHangDongBoServiceTest.java`, `OmnichannelOrderSyncJobTest.java`, `audit.md` | Giải quyết triệt để lỗi `logistics.shipping_document_should_print_first` khi in vận đơn A6 Shopee (`shipOrderAuto`, truyền `tracking_number` vào `create_shipping_document`, fallback `NORMAL_AIR_WAYBILL`, chặn PDF trả JSON lỗi 200 qua `laJsonLoiShopee`); Triển khai chuyển đổi kho chuẩn Sapo cho TikTok Shop (gọi `editProduct` với `sku.id = null` gắn SKU sang kho mới, cập nhật `maSanPhamKenh`, tự phục hồi `12052533` nếu bị sàn khóa) và Shopee (`get_warehouse_detail`, `get_address_list`, chọn kho FCentric nguồn, truyền `location_id` đa kho); Hiển thị Pop-up xác nhận chuyển sản phẩm sang kho mới (`ConfirmModal`) trên `ChannelSettingsPage.jsx`; Đồng bộ tức thời yêu cầu hoàn trả Shopify (`returnStatus = RETURN_REQUESTED / IN_PROGRESS`) sang `Bị hoàn trả (6)`; Nâng cấp hủy/giao Shopee 2 chiều (`getOrderDetail` + `IN_CANCEL`); 250/250 backend omnichannel unit tests & 728/728 frontend i18n check PASS 100%. |
 | **AUDIT-117** | `2026-11-19 01:18:00` | PhanAnh & Antigravity AI | Fix & Sync / Khắc phục lỗi biên dịch `HashMap`, đồng bộ trạng thái "Gửi sang kho" Shopee -> `PROCESSED` và sửa luồng in vận đơn A6 Shopee (`SHOPEE_OFFICIAL`, xác thực JWT, unwrap `ResponseData`) | `OmnichannelOrderSyncJob.java`, `DonBanHangService.java`, `NhatHangServiceImpl.java`, `PhieuXuatKhoService.java`, `SalesOrderPackingSlipPrint.jsx`, `ShopeeAwbDocument.jsx`, `DonBanHangServiceGiaoHangSanTest.java`, `OmnichannelOrderSyncJobTest.java`, `audit.md` | Bổ sung `import java.util.HashMap;` khắc phục lỗi biên dịch tại `OmnichannelOrderSyncJob.java:389`; Đổi ánh xạ đơn Shopee `READY_TO_SHIP -> 0 (Nháp)` và `PROCESSED -> 1 (Chờ nhặt hàng)`, đồng bộ ngay `dongBoTrangThaiChuanBiHangShopee` (chuyển Shopee sang `PROCESSED` - Người bán đang chuẩn bị hàng) ngay lúc "Gửi sang kho" (`sendToWarehouse`) thay vì đợi hoàn tất nhặt hàng, kèm đối soát tiến trình và kích hoạt bảo vệ khi tạo Pick List (`taoPickList`); Sửa 3 điểm nghẽn in tem A6 Shopee: bổ sung `SHOPEE_OFFICIAL` trong `PhieuXuatKhoService` (tránh fallback Lazada), unwrap `ResponseData` trong `SalesOrderPackingSlipPrint.jsx`, và gọi `apiClient` đính JWT + mặc định hiển thị tem A6 trong `ShopeeAwbDocument.jsx`; Đạt 252/252 backend omnichannel tests, `vite build` & 728/728 frontend `i18n:kiem` PASS 100%. |
+| **AUDIT-118** | `2026-11-19 09:07:20` | PhanAnh & Antigravity AI | Fix & UX / Nhúng trực tiếp vận đơn Shopee vào giao diện in A6 hệ thống thay cho tab popup mới | `DonBanHangDetail.jsx`, `SalesOrderPackingSlipPrint.jsx`, `ShopeeAwbDocument.jsx`, `shopeeAwbHelpers.js`, `shopeeAwbHelpers.test.js`, `shopeeAwb.css`, `kenh-ban.json`, `audit.md` | Rà soát rule/skill in A6 và sửa triệt để việc bấm in vận đơn đơn Shopee từ chi tiết đơn hàng bật tab popup ngoài; Chuyển `DonBanHangDetail.jsx` (`laShopee`) điều hướng thẳng tới `/sales-orders/:id/print-packing-slip`; Bổ sung trích xuất `[VẬN ĐƠN]`, `[ĐƠN VỊ]`, COD và khối lượng ước tính tại `SalesOrderPackingSlipPrint.jsx`; Refactor `ShopeeAwbDocument.jsx` sửa thứ tự React hooks & `trackingCode` fallback `"—"`, tự động tải `/api/v1/don-ban-hang/{id}/van-don-san` qua `apiClient` (kèm JWT), nhúng trực tiếp PDF (`%PDF` qua Blob URL) hoặc HTML chính thức của sàn vào `<iframe class="sawb-pdf-viewer pdoc-pdf-frame">` tích hợp với `PrintRoutePage.handlePrint()`, fallback về tem nhiệt A6 FCentric khi sàn chưa trả tệp; Cập nhật `@media print` & layout `.sawb-page-container` tại `shopeeAwb.css`; Đạt 58/58 print & order unit tests, 0 lỗi ESLint, 728/728 `i18n:kiem` và `vite build` PASS 100%. |
 
 
 ---
@@ -4502,6 +4503,54 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
 - **Frontend:**
   + `npm run i18n:kiem`: **728/728 tệp sạch 100%** (Chưa bọc: 0, Thiếu bản dịch: 0, Lệch: 0).
   + `npm run build`: **BUILD SUCCESS** (`vite build` hoàn tất trong 19.02s).
+
+---
+
+### [AUDIT-118] NHÚNG TRỰC TIẾP VẬN ĐƠN SHOPEE VÀO GIAO DIỆN IN A6 HỆ THỐNG THAY CHO TAB POPUP MỚI
+
+#### Metadata
+- **Thời gian:** 19/11/2026 09:07 (GMT+7)
+- **Tác giả:** PhanAnh & Antigravity AI
+- **Phân hệ:** Shopee A6 Waybill Inline Print (`DonBanHangDetail`, `SalesOrderPackingSlipPrint`, `ShopeeAwbDocument`, `shopeeAwbHelpers`, `shopeeAwb.css`).
+- **Tệp thay đổi:**
+  + `frontend/src/pages/sales-orders/DonBanHangDetail.jsx`
+  + `frontend/src/pages/sales-orders/SalesOrderPackingSlipPrint.jsx`
+  + `frontend/src/components/print/ShopeeAwbDocument.jsx`
+  + `frontend/src/components/print/shopeeAwbHelpers.js` (tạo mới)
+  + `frontend/src/components/print/shopeeAwbHelpers.test.js` (tạo mới)
+  + `frontend/src/components/print/shopeeAwb.css`
+  + `frontend/src/i18n/en/kenh-ban.json`
+  + `audit.md`
+
+#### Mục tiêu & Phân tích nguyên nhân gốc rễ (Root Cause Analysis - RCA)
+1. **Nút "In vận đơn sàn (A6)" tại chi tiết đơn bán hàng Shopee bật popup tab trình duyệt mới:**
+   - Hàm `inVanDonSan` tại `DonBanHangDetail.jsx` trước đây gọi `donBanHangService.layVanDonSan(id)` để lấy Blob rồi mở `window.open(fileUrl, "_blank")`, chỉ điều hướng về giao diện in A6 của hệ thống trong nhánh `catch` khi lỗi.
+2. **Màn hình A6 hệ thống (`ShopeeAwbDocument.jsx`) chưa tự nhúng tệp vận đơn Shopee (`PDF` / `HTML`):**
+   - `PrintRoutePage.jsx` đã hỗ trợ in trực tiếp qua `.pdoc-pdf-frame` và khung chuẩn A6 (`100mm × 150mm`), nhưng `ShopeeAwbDocument.jsx` mới dừng ở hai nút tải/mở tab mới và render tem nhiệt mô phỏng `.sawb-card`, chưa tự động tải `/api/v1/don-ban-hang/{id}/van-don-san` khi mount.
+   - `ShopeeAwbDocument.jsx` vi phạm React Rules of Hooks (`if (!model) return null;` đặt trước `useState`), bị bug `channelInfo.trackingCode` nhận giá trị `"—"` từ hàm `dash()`, và `shopeeAwb.css` khóa `.sawb-wrapper { max-height: 150mm; overflow: hidden }` + thiếu `@media print` khiến thanh công cụ hoặc watermark có thể che/cắt khung iframe.
+   - `SalesOrderPackingSlipPrint.jsx` khi đi từ `/sales-orders/:id/print-packing-slip` chưa tách `[VẬN ĐƠN: ...]` / `[ĐƠN VỊ: ...]` từ `don.ghiChu`, COD và khối lượng ước tính như `PhieuXuatKhoService.getDetail`.
+
+#### Giải pháp kỹ thuật & Chi tiết triển khai
+1. **Điều hướng trực tiếp vào giao diện in A6 của hệ thống (`DonBanHangDetail.jsx`, `SalesOrderPackingSlipPrint.jsx`):**
+   - Trong `DonBanHangDetail.jsx`, với đơn Shopee (`laShopee`), `inVanDonSan()` điều hướng thẳng tới `/sales-orders/${id}/print-packing-slip` thay vì `window.open(..., "_blank")` (giữ nút **"Quay lại"** trên `PrintLayout` đưa đúng về chi tiết đơn hàng).
+   - Tại `SalesOrderPackingSlipPrint.jsx`, bổ sung đọc thẻ `[VẬN ĐƠN: ...]` và `[ĐƠN VỊ: ...]` trong `don.ghiChu`, tính nhãn COD (`THU HỘ(COD)` / `ĐÃ THANH TOÁN`), khối lượng kiện hàng và chuẩn hóa `donViPickup` / `donViDelivery` cho Shopee.
+2. **Tải và nhúng trực tiếp vận đơn Shopee trong `ShopeeAwbDocument.jsx` & `shopeeAwbHelpers.js`:**
+   - Chuyển toàn bộ React Hooks lên đầu component và dùng khóa fetch (`fetchKey`) kèm derived state (không gọi `setState` đồng bộ trong `useEffect`, giải phóng sạch `URL.createObjectURL`).
+   - Tự động gọi `apiClient.get(shippingDocUrl, { responseType: "blob" })` (đính JWT):
+     + Nếu sàn trả **PDF thật** (`Content-Type: application/pdf` hoặc magic bytes `%PDF`): tạo `blob:` URL nhúng thẳng vào `<iframe class="sawb-pdf-viewer pdoc-pdf-frame" />` trong khung A6, ẩn `.sawb-card` mặc định (vẫn cho phép bấm **"Xem bản mẫu A6"** / **"Tải PDF A6"** / **"Mở PDF trong tab mới"**).
+     + Nếu sàn trả **HTML chính thức của sàn** (không phải HTML fallback `taoVanDonShopeeHtml`): loại bỏ `<script>` tự gọi `window.print()` lúc tải trang bằng `lamSachHtmlDeNhung` và nhúng vào `<iframe srcDoc={...} class="sawb-pdf-viewer pdoc-pdf-frame" />`.
+     + Nếu sàn chưa trả tệp (`Shopee Express · Tem in nhiệt chuẩn A6` fallback hoặc lỗi kết nối/HTTP): trích mã vận đơn thật từ fallback nếu có (`trichMaVanDonTuHtml`), hiện thông báo + nút **"Thử tải lại"** (`.no-print`) và hiển thị tem nhiệt A6 `.sawb-card` chuẩn FCentric để vẫn xem và in ngay qua nút **"In phiếu"**.
+3. **Chuẩn hóa CSS A6 & đa ngôn ngữ (`shopeeAwb.css`, `en/kenh-ban.json`):**
+   - Tách `.sawb-page-container`, đưa `.sawb-official-pdf-section.no-print` ra ngoài `.sawb-wrapper` (tránh watermark đè toolbar), đặt `.sawb-official-pdf-embed-wrapper` vừa vặn `100mm × 146mm` và bổ sung quy tắc `@media print`.
+   - Bổ sung 16 khóa dịch tiếng Anh vào `frontend/src/i18n/en/kenh-ban.json`.
+
+#### Kết quả kiểm thử & Đối soát hồi quy
+- **Unit Tests Frontend (`node --test` trên nhóm print & sales-orders gồm `shopeeAwbHelpers.test.js`, `tinhTem.test.js`, `maVach.test.js`, `cauHinhMauIn.test.js`, `khoiTongIn.test.js`, `printFormat.test.js`, `soTienBangChu.test.js`, `tinhDonBan.test.js`):**
+  + **58/58 tests PASS 100%** (5/5 test mới trong `shopeeAwbHelpers.test.js`).
+- **ESLint:** `npx eslint` trên 5 tệp JS/JSX mới/sửa — **0 errors, 0 warnings**.
+- **i18n & Build Frontend:**
+  + `npm run i18n:kiem`: **728/728 tệp sạch 100%** (`Chưa bọc: 0`, `Thiếu bản dịch: 0`, `Lệch: 0`).
+  + `npm run build` (`vite build`): **3504 modules transformed, built in 17.12s**.
 
 
 
