@@ -223,8 +223,8 @@ public class AdminDashboardController {
     }
 
     /**
-     * Tiền thu trong kỳ của Báo cáo doanh thu (theo ngày thu tiền): tiền mặt, chuyển khoản, hoàn, sàn thu hộ, còn phải
-     * thu. Cùng tham số với /bao-cao/doanh-thu; nhân viên bán hàng chỉ xem cửa hàng mình được phân công.
+     * Tiền thu trong kỳ của Báo cáo doanh thu (theo ngày thu tiền): tiền mặt, chuyển khoản tại quầy, hoàn khi trả hàng,
+     * sàn thu hộ. Cùng tham số với /bao-cao/doanh-thu; nhân viên bán hàng chỉ xem cửa hàng mình được phân công.
      */
     @GetMapping("/bao-cao/tien-thu")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang})
