@@ -23,7 +23,6 @@ import com.dev.backend.dto.response.customize.TongQuanMuaHangKhachDto;
 import com.dev.backend.dto.response.entities.ChiTietDonBanHangDto;
 import com.dev.backend.dto.response.entities.DonBanHangDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
-import com.dev.backend.dto.response.thanhtoan.ThanhToanDonBanDto;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.ChiTietDonBanHangMapper;
@@ -152,9 +151,6 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     @Autowired
     private PosPaymentRepository posPaymentRepository;
-
-    @Autowired
-    private ThanhToanDonBanService thanhToanDonBanService;
 
     @Autowired
     private BangChungDongGoiService bangChungDongGoiService;
@@ -404,55 +400,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
         TongQuanMuaHangKhachDto ketQua = tongHopMuaHang(theoTrangThai, donGanNhat);
         ketQua.setKenhMua(kenhMua);
-
-        // Còn phải thu / cần hoàn: đơn không phải đơn sàn có trạng thái thanh toán chưa xong hoặc thu dư. Đơn cũ chưa theo
-        // dõi (trạng thái trống) và đơn tại quầy (Đã thanh toán) không vào đây
-        Specification<DonBanHang> theoDoiThu = spec.and((r, q, c) -> c.and(
-                c.isNull(r.get("kenhBanHang")),
-                c.or(c.isNull(r.get("maDonHangKenh")), c.equal(c.trim(r.<String>get("maDonHangKenh")), "")),
-                r.get("trangThaiThanhToan").in(THANH_TOAN_CHUA_XONG)));
-        CriteriaQuery<Tuple> tq = cb.createTupleQuery();
-        Root<DonBanHang> rt = tq.from(DonBanHang.class);
-        tq.multiselect(rt.get("id"), rt.get("trangThai"), rt.get("tongCong")).where(theoDoiThu.toPredicate(rt, tq, cb));
-        List<DonPhaiThu> donPhaiThu = entityManager.createQuery(tq).getResultList().stream()
-                .map(row -> new DonPhaiThu(row.get(0, Integer.class), row.get(1, Integer.class), row.get(2, BigDecimal.class)))
-                .toList();
-        Map<Integer, BigDecimal> daThu = donPhaiThu.isEmpty() ? Map.of()
-                : thanhToanDonBanService.daThuTheoDon(donPhaiThu.stream().map(DonPhaiThu::id).toList());
-        congNoThanhToan(ketQua, donPhaiThu, daThu);
         return ketQua;
-    }
-
-    /** Trạng thái thanh toán của đơn còn nợ hoặc thu dư (lọc trước khi cộng theo phiếu). */
-    private static final List<String> THANH_TOAN_CHUA_XONG = List.of(TinhThanhToan.CHUA_THANH_TOAN,
-            TinhThanhToan.THANH_TOAN_MOT_PHAN, TinhThanhToan.CAN_HOAN_TIEN);
-
-    record DonPhaiThu(Integer id, Integer trangThai, BigDecimal tongCong) {
-    }
-
-    /**
-     * Cộng còn phải thu / cần hoàn của các đơn (tách riêng để kiểm thử): mỗi đơn so phải thu với đã thu theo phiếu;
-     * đơn nháp (kể cả trang_thai NULL) có đặt cọc không tính còn phải thu, nhưng thu dư vẫn tính cần hoàn.
-     */
-    static void congNoThanhToan(TongQuanMuaHangKhachDto kq, List<DonPhaiThu> dsDon, Map<Integer, BigDecimal> daThu) {
-        BigDecimal conPhaiThu = BigDecimal.ZERO, canHoan = BigDecimal.ZERO;
-        long soConPhaiThu = 0, soCanHoan = 0;
-        for (DonPhaiThu d : dsDon) {
-            BigDecimal chenh = daThu.getOrDefault(d.id(), BigDecimal.ZERO)
-                    .subtract(TinhThanhToan.phaiThu(d.trangThai(), d.tongCong()));
-            boolean nhap = d.trangThai() == null || d.trangThai() == ITrangThaiDonBanHang.NHAP;
-            if (chenh.signum() < 0 && !nhap) {
-                conPhaiThu = conPhaiThu.add(chenh.negate());
-                soConPhaiThu++;
-            } else if (chenh.signum() > 0) {
-                canHoan = canHoan.add(chenh);
-                soCanHoan++;
-            }
-        }
-        kq.setConPhaiThu(conPhaiThu);
-        kq.setSoDonConPhaiThu(soConPhaiThu);
-        kq.setCanHoan(canHoan);
-        kq.setSoDonCanHoan(soCanHoan);
     }
 
     /** Số đơn và tổng tiền của một trạng thái. */
@@ -561,8 +509,6 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                         .ngayThu(thu.getNgayTao())
                         .build())
                 .orElse(null);
-        // Đơn bán thường: phải thu, đã thu, các phiếu thu / hoàn
-        ThanhToanDonBanDto.TheoDon thanhToan = thanhToanTaiQuay == null ? thanhToanDonBanService.theoDon(don) : null;
         return DonBanHangDetailResponse.builder()
                 .donBanHang(donDto)
                 .chiTiet(chiTietDtos)
@@ -571,7 +517,6 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .maPickList(phieuNhat != null ? phieuNhat.getMaPickList() : null)
                 .trangThaiPhieuNhat(phieuNhat != null ? phieuNhat.getTrangThai() : null)
                 .thanhToanTaiQuay(thanhToanTaiQuay)
-                .thanhToan(thanhToan)
                 .build();
     }
 
@@ -883,10 +828,6 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         // Thu hồi phiếu xuất chưa xuất (nếu có) liên kết với đơn này (SRS 6.3.2) → 4 (Đã hủy)
         phieuXuatKhoService.huyPhieuXuatNhapTheoDon(don.getId(), "Tự động thu hồi do đơn " + don.getSoDonHang()
                 + " bị hủy: " + lyDoHuy);
-
-        // Phải thu về 0: đơn đã đặt cọc / thu tiền thành Cần hoàn tiền. Gọi cuối cùng: câu đọc phiếu có khóa giữ khóa
-        // tới lúc commit
-        thanhToanDonBanService.tinhLaiSauDoiDon(don);
 
         // Giải phóng Outgoing, hồi phục Free to Use và kích hoạt đẩy tồn (listener chạy sau commit)
         phatSuKienHoanTon(don);
@@ -1234,8 +1175,6 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                             .ngayThucHien(lucHoan)
                             .build()));
         }
-        // Phải thu về 0: tiền đã thu thành Cần hoàn tiền
-        thanhToanDonBanService.tinhLaiSauDoiDon(don);
         // Đơn bị hoàn trả là lúc cần đối chứng: giữ bằng chứng đóng gói thêm một hạn lưu tính từ hôm nay
         bangChungDongGoiService.giaHanLuuTu(don.getId(), Instant.now());
         // Báo kho xuất lập phiếu nhập hoàn trả khi hàng về
