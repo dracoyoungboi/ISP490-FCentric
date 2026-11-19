@@ -1,6 +1,5 @@
 package com.dev.backend.repository;
 
-import com.dev.backend.dto.response.TongQuanVaiTroResponse.BaoGiaCuaToi;
 import com.dev.backend.dto.response.TongQuanVaiTroResponse.ChoBaoGia;
 import com.dev.backend.dto.response.TongQuanVaiTroResponse.ChuyenKho;
 import com.dev.backend.dto.response.TongQuanVaiTroResponse.DonCuaToi;
@@ -916,26 +915,6 @@ public class TongQuanVaiTroRepository {
                 .addValue("mocChoLau", admin.mocUngDung(mocChoLau));
         return jdbc.queryForObject(SQL_DON_CUA_TOI_TOM, p, (rs, i) -> new DonCuaToiTom(rs.getLong("tong"),
                 rs.getLong("can_chu_y"), so(rs, "gia_tri")));
-    }
-
-    static final String SQL_BAO_GIA_CUA_TOI = """
-            SELECT d.id, d.so_don_hang AS ma, COALESCE(kh.ten_khach_hang, kb.ten_kenh) AS khach, d.tong_cong,
-                   DATE_FORMAT(DATE_ADD(d.ngay_tao, INTERVAL :lechCsdl MINUTE), %s) AS ngay_tao,
-                   CASE WHEN d.ngay_tao < :mocQuaHanCsdl THEN 1 ELSE 0 END          AS qua_han
-            FROM don_ban_hang d
-            LEFT JOIN khach_hang kh    ON kh.id = d.khach_hang_id
-            LEFT JOIN kenh_ban_hang kb ON kb.id = d.kenh_ban_id
-            WHERE d.loai_chung_tu = 'bao_gia' AND d.nguoi_tao_id = :nguoiDungId AND d.trang_thai = 0
-            ORDER BY d.ngay_tao IS NULL, d.ngay_tao, d.id
-            LIMIT :soDong
-            """.formatted(THOI_DIEM);
-
-    /** Báo giá do người dùng tạo đang chờ khách phản hồi, cũ trước; quá hạn = tạo trước mocQuaHan. */
-    public List<BaoGiaCuaToi> baoGiaCuaToi(Integer nguoiDungId, LocalDateTime mocQuaHan, int soDong) {
-        MapSqlParameterSource p = thamSoGio(null).addValue("nguoiDungId", nguoiDungId)
-                .addValue("mocQuaHanCsdl", admin.mocTuDien(mocQuaHan)).addValue("soDong", soDong);
-        return jdbc.query(SQL_BAO_GIA_CUA_TOI, p, (rs, i) -> new BaoGiaCuaToi(rs.getInt("id"), rs.getString("ma"),
-                rs.getString("khach"), so(rs, "tong_cong"), rs.getString("ngay_tao"), rs.getInt("qua_han") == 1));
     }
 
     /* ======================================================================

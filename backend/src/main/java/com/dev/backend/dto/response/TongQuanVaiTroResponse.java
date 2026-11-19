@@ -46,7 +46,6 @@ public record TongQuanVaiTroResponse(
     public static final String KHOI_CAN_MUA = "canMua";
     public static final String KHOI_THEO_GIO = "theoGio";
     public static final String KHOI_DON = "don";
-    public static final String KHOI_BAO_GIA = "baoGia";
     public static final String KHOI_BAN_CHAY = "banChay";
 
     /** Kho làm việc (header kho_id). Nhân viên mua hàng không theo kho: null. */
@@ -54,9 +53,9 @@ public record TongQuanVaiTroResponse(
 
     /**
      * Ngưỡng đang dùng (cấu hình hệ thống, chưa cấu hình thì lấy mặc định) để giao diện ghi đúng chữ:
-     * gioChoLau = PICK_WAIT_WARN_HOURS, ngayChoBaoGia = RFQ_WAIT_WARN_DAYS, ngayTheoDoiBaoGia = QUOTE_FOLLOWUP_DAYS.
+     * gioChoLau = PICK_WAIT_WARN_HOURS, ngayChoBaoGia = RFQ_WAIT_WARN_DAYS.
      */
-    public record CauHinh(int gioChoLau, int ngayChoBaoGia, int ngayTheoDoiBaoGia) {}
+    public record CauHinh(int gioChoLau, int ngayChoBaoGia) {}
 
     /** Một điểm theo ngày (hoặc theo tuần: ngay là ngày đầu tuần). */
     public record Diem(String ngay, long giaTri) {}
@@ -195,8 +194,7 @@ public record TongQuanVaiTroResponse(
 
     /* ================================ NHÂN VIÊN BÁN HÀNG ================================ */
 
-    public record BanHang(ChiSoBan chiSo, TheoGio theoGio, List<DonCuaToi> don, List<BaoGiaCuaToi> baoGia,
-                          List<BanChayDong> banChay) {}
+    public record BanHang(ChiSoBan chiSo, TheoGio theoGio, List<DonCuaToi> don, List<BanChayDong> banChay) {}
 
     public record ChiSoBan(SoHomNay doanhThu, DonHomNay donHomNay, TrungBinhDon trungBinhDon,
                            DonCuaToiTom donCuaToi) {}
@@ -216,9 +214,6 @@ public record TongQuanVaiTroResponse(
     /** chuY: "nhap" (chưa gửi kho), "cho_lau" (chờ quá N giờ) hoặc null. */
     public record DonCuaToi(Integer id, String ma, String khachHang, long giaTri, int trangThai, String ngayDat,
                             String chuY) {}
-
-    public record BaoGiaCuaToi(Integer id, String ma, String khachHang, long giaTri, String ngayTao,
-                               boolean quaHan) {}
 
     public record BanChayDong(Integer sanPhamId, String maSanPham, String tenSanPham, long daBan, long conLai) {}
 
