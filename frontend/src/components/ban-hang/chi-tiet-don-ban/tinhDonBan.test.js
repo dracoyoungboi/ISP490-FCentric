@@ -126,8 +126,14 @@ test("thaoTacDonBan: nút theo vai trò × trạng thái", () => {
   assert.equal(thaoTacDonBan(conMo, kho).nutTaoLai, false);
   // Đơn tại quầy không có hủy
   assert.equal(thaoTacDonBan(ct({ trangThai: 5 }, { thanhToanTaiQuay: { phuongThuc: "CASH" } }), ban).menuHuy, false);
-  // Đơn Shopify: giữ nghiệp vụ cũ, bán hàng vẫn thao tác như đơn thường
+  // Đơn Shopify: giữ nghiệp vụ cũ, bán hàng vẫn thao tác như đơn thường; Quản lý Kho Tổng chỉ thấy nutGuiKho với đơn Shopify Nháp
   assert.equal(thaoTacDonBan(ct({ ...shopify, trangThai: 0 }), ban).nutGuiKho, true);
+  const qlkTong = { laBan: false, laKho: true, laQuanLyKhoTong: true };
+  const qlkChiNhanh = { laBan: false, laKho: true, laQuanLyKhoTong: false };
+  assert.equal(thaoTacDonBan(ct({ ...shopify, trangThai: 0 }), qlkTong).nutGuiKho, true);
+  assert.equal(thaoTacDonBan(ct({ ...shopify, trangThai: 0 }), qlkChiNhanh).nutGuiKho, false);
+  assert.equal(thaoTacDonBan(ct({ trangThai: 0 }), qlkTong).nutGuiKho, false);
+  assert.equal(thaoTacDonBan(ct({ kenhBanHang: { maKenh: "SHOPEE" }, maDonHangKenh: "SP-1", trangThai: 0 }), qlkTong).nutGuiKho, false);
 });
 
 test("buocDonBan: tại quầy không có; hủy không suy được thì ẩn; sàn hủy đặt bước dừng", () => {
@@ -159,6 +165,14 @@ test("thongBaoDonBan: câu theo vai trò", () => {
   assert.match(nhapBan[0].chu, /đã trừ vào tồn có thể bán của Kho tổng, chưa giữ lô/);
   assert.equal(thongBaoDonBan(ct({ trangThai: 0 }), { laKho: true })[0].chu, "Đơn nháp, bán hàng chưa gửi sang kho.");
   assert.match(thongBaoDonBan(ct({ ...shopify, trangThai: 0 }), { laBan: true })[0].chu, /^Đơn Shopify tự về Kho tổng\./);
+  const tbShopifyDaKho = thongBaoDonBan(
+    ct({ ...shopify, trangThai: 0 }, { khoDeXuatId: 2, tenKhoDeXuat: "Kho Chi Nhánh HCM", phuongThucGiaoSan: "PICK_UP", tachNhieuKhoSan: true }),
+    { laBan: true, laKho: true, laQuanLyKhoTong: true }
+  );
+  assert.match(tbShopifyDaKho[0].chu, /^Đơn Shopify tự về Kho tổng\./);
+  assert.ok(tbShopifyDaKho.length >= 2, `Cần nối thêm gợi ý kho/PICK_UP/tách kho sau item[0], nhận được: ${JSON.stringify(tbShopifyDaKho)}`);
+  const gop = tbShopifyDaKho.map((x) => x.chu).join(" | ");
+  assert.match(gop, /Kho Chi Nhánh HCM/);
   const choGom = thongBaoDonBan(ct({ trangThai: 1 }), { laKho: true })[0];
   assert.equal(choGom.lienKet, "donChoXuat");
   assert.equal(thongBaoDonBan(ct({ trangThai: 1 }), { laBan: true })[0].lienKet, null);

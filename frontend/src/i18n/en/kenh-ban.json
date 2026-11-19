@@ -989,5 +989,7 @@
   "Vận đơn AWB chính thức Shopee": "Official Shopee AWB shipping label",
   "Thử tải lại": "Retry",
   "Đang tải vận đơn từ Shopee...": "Loading shipping label from Shopee...",
-  "Không thể tải vận đơn từ Shopee: {{error}}. Đang hiển thị tem in nhiệt A6 nội bộ FCentric.": "Could not load Shopee shipping label: {{error}}. Showing FCentric internal A6 thermal label."
+  "Không thể tải vận đơn từ Shopee: {{error}}. Đang hiển thị tem in nhiệt A6 nội bộ FCentric.": "Could not load Shopee shipping label: {{error}}. Showing FCentric internal A6 thermal label.",
+  "Giữ tồn đệm ở kho nhiều hàng nhất (Waterfall):": "Waterfall buffer (largest-stock warehouse first):",
+  "Hệ thống ưu tiên trừ phần giữ lại ở kho có tồn lớn nhất trước và giữ nguyên số tồn ở các kho ít hàng để tránh khóa tồn ở chi nhánh nhỏ. Nếu mọi kho đều nhỏ hơn mức giữ lại, phần giữ lại sẽ được rút dần từ kho lớn xuống kho nhỏ để vẫn bảo toàn tổng đệm.": "The system deducts the reserve from the highest-stock warehouse first and keeps lower-stock branch quantities unchanged to prevent artificial stockouts. When all warehouses are below the reserve, the buffer is drawn down from largest to smallest so the total reserve is still preserved."
 }

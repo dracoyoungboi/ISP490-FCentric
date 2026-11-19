@@ -2,6 +2,7 @@ package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.i18n.LoiChungException;
+import com.dev.backend.i18n.TuChoiTruyCapException;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.enums.FilterLogicType;
 import com.dev.backend.constant.enums.FilterOperation;
@@ -176,6 +177,45 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     @Autowired(required = false)
     private com.dev.backend.services.shopee.ShopeeClient shopeeClient;
+
+    @Autowired(required = false)
+    private com.dev.backend.services.shopify.ShopifyOrderRoutingService shopifyOrderRoutingService;
+
+    /** Quản trị viên, hoặc quản lý kho được phân công ở một Kho tổng. */
+    public boolean laQuanLyKhoTong(NguoiDungAuthInfo user) {
+        if (user == null || user.getVaiTro() == null) return false;
+        if (user.getVaiTro().contains(IRoleType.quan_tri_vien)) return true;
+        if (!user.getVaiTro().contains(IRoleType.quan_ly_kho)) return false;
+        if (user.getPhanQuyenNguoiDungKhos() == null) return false;
+        for (var pq : user.getPhanQuyenNguoiDungKhos()) {
+            if (pq == null || pq.getKho() == null) continue;
+            if (pq.getTrangThai() != null && pq.getTrangThai() != 1) continue;
+            if (KhoService.KHO_TONG.equals(pq.getKho().getLoaiKho())) {
+                return true;
+            }
+            if (pq.getKho().getLoaiKho() == null && pq.getKho().getId() != null && khoRepository != null) {
+                boolean isTong = khoRepository.findById(pq.getKho().getId())
+                        .map(KhoService::laKhoTong)
+                        .orElse(false);
+                if (isTong) return true;
+            }
+        }
+        return false;
+    }
+
+    /** Cô lập quyền gửi sang kho: QTV và NVBH giữ nguyên; Quản lý Kho Tổng chỉ được điều tiết đơn Shopify. */
+    boolean duocDieuTietDonSan(DonBanHang don, NguoiDungAuthInfo user) {
+        if (user == null) return true;
+        Set<String> roles = user.getVaiTro() != null ? user.getVaiTro() : Collections.emptySet();
+        if (roles.contains(IRoleType.quan_tri_vien) || roles.contains(IRoleType.nhan_vien_ban_hang)) {
+            return true;
+        }
+        return roles.contains(IRoleType.quan_ly_kho)
+                && don != null
+                && don.getKenhBanHang() != null
+                && OmnichannelOrderSyncJob.isShopify(don.getKenhBanHang().getMaKenh())
+                && laQuanLyKhoTong(user);
+    }
 
 
     @Override
@@ -509,6 +549,16 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                         .ngayThu(thu.getNgayTao())
                         .build())
                 .orElse(null);
+        com.dev.backend.dto.channel.warehouse.ShopifyOrderRoutingMeta routingMeta = null;
+        if (shopifyOrderRoutingService != null && don.getKenhBanHang() != null
+                && OmnichannelOrderSyncJob.isShopify(don.getKenhBanHang().getMaKenh())
+                && don.getMaDonHangKenh() != null) {
+            routingMeta = shopifyOrderRoutingService.find(don.getMaDonHangKenh()).orElse(null);
+        }
+        NguoiDungAuthInfo currentUser = SecurityContextHolder.getUser();
+        boolean coTheGuiKho = Integer.valueOf(ITrangThaiDonBanHang.NHAP).equals(don.getTrangThai())
+                && duocDieuTietDonSan(don, currentUser);
+
         return DonBanHangDetailResponse.builder()
                 .donBanHang(donDto)
                 .chiTiet(chiTietDtos)
@@ -517,6 +567,11 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .maPickList(phieuNhat != null ? phieuNhat.getMaPickList() : null)
                 .trangThaiPhieuNhat(phieuNhat != null ? phieuNhat.getTrangThai() : null)
                 .thanhToanTaiQuay(thanhToanTaiQuay)
+                .khoDeXuatId(routingMeta != null ? routingMeta.getKhoDeXuatId() : null)
+                .tenKhoDeXuat(routingMeta != null ? routingMeta.getTenKhoDeXuat() : null)
+                .phuongThucGiaoSan(routingMeta != null ? routingMeta.getDeliveryMethodType() : null)
+                .tachNhieuKhoSan(routingMeta != null && routingMeta.isSplitMultiLocation())
+                .coTheGuiSangKho(coTheGuiKho)
                 .build();
     }
 
@@ -530,6 +585,14 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         DonBanHang don = repository.findById(id)
                 .orElseThrow(() -> new CommonException(ThongDiep.of("banHang.donBanKhongTimThayVoiId", id), HttpStatus.NOT_FOUND, null));
         kiemTraPhamVi(don);
+        NguoiDungAuthInfo nguoiGuiKho = SecurityContextHolder.getUser();
+        if (!duocDieuTietDonSan(don, nguoiGuiKho)) {
+            boolean laQlk = nguoiGuiKho != null && nguoiGuiKho.getVaiTro() != null
+                    && nguoiGuiKho.getVaiTro().contains(IRoleType.quan_ly_kho);
+            throw new TuChoiTruyCapException(laQlk
+                    ? ThongDiep.of("banHang.chiQlKhoTongMoiDieuTietShopify")
+                    : ThongDiep.of("banHang.qlKhoChiNhanhKhongGuiDonKhac"));
+        }
 
         if (don.getTrangThai() == null || don.getTrangThai() != 0) {
             throw new CommonException(ThongDiep.of("banHang.chiDonNhapDuocGuiKho"), HttpStatus.BAD_REQUEST, null);
@@ -572,8 +635,11 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
                 && kenhBanHangDongBoService != null) {
             String shopifyOrderId = don.getMaDonHangKenh();
-            SauCommit.chay("Đồng bộ gửi sang kho sang Shopify (in_progress)",
-                    () -> kenhBanHangDongBoService.dongBoTrangThaiDangThucHienShopify(shopifyOrderId));
+            Integer khoChonId = khoChon.getId();
+            SauCommit.chay("Đồng bộ điều tiết kho và gửi sang kho sang Shopify (in_progress)", () -> {
+                kenhBanHangDongBoService.chuyenKhoShopifyTheoKhoFCentric(shopifyOrderId, khoChonId);
+                kenhBanHangDongBoService.dongBoTrangThaiDangThucHienShopify(shopifyOrderId);
+            });
         }
 
         if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopee(don.getKenhBanHang().getMaKenh())
@@ -635,19 +701,35 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             return Collections.emptyList();
         }
 
+        com.dev.backend.dto.channel.warehouse.ShopifyOrderRoutingMeta routingMeta = null;
+        if (shopifyOrderRoutingService != null && don.getKenhBanHang() != null
+                && OmnichannelOrderSyncJob.isShopify(don.getKenhBanHang().getMaKenh())
+                && don.getMaDonHangKenh() != null) {
+            routingMeta = shopifyOrderRoutingService.find(don.getMaDonHangKenh()).orElse(null);
+        }
+        Integer khoDeXuatId = routingMeta != null ? routingMeta.getKhoDeXuatId() : null;
+        String phuongThucSan = routingMeta != null ? routingMeta.getDeliveryMethodType() : null;
+
         if (chiTiets == null || chiTiets.isEmpty()) {
-            return activeKhos.stream().map(k -> KhoKhaDungDto.builder()
-                    .khoId(k.getId())
-                    .maKho(k.getMaKho())
-                    .tenKho(k.getTenKho())
-                    .diaChi(k.getDiaChi())
-                    .laKhoTong(KhoService.laKhoTong(k))
-                    .duHang(true)
-                    .soLuongMatHangDu(0)
-                    .tongSoMatHang(0)
-                    .chiTietTonKho(Collections.emptyList())
-                    .build()
-            ).toList();
+            return activeKhos.stream().map(k -> {
+                boolean laGoiY = khoDeXuatId != null && khoDeXuatId.equals(k.getId());
+                return KhoKhaDungDto.builder()
+                        .khoId(k.getId())
+                        .maKho(k.getMaKho())
+                        .tenKho(k.getTenKho())
+                        .diaChi(k.getDiaChi())
+                        .laKhoTong(KhoService.laKhoTong(k))
+                        .duHang(true)
+                        .soLuongMatHangDu(0)
+                        .tongSoMatHang(0)
+                        .chiTietTonKho(Collections.emptyList())
+                        .goiYTuSan(laGoiY)
+                        .phuongThucGiaoSan(laGoiY ? phuongThucSan : null)
+                        .build();
+            }).sorted(Comparator
+                    .comparing((KhoKhaDungDto dto) -> Boolean.TRUE.equals(dto.getGoiYTuSan()), Comparator.reverseOrder())
+                    .thenComparing(KhoKhaDungDto::getTenKho))
+                    .toList();
         }
 
         List<Integer> bienTheIds = chiTiets.stream()
@@ -720,6 +802,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             }
 
             boolean allDuHang = matHangDuCount == chiTiets.size();
+            boolean laGoiY = khoDeXuatId != null && khoDeXuatId.equals(kId);
             results.add(KhoKhaDungDto.builder()
                     .khoId(kId)
                     .maKho(kho.getMaKho())
@@ -732,12 +815,15 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                     .chiTietTonKho(itemDtos)
                     .maDotKiemKe(maDotKiemKe)
                     .kiemToanKho(khoKiemKe.dotToanKho() != null)
+                    .goiYTuSan(laGoiY)
+                    .phuongThucGiaoSan(laGoiY ? phuongThucSan : null)
                     .build());
         }
 
-        // Sắp xếp: Kho đủ hàng (duHang = true) lên đầu, tiếp theo là số lượng mặt hàng đủ nhiều hơn, sau đó theo tên kho
+        // Sắp xếp: Kho đủ hàng (duHang = true) -> kho Shopify gợi ý -> nhiều mặt hàng đủ hơn -> tên kho
         results.sort(Comparator
                 .comparing(KhoKhaDungDto::getDuHang, Comparator.reverseOrder())
+                .thenComparing((KhoKhaDungDto dto) -> Boolean.TRUE.equals(dto.getGoiYTuSan()), Comparator.reverseOrder())
                 .thenComparing(KhoKhaDungDto::getSoLuongMatHangDu, Comparator.reverseOrder())
                 .thenComparing(KhoKhaDungDto::getTenKho));
 
@@ -834,6 +920,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         lamMoiThongBaoDonCho(don);
 
         // Đơn từ sàn (Shopify / Lazada / Shopee): gọi Order Cancel API SAU KHI commit — giao dịch rollback thì không hủy trên sàn
+        if (shopifyOrderRoutingService != null && don.getMaDonHangKenh() != null) {
+            shopifyOrderRoutingService.remove(don.getMaDonHangKenh());
+        }
         if (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank() && kenhBanHangDongBoService != null) {
             String maDonHangKenh = don.getMaDonHangKenh();
             KenhBanHang kenh = don.getKenhBanHang();
@@ -1104,6 +1193,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopify(don.getKenhBanHang().getMaKenh())
                 && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
                 && kenhBanHangDongBoService != null) {
+            if (shopifyOrderRoutingService != null) {
+                shopifyOrderRoutingService.remove(don.getMaDonHangKenh());
+            }
             String shopifyOrderId = don.getMaDonHangKenh();
             SauCommit.chay("Đồng bộ giao hàng thành công sang Shopify (delivered)",
                     () -> kenhBanHangDongBoService.dongBoTrangThaiDeliveredShopify(shopifyOrderId));
@@ -1144,6 +1236,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopify(don.getKenhBanHang().getMaKenh())
                 && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
                 && kenhBanHangDongBoService != null) {
+            if (shopifyOrderRoutingService != null) {
+                shopifyOrderRoutingService.remove(don.getMaDonHangKenh());
+            }
             String shopifyOrderId = don.getMaDonHangKenh();
             Integer donId = don.getId();
             SauCommit.chay("Đồng bộ hoàn trả và hoàn tiền sang Shopify",

@@ -58,6 +58,8 @@ import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHang
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatCurrency } from "@/utils/formatters";
+import { getMineKhoList } from "@/services/khoService";
+import { laKhoTong } from "@/utils/kho";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
 
@@ -85,8 +87,12 @@ export default function DonBanHangDetail() {
 function ChiTietDonBanHang({ id }) {
   const navigate = useNavigate();
   const quayLai = useQuayLai("/sales-orders");
+  const laQtv = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
   const laBan = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_BAN_HANG]);
   const laKho = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO]);
+  const laQuanLyKho = hasAnyRole([ROLES.QUAN_LY_KHO]);
+  const qKhoMine = useTaiDuLieu(getMineKhoList, "kho-mine-dieu-tiet", { enabled: laQuanLyKho && !laBan });
+  const laQuanLyKhoTong = laQtv || (laQuanLyKho && Array.isArray(qKhoMine.data) && qKhoMine.data.some(laKhoTong));
 
   // ── Đơn ──────────────────────────────────────────────────────────────────
   const taiDon = useCallback(async () => {
@@ -156,7 +162,7 @@ function ChiTietDonBanHang({ id }) {
   const tt = Number(don.trangThai);
   const so = don.soDonHang || `#${don.id}`;
   const tenKenh = tenKenhCua(don);
-  const v = thaoTacDonBan(ct, { laBan, laKho });
+  const v = thaoTacDonBan(ct, { laBan, laKho, laQuanLyKhoTong });
   const buoc = buocDonBan(ct);
   const tien = tienDonBan(don, dong, { laSan });
   const thanhToan = thanhToanDonBan(ct);
@@ -359,7 +365,7 @@ function ChiTietDonBanHang({ id }) {
 
   // ── Thông báo ───────────────────────────────────────────────────────────
   const thongBao = [
-    ...thongBaoDonBan(ct, { laBan, laKho }).map((n) => (
+    ...thongBaoDonBan(ct, { laBan, laKho, laQuanLyKhoTong }).map((n) => (
       <DongThongBao
         key={n.ma}
         tone={n.tone}

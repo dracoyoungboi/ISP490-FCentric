@@ -238,4 +238,52 @@ public class ShopifyMultiLocationInventoryTest {
         assertFalse(saved.getCheDoDaKho(), "Sau khi tắt đa kho, cheDoDaKho phải là false");
         verify(dieuHanhHeThongService, atLeastOnce()).setCauHinhString(eq("KENH_SHOPIFY_KHO_MAPPING"), anyString());
     }
+
+    @Test
+    @DisplayName("phanBoTonDemWaterfall (PA 1): Tập trung trừ tồn đệm ở kho lớn nhất, tất cả nhỏ hơn 5 rút tuần tự xuống đủ 5")
+    void phanBoTonDemWaterfall_PA1_cacKichBanChuan() {
+        // Kịch bản 1: Có kho >= tồn đệm (Tổng=20, HN=4, HCM=3), buffer=5 -> Tổng còn 15, HN=4, HCM=3
+        var k1 = List.of(
+                new KenhBanHangDongBoServiceImpl.KhoTonInput(101L, 1, true, new BigDecimal("20")),
+                new KenhBanHangDongBoServiceImpl.KhoTonInput(102L, 2, false, new BigDecimal("4")),
+                new KenhBanHangDongBoServiceImpl.KhoTonInput(103L, 3, false, new BigDecimal("3"))
+        );
+        var out1 = KenhBanHangDongBoServiceImpl.phanBoTonDemWaterfall(k1, new BigDecimal("100"), 5, 0);
+        assertEquals(15, out1.get(101L));
+        assertEquals(4, out1.get(102L));
+        assertEquals(3, out1.get(103L));
+
+        // Kịch bản 2: Tất cả các kho đều < 5 (Tổng=3, HN=4, HCM=2), buffer=5 -> rút HN(4->0), rồi Tổng(3->2), HCM giữ 2
+        var k2 = List.of(
+                new KenhBanHangDongBoServiceImpl.KhoTonInput(101L, 1, true, new BigDecimal("3")),
+                new KenhBanHangDongBoServiceImpl.KhoTonInput(102L, 2, false, new BigDecimal("4")),
+                new KenhBanHangDongBoServiceImpl.KhoTonInput(103L, 3, false, new BigDecimal("2"))
+        );
+        var out2 = KenhBanHangDongBoServiceImpl.phanBoTonDemWaterfall(k2, new BigDecimal("100"), 5, 0);
+        assertEquals(2, out2.get(101L));
+        assertEquals(0, out2.get(102L));
+        assertEquals(2, out2.get(103L));
+
+        // Kịch bản 3: Bằng nhau (HN=10, Tổng=10, HCM=2) -> ưu tiên trừ Kho Tổng trước
+        var k3 = List.of(
+                new KenhBanHangDongBoServiceImpl.KhoTonInput(102L, 2, false, new BigDecimal("10")),
+                new KenhBanHangDongBoServiceImpl.KhoTonInput(101L, 1, true, new BigDecimal("10")),
+                new KenhBanHangDongBoServiceImpl.KhoTonInput(103L, 3, false, new BigDecimal("2"))
+        );
+        var out3 = KenhBanHangDongBoServiceImpl.phanBoTonDemWaterfall(k3, new BigDecimal("100"), 5, 0);
+        assertEquals(5, out3.get(101L));
+        assertEquals(10, out3.get(102L));
+        assertEquals(2, out3.get(103L));
+
+        // Kịch bản 4: Áp dụng tỷ lệ 50% + ngưỡng về 0 = 2 (Tổng=12 sau trừ 5: nếu tính tinhSoTonDay(12, 50, 5, 2) = 1 <= 2 -> về 0; HCM=2 -> 0)
+        var k4 = List.of(
+                new KenhBanHangDongBoServiceImpl.KhoTonInput(101L, 1, true, new BigDecimal("20")),
+                new KenhBanHangDongBoServiceImpl.KhoTonInput(102L, 2, false, new BigDecimal("12")),
+                new KenhBanHangDongBoServiceImpl.KhoTonInput(103L, 3, false, new BigDecimal("4"))
+        );
+        var out4 = KenhBanHangDongBoServiceImpl.phanBoTonDemWaterfall(k4, new BigDecimal("50"), 5, 2);
+        assertEquals(5, out4.get(101L));
+        assertEquals(6, out4.get(102L));
+        assertEquals(0, out4.get(103L));
+    }
 }

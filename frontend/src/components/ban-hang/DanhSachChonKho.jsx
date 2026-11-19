@@ -105,6 +105,16 @@ export default function DanhSachChonKho({
                     {t("Kho hiện tại của đơn")}
                   </span>
                 ) : null}
+                {kho.goiYTuSan ? (
+                  <span className="ml-1.5 inline-flex h-5 items-center rounded bg-emerald-50 px-1.5 align-[1px] text-[11px] font-semibold text-emerald-700">
+                    {t("Shopify gợi ý")}
+                  </span>
+                ) : null}
+                {["PICK_UP", "PICKUP"].includes(String(kho.phuongThucGiaoSan ?? "").toUpperCase()) ? (
+                  <span className="ml-1.5 inline-flex h-5 items-center rounded bg-amber-50 px-1.5 align-[1px] text-[11px] font-semibold text-amber-800">
+                    {t("Nhận tại cửa hàng")}
+                  </span>
+                ) : null}
               </span>
               <span className="col-start-2 sm:col-start-3 sm:row-start-1">
                 <StatusBadge label={nhanKho(kho)} />

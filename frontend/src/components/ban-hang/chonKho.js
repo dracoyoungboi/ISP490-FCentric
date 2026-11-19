@@ -20,11 +20,12 @@ export function khoChonDuoc(ds) {
   return (Array.isArray(ds) ? ds : []).filter((k) => k && idKho(k) != null && !laKhoAo(k));
 }
 
-/** Xếp như máy chủ: kho đủ hàng trước → nhiều mặt hàng đủ hơn → tên kho (A–Z, theo tiếng Việt). */
+/** Xếp như máy chủ: kho đủ hàng trước → kho Shopify gợi ý → nhiều mặt hàng đủ hơn → tên kho (A–Z, theo tiếng Việt). */
 export function xepKho(ds) {
   return [...(Array.isArray(ds) ? ds : [])].sort(
     (a, b) =>
       Number(Boolean(b?.duHang)) - Number(Boolean(a?.duHang))
+      || Number(Boolean(b?.goiYTuSan)) - Number(Boolean(a?.goiYTuSan))
       || docSo(b?.soLuongMatHangDu) - docSo(a?.soLuongMatHangDu)
       || String(a?.tenKho ?? "").localeCompare(String(b?.tenKho ?? ""), "vi"),
   );

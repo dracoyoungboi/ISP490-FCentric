@@ -279,11 +279,11 @@ class IRoleTypeTest {
                 Arguments.of(KiemKeController.class, "POST", "/{id}/huy", Set.of(QT, QLK)),
                 // Internal Bin Relocation: vai trò kho và nhân viên bán hàng
                 Arguments.of(ChuyenKeNoiBoController.class, "POST", "", Set.of(QT, QLK, NVK, NVBH)),
-                // Sales Order: nhân viên bán hàng; nhân viên kho, quản lý kho chỉ xem (Đ2)
+                // Sales Order: nhân viên bán hàng; riêng send-to-warehouse mở thêm cho quản lý kho để service cô lập Quản lý Kho Tổng với đơn Shopify
                 Arguments.of(DonBanHangController.class, "POST", "/filter", Set.of(QT, QLK, NVK, NVBH)),
                 Arguments.of(DonBanHangController.class, "GET", "/{id}/detail", Set.of(QT, QLK, NVK, NVBH)),
                 Arguments.of(DonBanHangController.class, "PUT", "/{id}/cancel", Set.of(QT, NVBH)),
-                Arguments.of(DonBanHangController.class, "PUT", "/{id}/send-to-warehouse", Set.of(QT, NVBH)),
+                Arguments.of(DonBanHangController.class, "PUT", "/{id}/send-to-warehouse", Set.of(QT, NVBH, QLK)),
                 Arguments.of(DonBanHangController.class, "GET", "/kpi-hom-nay", Set.of(QT, NVBH)),
                 // Customer: nhân viên bán hàng
                 Arguments.of(KhachHangController.class, "POST", "/filter", Set.of(QT, NVBH)),
@@ -415,12 +415,15 @@ class IRoleTypeTest {
         }
 
         @Test
-        @DisplayName("Đơn bán (Đ2): quản lý kho, nhân viên kho chỉ có API đọc")
+        @DisplayName("Đơn bán (Đ2): nhân viên kho chỉ có API đọc; quản lý kho chỉ đọc trừ PUT send-to-warehouse (cô lập Quản lý Kho Tổng với Shopify ở service)")
         void donBan_vaiTroKhoChiDoc() {
             for (Method m : api(DonBanHangController.class)) {
                 Set<String> vt = vaiTro(m);
                 assertFalse(vt.contains(NVMH), ten(m));
-                if (vt.contains(QLK) || vt.contains(NVK)) assertTrue(chiDoc(m), ten(m));
+                if (vt.contains(NVK)) assertTrue(chiDoc(m), ten(m));
+                if (vt.contains(QLK) && !duongDan(m, dongTu(m)).contains("/{id}/send-to-warehouse")) {
+                    assertTrue(chiDoc(m), ten(m));
+                }
             }
         }
 

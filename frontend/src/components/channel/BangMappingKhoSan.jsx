@@ -182,10 +182,10 @@ export default function BangMappingKhoSan({
               <ShieldCheck className="size-4 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-bo-heading">
-                  {t("Cơ chế Phân bổ Tồn đệm Thông minh (Smart Buffer Allocation):")}
+                  {t("Giữ tồn đệm ở kho nhiều hàng nhất (Waterfall):")}
                 </p>
                 <p className="mt-0.5">
-                  {t("Hệ thống tự động phân bổ tỷ lệ tồn đệm theo tồn thực tế của từng kho, tránh nhân số lượng giữ tồn gây thiếu hàng ảo trên sàn. Với các sản phẩm lẻ size/lẻ màu (tồn < 5 cái), thuật toán tự động giảm tồn đệm để bảo toàn khả năng bán.")}
+                  {t("Hệ thống ưu tiên trừ phần giữ lại ở kho có tồn lớn nhất trước và giữ nguyên số tồn ở các kho ít hàng để tránh khóa tồn ở chi nhánh nhỏ. Nếu mọi kho đều nhỏ hơn mức giữ lại, phần giữ lại sẽ được rút dần từ kho lớn xuống kho nhỏ để vẫn bảo toàn tổng đệm.")}
                 </p>
               </div>
             </div>
