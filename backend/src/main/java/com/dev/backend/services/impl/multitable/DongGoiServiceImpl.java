@@ -199,8 +199,10 @@ public class DongGoiServiceImpl implements DongGoiService {
                     && don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank()
                     && kenhBanHangDongBoService != null) {
                 String shopifyOrderId = don.getMaDonHangKenh();
-                SauCommit.chay("Đồng bộ đóng gói xong sang Shopify (in_progress)",
-                        () -> kenhBanHangDongBoService.dongBoTrangThaiDangThucHienShopify(shopifyOrderId));
+                SauCommit.chay("Đồng bộ đóng gói xong sang Shopify (in_progress / ready_for_pickup)", () -> {
+                    kenhBanHangDongBoService.dongBoTrangThaiDangThucHienShopify(shopifyOrderId);
+                    kenhBanHangDongBoService.dongBoSanSangLayTaiCuaHangShopify(shopifyOrderId);
+                });
             }
 
             if (don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isTikTok(don.getKenhBanHang().getMaKenh())

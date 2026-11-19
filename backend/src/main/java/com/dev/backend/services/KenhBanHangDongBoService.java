@@ -131,6 +131,21 @@ public interface KenhBanHangDongBoService {
      */
     boolean dongBoTrangThaiFulfilledShopify(Integer donId, String maDonHangKenh);
 
+    /** Overload truyền trực tiếp mã vận đơn và ĐVVC từ sự kiện xuất kho (bao gồm cả nhập tay qua DispatchDialog). */
+    default boolean dongBoTrangThaiFulfilledShopify(Integer donId, String maDonHangKenh, String maVanDon, String donViVanChuyen) {
+        return dongBoTrangThaiFulfilledShopify(donId, maDonHangKenh);
+    }
+
+    /** Chuyển FulfillmentOrder đang mở sang Location ứng với kho FCentric khi Kho Tổng điều tiết sang kho khác gợi ý. */
+    default boolean chuyenKhoShopifyTheoKhoFCentric(String maDonHangKenh, Integer khoFCentricId) {
+        return false;
+    }
+
+    /** Báo khách sẵn sàng nhận tại cửa hàng (PICK_UP) trên Shopify sau khi kho hoàn tất đóng gói. */
+    default boolean dongBoSanSangLayTaiCuaHangShopify(String maDonHangKenh) {
+        return false;
+    }
+
     /**
      * Đồng bộ chuyển đơn hàng Shopify sang Đã giao (delivered)
      * khi FCentric xác nhận đơn hàng thành công (Hoàn thành - HOAN_THANH = 5).

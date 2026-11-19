@@ -127,6 +127,26 @@ public class OmnichannelOrderSyncJob {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     com.dev.backend.services.shopee.ShopeeClient shopeeClient;
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    com.dev.backend.services.shopify.ShopifyMultiLocationClient shopifyMultiLocationClient;
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    com.dev.backend.services.shopify.ShopifyOrderRoutingService shopifyOrderRoutingService;
+
+    com.dev.backend.services.shopify.ShopifyMultiLocationClient getShopifyMultiLocationClient() {
+        if (shopifyMultiLocationClient == null) {
+            shopifyMultiLocationClient = new com.dev.backend.services.shopify.ShopifyMultiLocationClient(objectMapper);
+        }
+        return shopifyMultiLocationClient;
+    }
+
+    com.dev.backend.services.shopify.ShopifyOrderRoutingService getShopifyOrderRoutingService() {
+        if (shopifyOrderRoutingService == null) {
+            shopifyOrderRoutingService = new com.dev.backend.services.shopify.ShopifyOrderRoutingService();
+        }
+        return shopifyOrderRoutingService;
+    }
     /** Nhật ký "Thêm khách hàng" khi đơn sàn tự tạo khách (test dựng tay không có thì bỏ qua). */
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -386,41 +406,35 @@ public class OmnichannelOrderSyncJob {
 
     private void boSungTrangThaiHoanTraShopifyQuaGraphQL(String domain, String token, JsonNode orders, RestTemplate restTemplate) {
         if (orders == null || !orders.isArray() || orders.isEmpty()) return;
-        List<String> gids = new ArrayList<>();
+        List<String> numericIds = new ArrayList<>();
         Map<String, com.fasterxml.jackson.databind.node.ObjectNode> byId = new HashMap<>();
         for (JsonNode n : orders) {
             if (!(n instanceof com.fasterxml.jackson.databind.node.ObjectNode obj)) continue;
             if (n.hasNonNull("cancelled_at")) continue;
             String id = n.path("id").asText("").trim();
             if (!id.matches("[1-9][0-9]*")) continue;
-            String fin = n.path("financial_status").asText("").trim().toLowerCase();
-            if ("refunded".equals(fin) || "partially_refunded".equals(fin)) continue;
-            gids.add("gid://shopify/Order/" + id);
+            numericIds.add(id);
             byId.put(id, obj);
         }
-        if (gids.isEmpty()) return;
+        if (numericIds.isEmpty()) return;
         try {
-            String url = "https://" + domain + "/admin/api/2026-04/graphql.json";
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("X-Shopify-Access-Token", token);
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            String query = "query($ids:[ID!]!){nodes(ids:$ids){... on Order{id returnStatus}}}";
-            ResponseEntity<String> res = restTemplate.exchange(
-                    url, HttpMethod.POST, new HttpEntity<>(Map.of("query", query, "variables", Map.of("ids", gids)), headers), String.class);
-            if (!res.getStatusCode().is2xxSuccessful() || res.getBody() == null) return;
-            JsonNode nodes = objectMapper.readTree(res.getBody()).path("data").path("nodes");
-            if (!nodes.isArray()) return;
-            for (JsonNode node : nodes) {
-                String gid = node.path("id").asText("");
-                String numId = gid.replaceFirst("^gid://shopify/Order/", "").trim();
-                String rStatus = node.path("returnStatus").asText("").trim();
+            Map<String, com.dev.backend.services.shopify.ShopifyMultiLocationClient.OrderGraphMeta> batchMeta =
+                    getShopifyMultiLocationClient().fetchOrderBatchMeta(domain, token, numericIds);
+            batchMeta.forEach((numId, meta) -> {
                 com.fasterxml.jackson.databind.node.ObjectNode target = byId.get(numId);
-                if (target != null && !rStatus.isBlank() && !"NO_RETURN".equalsIgnoreCase(rStatus)) {
-                    target.put("return_status", rStatus);
+                if (target == null || meta == null) return;
+                String fin = target.path("financial_status").asText("").trim().toLowerCase();
+                boolean daHoanTien = "refunded".equals(fin) || "partially_refunded".equals(fin);
+                if (!daHoanTien && meta.returnStatus() != null && !meta.returnStatus().isBlank()
+                        && !"NO_RETURN".equalsIgnoreCase(meta.returnStatus())) {
+                    target.put("return_status", meta.returnStatus());
                 }
-            }
+                if (meta.fulfillmentOrders() != null && !meta.fulfillmentOrders().isEmpty()) {
+                    target.set("fulfillment_orders_gql", objectMapper.valueToTree(meta.fulfillmentOrders()));
+                }
+            });
         } catch (Exception ex) {
-            log.debug("[JOB-01] Không tra cứu được returnStatus GraphQL Shopify (sẽ dùng dữ liệu REST): {}", ex.getMessage());
+            log.debug("[JOB-01] Không tra cứu được batch GraphQL Shopify (sẽ dùng dữ liệu REST): {}", ex.getMessage());
         }
     }
 
@@ -498,6 +512,7 @@ public class OmnichannelOrderSyncJob {
                         boolean daHuy = donBanHangService.huyDonTuSan(existing.getId(),
                                 "Hủy từ sàn Shopify: " + orderNode.path("cancel_reason").asText(""));
                         if (daHuy) {
+                            getShopifyOrderRoutingService().remove(orderId);
                             log.info("[JOB-01] Đơn {} đã bị hủy trên Shopify -> Cập nhật trạng thái FCentric = 4", soDonHang);
                         }
                     } catch (Exception ex) {
@@ -567,6 +582,22 @@ public class OmnichannelOrderSyncJob {
                             () -> kenhBanHangDongBoService.dongBoTrangThaiDangThucHienShopify(orderId));
                 }
 
+                // Cập nhật lại metadata gợi ý FulfillmentOrder khi đơn Shopify còn đang xử lý
+                if (orderNode.has("fulfillment_orders_gql") || orderNode.has("fulfillment_orders")) {
+                    if (hasDeliveredFulfillment || "fulfilled".equalsIgnoreCase(fulfillmentStatus)) {
+                        getShopifyOrderRoutingService().remove(orderId);
+                    } else {
+                        try {
+                            String mappingJson = dieuHanhHeThongService != null
+                                    ? dieuHanhHeThongService.getCauHinhString("KENH_SHOPIFY_KHO_MAPPING", null) : null;
+                            com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto mapCfg = (mappingJson != null && !mappingJson.isBlank())
+                                    ? objectMapper.readValue(mappingJson, com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto.class) : null;
+                            var meta = getShopifyOrderRoutingService().buildFromOrderNode(orderId, orderNode, mapCfg, khoRepository.findByTrangThai(1));
+                            if (meta != null) getShopifyOrderRoutingService().save(meta);
+                        } catch (Exception ignored) {}
+                    }
+                }
+
                 // 3. Trích xuất mã vận đơn và đơn vị vận chuyển từ fulfillments nếu chưa có
                 if (fulfillments.isArray() && !fulfillments.isEmpty()) {
                     for (JsonNode f : fulfillments) {
@@ -603,52 +634,31 @@ public class OmnichannelOrderSyncJob {
         String financialStatus = orderNode.path("financial_status").asText("pending");
         String ttThanhToan = "paid".equalsIgnoreCase(financialStatus) ? "da_thanh_toan" : "chua_thanh_toan";
 
-        // Chọn kho xuất mặc định
-        // Kho tạm cho đơn sàn: Kho tổng đang hoạt động; nhân viên bán hàng định tuyến lại bằng "Gửi sang kho".
+        // Chọn kho xuất mặc định: giữ nguyên đơn Shopify ở Kho Tổng khi còn Nháp (0) để Admin & Quản lý Kho Tổng điều tiết;
+        // Location từ Shopify chỉ lưu làm gợi ý định tuyến trong metadata và ghi chú đơn.
         List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
         Kho defaultKho = khoHoatDong.stream().filter(KhoService::laKhoTong).findFirst()
                 .orElse(khoHoatDong.stream().filter(k -> !KhoService.laKhoAo(k)).findFirst().orElse(null));
 
-        // Định tuyến đa kho cho Shopify: Nếu đơn hàng mang location_id, tự động gán kho FCentric tương ứng
         Kho khoXuatDonHang = defaultKho;
-        String tenKhoSanDinhTuyen = null;
+        com.dev.backend.dto.channel.warehouse.ShopifyOrderRoutingMeta routingMeta = null;
         try {
-            String shopifyLocationId = null;
-            if (orderNode.hasNonNull("location_id")) {
-                shopifyLocationId = orderNode.path("location_id").asText("").trim();
+            String mappingJson = dieuHanhHeThongService != null
+                    ? dieuHanhHeThongService.getCauHinhString("KENH_SHOPIFY_KHO_MAPPING", null) : null;
+            com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto mapCfg = null;
+            if (mappingJson != null && !mappingJson.isBlank()) {
+                mapCfg = objectMapper.readValue(mappingJson, com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto.class);
             }
-            if ((shopifyLocationId == null || shopifyLocationId.isBlank()) && orderNode.path("fulfillments").isArray() && !orderNode.path("fulfillments").isEmpty()) {
-                shopifyLocationId = orderNode.path("fulfillments").get(0).path("location_id").asText("").trim();
-            }
-            if ((shopifyLocationId == null || shopifyLocationId.isBlank()) && orderNode.path("fulfillment_orders").isArray() && !orderNode.path("fulfillment_orders").isEmpty()) {
-                shopifyLocationId = orderNode.path("fulfillment_orders").get(0).path("assigned_location_id").asText("").trim();
-            }
-            if ((shopifyLocationId == null || shopifyLocationId.isBlank()) && orderNode.path("line_items").isArray() && !orderNode.path("line_items").isEmpty()) {
-                shopifyLocationId = orderNode.path("line_items").get(0).path("location_id").asText("").trim();
-            }
-            if (shopifyLocationId != null && !shopifyLocationId.isBlank()) {
-                String mappingJson = dieuHanhHeThongService.getCauHinhString("KENH_SHOPIFY_KHO_MAPPING", null);
-                if (mappingJson != null && !mappingJson.isBlank()) {
-                    com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto mapCfg = objectMapper.readValue(mappingJson, com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto.class);
-                    if (mapCfg != null && Boolean.TRUE.equals(mapCfg.getCheDoDaKho()) && mapCfg.getDanhSachKho() != null) {
-                        final String locIdCheck = shopifyLocationId;
-                        com.dev.backend.dto.channel.warehouse.KenhKhoMappingItemDto matchedItem = mapCfg.getDanhSachKho().stream()
-                                .filter(m -> m.getMaKhoSan() != null && (m.getMaKhoSan().equals(locIdCheck) || m.getMaKhoSan().endsWith("/" + locIdCheck) || locIdCheck.endsWith("/" + m.getMaKhoSan())))
-                                .filter(m -> m.getKhoIdFCentric() != null)
-                                .findFirst().orElse(null);
-                        if (matchedItem != null && matchedItem.getKhoIdFCentric() != null) {
-                            Kho found = khoHoatDong.stream().filter(k -> k.getId().equals(matchedItem.getKhoIdFCentric())).findFirst().orElse(null);
-                            if (found != null) {
-                                khoXuatDonHang = found;
-                                tenKhoSanDinhTuyen = matchedItem.getTenKhoSan();
-                                log.info("[JOB-01] Định tuyến đơn Shopify {} về kho vật lý {} (theo Location {} - {})", soDonHang, found.getTenKho(), locIdCheck, tenKhoSanDinhTuyen);
-                            }
-                        }
-                    }
+            routingMeta = getShopifyOrderRoutingService().buildFromOrderNode(orderId, orderNode, mapCfg, khoHoatDong);
+            if (routingMeta != null) {
+                getShopifyOrderRoutingService().save(routingMeta);
+                if (routingMeta.getTenKhoDeXuat() != null) {
+                    log.info("[JOB-01] Lưu gợi ý kho Shopify đơn {} -> {} (đơn Nháp giữ tại {})",
+                            soDonHang, routingMeta.getTenKhoDeXuat(), khoXuatDonHang != null ? khoXuatDonHang.getTenKho() : "Kho Tổng");
                 }
             }
         } catch (Exception ex) {
-            log.warn("[JOB-01] Lỗi tra cứu định tuyến kho cho đơn Shopify {}: {}", soDonHang, ex.getMessage());
+            log.warn("[JOB-01] Lỗi phân tích gợi ý định tuyến kho cho đơn Shopify {}: {}", soDonHang, ex.getMessage());
         }
 
         String initTracking = null;
@@ -669,8 +679,17 @@ public class OmnichannelOrderSyncJob {
         }
 
         String shopifyNote = "Đơn hàng đồng bộ tự động từ Shopify #" + orderNumber;
-        if (tenKhoSanDinhTuyen != null && khoXuatDonHang != null) {
-            shopifyNote += " | [ĐỊNH TUYẾN KHO: " + tenKhoSanDinhTuyen + " -> " + khoXuatDonHang.getTenKho() + "]";
+        if (routingMeta != null && routingMeta.getTenKhoDeXuat() != null) {
+            String tenLoc = routingMeta.getShopifyLocationName() != null && !routingMeta.getShopifyLocationName().isBlank()
+                    ? routingMeta.getShopifyLocationName() : "Shopify";
+            shopifyNote += " | [GỢI Ý KHO: " + tenLoc + " -> " + routingMeta.getTenKhoDeXuat() + "]";
+        }
+        if (routingMeta != null && ("PICK_UP".equalsIgnoreCase(routingMeta.getDeliveryMethodType())
+                || "PICKUP".equalsIgnoreCase(routingMeta.getDeliveryMethodType()))) {
+            shopifyNote += " | [NHẬN TẠI CỬA HÀNG]";
+        }
+        if (routingMeta != null && routingMeta.isSplitMultiLocation()) {
+            shopifyNote += " | [ĐƠN TÁCH NHIỀU KHO TRÊN SHOPIFY]";
         }
         if (initTracking != null && !initTracking.isBlank()) {
             shopifyNote += " | [VẬN ĐƠN: " + initTracking + (initCarrier != null && !initCarrier.isBlank() ? " - " + initCarrier : "") + "]";

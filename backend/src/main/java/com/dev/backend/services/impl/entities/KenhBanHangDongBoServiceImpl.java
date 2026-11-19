@@ -146,6 +146,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     ChiTietDonBanHangRepository chiTietDonBanHangRepository;
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    com.dev.backend.repository.PhieuXuatKhoRepository phieuXuatKhoRepository;
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    com.dev.backend.services.shopify.ShopifyOrderRoutingService shopifyOrderRoutingService;
 
     public TikTokShopClient getTikTokShopClient() {
         if (tiktokShopClient == null) {
@@ -8284,7 +8290,54 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     @Override
+    public boolean chuyenKhoShopifyTheoKhoFCentric(String maDonHangKenh, Integer khoFCentricId) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank() || khoFCentricId == null) {
+            return false;
+        }
+        KenhKhoMappingConfigDto mapCfg = layCauHinhKhoMappingDaLuu(MA_KENH_SHOPIFY);
+        String targetLocationId = com.dev.backend.services.shopify.ShopifyOrderRoutingService.resolveShopifyLocationForKho(mapCfg, khoFCentricId);
+        if (targetLocationId == null) {
+            return false;
+        }
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_SHOPIFY)
+                .or(() -> kenhBanHangRepository.findByMaKenh(MA_KENH_SHOPIFY.toLowerCase()))
+                .orElse(null);
+        if (kenh == null) return false;
+        String token = kenhBanHangService.getDecryptedShopifyAccessToken();
+        String domain = extractDomainFromApiUrl(kenh.getApiUrl());
+        if (token == null || token.isBlank() || domain.isBlank()) {
+            return false;
+        }
+        return getShopifyMultiLocationClient().moveOpenFulfillmentOrdersToLocation(domain, token, maDonHangKenh, targetLocationId);
+    }
+
+    @Override
+    public boolean dongBoSanSangLayTaiCuaHangShopify(String maDonHangKenh) {
+        if (maDonHangKenh == null || maDonHangKenh.isBlank()) {
+            return false;
+        }
+        if (shopifyOrderRoutingService != null && !shopifyOrderRoutingService.isPickupOrder(maDonHangKenh)) {
+            return false;
+        }
+        KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_SHOPIFY)
+                .or(() -> kenhBanHangRepository.findByMaKenh(MA_KENH_SHOPIFY.toLowerCase()))
+                .orElse(null);
+        if (kenh == null) return false;
+        String token = kenhBanHangService.getDecryptedShopifyAccessToken();
+        String domain = extractDomainFromApiUrl(kenh.getApiUrl());
+        if (token == null || token.isBlank() || domain.isBlank()) {
+            return false;
+        }
+        return getShopifyMultiLocationClient().prepareForPickupIfApplicable(domain, token, maDonHangKenh);
+    }
+
+    @Override
     public boolean dongBoTrangThaiFulfilledShopify(Integer donId, String maDonHangKenh) {
+        return dongBoTrangThaiFulfilledShopify(donId, maDonHangKenh, null, null);
+    }
+
+    @Override
+    public boolean dongBoTrangThaiFulfilledShopify(Integer donId, String maDonHangKenh, String maVanDonTruyenVao, String donViVanChuyenTruyenVao) {
         if (maDonHangKenh == null || maDonHangKenh.isBlank()) {
             return false;
         }
@@ -8309,10 +8362,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         HttpHeaders headers = createHeaders(token);
 
         try {
+            DonBanHang don = donId != null ? donBanHangRepository.findById(donId).orElse(null) : null;
+            KenhKhoMappingConfigDto mapCfg = layCauHinhKhoMappingDaLuu(MA_KENH_SHOPIFY);
+            String khoXuatShopifyLoc = (don != null && don.getKhoXuat() != null)
+                    ? com.dev.backend.services.shopify.ShopifyOrderRoutingService.resolveShopifyLocationForKho(mapCfg, don.getKhoXuat().getId())
+                    : null;
+
             // 1. Lấy danh sách fulfillment orders có thể hoàn tất kèm chi tiết line_items
             String foUrl = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/orders/" + maDonHangKenh + "/fulfillment_orders.json";
             ResponseEntity<String> foRes = restTemplate.exchange(foUrl, HttpMethod.GET, new HttpEntity<>(headers), String.class);
             List<Map<String, Object>> lineItemsByFo = new ArrayList<>();
+            List<Map<String, Object>> matchedLocationFos = new ArrayList<>();
             if (foRes.getStatusCode().is2xxSuccessful() && foRes.getBody() != null) {
                 JsonNode root = objectMapper.readTree(foRes.getBody());
                 JsonNode foList = root.path("fulfillment_orders");
@@ -8335,18 +8395,24 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             if (foLineItems.isEmpty()) continue;
                             Map<String, Object> foEntry = new LinkedHashMap<>();
                             foEntry.put("fulfillment_order_id", foId);
-                            if (!foLineItems.isEmpty()) {
-                                foEntry.put("fulfillment_order_line_items", foLineItems);
-                            }
+                            foEntry.put("fulfillment_order_line_items", foLineItems);
                             lineItemsByFo.add(foEntry);
+
+                            String assignedLoc = com.dev.backend.services.shopify.ShopifyMultiLocationClient.toNumericId(
+                                    fo.path("assigned_location_id").asText(fo.path("assigned_location").path("location_id").asText("")));
+                            if (khoXuatShopifyLoc != null && khoXuatShopifyLoc.equals(assignedLoc)) {
+                                matchedLocationFos.add(foEntry);
+                            }
                         }
                     }
                 }
             }
 
+            if (lineItemsByFo.size() > 1 && !matchedLocationFos.isEmpty()) {
+                lineItemsByFo = matchedLocationFos;
+            }
+
             if (lineItemsByFo.isEmpty()) {
-                // Không có dòng đủ điều kiện cũng có thể do thiếu quyền hoặc đơn đang bị giữ.
-                // Chỉ nhận đã hoàn tất khi trạng thái gốc của đơn xác nhận điều đó.
                 if (!shopifyDaHoanTatDon(restTemplate, domain, headers, maDonHangKenh)) return false;
                 capNhatTagVaNoteShopify(domain, token, maDonHangKenh, "Đã hoàn tất",
                         List.of("Đang thực hiện", "Chờ đóng gói", "Chờ xuất kho"),
@@ -8354,21 +8420,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 return true;
             }
 
-            // 2. Tìm thông tin vận đơn
-            DonBanHang don = donId != null ? donBanHangRepository.findById(donId).orElse(null) : null;
-            String trackingNumber = null;
-            String trackingCompany = "FCentric Logistics";
-            if (don != null && don.getGhiChu() != null) {
-                java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\[VẬN ĐƠN:\\s*([^\\-\\]]+)(?:\\s*-\\s*([^\\]]+))?\\]").matcher(don.getGhiChu());
-                if (m.find()) {
-                    trackingNumber = m.group(1).trim();
-                    if (m.group(2) != null && !m.group(2).isBlank()) {
-                        trackingCompany = m.group(2).trim();
-                    }
-                }
-            }
-            if (trackingNumber == null || trackingNumber.isBlank()) {
-                trackingNumber = "FCX-" + (don != null ? don.getSoDonHang() : maDonHangKenh);
+            // 2. Lấy thông tin ĐVVC & Mã vận đơn (ưu tiên dữ liệu sự kiện/Popup DispatchDialog -> PXK -> ghi chú đơn -> fallback)
+            String[] trackingPair = giaiMaVanDonVaDvvcChoShopify(donId, don, maDonHangKenh, maVanDonTruyenVao, donViVanChuyenTruyenVao);
+            String trackingNumber = trackingPair[0];
+            String trackingCompany = trackingPair[1];
+            String trackingUrl = buildTrackingLookupUrl(trackingCompany, trackingNumber);
+
+            Map<String, Object> trackingInfo = new LinkedHashMap<>();
+            trackingInfo.put("company", trackingCompany);
+            trackingInfo.put("number", trackingNumber);
+            if (trackingUrl != null) {
+                trackingInfo.put("url", trackingUrl);
             }
 
             // 3. Tạo fulfillment trên Shopify
@@ -8376,10 +8438,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             Map<String, Object> fulfillmentObj = new LinkedHashMap<>();
             fulfillmentObj.put("message", "Đã xuất kho toàn bộ từ kho FCentric");
             fulfillmentObj.put("notify_customer", false);
-            fulfillmentObj.put("tracking_info", Map.of(
-                    "company", trackingCompany,
-                    "number", trackingNumber
-            ));
+            fulfillmentObj.put("tracking_info", trackingInfo);
             fulfillmentObj.put("line_items_by_fulfillment_order", lineItemsByFo);
 
             Map<String, Object> reqBody = Map.of("fulfillment", fulfillmentObj);
@@ -8414,6 +8473,81 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             log.error("[SHOPIFY-FULFILL] Lỗi kết nối khi tạo fulfillment đơn {}: {}", maDonHangKenh, e.getMessage());
         }
         return false;
+    }
+
+    /** Trích xuất [trackingNumber, trackingCompany] theo thứ tự: sự kiện xuất kho (DispatchDialog) -> PXK -> ghi chú đơn -> fallback. */
+    private String[] giaiMaVanDonVaDvvcChoShopify(
+            Integer donId, DonBanHang don, String maDonHangKenh, String maVanDonTruyenVao, String donViVanChuyenTruyenVao) {
+        String trackingNumber = (maVanDonTruyenVao != null && !maVanDonTruyenVao.isBlank() && !"N/A".equalsIgnoreCase(maVanDonTruyenVao.trim()))
+                ? maVanDonTruyenVao.trim() : null;
+        String trackingCompany = (donViVanChuyenTruyenVao != null && !donViVanChuyenTruyenVao.isBlank() && !"N/A".equalsIgnoreCase(donViVanChuyenTruyenVao.trim()))
+                ? donViVanChuyenTruyenVao.trim() : null;
+
+        if ((trackingNumber == null || trackingCompany == null) && donId != null && phieuXuatKhoRepository != null) {
+            try {
+                List<com.dev.backend.entities.PhieuXuatKho> pxList = phieuXuatKhoRepository.findByDonBanHangId(donId);
+                if (pxList != null) {
+                    for (int i = pxList.size() - 1; i >= 0; i--) {
+                        String note = pxList.get(i).getGhiChu();
+                        if (note == null || note.isBlank()) continue;
+                        java.util.regex.Matcher m = java.util.regex.Pattern
+                                .compile("\\[Vận chuyển:\\s*([^\\-\\]]+)\\s*-\\s*Vận đơn:\\s*([^\\-\\]]+)(?:\\s*-\\s*Cước:[^\\]]+)?\\]")
+                                .matcher(note);
+                        if (m.find()) {
+                            String c = m.group(1).trim();
+                            String t = m.group(2).trim();
+                            if (trackingCompany == null && !c.isBlank() && !"N/A".equalsIgnoreCase(c)) trackingCompany = c;
+                            if (trackingNumber == null && !t.isBlank() && !"N/A".equalsIgnoreCase(t)) trackingNumber = t;
+                            if (trackingNumber != null && trackingCompany != null) break;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if ((trackingNumber == null || trackingCompany == null) && don != null && don.getGhiChu() != null) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\[VẬN ĐƠN:\\s*([^\\-\\]]+)(?:\\s*-\\s*([^\\]]+))?\\]").matcher(don.getGhiChu());
+            if (m.find()) {
+                String t = m.group(1).trim();
+                if (trackingNumber == null && !t.isBlank()) trackingNumber = t;
+                if (trackingCompany == null && m.group(2) != null && !m.group(2).isBlank()) {
+                    trackingCompany = m.group(2).trim();
+                }
+            }
+        }
+        if (trackingNumber == null || trackingNumber.isBlank()) {
+            trackingNumber = "FCX-" + (don != null ? don.getSoDonHang() : maDonHangKenh);
+        }
+        if (trackingCompany == null || trackingCompany.isBlank()) {
+            trackingCompany = "FCentric Logistics";
+        }
+        return new String[]{trackingNumber, trackingCompany};
+    }
+
+    /** Sinh URL tra cứu vận đơn chuẩn cho ĐVVC nội địa VN (chỉ khi có mã vận đơn thật). */
+    static String buildTrackingLookupUrl(String carrier, String trackingNumber) {
+        if (carrier == null || trackingNumber == null || trackingNumber.isBlank()
+                || trackingNumber.startsWith("FCX-") || "Tự giao".equalsIgnoreCase(carrier.trim())) {
+            return null;
+        }
+        String norm = carrier.trim().toLowerCase(Locale.ROOT);
+        String code = trackingNumber.trim();
+        if (norm.contains("ghn") || norm.contains("giao hàng nhanh")) {
+            return "https://donhang.ghn.vn/?order_code=" + code;
+        }
+        if (norm.contains("ghtk") || norm.contains("tiết kiệm")) {
+            return "https://i.ghtk.vn/" + code;
+        }
+        if (norm.contains("viettel") || norm.contains("vtp")) {
+            return "https://viettelpost.com.vn/tra-cuu-hanh-trinh-don/?bill=" + code;
+        }
+        if (norm.contains("spx") || norm.contains("shopee")) {
+            return "https://spx.vn/track?" + code;
+        }
+        if (norm.contains("j&t") || norm.contains("jt")) {
+            return "https://jtexpress.vn/vi/tracking?type=track&billcode=" + code;
+        }
+        return null;
     }
 
     private boolean shopifyDaHoanTatDon(RestTemplate restTemplate, String domain, HttpHeaders headers, String orderId) {
