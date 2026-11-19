@@ -16,6 +16,7 @@ import { CAU_HINH_THONG_BAO_NHANH } from "@/config/thongBaoNhanh";
 import useSaoChep from "@/hooks/useSaoChep";
 import { formatDate } from "@/utils/formatters";
 import { laHoatDong } from "./tinhKhachHang";
+import { soDeGoi, tenHienThi } from "../hienThiKhachHang";
 import { t } from "@/i18n";
 
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
@@ -59,7 +60,9 @@ export default function DauTrangKhachHang({ khachHang, coTheSua, onQuayLai, onCh
     }
   };
 
-  const soDienThoai = khachHang.soDienThoai?.trim();
+  // Số sàn đã che ("****", "(+84)909****02") không gọi được: không hiện nút Gọi
+  const soDienThoai = soDeGoi(khachHang.soDienThoai);
+  const ten = tenHienThi(khachHang);
   const email = khachHang.email?.trim();
 
   return (
@@ -80,7 +83,7 @@ export default function DauTrangKhachHang({ khachHang, coTheSua, onQuayLai, onCh
           <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
             {/* Tên dài: điện thoại cho xuống 2 dòng thay vì cắt "…" */}
             <PageHeading className="max-sm:line-clamp-2 max-sm:whitespace-normal">
-              <span title={khachHang.tenKhachHang || undefined}>{khachHang.tenKhachHang || khachHang.maKhachHang || "—"}</span>
+              <span title={ten}>{ten}</span>
             </PageHeading>
             {/* i18n-giu-nguyen: StatusBadge tự dịch */}
             <StatusBadge doiTuong="nguoi" size="lg" label={dangHoatDong ? "Hoạt động" : "Ngừng hoạt động"} />

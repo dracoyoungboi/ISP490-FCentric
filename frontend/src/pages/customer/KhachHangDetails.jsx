@@ -19,6 +19,8 @@ import TrangThaiKhachHangDialog from "@/components/khach-hang/chi-tiet/TrangThai
 import NganKeoLichSu from "@/components/nhat-ky/NganKeoLichSu";
 import { layLichSuDanhMuc } from "@/services/nhatKyService";
 import { ghiChuPhamVi, laHoatDong, tinhKpi, tongSoDon } from "@/components/khach-hang/chi-tiet/tinhKhachHang";
+import ChannelLogo from "@/components/channel/ChannelLogo";
+import { maKenhCuaNguon, sanCuaKhach, tenHienThi, tenNguon } from "@/components/khach-hang/hienThiKhachHang";
 import useQuayLai from "@/hooks/useQuayLai";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { getKhachHangById, getTongQuanMuaHang } from "@/services/khachHangService";
@@ -122,7 +124,10 @@ export default function KhachHangDetails() {
   const dangHoatDong = laHoatDong(khachHang);
   // Khách lẻ mặc định (KHLE) là khách của hệ thống: máy chủ chặn sửa và ngừng (409) nên ẩn các nút đó
   const laKhachLe = khachHang.maKhachHang === WALKIN_CUSTOMER_CODE;
-  const suaDuoc = coTheSua && !laKhachLe;
+  // Khách do đồng bộ đơn sàn tạo (mở từ đơn bán, báo cáo; không nằm trong danh sách khách hàng, chốt 20/11): xem được,
+  // không sửa hay ngừng hoạt động (thông tin do sàn gửi, thường đã che)
+  const sanCuaKhachNay = sanCuaKhach(khachHang);
+  const suaDuoc = coTheSua && !laKhachLe && !sanCuaKhachNay;
   const chinhSua = suaDuoc ? moSua : undefined;
 
   // Lưu xong cập nhật tại chỗ (không tải lại trang, không thêm bước vào lịch sử trình duyệt).
@@ -158,6 +163,21 @@ export default function KhachHangDetails() {
             <span>
               <span className="font-semibold text-bo-foreground">{t("Khách mặc định của hệ thống.")}</span>{" "}
               {t("Dùng cho hóa đơn bán tại quầy không lưu thông tin người mua. Không sửa hay ngừng hoạt động được.")}
+            </span>
+          </div>
+        ) : null}
+
+        {sanCuaKhachNay ? (
+          <div
+            role="status"
+            className="flex items-start gap-2.5 border-t border-bo-border bg-slate-100 px-4 py-3 text-[13px] leading-5 text-slate-700 sm:px-6"
+          >
+            <ChannelLogo maKenh={maKenhCuaNguon(sanCuaKhachNay)} size={16} className="mt-0.5 shrink-0" />
+            <span>
+              <span className="font-semibold text-bo-foreground">
+                {t("Khách từ {{san}}.", { san: tenNguon(sanCuaKhachNay) })}
+              </span>{" "}
+              {t("Hồ sơ do đồng bộ đơn sàn tạo, không có trong danh sách khách hàng.")}
             </span>
           </div>
         ) : null}
@@ -234,7 +254,7 @@ export default function KhachHangDetails() {
         <NganKeoLichSu
           open={moLichSu}
           onOpenChange={setMoLichSu}
-          tieuDe={t("Lịch sử {{ten}}", { ten: khachHang.tenKhachHang || khachHang.maKhachHang || t("khách hàng") })}
+          tieuDe={t("Lịch sử {{ten}}", { ten: tenHienThi(khachHang) })}
           moTa={t("Thêm, sửa, ngừng hoạt động khách hàng: ai làm, lúc nào, đổi gì.")}
           tai={() => layLichSuDanhMuc("khach_hang", khachHang.id)}
         />

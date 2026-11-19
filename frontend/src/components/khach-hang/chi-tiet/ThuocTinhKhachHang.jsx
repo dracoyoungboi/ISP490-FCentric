@@ -3,14 +3,18 @@ import { Mail, Phone } from "lucide-react";
 import NutSaoChep from "@/components/shared/NutSaoChep";
 import { formatDateTime } from "@/utils/formatters";
 import { moTaKenhMua } from "./tinhKhachHang";
+import { laSoBiChe } from "../hienThiKhachHang";
 import { t } from "@/i18n";
 
 const NUT_ICON =
   "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-bo-muted transition-colors hover:bg-slate-100 hover:text-bo-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary";
 const NUT_CHU = "font-medium text-bo-primary hover:text-bo-primary-hover hover:underline";
 
-/** Một dòng liên hệ: nhãn nhỏ, giá trị (hoặc "Chưa có … · Thêm"), nút mở (gọi / gửi email) và nút sao chép. */
-function DongLienHe({ nhan, giaTri, trong, href, nhanMo, icon, kieu, onThem }) {
+/**
+ * Một dòng liên hệ: nhãn nhỏ, giá trị (hoặc "Chưa có … · Thêm"), nút mở (gọi / gửi email) và nút sao chép.
+ * `biChe`: số sàn đã che (có dấu *): vẫn hiện nguyên văn nhưng không có nút gọi, không sao chép.
+ */
+function DongLienHe({ nhan, giaTri, trong, href, nhanMo, icon, kieu, onThem, biChe = false }) {
   return (
     <div className="mt-2.5 flex min-w-0 items-center gap-0.5">
       <div className="min-w-0 flex-1">
@@ -31,12 +35,12 @@ function DongLienHe({ nhan, giaTri, trong, href, nhanMo, icon, kieu, onThem }) {
           </div>
         )}
       </div>
-      {giaTri && href ? (
+      {giaTri && href && !biChe ? (
         <a href={href} aria-label={nhanMo} title={nhanMo} className={NUT_ICON}>
           {createElement(icon, { className: "size-3.5", "aria-hidden": true })}
         </a>
       ) : null}
-      {giaTri ? <NutSaoChep giaTri={giaTri} nhan={t("Sao chép {{ten}}", { ten: nhan.toLocaleLowerCase("vi-VN") })} /> : null}
+      {giaTri && !biChe ? <NutSaoChep giaTri={giaTri} nhan={t("Sao chép {{ten}}", { ten: nhan.toLocaleLowerCase("vi-VN") })} /> : null}
     </div>
   );
 }
@@ -72,6 +76,7 @@ export default function ThuocTinhKhachHang({ khachHang, kenhMua, onChinhSua }) {
           nhanMo={t("Gọi {{soDienThoai}}", { soDienThoai })}
           icon={Phone}
           kieu="tabular-nums"
+          biChe={laSoBiChe(soDienThoai)}
           onThem={them("soDienThoai")}
         />
         <DongLienHe
