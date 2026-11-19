@@ -11,9 +11,8 @@ test("coKhoiBangChung: từ Chờ đóng gói trở đi, đơn hủy có thể c
   assert.equal(coKhoiBangChung({ trangThai: "3", laBan: true }), true, "trạng thái dạng chuỗi");
 });
 
-test("coKhoiBangChung: đơn tại quầy, báo giá, vai trò không xem được thì ẩn", () => {
+test("coKhoiBangChung: đơn tại quầy, vai trò không xem được thì ẩn", () => {
   assert.equal(coKhoiBangChung({ trangThai: 5, laPos: true, laBan: true }), false);
-  assert.equal(coKhoiBangChung({ trangThai: 3, laBaoGia: true, laBan: true }), false);
   assert.equal(coKhoiBangChung({ trangThai: 3 }), false);
   assert.equal(coKhoiBangChung(), false);
 });

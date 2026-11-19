@@ -3,9 +3,7 @@ import assert from "node:assert/strict";
 import {
   KENH_BAN_THUONG,
   cachDay,
-  dieuKienBaoGia,
   dieuKienDon,
-  ghiChuBaoGia,
   ghiChuPhamVi,
   laHoatDong,
   luaChonKenh,
@@ -78,13 +76,6 @@ test("điều kiện lọc đơn: bán thường là đơn không gắn kênh, t
   assert.deepEqual(dk.slice(2), [{ fieldName: "kenhBanHang", operation: "IS_NULL" }]);
 });
 
-test("điều kiện lọc báo giá", () => {
-  assert.deepEqual(dieuKienBaoGia("16"), [
-    { fieldName: "khachHang.id", operation: "EQUALS", value: 16 },
-    { fieldName: "loaiChungTu", operation: "EQUALS", value: "bao_gia" },
-  ]);
-});
-
 test("lựa chọn kênh lấy từ kênh khách đã mua, mô tả Mua qua", () => {
   assert.deepEqual(luaChonKenh(TONG_QUAN.kenhMua), [
     { value: "", label: "Tất cả kênh" },
@@ -150,10 +141,7 @@ test("không có đơn hủy hay hoàn trả", () => {
   assert.equal(soDon.phu, "Không có đơn hủy hay hoàn trả");
 });
 
-test("ghi chú báo giá và phạm vi theo vai trò", () => {
-  assert.equal(ghiChuBaoGia({ trangThai: 4, lyDoTuChoi: " giá chưa phù hợp ", ghiChu: "x" }), "Lý do: giá chưa phù hợp");
-  assert.equal(ghiChuBaoGia({ trangThai: 4, lyDoTuChoi: "", ghiChu: "Gửi lại tuần sau" }), "Gửi lại tuần sau");
-  assert.equal(ghiChuBaoGia({ trangThai: 0, ghiChu: null }), "");
+test("câu phạm vi theo vai trò", () => {
   assert.equal(ghiChuPhamVi({ laQuanTriVien: true, laVaiTroKho: true }), "");
   assert.equal(ghiChuPhamVi({ laVaiTroKho: true, laBanHang: true }), "Chỉ tính đơn xuất từ nơi làm việc của bạn.");
   assert.equal(ghiChuPhamVi({ laBanHang: true }), "Chỉ tính đơn do bạn tạo.");

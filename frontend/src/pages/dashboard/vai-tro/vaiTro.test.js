@@ -15,7 +15,6 @@ import {
   dongViecQuanLyKho,
   duongDanYeuCauNhap,
   giaBan,
-  guiLuc,
   hanhDongBoSung,
   khoangCho,
   lichTheoNgay,
@@ -37,7 +36,7 @@ import {
 
 const gon = (s) => String(s).replace(/\s/g, " ");
 const BAY_GIO = "2026-10-17T15:25:00"; // Thứ Bảy
-const CAU_HINH = { gioChoLau: 2, ngayChoBaoGia: 2, ngayTheoDoiBaoGia: 3 };
+const CAU_HINH = { gioChoLau: 2, ngayChoBaoGia: 2 };
 const CUA_HANG = { id: 910001, tenKho: "Cửa hàng", laKhoTong: false, khoTongId: 22 };
 const KHO_TONG = { id: 22, tenKho: "Kho tổng", laKhoTong: true, khoTongId: 22 };
 const bay = (gt) => gt.map((v, i) => ({ ngay: `2026-10-${String(11 + i).padStart(2, "0")}`, giaTri: v }));
@@ -55,9 +54,6 @@ test("ngày giờ: nhãn ngày, mốc ngắn, khoảng chờ", () => {
   assert.equal(khoangCho("2026-10-17T14:25:00", BAY_GIO), "1 giờ");
   assert.equal(khoangCho("2026-10-17T15:00:00", BAY_GIO), "25 phút");
   assert.equal(khoangCho("2026-10-14T15:00:00", BAY_GIO), "3 ngày");
-  assert.equal(guiLuc("2026-10-17T09:05:00", BAY_GIO), "Gửi lúc 9:05");
-  assert.equal(guiLuc("2026-10-16T09:05:00", BAY_GIO), "Gửi hôm qua");
-  assert.equal(guiLuc("2026-10-13T09:05:00", BAY_GIO), "Gửi 4 ngày trước");
 });
 
 test("mức thay đổi: không dấu kèm mũi tên, 0% trung tính, kỳ trước 0 thì không ghi; điểm phần trăm", () => {
