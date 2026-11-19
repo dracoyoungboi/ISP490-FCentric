@@ -15,19 +15,17 @@ import "@/components/print/shopeeAwb.css";
 
 /**
  * Bản in Vận Đơn Shopee Chuẩn Sàn AWB (Air Waybill) khổ tem nhiệt A6 (100 × 150 mm).
- * Tự động tải tệp vận đơn chính thức từ Shopee (/van-don-san) qua apiClient và nhúng trực tiếp
- * vào giao diện in A6 của hệ thống (PDF / HTML của sàn), fallback sang tem nhiệt A6 FCentric nếu sàn chưa trả tệp.
+ * Tự động tải tệp vận đơn chính thức từ Shopee (/van-don-san) qua apiClient và nhúng gọn trực tiếp
+ * vào khung A6 giữa màn hình (giống TikTokShopAwbDocument, không thêm thanh nút/khung bao ngoài),
+ * fallback sang tem nhiệt A6 FCentric khi sàn chưa trả tệp.
  */
 export default function ShopeeAwbDocument({ model, company }) {
-    const [simulatedForKey, setSimulatedForKey] = useState(null);
     const [reloadSeq, setReloadSeq] = useState(0);
     const [docState, setDocState] = useState({
         key: null,
         status: "idle",
         pdfUrl: null,
         htmlContent: null,
-        rawBlob: null,
-        mimeType: "",
         resolvedTracking: null,
         errorMessage: null,
     });
@@ -36,7 +34,6 @@ export default function ShopeeAwbDocument({ model, company }) {
     const shippingDocUrl = model?.shippingDocUrl || null;
     const isInternalApi = Boolean(shippingDocUrl && shippingDocUrl.startsWith("/"));
     const fetchKey = isInternalApi ? `${shippingDocUrl}#${reloadSeq}` : null;
-    const showSimulated = fetchKey !== null && simulatedForKey === fetchKey;
 
     const giaiPhongPdfUrl = () => {
         if (pdfUrlRef.current) {
@@ -72,8 +69,6 @@ export default function ShopeeAwbDocument({ model, company }) {
                         status: "pdf",
                         pdfUrl: objectUrl,
                         htmlContent: null,
-                        rawBlob: pdfBlob,
-                        mimeType: "application/pdf",
                         resolvedTracking: null,
                         errorMessage: null,
                     });
@@ -96,8 +91,6 @@ export default function ShopeeAwbDocument({ model, company }) {
                             status: "error",
                             pdfUrl: null,
                             htmlContent: null,
-                            rawBlob: null,
-                            mimeType: "",
                             resolvedTracking: null,
                             errorMessage: parsed.message || parsed.error || t("Lỗi kết nối"),
                         });
@@ -111,8 +104,6 @@ export default function ShopeeAwbDocument({ model, company }) {
                         status: "fallback",
                         pdfUrl: null,
                         htmlContent: null,
-                        rawBlob: blob,
-                        mimeType: blob.type || "text/html",
                         resolvedTracking: trichMaVanDonTuHtml(text),
                         errorMessage: null,
                     });
@@ -124,8 +115,6 @@ export default function ShopeeAwbDocument({ model, company }) {
                     status: "html",
                     pdfUrl: null,
                     htmlContent: lamSachHtmlDeNhung(text),
-                    rawBlob: blob,
-                    mimeType: blob.type || "text/html",
                     resolvedTracking: null,
                     errorMessage: null,
                 });
@@ -139,8 +128,6 @@ export default function ShopeeAwbDocument({ model, company }) {
                     status: "error",
                     pdfUrl: null,
                     htmlContent: null,
-                    rawBlob: null,
-                    mimeType: "",
                     resolvedTracking: null,
                     errorMessage: msg,
                 });
@@ -161,8 +148,6 @@ export default function ShopeeAwbDocument({ model, company }) {
             status: "idle",
             pdfUrl: null,
             htmlContent: null,
-            rawBlob: null,
-            mimeType: "",
             resolvedTracking: null,
             errorMessage: null,
         }
@@ -171,8 +156,6 @@ export default function ShopeeAwbDocument({ model, company }) {
                 status: "pdf",
                 pdfUrl: shippingDocUrl,
                 htmlContent: null,
-                rawBlob: null,
-                mimeType: "application/pdf",
                 resolvedTracking: null,
                 errorMessage: null,
             }
@@ -182,8 +165,6 @@ export default function ShopeeAwbDocument({ model, company }) {
                     status: "loading",
                     pdfUrl: null,
                     htmlContent: null,
-                    rawBlob: null,
-                    mimeType: "",
                     resolvedTracking: null,
                     errorMessage: null,
                 };
@@ -209,106 +190,30 @@ export default function ShopeeAwbDocument({ model, company }) {
     const orderDateShort = model.orderDateShort || "15 Nov 2026";
     const senderName = company?.tenCongTy || "FCentric";
 
-    const moTabMoi = () => {
-        if (activeDoc.pdfUrl) {
-            window.open(activeDoc.pdfUrl, "_blank", "noopener,noreferrer");
-            return;
-        }
-        if (activeDoc.rawBlob) {
-            const url = window.URL.createObjectURL(activeDoc.rawBlob);
-            window.open(url, "_blank", "noopener,noreferrer");
-            window.setTimeout(() => window.URL.revokeObjectURL(url), 10000);
-        }
-    };
-
-    const taiTepVanDon = () => {
-        if (!activeDoc.rawBlob) {
-            if (activeDoc.pdfUrl) {
-                window.open(activeDoc.pdfUrl, "_blank", "noopener,noreferrer");
-            }
-            return;
-        }
-        const duoi = String(activeDoc.mimeType || "").toLowerCase().includes("pdf") ? "pdf" : "html";
-        const url = window.URL.createObjectURL(activeDoc.rawBlob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `AWB_Shopee_${trackingCode}.${duoi}`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.setTimeout(() => window.URL.revokeObjectURL(url), 10000);
-    };
-
     const coTepSan = activeDoc.status === "pdf" || activeDoc.status === "html";
-    const dangHienTepSan = coTepSan && !showSimulated;
-    const toggleSimulated = () => setSimulatedForKey((prev) => (prev === fetchKey ? null : fetchKey));
 
     return (
         <div className="sawb-page-container">
-            {shippingDocUrl ? (
-                <div className="sawb-official-pdf-section no-print">
-                    {activeDoc.status === "fallback" || activeDoc.status === "error" ? (
-                        <div className="sawb-warning-banner">
-                            <div className="sawb-warning-desc">
-                                {activeDoc.status === "error"
-                                    ? t("Không thể tải vận đơn từ Shopee: {{error}}. Đang hiển thị tem in nhiệt A6 nội bộ FCentric.", {
-                                        error: activeDoc.errorMessage || t("Lỗi kết nối"),
-                                    })
-                                    : t("Shopee chưa trả tệp vận đơn chính thức cho đơn này — đang hiển thị tem in nhiệt A6 nội bộ FCentric.")}
-                            </div>
-                            <div className="sawb-official-pdf-actions">
-                                <button
-                                    type="button"
-                                    onClick={() => setReloadSeq((n) => n + 1)}
-                                    className="sawb-btn sawb-btn-primary"
-                                >
-                                    {t("Thử tải lại")}
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="sawb-official-pdf-toolbar">
-                            <div className="sawb-official-pdf-badge">
-                                <span className="sawb-status-dot"></span>
-                                <span>
-                                    {activeDoc.status === "loading"
-                                        ? t("Đang tải vận đơn Shopee chuẩn A6...")
-                                        : activeDoc.status === "html"
-                                            ? t("Đã tải vận đơn chuẩn HTML từ Shopee")
-                                            : t("Vận đơn AWB chính thức Shopee (PDF chuẩn sàn)")}
-                                </span>
-                            </div>
-                            {coTepSan && (
-                                <div className="sawb-official-pdf-actions">
-                                    <button
-                                        type="button"
-                                        onClick={moTabMoi}
-                                        className="sawb-btn sawb-btn-secondary"
-                                    >
-                                        {activeDoc.status === "pdf" ? t("Mở PDF trong tab mới") : t("Mở trong tab mới")}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={taiTepVanDon}
-                                        className="sawb-btn sawb-btn-secondary"
-                                    >
-                                        {activeDoc.status === "pdf" ? t("Tải PDF A6") : t("Tải vận đơn")}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={toggleSimulated}
-                                        className="sawb-btn sawb-btn-primary"
-                                    >
-                                        {showSimulated ? t("Quay lại vận đơn Shopee") : t("Xem bản mẫu A6")}
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
+            {activeDoc.status === "error" && (
+                <div className="sawb-warning-banner no-print">
+                    <div className="sawb-warning-desc">
+                        {t("Không thể tải vận đơn từ Shopee: {{error}}. Đang hiển thị tem in nhiệt A6 nội bộ FCentric.", {
+                            error: activeDoc.errorMessage || t("Lỗi kết nối"),
+                        })}
+                    </div>
+                    <div className="sawb-official-pdf-actions">
+                        <button
+                            type="button"
+                            onClick={() => setReloadSeq((n) => n + 1)}
+                            className="sawb-btn sawb-btn-primary"
+                        >
+                            {t("Thử tải lại")}
+                        </button>
+                    </div>
                 </div>
-            ) : null}
+            )}
 
-            {dangHienTepSan ? (
+            {coTepSan ? (
                 <div className="sawb-official-pdf-embed-wrapper">
                     {activeDoc.status === "pdf" ? (
                         <iframe
@@ -324,16 +229,9 @@ export default function ShopeeAwbDocument({ model, company }) {
                         />
                     )}
                 </div>
-            ) : !showSimulated && activeDoc.status === "loading" ? (
+            ) : activeDoc.status === "loading" ? (
                 <div className="sawb-loading-box no-print">
                     <div className="sawb-loading-text">{t("Đang tải vận đơn từ Shopee...")}</div>
-                    <button
-                        type="button"
-                        onClick={toggleSimulated}
-                        className="sawb-btn sawb-btn-secondary"
-                    >
-                        {t("Xem bản mẫu A6")}
-                    </button>
                 </div>
             ) : (
                 <div className="sawb-wrapper">
