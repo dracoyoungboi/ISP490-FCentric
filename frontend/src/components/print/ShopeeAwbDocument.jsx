@@ -1,35 +1,199 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import PrintDocCode from "@/components/print/PrintDocCode";
+import {
+    docLoiTuBlob,
+    laHtmlNoiBoFCentric,
+    laPdfBlob,
+    lamSachHtmlDeNhung,
+    trichMaVanDonTuHtml,
+} from "@/components/print/shopeeAwbHelpers";
 import apiClient from "@/services/apiClient";
-import { toast } from "@/lib/thongBaoNhanh";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { t } from "@/i18n";
 import "@/components/print/shopeeAwb.css";
 
 /**
  * Bản in Vận Đơn Shopee Chuẩn Sàn AWB (Air Waybill) khổ tem nhiệt A6 (100 × 150 mm).
- * Bố cục chuẩn theo mẫu của Shopee Xpress (SPX Express Vietnam):
- * 1. Khi có file PDF chính thức từ Shopee API: Cung cấp liên kết mở/tải PDF gốc.
- * 2. 4 viền chữ watermark lặp mã vận đơn (SPXVN...).
- * 3. Header 3 cột: PICKUP BY | DELIVERY BY | Shopee SPX.
- * 4. Barcode Code 128 to bản trung tâm của mã vận đơn.
- * 5. Cụm Người nhận (Trái kèm tag WKD) và Mã trạm định tuyến Hub + QR Code (Phải).
- * 6. Dòng số đơn sàn.
- * 7. Thanh 3 chỉ số: [Tổng KL: 0.3 KG] | [ĐƯỢC ĐỒNG KIỂM] | [ĐÃ THANH TOÁN (COD: 0 đ)].
- * 8. Bảng danh sách hàng hóa tinh gọn.
- * 9. Footer cam kết pháp luật và Mã trạm đích (SG100A-00-00-01).
+ * Tự động tải tệp vận đơn chính thức từ Shopee (/van-don-san) qua apiClient và nhúng trực tiếp
+ * vào giao diện in A6 của hệ thống (PDF / HTML của sàn), fallback sang tem nhiệt A6 FCentric nếu sàn chưa trả tệp.
  */
 export default function ShopeeAwbDocument({ model, company }) {
+    const [simulatedForKey, setSimulatedForKey] = useState(null);
+    const [reloadSeq, setReloadSeq] = useState(0);
+    const [docState, setDocState] = useState({
+        key: null,
+        status: "idle",
+        pdfUrl: null,
+        htmlContent: null,
+        rawBlob: null,
+        mimeType: "",
+        resolvedTracking: null,
+        errorMessage: null,
+    });
+    const pdfUrlRef = useRef(null);
+
+    const shippingDocUrl = model?.shippingDocUrl || null;
+    const isInternalApi = Boolean(shippingDocUrl && shippingDocUrl.startsWith("/"));
+    const fetchKey = isInternalApi ? `${shippingDocUrl}#${reloadSeq}` : null;
+    const showSimulated = fetchKey !== null && simulatedForKey === fetchKey;
+
+    const giaiPhongPdfUrl = () => {
+        if (pdfUrlRef.current) {
+            window.URL.revokeObjectURL(pdfUrlRef.current);
+            pdfUrlRef.current = null;
+        }
+    };
+
+    useEffect(() => {
+        if (!fetchKey || !shippingDocUrl) {
+            giaiPhongPdfUrl();
+            return undefined;
+        }
+
+        let huy = false;
+        giaiPhongPdfUrl();
+
+        const taiVanDonNoiBo = async () => {
+            try {
+                const res = await apiClient.get(shippingDocUrl, { responseType: "blob" });
+                if (huy) return;
+                const blob = res.data;
+                if (await laPdfBlob(blob)) {
+                    const pdfBlob = new Blob([blob], { type: "application/pdf" });
+                    const objectUrl = window.URL.createObjectURL(pdfBlob);
+                    if (huy) {
+                        window.URL.revokeObjectURL(objectUrl);
+                        return;
+                    }
+                    pdfUrlRef.current = objectUrl;
+                    setDocState({
+                        key: fetchKey,
+                        status: "pdf",
+                        pdfUrl: objectUrl,
+                        htmlContent: null,
+                        rawBlob: pdfBlob,
+                        mimeType: "application/pdf",
+                        resolvedTracking: null,
+                        errorMessage: null,
+                    });
+                    return;
+                }
+
+                const text = await blob.text();
+                if (huy) return;
+
+                if (text.trim().startsWith("{")) {
+                    let parsed = null;
+                    try {
+                        parsed = JSON.parse(text);
+                    } catch {
+                        parsed = null;
+                    }
+                    if (parsed) {
+                        setDocState({
+                            key: fetchKey,
+                            status: "error",
+                            pdfUrl: null,
+                            htmlContent: null,
+                            rawBlob: null,
+                            mimeType: "",
+                            resolvedTracking: null,
+                            errorMessage: parsed.message || parsed.error || t("Lỗi kết nối"),
+                        });
+                        return;
+                    }
+                }
+
+                if (laHtmlNoiBoFCentric(text)) {
+                    setDocState({
+                        key: fetchKey,
+                        status: "fallback",
+                        pdfUrl: null,
+                        htmlContent: null,
+                        rawBlob: blob,
+                        mimeType: blob.type || "text/html",
+                        resolvedTracking: trichMaVanDonTuHtml(text),
+                        errorMessage: null,
+                    });
+                    return;
+                }
+
+                setDocState({
+                    key: fetchKey,
+                    status: "html",
+                    pdfUrl: null,
+                    htmlContent: lamSachHtmlDeNhung(text),
+                    rawBlob: blob,
+                    mimeType: blob.type || "text/html",
+                    resolvedTracking: null,
+                    errorMessage: null,
+                });
+            } catch (err) {
+                if (huy) return;
+                const msgTuBlob = await docLoiTuBlob(err);
+                const msg = msgTuBlob || getApiErrorMessage(err, t("Lỗi kết nối"));
+                if (huy) return;
+                setDocState({
+                    key: fetchKey,
+                    status: "error",
+                    pdfUrl: null,
+                    htmlContent: null,
+                    rawBlob: null,
+                    mimeType: "",
+                    resolvedTracking: null,
+                    errorMessage: msg,
+                });
+            }
+        };
+
+        taiVanDonNoiBo();
+        return () => {
+            huy = true;
+            giaiPhongPdfUrl();
+        };
+    }, [fetchKey, shippingDocUrl]);
+
     if (!model) return null;
 
-    const [showSimulated, setShowSimulated] = useState(true);
-    const [dangTaiPdf, setDangTaiPdf] = useState(false);
+    const activeDoc = !shippingDocUrl
+        ? {
+            status: "idle",
+            pdfUrl: null,
+            htmlContent: null,
+            rawBlob: null,
+            mimeType: "",
+            resolvedTracking: null,
+            errorMessage: null,
+        }
+        : !isInternalApi
+            ? {
+                status: "pdf",
+                pdfUrl: shippingDocUrl,
+                htmlContent: null,
+                rawBlob: null,
+                mimeType: "application/pdf",
+                resolvedTracking: null,
+                errorMessage: null,
+            }
+            : docState.key === fetchKey
+                ? docState
+                : {
+                    status: "loading",
+                    pdfUrl: null,
+                    htmlContent: null,
+                    rawBlob: null,
+                    mimeType: "",
+                    resolvedTracking: null,
+                    errorMessage: null,
+                };
 
     const channelInfo = model.channelOrderInfo || {};
     const recipient = model.recipient || {};
-    const trackingCode = channelInfo.trackingBarcode || channelInfo.trackingCode || "SPXVN261115BBMC00TC";
     const orderCode = channelInfo.orderCode || "261115BBMC00TC";
+    const rawChannelTracking = channelInfo.trackingBarcode
+        || (channelInfo.trackingCode && channelInfo.trackingCode !== "—" ? channelInfo.trackingCode : null);
+    const trackingCode = activeDoc.resolvedTracking || rawChannelTracking || `SPXVN${orderCode}`;
     const routingCode = model.routingCode || "1-SGN-HUB";
     const stationCode = model.stationCode || "SG100A-00-00-01";
     const recipientTag = model.recipientTag || "WKD";
@@ -39,86 +203,140 @@ export default function ShopeeAwbDocument({ model, company }) {
     const pickupBy = model.pickupBy || "SPX EXPRESS";
     const deliveryBy = model.deliveryBy || "SPX EXPRESS";
     const serviceType = model.serviceType || "Sandbox SPX Express";
-    const qrValue = model.qrCodeValue || trackingCode;
+    const qrValue = activeDoc.resolvedTracking || rawChannelTracking || model.qrCodeValue || trackingCode;
     const items = model.items || [];
     const totalQty = model.totalQuantity || items.reduce((s, it) => s + (it._quantity || 1), 0);
     const orderDateShort = model.orderDateShort || "15 Nov 2026";
     const senderName = company?.tenCongTy || "FCentric";
-    const shippingDocUrl = model.shippingDocUrl || null;
 
-    const xuLyTaiPdfChinhThuc = async (taiVe = false) => {
-        if (!shippingDocUrl || dangTaiPdf) return;
-        if (!shippingDocUrl.startsWith("/")) {
-            window.open(shippingDocUrl, "_blank", "noopener,noreferrer");
+    const moTabMoi = () => {
+        if (activeDoc.pdfUrl) {
+            window.open(activeDoc.pdfUrl, "_blank", "noopener,noreferrer");
             return;
         }
-        try {
-            setDangTaiPdf(true);
-            const res = await apiClient.get(shippingDocUrl, { responseType: "blob" });
-            const blob = res.data;
-            const blobUrl = window.URL.createObjectURL(blob);
-            if (taiVe) {
-                const duoi = String(blob?.type || "").toLowerCase().includes("pdf") ? "pdf" : "html";
-                const link = document.createElement("a");
-                link.href = blobUrl;
-                link.download = `AWB_Shopee_${trackingCode}.${duoi}`;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-            } else {
-                const win = window.open(blobUrl, "_blank");
-                if (!win) window.location.href = blobUrl;
-            }
-            window.setTimeout(() => window.URL.revokeObjectURL(blobUrl), 10000);
-        } catch (err) {
-            toast.error(t("Không thể tải tem vận đơn từ sàn: {{error}}", { error: getApiErrorMessage(err, t("Lỗi kết nối")) }));
-        } finally {
-            setDangTaiPdf(false);
+        if (activeDoc.rawBlob) {
+            const url = window.URL.createObjectURL(activeDoc.rawBlob);
+            window.open(url, "_blank", "noopener,noreferrer");
+            window.setTimeout(() => window.URL.revokeObjectURL(url), 10000);
         }
     };
 
+    const taiTepVanDon = () => {
+        if (!activeDoc.rawBlob) {
+            if (activeDoc.pdfUrl) {
+                window.open(activeDoc.pdfUrl, "_blank", "noopener,noreferrer");
+            }
+            return;
+        }
+        const duoi = String(activeDoc.mimeType || "").toLowerCase().includes("pdf") ? "pdf" : "html";
+        const url = window.URL.createObjectURL(activeDoc.rawBlob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `AWB_Shopee_${trackingCode}.${duoi}`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+    };
+
+    const coTepSan = activeDoc.status === "pdf" || activeDoc.status === "html";
+    const dangHienTepSan = coTepSan && !showSimulated;
+    const toggleSimulated = () => setSimulatedForKey((prev) => (prev === fetchKey ? null : fetchKey));
+
     return (
-        <div className="sawb-wrapper">
-            {/* 1. Nếu có file PDF / URL vận đơn chính thức từ Shopee API */}
+        <div className="sawb-page-container">
             {shippingDocUrl ? (
-                <div className="sawb-official-pdf-section">
-                    <div className="sawb-official-pdf-toolbar">
-                        <div className="sawb-official-pdf-badge">
-                            <span className="sawb-status-dot"></span>
-                            <span>{t("Vận đơn AWB chính thức Shopee (PDF chuẩn sàn)")}</span>
+                <div className="sawb-official-pdf-section no-print">
+                    {activeDoc.status === "fallback" || activeDoc.status === "error" ? (
+                        <div className="sawb-warning-banner">
+                            <div className="sawb-warning-desc">
+                                {activeDoc.status === "error"
+                                    ? t("Không thể tải vận đơn từ Shopee: {{error}}. Đang hiển thị tem in nhiệt A6 nội bộ FCentric.", {
+                                        error: activeDoc.errorMessage || t("Lỗi kết nối"),
+                                    })
+                                    : t("Shopee chưa trả tệp vận đơn chính thức cho đơn này — đang hiển thị tem in nhiệt A6 nội bộ FCentric.")}
+                            </div>
+                            <div className="sawb-official-pdf-actions">
+                                <button
+                                    type="button"
+                                    onClick={() => setReloadSeq((n) => n + 1)}
+                                    className="sawb-btn sawb-btn-primary"
+                                >
+                                    {t("Thử tải lại")}
+                                </button>
+                            </div>
                         </div>
-                        <div className="sawb-official-pdf-actions">
-                            <button
-                                type="button"
-                                disabled={dangTaiPdf}
-                                onClick={() => xuLyTaiPdfChinhThuc(false)}
-                                className="sawb-btn sawb-btn-primary"
-                            >
-                                {t("Mở PDF trong tab mới")}
-                            </button>
-                            <button
-                                type="button"
-                                disabled={dangTaiPdf}
-                                onClick={() => xuLyTaiPdfChinhThuc(true)}
-                                className="sawb-btn sawb-btn-secondary"
-                            >
-                                {t("Tải PDF A6")}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setShowSimulated((prev) => !prev)}
-                                className="sawb-btn sawb-btn-secondary"
-                            >
-                                {showSimulated ? t("Ẩn xem trước") : t("Xem bản in nhiệt")}
-                            </button>
+                    ) : (
+                        <div className="sawb-official-pdf-toolbar">
+                            <div className="sawb-official-pdf-badge">
+                                <span className="sawb-status-dot"></span>
+                                <span>
+                                    {activeDoc.status === "loading"
+                                        ? t("Đang tải vận đơn Shopee chuẩn A6...")
+                                        : activeDoc.status === "html"
+                                            ? t("Đã tải vận đơn chuẩn HTML từ Shopee")
+                                            : t("Vận đơn AWB chính thức Shopee (PDF chuẩn sàn)")}
+                                </span>
+                            </div>
+                            {coTepSan && (
+                                <div className="sawb-official-pdf-actions">
+                                    <button
+                                        type="button"
+                                        onClick={moTabMoi}
+                                        className="sawb-btn sawb-btn-secondary"
+                                    >
+                                        {activeDoc.status === "pdf" ? t("Mở PDF trong tab mới") : t("Mở trong tab mới")}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={taiTepVanDon}
+                                        className="sawb-btn sawb-btn-secondary"
+                                    >
+                                        {activeDoc.status === "pdf" ? t("Tải PDF A6") : t("Tải vận đơn")}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={toggleSimulated}
+                                        className="sawb-btn sawb-btn-primary"
+                                    >
+                                        {showSimulated ? t("Quay lại vận đơn Shopee") : t("Xem bản mẫu A6")}
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                    </div>
+                    )}
                 </div>
             ) : null}
 
-            {/* 2. Bản in tem nhiệt A6 chuẩn sàn Shopee Express */}
-            {(!shippingDocUrl || showSimulated) && (
-                <>
+            {dangHienTepSan ? (
+                <div className="sawb-official-pdf-embed-wrapper">
+                    {activeDoc.status === "pdf" ? (
+                        <iframe
+                            src={activeDoc.pdfUrl}
+                            title={t("Vận đơn AWB chính thức Shopee")}
+                            className="sawb-pdf-viewer pdoc-pdf-frame"
+                        />
+                    ) : (
+                        <iframe
+                            srcDoc={activeDoc.htmlContent}
+                            title={t("Vận đơn AWB chính thức Shopee")}
+                            className="sawb-pdf-viewer pdoc-pdf-frame"
+                        />
+                    )}
+                </div>
+            ) : !showSimulated && activeDoc.status === "loading" ? (
+                <div className="sawb-loading-box no-print">
+                    <div className="sawb-loading-text">{t("Đang tải vận đơn từ Shopee...")}</div>
+                    <button
+                        type="button"
+                        onClick={toggleSimulated}
+                        className="sawb-btn sawb-btn-secondary"
+                    >
+                        {t("Xem bản mẫu A6")}
+                    </button>
+                </div>
+            ) : (
+                <div className="sawb-wrapper">
                     {/* Viền chữ watermark 4 cạnh */}
                     <div className="sawb-watermark-top">
                         <span>{trackingCode}</span>
@@ -245,7 +463,7 @@ export default function ShopeeAwbDocument({ model, company }) {
                             <div className="sawb-station-code">{stationCode}</div>
                         </div>
                     </div>
-                </>
+                </div>
             )}
         </div>
     );
