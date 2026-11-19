@@ -241,45 +241,33 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
     // 6. TIỀN THU TRONG KỲ (theo ngày thu tiền)
     // --------------------------------------------------
     /**
-     * Tiền vào theo ngày thu, gom theo [ngày yyyy-MM-dd, tuần ISO (WEEK mode 3), nguồn POS | DT]: tiền mặt, QR payOS,
-     * chuyển khoản ghi tay, hoàn, số phiếu hoàn. POS = sổ thu tại quầy (dòng PAYOS trả kết hợp tách phần tiền mặt);
-     * DT = phiếu thu / hoàn còn hiệu lực của đơn bán thường. Khoảng [tu, den). khoIds bỏ qua khi tatCaKho = true.
+     * Tiền vào tại quầy theo ngày thu, gom theo [ngày yyyy-MM-dd, tuần ISO (WEEK mode 3)]: tiền mặt, QR payOS, tiền hoàn
+     * trả hàng, số phiếu trả hàng. Tiền thu lấy từ sổ thu POS (dòng PAYOS trả kết hợp tách phần tiền mặt). Khoảng
+     * [tu, den). khoIds bỏ qua khi tatCaKho = true.
      */
     @Query(value = """
         SELECT DATE_FORMAT(x.luc, '%Y-%m-%d') AS ngay,
                WEEK(x.luc, 3)                 AS tuan,
-               x.nguon                        AS nguon,
                SUM(x.tien_mat)                AS tienMat,
                SUM(x.qr)                      AS qr,
-               SUM(x.ck_tay)                  AS ckTay,
                SUM(x.hoan)                    AS hoan,
                SUM(x.so_hoan)                 AS soHoan
         FROM (
-            SELECT p.ngay_tao AS luc, d.kho_xuat_id AS kho_id, 'POS' AS nguon,
+            SELECT p.ngay_tao AS luc, d.kho_xuat_id AS kho_id,
                    CASE WHEN p.phuong_thuc = 'PAYOS' THEN COALESCE(p.tien_mat_truoc, 0) ELSE p.so_tien_hang END AS tien_mat,
                    CASE WHEN p.phuong_thuc = 'PAYOS' THEN p.so_tien_hang - COALESCE(p.tien_mat_truoc, 0) ELSE 0 END AS qr,
-                   0 AS ck_tay, 0 AS hoan, 0 AS so_hoan
+                   0 AS hoan, 0 AS so_hoan
             FROM pos_payment p
             JOIN don_ban_hang d ON d.id = p.don_ban_hang_id
             WHERE p.ngay_tao >= :tu AND p.ngay_tao < :den
             UNION ALL
-            SELECT t.thoi_diem_thu, COALESCE(t.kho_id, d.kho_xuat_id), 'DT',
-                   CASE WHEN t.loai = 'THU' AND t.phuong_thuc = 'TIEN_MAT' THEN t.so_tien ELSE 0 END,
-                   0,
-                   CASE WHEN t.loai = 'THU' AND t.phuong_thuc = 'CHUYEN_KHOAN' THEN t.so_tien ELSE 0 END,
-                   CASE WHEN t.loai = 'HOAN' THEN t.so_tien ELSE 0 END,
-                   CASE WHEN t.loai = 'HOAN' THEN 1 ELSE 0 END
-            FROM thanh_toan_don_ban t
-            JOIN don_ban_hang d ON d.id = t.don_ban_hang_id
-            WHERE t.trang_thai = 'HIEU_LUC' AND t.thoi_diem_thu >= :tu AND t.thoi_diem_thu < :den
-            UNION ALL
             -- Trả hàng tại quầy: cửa hàng nhận trả (B) chi tiền hoàn (GBR-RET-06)
-            SELECT r.ngay_tao, r.kho_nhan_id, 'POS', 0, 0, 0, r.tong_tien_hoan, 1
+            SELECT r.ngay_tao, r.kho_nhan_id, 0, 0, r.tong_tien_hoan, 1
             FROM phieu_tra_hang r
             WHERE r.ngay_tao >= :tu AND r.ngay_tao < :den
         ) x
         WHERE (:tatCaKho = TRUE OR x.kho_id IN (:khoIds))
-        GROUP BY ngay, tuan, nguon
+        GROUP BY ngay, tuan
         """,
             nativeQuery = true)
     List<Object[]> tienThuTheoNgay(@Param("tu") LocalDate tu, @Param("den") LocalDate den,
@@ -297,29 +285,6 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
             nativeQuery = true)
     List<Object[]> sanThuHo(@Param("tu") LocalDate tu, @Param("den") LocalDate den,
                             @Param("tatCaKho") boolean tatCaKho, @Param("khoIds") Collection<Integer> khoIds);
-
-    /**
-     * Còn phải thu tới hiện tại: đơn bán thường đã chốt (không nháp / hủy / hoàn trả, không phải đơn sàn) đang Chưa thanh
-     * toán hoặc Thanh toán một phần — [số đơn, tổng phần còn thiếu]. Đơn cũ chưa theo dõi (trạng thái trống) không tính.
-     */
-    @Query(value = """
-        SELECT COUNT(*), COALESCE(SUM(dbh.tong_cong - COALESCE(t.da_thu, 0)), 0)
-        FROM don_ban_hang dbh
-        LEFT JOIN (
-            SELECT don_ban_hang_id, SUM(CASE WHEN loai = 'THU' THEN so_tien ELSE -so_tien END) AS da_thu
-            FROM thanh_toan_don_ban
-            WHERE trang_thai = 'HIEU_LUC'
-            GROUP BY don_ban_hang_id
-        ) t ON t.don_ban_hang_id = dbh.id
-        WHERE dbh.loai_chung_tu = 'don_ban_hang'
-          AND dbh.kenh_ban_id IS NULL
-          AND dbh.trang_thai_thanh_toan IN ('chua_thanh_toan', 'thanh_toan_mot_phan')
-          AND dbh.trang_thai NOT IN (0, 4, 6)
-          AND dbh.tong_cong - COALESCE(t.da_thu, 0) > 0
-          AND (:tatCaKho = TRUE OR dbh.kho_xuat_id IN (:khoIds))
-        """,
-            nativeQuery = true)
-    List<Object[]> conPhaiThu(@Param("tatCaKho") boolean tatCaKho, @Param("khoIds") Collection<Integer> khoIds);
 
     // --------------------------------------------------
     // 7. THEO KÊNH, THEO NHÂN VIÊN (cả kỳ)
@@ -442,13 +407,4 @@ public interface DoanhThuReportRepository extends JpaRepository<DonBanHang, Inte
     List<Object[]> hangTraTheoNgay(@Param("tuNgay") LocalDate tuNgay,
                                    @Param("denNgay") LocalDate denNgay,
                                    @Param("khoId") Integer khoId);
-
-    /** Phiếu chuyển khoản còn hiệu lực chưa đối chiếu sao kê (lọc theo kho của phiếu). */
-    @Query(value = """
-        SELECT COUNT(*) FROM thanh_toan_don_ban t
-        WHERE t.phuong_thuc = 'CHUYEN_KHOAN' AND t.trang_thai = 'HIEU_LUC' AND t.doi_chieu_luc IS NULL
-          AND (:tatCaKho = TRUE OR t.kho_id IN (:khoIds))
-        """,
-            nativeQuery = true)
-    long chuaDoiChieu(@Param("tatCaKho") boolean tatCaKho, @Param("khoIds") Collection<Integer> khoIds);
 }
