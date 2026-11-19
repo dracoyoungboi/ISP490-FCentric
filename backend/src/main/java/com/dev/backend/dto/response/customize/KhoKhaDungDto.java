@@ -24,4 +24,8 @@ public class KhoKhaDungDto {
     String maDotKiemKe;
     /** Đợt kiểm toàn bộ kho: kho tạm không xuất được mã nào. */
     Boolean kiemToanKho;
+    /** true nếu kho khớp với Location được Shopify gợi ý cho đơn hàng này. */
+    Boolean goiYTuSan;
+    /** Phương thức giao nhận từ sàn ứng với gợi ý này (VD: SHIPPING, PICKUP). */
+    String phuongThucGiaoSan;
 }
