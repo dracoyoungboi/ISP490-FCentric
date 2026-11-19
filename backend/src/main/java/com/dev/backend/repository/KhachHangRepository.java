@@ -24,10 +24,6 @@ public interface KhachHangRepository extends JpaRepository<KhachHang, Integer>, 
 
     Optional<KhachHang> findFirstByEmailAndIdNot(String email, Integer id);
 
-    Optional<KhachHang> findFirstByMaSoThue(String maSoThue);
-
-    Optional<KhachHang> findFirstByMaSoThueAndIdNot(String maSoThue, Integer id);
-
     /**
      * Khách khác (bỏ qua boQuaId, null = không bỏ) có cùng số điện thoại sau khi bỏ dấu cách, chấm, gạch, ngoặc và đổi
      * "+84" về "0" (như TuKhoaTimKiem.boNganCach): khách tạo từ đơn sàn lưu số nguyên dạng sàn gửi ("+84 912 345 678").
