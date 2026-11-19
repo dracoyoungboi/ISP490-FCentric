@@ -105,7 +105,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     ShopifyOrderProgressClient shopifyOrderProgressClient = new ShopifyOrderProgressClient();
     @lombok.experimental.NonFinal
     @org.springframework.beans.factory.annotation.Autowired(required = false)
+    com.dev.backend.services.shopify.ShopifyMultiLocationClient shopifyMultiLocationClient;
+    @lombok.experimental.NonFinal
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
     com.dev.backend.services.shopify.ShopifyWebhookInbox shopifyWebhookInbox;
+
+    com.dev.backend.services.shopify.ShopifyMultiLocationClient getShopifyMultiLocationClient() {
+        if (shopifyMultiLocationClient == null) {
+            shopifyMultiLocationClient = new com.dev.backend.services.shopify.ShopifyMultiLocationClient(objectMapper);
+        }
+        return shopifyMultiLocationClient;
+    }
 
     KenhBanHangRepository kenhBanHangRepository;
     TrangThaiDongBoSanPhamRepository trangThaiDongBoSanPhamRepository;
@@ -6201,15 +6211,19 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return null;
     }
 
-    /** Danh sách địa điểm cho giao diện: đánh dấu và xếp địa điểm mặc định lên đầu, giữ thứ tự các địa điểm còn lại. */
+    /** Danh sách địa điểm hợp lệ cho giao diện: lọc bỏ location inactive hoặc legacy, xếp mặc định lên đầu. */
     static List<ShopifyLocationDto> dsDiaDiem(JsonNode locations, Long primaryId) {
         List<ShopifyLocationDto> list = new ArrayList<>();
         for (JsonNode loc : locations.path("locations")) {
+            if (!loc.path("active").asBoolean(true) || loc.path("legacy").asBoolean(false)) {
+                continue;
+            }
             long id = loc.path("id").asLong();
+            if (id <= 0) continue;
             list.add(ShopifyLocationDto.builder()
                     .maKhoSan(String.valueOf(id))
                     .tenKhoSan(loc.path("name").asText("Kho Shopify " + id))
-                    .loai(loc.path("legacy").asBoolean(false) ? "legacy" : "fulfillment")
+                    .loai("fulfillment")
                     .macDinh(primaryId != null && primaryId == id)
                     .build());
         }
@@ -6708,6 +6722,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
      */
     KetQuaGuiTon dayTonChoDong(TrangThaiDongBoSanPham dong, KetNoiDayTon ketNoi, int soDay) {
         KetQuaGuiTon kq;
+        boolean daDungShopifyDaKho = false;
         if (dong.getKenhBanHang() != null && OmnichannelOrderSyncJob.isLazada(dong.getKenhBanHang().getMaKenh())) {
             kq = guiTonLenLazada(dong, soDay);
         } else if (dong.getKenhBanHang() != null && OmnichannelOrderSyncJob.isShopee(dong.getKenhBanHang().getMaKenh())) {
@@ -6724,6 +6739,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 KenhKhoMappingConfigDto mappingCfg = layCauHinhKhoMappingDaLuu("SHOPIFY");
                 if (mappingCfg != null && Boolean.TRUE.equals(mappingCfg.getCheDoDaKho())
                         && mappingCfg.getDanhSachKho() != null && mappingCfg.getDanhSachKho().size() >= 2) {
+                    daDungShopifyDaKho = true;
                     kq = dayTonShopifyDaKho(dong, ketNoi, vInfo, mappingCfg);
                 } else {
                     kq = guiTonLenShopify(ketNoi.domain(), ketNoi.token(), ketNoi.locationId(), vInfo.getInventoryItemId(), soDay);
@@ -6734,7 +6750,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (kq.thanhCong()) {
             dong.setTrangThaiDongBo("thanh_cong");
             dong.setChiTietLoi(null);
-            dong.setSoLuongDaDay(soDay);
+            if (!daDungShopifyDaKho) {
+                dong.setSoLuongDaDay(soDay);
+            }
             dong.setNgayDayTonCuoi(now);
             dong.setNgayDongBoCuoi(now);
         } else if (!kq.loiKenh()) {
@@ -6781,6 +6799,107 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return so.min(BigDecimal.valueOf(Integer.MAX_VALUE)).intValue();
     }
 
+    public record KhoTonInput(Long locationId, Integer khoId, boolean laKhoTong, BigDecimal khaDung) {}
+
+    /**
+     * Thuật toán phân bổ tồn đệm Waterfall ưu tiên kho có tồn lớn nhất (PA 1 - Shopify Đa kho):
+     * 1. Tính số khả dụng sau tỷ lệ từng kho: floor(khaDung * tyLe / 100).
+     * 2. Sắp kho theo tồn sau tỷ lệ giảm dần (bằng nhau ưu tiên Kho Tổng trước để giữ hàng chi nhánh gần khách).
+     * 3. Rút dần tồn đệm từ kho lớn nhất xuống đến khi giữ đủ {@code tonDemTong}
+     *    (nếu không kho nào đủ {@code tonDemTong} thì rút tiếp sang kho kế tiếp; kho nhỏ giữ nguyên khi kho lớn đã gánh đủ).
+     * 4. Áp dụng ngưỡng về 0 riêng từng kho.
+     */
+    public static Map<Long, Integer> phanBoTonDemWaterfall(
+            List<KhoTonInput> items,
+            BigDecimal tyLe,
+            int tonDemTong,
+            int nguongVe0) {
+        Map<Long, Integer> result = new LinkedHashMap<>();
+        if (items == null || items.isEmpty()) return result;
+        BigDecimal tl = tyLe != null ? tyLe : BigDecimal.valueOf(100);
+        int bufferRemaining = Math.max(0, tonDemTong);
+        int ng0 = Math.max(0, nguongVe0);
+
+        record Slot(Long locationId, Integer khoId, boolean laKhoTong, int gross) {}
+        Map<Long, Slot> uniqueSlots = new LinkedHashMap<>();
+        for (KhoTonInput it : items) {
+            if (it == null || it.locationId() == null) continue;
+            BigDecimal kd = it.khaDung() != null && it.khaDung().signum() > 0 ? it.khaDung() : BigDecimal.ZERO;
+            int gross = kd.multiply(tl).divide(BigDecimal.valueOf(100), 0, RoundingMode.FLOOR)
+                    .min(BigDecimal.valueOf(Integer.MAX_VALUE)).intValue();
+            uniqueSlots.putIfAbsent(it.locationId(), new Slot(it.locationId(), it.khoId(), it.laKhoTong(), gross));
+        }
+
+        List<Slot> ordered = new ArrayList<>(uniqueSlots.values());
+        ordered.sort(Comparator.comparingInt(Slot::gross).reversed()
+                .thenComparing(Slot::laKhoTong, Comparator.reverseOrder())
+                .thenComparing(s -> s.khoId() != null ? s.khoId() : Integer.MAX_VALUE));
+
+        for (Slot s : ordered) {
+            int deduct = Math.min(Math.max(0, s.gross()), bufferRemaining);
+            bufferRemaining -= deduct;
+            int net = s.gross() - deduct;
+            if (net <= ng0 || net <= 0) {
+                net = 0;
+            }
+            result.put(s.locationId(), net);
+        }
+        return result;
+    }
+
+    /** Tiện ích trích numeric Shopify locationId từ chuỗi mã kho mapping ("73357" hoặc "gid://shopify/Location/73357"). */
+    static Long parseShopifyLocationId(String maKhoSan) {
+        if (maKhoSan == null || maKhoSan.isBlank()) return null;
+        String clean = maKhoSan.trim();
+        if (clean.contains("/")) {
+            clean = clean.substring(clean.lastIndexOf('/') + 1).trim();
+        }
+        try {
+            long id = Long.parseLong(clean);
+            return id > 0 ? id : null;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    /** Tính map tồn dự kiến theo từng Shopify Location theo cấu hình đa kho hiện tại (PA 1 Waterfall). */
+    Map<Long, Integer> tinhTonTheoLocationShopify(Integer bienTheId, KenhKhoMappingConfigDto mappingCfg) {
+        if (bienTheId == null || mappingCfg == null || mappingCfg.getDanhSachKho() == null) {
+            return Collections.emptyMap();
+        }
+        List<KenhKhoMappingItemDto> activeMappings = mappingCfg.getDanhSachKho().stream()
+                .filter(m -> Boolean.TRUE.equals(m.getKichHoat()) && m.getKhoIdFCentric() != null && m.getMaKhoSan() != null)
+                .toList();
+        if (activeMappings.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Integer, Boolean> laKhoTongMap = new HashMap<>();
+        if (khoRepository != null) {
+            for (Kho k : khoRepository.findAll()) {
+                laKhoTongMap.put(k.getId(), KhoService.laKhoTong(k));
+            }
+        }
+
+        Map<Integer, BigDecimal> tonKhaDungTheoKhoMap = new HashMap<>();
+        List<KhoTonInput> inputs = new ArrayList<>();
+        for (KenhKhoMappingItemDto m : activeMappings) {
+            Long locId = parseShopifyLocationId(m.getMaKhoSan());
+            if (locId == null) continue;
+            Integer khoId = m.getKhoIdFCentric();
+            BigDecimal kd = tonKhaDungTheoKhoMap.computeIfAbsent(khoId, id -> {
+                List<Object[]> stocks = tonKhoTongHopRepository.sumFreeToUseTheoKhoVaBienTheIds(id, List.of(bienTheId));
+                return (!stocks.isEmpty() && stocks.get(0)[1] != null) ? (BigDecimal) stocks.get(0)[1] : BigDecimal.ZERO;
+            });
+            boolean isTong = laKhoTongMap.getOrDefault(khoId, false);
+            inputs.add(new KhoTonInput(locId, khoId, isTong, kd));
+        }
+
+        DayTonKenhRequest q = quyTacDaLuu("SHOPIFY");
+        BigDecimal tyLe = q.getTyLeDayTon() != null ? q.getTyLeDayTon() : BigDecimal.valueOf(100);
+        return phanBoTonDemWaterfall(inputs, tyLe, q.getTonDem(), q.getNguongVe0());
+    }
+
     KetQuaGuiTon dayTonShopifyDaKho(
             TrangThaiDongBoSanPham dong,
             KetNoiDayTon ketNoi,
@@ -6791,61 +6910,27 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return KetQuaGuiTon.loiSku("Biến thể không hợp lệ");
         }
 
-        List<KenhKhoMappingItemDto> activeMappings = mappingCfg.getDanhSachKho().stream()
-                .filter(m -> Boolean.TRUE.equals(m.getKichHoat()) && m.getKhoIdFCentric() != null && m.getMaKhoSan() != null)
-                .toList();
-
-        if (activeMappings.isEmpty()) {
+        Map<Long, Integer> soDayTheoLocation = tinhTonTheoLocationShopify(bt.getId(), mappingCfg);
+        if (soDayTheoLocation.isEmpty()) {
             return guiTonLenShopify(ketNoi.domain(), ketNoi.token(), ketNoi.locationId(), vInfo.getInventoryItemId(), 0);
         }
 
-        // 1. Lấy tồn khả dụng thực tế của từng kho FCentric được ánh xạ
-        Map<Integer, BigDecimal> tonKhaDungTheoKhoMap = new HashMap<>();
-        BigDecimal tongKhaDungCacKho = BigDecimal.ZERO;
-
-        for (KenhKhoMappingItemDto m : activeMappings) {
-            Integer khoId = m.getKhoIdFCentric();
-            if (!tonKhaDungTheoKhoMap.containsKey(khoId)) {
-                List<Object[]> stocks = tonKhoTongHopRepository.sumFreeToUseTheoKhoVaBienTheIds(khoId, List.of(bt.getId()));
-                BigDecimal kd = (!stocks.isEmpty() && stocks.get(0)[1] != null) ? (BigDecimal) stocks.get(0)[1] : BigDecimal.ZERO;
-                tonKhaDungTheoKhoMap.put(khoId, kd);
-            }
-            tongKhaDungCacKho = tongKhaDungCacKho.add(tonKhaDungTheoKhoMap.get(khoId));
-        }
-
-        // 2. Đọc quy tắc tồn của kênh
-        DayTonKenhRequest q = quyTacDaLuu("SHOPIFY");
-        BigDecimal tyLe = q.getTyLeDayTon() != null ? q.getTyLeDayTon() : BigDecimal.valueOf(100);
-        int tonDemTong = q.getTonDem();
-        int nguongVe0 = q.getNguongVe0();
-
-        // 3. Phân bổ tồn đệm và đẩy lên từng Location Shopify
         boolean coItNhatMotKhoThanhCong = false;
         String loiCuoiCung = null;
         int tongSoDayThucTe = 0;
 
-        for (KenhKhoMappingItemDto m : activeMappings) {
-            Long locationId;
-            try {
-                String maSanStr = m.getMaKhoSan().trim();
-                if (maSanStr.contains("/")) {
-                    maSanStr = maSanStr.substring(maSanStr.lastIndexOf('/') + 1);
-                }
-                locationId = Long.parseLong(maSanStr);
-            } catch (Exception ex) {
-                log.warn("[SHOPIFY-MULTI-WH] Mã kho sàn không hợp lệ: {}", m.getMaKhoSan());
-                continue;
-            }
-
-            BigDecimal kdKho = tonKhaDungTheoKhoMap.getOrDefault(m.getKhoIdFCentric(), BigDecimal.ZERO);
-            int soDayKho = tinhSoTonDayPhanBo(kdKho, tongKhaDungCacKho, tyLe, tonDemTong, nguongVe0);
+        for (Map.Entry<Long, Integer> entry : soDayTheoLocation.entrySet()) {
+            Long locationId = entry.getKey();
+            int soDayKho = entry.getValue();
 
             KetQuaGuiTon subKq = guiTonLenShopify(ketNoi.domain(), ketNoi.token(), locationId, vInfo.getInventoryItemId(), soDayKho);
             if (subKq.thanhCong()) {
                 coItNhatMotKhoThanhCong = true;
                 tongSoDayThucTe += soDayKho;
-                log.info("[SHOPIFY-MULTI-WH] Đẩy tồn thành công cho SKU {} lên Location {} (Kho FCentric {}): {} sp",
-                        bt.getMaSku(), locationId, m.getKhoIdFCentric(), soDayKho);
+                log.info("[SHOPIFY-MULTI-WH] Đẩy tồn thành công cho SKU {} lên Location {}: {} sp (Buffer Waterfall)",
+                        bt.getMaSku(), locationId, soDayKho);
+            } else if (subKq.loiKenh()) {
+                return subKq;
             } else {
                 loiCuoiCung = subKq.lyDo();
                 log.warn("[SHOPIFY-MULTI-WH] Lỗi đẩy tồn SKU {} lên Location {}: {}",
@@ -7623,6 +7708,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         String url = "https://" + domain + "/admin/api/" + DEFAULT_API_VERSION + "/inventory_levels/set.json";
         int retryCount = 0;
         int maxRetries = 2;
+        boolean triedConnect = false;
         while (true) {
             try {
                 RestTemplate restTemplate = createRestTemplate();
@@ -7640,7 +7726,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
                 return KetQuaGuiTon.loiSku("Shopify không nhận số tồn kho.");
             } catch (HttpStatusCodeException e) {
-                if (e.getStatusCode().value() == 429 && retryCount < maxRetries) {
+                int code = e.getStatusCode().value();
+                String errBody = e.getResponseBodyAsString();
+                if (!triedConnect && (code == 404 || code == 422) && errBody != null) {
+                    String lower = errBody.toLowerCase(Locale.ROOT);
+                    if (lower.contains("not connected") || lower.contains("not stocked") || lower.contains("location")) {
+                        triedConnect = true;
+                        if (getShopifyMultiLocationClient().connectInventoryLevel(domain, token, locationId, inventoryItemId)) {
+                            continue;
+                        }
+                    }
+                }
+                if (code == 429 && retryCount < maxRetries) {
                     retryCount++;
                     long waitMs = 2000L;
                     String retryAfter = e.getResponseHeaders() != null ? e.getResponseHeaders().getFirst("Retry-After") : null;
