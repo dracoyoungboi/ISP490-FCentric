@@ -25,7 +25,6 @@ import TongTienBan from "@/components/ban-hang/TongTienBan";
 import { idKho } from "@/components/ban-hang/chonKho";
 import HopGuiSangKho from "@/components/ban-hang/chi-tiet-don-ban/HopGuiSangKho";
 import ThuocTinhDonBan from "@/components/ban-hang/chi-tiet-don-ban/ThuocTinhDonBan";
-import KhoiPhieuThu from "@/components/ban-hang/chi-tiet-don-ban/KhoiPhieuThu";
 import {
   buocDonBan,
   cauLechDong,
@@ -47,7 +46,7 @@ import {
 } from "@/components/ban-hang/chi-tiet-don-ban/tinhDonBan";
 import MockModeNotice from "@/components/shared/MockModeNotice";
 import StatusBadge from "@/components/shared/StatusBadge";
-import { DON_BAN_HANG_DA_KET_THUC_KHONG_THU, DON_BAN_HANG_THANH_TOAN, getDonBanHangStatus } from "@/constants/donBanHang";
+import { DON_BAN_HANG_THANH_TOAN, getDonBanHangStatus } from "@/constants/donBanHang";
 import { TRANG_THAI_DON } from "@/constants/trangThaiXuatBan";
 import useQuayLai from "@/hooks/useQuayLai";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
@@ -86,7 +85,6 @@ export default function DonBanHangDetail() {
 function ChiTietDonBanHang({ id }) {
   const navigate = useNavigate();
   const quayLai = useQuayLai("/sales-orders");
-  const laQtv = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
   const laBan = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_BAN_HANG]);
   const laKho = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO]);
 
@@ -383,22 +381,19 @@ function ChiTietDonBanHang({ id }) {
 
   // ── Tổng tiền và thanh toán ─────────────────────────────────────────────
   const nhanThanhToan = thanhToan.maTrangThai ? DON_BAN_HANG_THANH_TOAN[thanhToan.maTrangThai]?.label : null;
+  const dongThanhToan = thanhToan.phuongThuc
+    ? [thanhToan.phuongThuc, gioNgay(thanhToan.ngayThu)].filter(Boolean).join(" · ")
+    : thanhToan.chu;
   const khoiThanhToan = (
     <>
       <div className="flex flex-wrap items-center gap-2.5">
         <span>{t("Thanh toán")}</span>
         {nhanThanhToan ? (
-          // "Chưa thanh toán" của đơn sàn chỉ là trạng thái chụp lúc đồng bộ, hệ thống không thu; đơn thường đã hủy / hoàn
-          // trả không còn phải thu: không tô màu nhắc
-          <StatusBadge label={nhanThanhToan} nhom={thanhToan.maTrangThai === "chua_thanh_toan"
-            && (!thanhToan.laDonThuong || DON_BAN_HANG_DA_KET_THUC_KHONG_THU.includes(tt)) ? "dong" : undefined} />
+          // "Chưa thanh toán" chỉ có ở đơn sàn, chụp lúc đồng bộ (hệ thống không thu): không tô màu nhắc
+          <StatusBadge label={nhanThanhToan} nhom={thanhToan.maTrangThai === "chua_thanh_toan" ? "dong" : undefined} />
         ) : null}
       </div>
-      <p className={nhanThanhToan ? "mt-1 text-bo-foreground" : "mt-1"}>
-        {thanhToan.phuongThuc ? [thanhToan.phuongThuc, gioNgay(thanhToan.ngayThu)].filter(Boolean).join(" · ") : thanhToan.chu}
-      </p>
-      {/* Đơn bán thường: phiếu thu / hoàn; hoàn tiền, hủy phiếu chỉ quản trị viên */}
-      <KhoiPhieuThu coTheHoan={laQtv} coTheThu={laBan} donId={id} laQtv={laQtv} onDaDoi={q.reload} thanhToan={ct.thanhToan} />
+      {dongThanhToan ? <p className={nhanThanhToan ? "mt-1 text-bo-foreground" : "mt-1"}>{dongThanhToan}</p> : null}
     </>
   );
   const ttq = ct.thanhToanTaiQuay;
