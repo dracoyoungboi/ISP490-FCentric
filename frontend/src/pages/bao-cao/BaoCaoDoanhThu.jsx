@@ -614,7 +614,6 @@ export default function BaoCaoDoanhThu() {
             <KhoiTienThu
               anGhiChuKho={khoaKho}
               className="min-w-0 flex-[1_1_340px] xl:max-w-[420px]"
-              khoId={boLoc.khoId || undefined}
               loading={tienThu.loading}
               loi={tienThu.loi}
               onTaiLai={taiLai}
