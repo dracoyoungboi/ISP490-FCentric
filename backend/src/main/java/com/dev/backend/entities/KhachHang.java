@@ -41,15 +41,6 @@ public class KhachHang {
     @Column(name = "ten_khach_hang", nullable = false, length = 200)
     String tenKhachHang;
 
-    /** Mã số thuế (khách sỉ / doanh nghiệp) — in ở khối Người mua của hóa đơn bán hàng. */
-    @Size(max = 14)
-    @Column(name = "ma_so_thue", length = 14)
-    String maSoThue;
-
-    @Size(max = 100)
-    @Column(name = "nguoi_lien_he", length = 100)
-    String nguoiLienHe;
-
     @Size(max = 20)
     @Column(name = "so_dien_thoai", length = 20)
     String soDienThoai;
@@ -61,11 +52,6 @@ public class KhachHang {
     @Lob
     @Column(name = "dia_chi")
     String diaChi;
-
-    @ColumnDefault("'le'")
-    @Lob
-    @Column(name = "loai_khach_hang")
-    String loaiKhachHang;
 
     @Builder.Default
     @ColumnDefault("0")
