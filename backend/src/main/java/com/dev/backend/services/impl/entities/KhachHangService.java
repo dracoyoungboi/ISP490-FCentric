@@ -23,6 +23,7 @@ import com.dev.backend.services.impl.multitable.DieuHanhHeThongServiceImpl;
 import com.dev.backend.services.multitable.DieuHanhHeThongService;
 import com.dev.backend.dto.request.FilterCriteria;
 import com.dev.backend.utils.HoTen;
+import com.dev.backend.utils.NguonKhachHang;
 import com.dev.backend.utils.SoDienThoai;
 import com.dev.backend.utils.TuKhoaTimKiem;
 import jakarta.persistence.EntityManager;
@@ -199,6 +200,11 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
             if (!MA_KHACH_HANG_PATTERN.matcher(ma).matches()) {
                 throw new CommonException(ThongDiep.of("banHang.maKhachHangSaiKyTu"));
             }
+            // Tiền tố dành cho khách tự tạo từ đơn sàn: mã nhập tay mang tiền tố này sẽ bị nhận là khách sàn
+            String tienToSan = NguonKhachHang.tienToSan(ma);
+            if (tienToSan != null) {
+                throw new CommonException(ThongDiep.of("banHang.maKhachHangTrungTienToSan", tienToSan));
+            }
         }
         kiemTraTen(ten);
         kiemTraDiaChi(diaChi);
@@ -242,13 +248,17 @@ public class KhachHangService extends BaseServiceImpl<KhachHang, Integer> {
         return ma;
     }
 
-    /** Tiền tố trong Cấu hình hệ thống; giá trị hỏng (sửa tay trong CSDL) thì dùng tiền tố mặc định. */
+    /**
+     * Tiền tố trong Cấu hình hệ thống; giá trị hỏng (sửa tay trong CSDL, hoặc trùng tiền tố khách sàn đặt trước khi có
+     * quy tắc chặn) thì dùng tiền tố mặc định.
+     */
     private String tienToMaKhachHang() {
         String giaTri = dieuHanhHeThongService.getCauHinhString(
                 DieuHanhHeThongServiceImpl.CAU_HINH_MA_KHACH_HANG_TIEN_TO,
                 DieuHanhHeThongServiceImpl.MA_KHACH_HANG_TIEN_TO_MAC_DINH);
         String tienTo = giaTri == null ? "" : giaTri.trim().toUpperCase(Locale.ROOT);
         return DieuHanhHeThongServiceImpl.TIEN_TO_MA_PATTERN.matcher(tienTo).matches()
+                && NguonKhachHang.tienToSan(tienTo) == null
                 ? tienTo
                 : DieuHanhHeThongServiceImpl.MA_KHACH_HANG_TIEN_TO_MAC_DINH;
     }

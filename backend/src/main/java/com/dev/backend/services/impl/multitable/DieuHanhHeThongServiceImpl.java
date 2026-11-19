@@ -31,6 +31,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.dev.backend.utils.MaVachSku;
+import com.dev.backend.utils.NguonKhachHang;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -571,6 +572,12 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         } else if (CAU_HINH_MA_KHACH_HANG_TIEN_TO.equals(maCauHinh)) {
             if (giaTri == null || !TIEN_TO_MA_PATTERN.matcher(giaTri).matches()) {
                 throw new CommonException(ThongDiep.of("khoVanHanh.tienToMaKhachKhongHopLe"));
+            }
+            // Mã tự tạo = tiền tố + số: tiền tố bắt đầu bằng tiền tố khách sàn (KH-SP-…) làm khách cửa hàng bị nhận là
+            // khách sàn ở danh sách khách hàng
+            String tienToSan = NguonKhachHang.tienToSan(giaTri);
+            if (tienToSan != null) {
+                throw new CommonException(ThongDiep.of("khoVanHanh.tienToMaKhachTrungSan", tienToSan));
             }
         } else if (CAU_HINH_MA_LO_TIEN_TO.equals(maCauHinh)) {
             if (giaTri == null || !TIEN_TO_MA_PATTERN.matcher(giaTri).matches()) {
