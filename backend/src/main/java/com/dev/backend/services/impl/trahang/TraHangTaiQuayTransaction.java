@@ -235,8 +235,10 @@ public class TraHangTaiQuayTransaction {
                     .thanhTienHoan(g.tien)
                     .tinhTrang(g.dat ? ChiTietPhieuTraHang.DAT : ChiTietPhieuTraHang.LOI)
                     .viTriKhoId(g.viTri)
-                    .lyDo(g.d.lyDo())
+                    .lyDo(g.dat ? g.d.lyDo() : TraHangQuyTac.LY_DO_LOI)
                     .nhomLoi(g.dat ? null : g.d.nhomLoi())
+                    .ghiChu(TraHangQuyTac.canGhiRo(g.dat, g.d.lyDo(), g.d.nhomLoi())
+                            ? catNgan(sach(g.d.ghiChu()), TraHangQuyTac.GHI_CHU_DONG_TOI_DA) : null)
                     .build());
             for (LoTra l : g.lo) {
                 chiTietLoRepository.save(ChiTietPhieuTraHangLo.builder()
@@ -377,12 +379,20 @@ public class TraHangTaiQuayTransaction {
             if (!ChiTietPhieuTraHang.DAT.equals(d.tinhTrang()) && !ChiTietPhieuTraHang.LOI.equals(d.tinhTrang())) {
                 throw new CommonException(ThongDiep.of("traHang.chonHienTrang"));
             }
-            if (d.lyDo() == null || !TraHangQuyTac.LY_DO.contains(d.lyDo())) {
-                throw new CommonException(ThongDiep.of("traHang.chonLyDo"));
-            }
-            if (ChiTietPhieuTraHang.LOI.equals(d.tinhTrang())
-                    && (d.nhomLoi() == null || !TraHangQuyTac.NHOM_LOI.contains(d.nhomLoi()))) {
+            boolean dat = ChiTietPhieuTraHang.DAT.equals(d.tinhTrang());
+            if (dat) {
+                // Hàng Lỗi chỉ chọn lỗi gì, lý do máy chủ tự ghi; hàng Đạt chọn lý do khách trả.
+                if (d.lyDo() == null || !TraHangQuyTac.LY_DO.contains(d.lyDo())) {
+                    throw new CommonException(ThongDiep.of("traHang.chonLyDo"));
+                }
+                if (TraHangQuyTac.LY_DO_LOI.equals(d.lyDo())) {
+                    throw new CommonException(ThongDiep.of("traHang.lyDoLoiPhaiChamLoi"));
+                }
+            } else if (d.nhomLoi() == null || !TraHangQuyTac.NHOM_LOI.contains(d.nhomLoi())) {
                 throw new CommonException(ThongDiep.of("traHang.chonNhomLoi"));
+            }
+            if (TraHangQuyTac.canGhiRo(dat, d.lyDo(), d.nhomLoi()) && sach(d.ghiChu()) == null) {
+                throw new CommonException(ThongDiep.of(dat ? "traHang.ghiRoLyDo" : "traHang.ghiRoLoi"));
             }
         }
         return dong;

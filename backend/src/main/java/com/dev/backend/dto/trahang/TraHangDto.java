@@ -73,9 +73,12 @@ public final class TraHangDto {
                                  Integer yeuCauDuyetId, String lyDoDuyet, String ghiChu, List<DongTra> dong) {
     }
 
-    /** tinhTrang: dat | loi. viTriKhoId chỉ khi dat. nhomLoi bắt buộc khi loi. */
+    /**
+     * tinhTrang: dat | loi. viTriKhoId và lyDo chỉ khi dat (dòng loi máy chủ tự ghi lý do lỗi sản xuất).
+     * nhomLoi bắt buộc khi loi. ghiChu bắt buộc khi chọn Khác (lý do Khác hoặc Lỗi khác).
+     */
     public record DongTra(Integer chiTietDonBanHangId, BigDecimal soLuong, String tinhTrang, Integer viTriKhoId,
-                          String lyDo, String nhomLoi) {
+                          String lyDo, String nhomLoi, String ghiChu) {
     }
 
     public record KetQua(Integer phieuTraHangId, String soPhieu, String soPhieuNhap, BigDecimal tongTienHoan,
@@ -115,6 +118,6 @@ public final class TraHangDto {
 
     public record DongPhieu(String tenSanPham, String maSku, String mauSac, String kichCo, BigDecimal soLuong,
                             BigDecimal donGiaHoan, BigDecimal thanhTienHoan, String tinhTrang, String ke,
-                            String lyDo, String nhomLoi) {
+                            String lyDo, String nhomLoi, String ghiChu) {
     }
 }

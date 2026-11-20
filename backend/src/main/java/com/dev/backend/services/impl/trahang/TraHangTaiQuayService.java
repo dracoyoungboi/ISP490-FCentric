@@ -219,7 +219,7 @@ public class TraHangTaiQuayService {
                     bt.getMaSku(), bt.getMauSac() == null ? null : bt.getMauSac().getTenMau(),
                     bt.getSize() == null ? null : bt.getSize().getTenSize(), c.getSoLuong(), c.getDonGiaHoan(),
                     c.getThanhTienHoan(), c.getTinhTrang(), ke == null ? null : ke.getMaViTri(), c.getLyDo(),
-                    c.getNhomLoi()));
+                    c.getNhomLoi(), c.getGhiChu()));
         }
         String soPn = p.getPhieuNhapKhoId() == null ? null
                 : em.find(PhieuNhapKho.class, p.getPhieuNhapKhoId()).getSoPhieuNhap();
