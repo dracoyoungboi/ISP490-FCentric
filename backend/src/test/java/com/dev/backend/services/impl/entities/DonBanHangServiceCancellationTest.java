@@ -236,4 +236,27 @@ class DonBanHangServiceCancellationTest {
         verify(donBanHangRepository, never()).save(any());
         verifyNoInteractions(nhatHangService, phieuXuatKhoService, eventPublisher, lichSuThayDoiService);
     }
+
+    @Test
+    void cancel_donShopeeChoXacNhan_bao400ChiXem_nhungHuyTuSanVanGoTag() {
+        DonBanHang donUnpaid = DonBanHang.builder()
+                .id(110)
+                .soDonHang("SHP-UNPAID110")
+                .maDonHangKenh("UNPAID110")
+                .kenhBanHang(KenhBanHang.builder().id(8).maKenh("SHOPEE_OFFICIAL").tenKenh("Shopee").build())
+                .loaiChungTu("don_ban_hang")
+                .trangThai(0)
+                .khoXuat(kho)
+                .ghiChu("Đơn hàng đồng bộ tự động từ Shopee #UNPAID110 [SHOPEE_CHO_XAC_NHAN]")
+                .build();
+        when(donBanHangRepository.findById(110)).thenReturn(Optional.of(donUnpaid));
+
+        CommonException ex = assertThrows(CommonException.class, () -> service.cancel(110, "Khách đổi ý"));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
+        verify(donBanHangRepository, never()).save(any());
+
+        assertTrue(service.huyDonTuSan(110, "Hủy từ sàn Shopee: CANCELLED"));
+        assertEquals(4, donUnpaid.getTrangThai());
+        assertFalse(donUnpaid.getGhiChu().contains("[SHOPEE_CHO_XAC_NHAN]"));
+    }
 }

@@ -567,4 +567,59 @@ class OmnichannelOrderSyncJobTest {
         assertEquals(2, metaCaptor.getValue().getKhoDeXuatId());
         assertEquals("PICK_UP", metaCaptor.getValue().getDeliveryMethodType());
     }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("Shopee COD UNPAID (Chờ xác nhận): gắn cờ [SHOPEE_CHO_XAC_NHAN], không sinh giả SPXVN và không báo đơn chờ kho; lên READY_TO_SHIP thì mở khóa")
+    void processSingleShopeeOrder_unpaidCodChiXem_chuyenReadyToShipMoiMoKhoaVaBaoDon() {
+        var thongBao = mock(com.dev.backend.services.impl.entities.ThongBaoXuatKhoService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(job, "thongBaoXuatKhoService", thongBao);
+
+        var kenh = KenhBanHang.builder().id(8).maKenh("SHOPEE_OFFICIAL").tenKenh("Shopee").build();
+        var khoTong = com.dev.backend.entities.Kho.builder()
+                .id(1).maKho("KHO_TONG").tenKho("Kho Tổng").loaiKho("kho_tong").trangThai(1).build();
+        when(khoRepository.findByTrangThai(1)).thenReturn(List.of(khoTong));
+        when(khachHangRepository.findFirstBySoDienThoai("0901112233"))
+                .thenReturn(Optional.of(KhachHang.builder().id(10).tenKhachHang("Khách Shopee").build()));
+        when(donBanHangRepository.findBySoDonHang("SHP-261120COD")).thenReturn(Optional.empty());
+
+        var addr = new com.dev.backend.dto.response.customize.ShopeeOrderDto.ShopeeRecipientAddressDto();
+        addr.setName("Nguyễn Test");
+        addr.setPhone("0901112233");
+        addr.setFullAddress("Hà Nội");
+
+        var unpaidDto = new com.dev.backend.dto.response.customize.ShopeeOrderDto();
+        unpaidDto.setOrderSn("261120COD");
+        unpaidDto.setOrderStatus("UNPAID");
+        unpaidDto.setPaymentMethod("CASH_ON_DELIVERY");
+        unpaidDto.setTotalAmount(250000.0);
+        unpaidDto.setRecipientAddress(addr);
+
+        assertTrue(job.processSingleShopeeOrder(unpaidDto, kenh));
+
+        ArgumentCaptor<DonBanHang> savedCap = ArgumentCaptor.forClass(DonBanHang.class);
+        verify(donBanHangRepository).save(savedCap.capture());
+        DonBanHang saved = savedCap.getValue();
+        assertEquals(0, saved.getTrangThai());
+        assertNotNull(saved.getGhiChu());
+        assertTrue(saved.getGhiChu().contains(OmnichannelOrderSyncJob.TAG_SHOPEE_CHO_XAC_NHAN));
+        assertFalse(saved.getGhiChu().contains("SPXVN261120COD"), "Đơn UNPAID chưa có vận đơn thì không được tự bịa mã SPXVN");
+        verify(thongBao, never()).donSanMoi(any());
+
+        // Đợt quét sau Shopee xác nhận -> READY_TO_SHIP (Chờ lấy hàng - Chưa xử lý)
+        saved.setId(505);
+        when(donBanHangRepository.findBySoDonHang("SHP-261120COD")).thenReturn(Optional.of(saved));
+
+        var readyDto = new com.dev.backend.dto.response.customize.ShopeeOrderDto();
+        readyDto.setOrderSn("261120COD");
+        readyDto.setOrderStatus("READY_TO_SHIP");
+        readyDto.setPaymentMethod("CASH_ON_DELIVERY");
+        readyDto.setTrackingNumber("SPXVN05999888");
+        readyDto.setShippingCarrier("SPX Express");
+
+        assertFalse(job.processSingleShopeeOrder(readyDto, kenh));
+        assertFalse(saved.getGhiChu().contains(OmnichannelOrderSyncJob.TAG_SHOPEE_CHO_XAC_NHAN),
+                "Phải gỡ [SHOPEE_CHO_XAC_NHAN] khi Shopee chuyển READY_TO_SHIP");
+        assertTrue(saved.getGhiChu().contains("SPXVN05999888"));
+        verify(thongBao, times(1)).donSanMoi(kenh);
+    }
 }

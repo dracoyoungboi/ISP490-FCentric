@@ -336,4 +336,28 @@ class DonBanHangServiceSendToWarehouseTest {
 
         assertTrue(result.isEmpty());
     }
+
+    @Test
+    void shopeeUnpaidChoXacNhan_chanGuiKhoInVanDonVaBaoChiXem() {
+        KenhBanHang shopee = KenhBanHang.builder().id(8).maKenh("SHOPEE_OFFICIAL").tenKenh("Shopee").build();
+        DonBanHang donUnpaid = DonBanHang.builder()
+                .id(125)
+                .soDonHang("SHP-UNPAID123")
+                .maDonHangKenh("UNPAID123")
+                .kenhBanHang(shopee)
+                .loaiChungTu("don_ban_hang")
+                .trangThai(0)
+                .khoXuat(Kho.builder().id(1).maKho("KHO_TONG").tenKho("Kho Tổng").loaiKho("kho_tong").trangThai(1).build())
+                .ghiChu("Đơn hàng đồng bộ tự động từ Shopee #UNPAID123 [SHOPEE_CHO_XAC_NHAN]")
+                .build();
+        when(donBanHangRepository.findById(125)).thenReturn(Optional.of(donUnpaid));
+
+        assertTrue(DonBanHangService.laDonShopeeChoXacNhan(donUnpaid));
+        CommonException guiKhoEx = assertThrows(CommonException.class, () -> service.sendToWarehouse(125, 1));
+        assertEquals(HttpStatus.BAD_REQUEST, guiKhoEx.getHttpStatus());
+        verify(donBanHangRepository, never()).save(any());
+
+        CommonException inVanDonEx = assertThrows(CommonException.class, () -> service.layVanDonSan(125));
+        assertEquals(HttpStatus.BAD_REQUEST, inVanDonEx.getHttpStatus());
+    }
 }

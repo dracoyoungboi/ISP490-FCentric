@@ -378,4 +378,85 @@ class KenhBanHangShopifyMultiLocationTest {
             assertEquals(91002L, ((Number) foLines.get(0).get("fulfillment_order_id")).longValue());
         }
     }
+
+    @Test
+    @DisplayName("luuCauHinhKhoMapping Shopify phải xóa cache snapshot tồn theo Location để đợt đẩy kế đồng bộ lại đủ")
+    void luuCauHinhKhoMapping_shopify_xoaSnapshotTonTheoKho() {
+        KenhBanHang shopify = KenhBanHang.builder().id(1).maKenh("SHOPIFY").tenKenh("Shopify").trangThai(1).build();
+        when(kenhBanHangRepository.findByMaKenh("SHOPIFY")).thenReturn(Optional.of(shopify));
+        when(khoRepo.findByTrangThai(1)).thenReturn(List.of(
+                com.dev.backend.entities.Kho.builder().id(1).maKho("KHO_TONG").tenKho("Kho Tổng").trangThai(1).build(),
+                com.dev.backend.entities.Kho.builder().id(2).maKho("CN_HCM").tenKho("Kho HCM").trangThai(1).build()
+        ));
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn(null);
+        service.capNhatCacheTonTheoKhoShopify(88, Map.of(11111L, 50, 22222L, 10));
+        assertNotNull(service.docTonDaDayTheoKhoShopify(88));
+
+        var req = com.dev.backend.dto.channel.warehouse.KenhKhoMappingUpdateRequest.builder()
+                .cheDoDaKho(true)
+                .danhSachKho(List.of(
+                        com.dev.backend.dto.channel.warehouse.KenhKhoMappingItemDto.builder()
+                                .maKhoSan("11111").tenKhoSan("Kho Tổng").khoIdFCentric(1).kichHoat(true).laMacDinh(true).build(),
+                        com.dev.backend.dto.channel.warehouse.KenhKhoMappingItemDto.builder()
+                                .maKhoSan("22222").tenKhoSan("HCM").khoIdFCentric(2).kichHoat(false).laMacDinh(false).build()
+                ))
+                .build();
+
+        service.luuCauHinhKhoMapping("SHOPIFY", req);
+
+        assertNull(service.docTonDaDayTheoKhoShopify(88), "Cache snapshot phải bị xóa khi lưu mapping kho mới");
+        verify(dieuHanhHeThongService).setCauHinhString("SHOPIFY_TON_DA_DAY_KHO", "{}");
+    }
+
+    @Test
+    @DisplayName("Delta Sync đa kho Shopify không bỏ qua SKU nếu DB soLuongDaDay bị lệch tổng expectedLocs (tự chữa sai lệch)")
+    void dayTonKhoLenKenh_shopifyDaKho_tuChuaKhiSoLuongDaDayLechSnapshot() {
+        KenhBanHang shopify = KenhBanHang.builder()
+                .id(1).maKenh("SHOPIFY").apiUrl("https://fcentric-test.myshopify.com").apiKey("shpat_plain").apiSecret("shpat_plain").trangThai(1).build();
+        when(kenhBanHangRepository.findByMaKenh("SHOPIFY")).thenReturn(Optional.of(shopify));
+        when(kenhBanHangService.getDecryptedShopifyAccessToken()).thenReturn("shpat_plain");
+
+        String mappingJson = """
+                {
+                  "cheDoDaKho": true,
+                  "danhSachKho": [
+                    { "maKhoSan": "11111", "tenKhoSan": "Kho Tổng", "khoIdFCentric": 1, "laMacDinh": true, "kichHoat": true },
+                    { "maKhoSan": "22222", "tenKhoSan": "HCM Store", "khoIdFCentric": 2, "laMacDinh": false, "kichHoat": true }
+                  ]
+                }
+                """;
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_SHOPIFY_KHO_MAPPING"), any())).thenReturn(mappingJson);
+        when(khoRepo.findAll()).thenReturn(List.of(
+                com.dev.backend.entities.Kho.builder().id(1).maKho("KHO_TONG").tenKho("Kho Tổng").loaiKho("kho_tong").build(),
+                com.dev.backend.entities.Kho.builder().id(2).maKho("CN_HCM").tenKho("HCM").loaiKho("cua_hang").build()));
+
+        BienTheSanPham bt = BienTheSanPham.builder().id(90).maSku("JAK-S").build();
+        TrangThaiDongBoSanPham dong = TrangThaiDongBoSanPham.builder()
+                .id(10).kenhBanHang(shopify).bienTheSanPham(bt).trangThaiDongBo("thanh_cong").soLuongDaDay(130).build();
+        when(trangThaiRepo.findByKenhBanHangId(1)).thenReturn(List.of(dong));
+        when(tonKhoTongHopRepo.sumFreeToUseTheoKhoVaBienTheIds(eq(1), any()))
+                .thenReturn(List.<Object[]>of(new Object[]{90, new java.math.BigDecimal("127")}));
+        when(tonKhoTongHopRepo.sumFreeToUseTheoKhoVaBienTheIds(eq(2), any()))
+                .thenReturn(List.<Object[]>of(new Object[]{90, new java.math.BigDecimal("8")}));
+
+        service.capNhatCacheTonTheoKhoShopify(90, Map.of(11111L, 122, 22222L, 0));
+
+        KenhBanHangDongBoServiceImpl spyService = spy(service);
+        var ketNoi = new KenhBanHangDongBoServiceImpl.KetNoiDayTon(
+                "fcentric-test.myshopify.com", "shpat_plain", 11111L, "Kho Tổng",
+                Map.of("jak-s", new KenhBanHangDongBoServiceImpl.ShopifyVariantInfo(1L, 777L, 2L, null)), null);
+        doReturn(ketNoi).when(spyService).moKetNoiDayTon(shopify);
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.THANH_CONG)
+                .when(spyService).guiTonLenShopify(anyString(), anyString(), anyLong(), anyLong(), anyInt());
+
+        var req = new com.dev.backend.dto.request.DayTonKenhRequest();
+        req.setTyLeDayTon(new java.math.BigDecimal("100"));
+        req.setTonDem(5);
+        req.setNguongVe0(10);
+
+        DayTonResultDto res = spyService.dayTonKhoLenKenh("SHOPIFY", req);
+
+        assertEquals(1, res.getSoDong());
+        assertEquals(122, dong.getSoLuongDaDay(), "DB soLuongDaDay phải được đồng bộ lại đúng tổng Waterfall (122)");
+    }
 }

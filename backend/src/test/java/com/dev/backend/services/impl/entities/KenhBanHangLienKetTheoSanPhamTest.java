@@ -374,4 +374,49 @@ class KenhBanHangLienKetTheoSanPhamTest {
         assertEquals(0L, ((com.dev.backend.dto.response.customize.TrangNhomLienKet) trang).getTongSku());
         verify(trangThaiDongBoSanPhamRepository, never()).demLienKetKhopLoc(any(), any(), any());
     }
+
+    @Test
+    void shopifyDaKho_tinhSoLuongSeDayBangWaterfallTheoKhoMapping_khongLechVoiToanChuoi() {
+        // Mô phỏng đúng case thực tế: tồn toàn chuỗi 135 (gồm 127 ở Kho Tổng + 8 ở chi nhánh HCM với nguongVe0=10 hoặc kho chưa map),
+        // quy tắc tonDem=5, nguongVe0=10 -> Waterfall chỉ đẩy 122 thay vì 135-5=130.
+        TrangThaiDongBoSanPham dong = lienKet(aoKhoac, "Đen", "S", "thanh_cong");
+        dong.setSoLuongDaDay(122);
+        Integer btId = dong.getBienTheSanPham().getId();
+        trangSanPham(List.of(12), 1);
+        lienKetCuaTrang(List.of(dong));
+
+        String mappingJson = """
+                {
+                  "cheDoDaKho": true,
+                  "danhSachKho": [
+                    { "maKhoSan": "11111", "tenKhoSan": "Kho Tổng", "khoIdFCentric": 1, "laMacDinh": true, "kichHoat": true },
+                    { "maKhoSan": "22222", "tenKhoSan": "HCM Store", "khoIdFCentric": 2, "laMacDinh": false, "kichHoat": true }
+                  ]
+                }
+                """;
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_SHOPIFY_KHO_MAPPING"), any())).thenReturn(mappingJson);
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_SHOPIFY_TY_LE_DAY_TON"), any())).thenReturn("100");
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_SHOPIFY_TON_DEM"), any())).thenReturn("5");
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_SHOPIFY_NGUONG_VE_0"), any())).thenReturn("10");
+
+        when(khoRepository.findAll()).thenReturn(List.of(
+                com.dev.backend.entities.Kho.builder().id(1).maKho("KHO_TONG").tenKho("Kho Tổng").loaiKho("kho_tong").build(),
+                com.dev.backend.entities.Kho.builder().id(2).maKho("CN_HCM").tenKho("HCM").loaiKho("cua_hang").build()));
+        when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(any()))
+                .thenReturn(hang(new Object[]{btId, BigDecimal.valueOf(135)}));
+        when(tonKhoTongHopRepository.sumFreeToUseTheoKhoVaBienTheIds(eq(1), any()))
+                .thenReturn(hang(new Object[]{btId, BigDecimal.valueOf(127)}));
+        when(tonKhoTongHopRepository.sumFreeToUseTheoKhoVaBienTheIds(eq(2), any()))
+                .thenReturn(hang(new Object[]{btId, BigDecimal.valueOf(8)}));
+
+        List<LienKetSanPhamDto> result = service.filterLienKetTheoSanPham("SHOPIFY", null, null, PageRequest.of(0, 20))
+                .getContent().get(0).getBienThe();
+
+        assertEquals(BigDecimal.valueOf(135), result.get(0).getSoLuongKhaDung());
+        assertEquals(BigDecimal.valueOf(122), result.get(0).getSoLuongDaDay());
+        assertEquals(122, result.get(0).getSoLuongSeDay(),
+                "soLuongSeDay phải khớp đúng Waterfall đa kho (122) thay vì lấy 135 - 5 = 130 gây kẹt trạng thái chờ đẩy");
+        verify(tonKhoTongHopRepository, times(1)).sumFreeToUseTheoKhoVaBienTheIds(eq(1), any());
+        verify(tonKhoTongHopRepository, times(1)).sumFreeToUseTheoKhoVaBienTheIds(eq(2), any());
+    }
 }
