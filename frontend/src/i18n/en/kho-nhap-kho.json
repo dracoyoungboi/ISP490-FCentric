@@ -1453,5 +1453,19 @@
   "Không có nhân viên nào khớp từ khóa": "No staff match your search",
   "Xem danh sách nhân viên tại kho ({{n}} người)": "View staff at this warehouse ({{n}})",
   "Người quản lý chính": "Primary manager",
-  "Chưa chọn người đứng tên": "No primary manager chosen"
+  "Chưa chọn người đứng tên": "No primary manager chosen",
+  "Kệ {{maViTri}} chỉ còn trống {{con}}, đang xếp {{sl}}. Giảm số ở kệ này rồi quét thêm kệ khác.": "Shelf {{maViTri}} has only {{con}} free but {{sl}} are assigned to it. Lower this number, then scan another shelf.",
+  "Đã xếp {{xep}} vào kệ nhưng lô chỉ có {{datLo}} đạt. Giảm số ở bảng kệ.": "{{xep}} assigned to shelves, but the lot has only {{datLo}} passed. Lower the numbers in the shelf list.",
+  "Còn {{soCon}} đạt chưa có kệ, quét thêm kệ.": "Passed items without a shelf: {{soCon}}. Scan another shelf.",
+  "Kệ {{maViTri}} đã có trong bảng kệ của lô đang kiểm.": "Shelf {{maViTri}} is already in this lot's shelf list.",
+  "Kệ {{maViTri}} nhận {{sl}}. Còn {{soCon}} đạt chưa có kệ, quét thêm kệ.": "Shelf {{maViTri}} takes {{sl}}. Passed items without a shelf: {{soCon}}. Scan another shelf.",
+  "Đã đổi sang kệ {{maViTri}}. Quét thẻ KHÓA LÔ để khóa.": "Switched to shelf {{maViTri}}. Scan the KHÓA LÔ (lock lot) card to lock.",
+  "Kệ {{maViTri}} nhận {{sl}}. Đã xếp đủ hàng đạt vào {{soKe}} kệ, quét thẻ KHÓA LÔ để khóa.": "Shelf {{maViTri}} takes {{sl}}. All passed items are on {{soKe}} shelves. Scan the KHÓA LÔ (lock lot) card to lock.",
+  "Quét các kệ cho hàng đạt, rồi quét thẻ KHÓA LÔ": "Scan the shelves for passed goods, then the KHÓA LÔ (lock lot) card",
+  "đã chọn": "selected",
+  "Số đạt": "Passed",
+  "Số đạt xếp vào kệ {{maViTri}}": "Passed items on shelf {{maViTri}}",
+  "Bỏ kệ {{maViTri}}": "Remove shelf {{maViTri}}",
+  "Đã xếp đủ {{datLo}} đạt vào {{soKe}} kệ": "All {{datLo}} passed items placed on {{soKe}} shelves",
+  "Đã xếp đủ {{datLo}} đạt vào kệ": "All {{datLo}} passed items placed on the shelf"
 }
