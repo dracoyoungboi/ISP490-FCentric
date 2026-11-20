@@ -221,6 +221,16 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 && laQuanLyKhoTong(user);
     }
 
+    /** Đơn Shopee đang chờ xác nhận (UNPAID): chỉ cho phép xem lại, chưa mở gửi kho / hủy / in vận đơn. */
+    public static boolean laDonShopeeChoXacNhan(DonBanHang don) {
+        if (don == null || don.getKenhBanHang() == null) return false;
+        if (!OmnichannelOrderSyncJob.isShopee(don.getKenhBanHang().getMaKenh())) return false;
+        boolean dangNhap = don.getTrangThai() == null || Integer.valueOf(ITrangThaiDonBanHang.NHAP).equals(don.getTrangThai());
+        return dangNhap
+                && don.getGhiChu() != null
+                && don.getGhiChu().contains(OmnichannelOrderSyncJob.TAG_SHOPEE_CHO_XAC_NHAN);
+    }
+
 
     @Override
     protected EntityManager getEntityManager() {
@@ -610,7 +620,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             routingMeta = shopifyOrderRoutingService.find(don.getMaDonHangKenh()).orElse(null);
         }
         NguoiDungAuthInfo currentUser = SecurityContextHolder.getUser();
-        boolean coTheGuiKho = !"bao_gia".equals(don.getLoaiChungTu())
+        boolean choXacNhanSan = laDonShopeeChoXacNhan(don);
+        boolean coTheGuiKho = !choXacNhanSan
+                && !"bao_gia".equals(don.getLoaiChungTu())
                 && Integer.valueOf(ITrangThaiDonBanHang.NHAP).equals(don.getTrangThai())
                 && duocDieuTietDonSan(don, currentUser);
 
@@ -628,6 +640,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .phuongThucGiaoSan(routingMeta != null ? routingMeta.getDeliveryMethodType() : null)
                 .tachNhieuKhoSan(routingMeta != null && routingMeta.isSplitMultiLocation())
                 .coTheGuiSangKho(coTheGuiKho)
+                .choXacNhanSan(choXacNhanSan)
                 .build();
     }
 
@@ -648,6 +661,10 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             throw new TuChoiTruyCapException(laQlk
                     ? ThongDiep.of("banHang.chiQlKhoTongMoiDieuTietShopify")
                     : ThongDiep.of("banHang.qlKhoChiNhanhKhongGuiDonKhac"));
+        }
+
+        if (laDonShopeeChoXacNhan(don)) {
+            throw new CommonException(ThongDiep.of("banHang.donShopeeChoXacNhanKhongGuiKho"), HttpStatus.BAD_REQUEST, null);
         }
 
         if (don.getTrangThai() == null || don.getTrangThai() != 0) {
@@ -935,6 +952,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         if (Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(don.getTrangThai())) {
             return;
         }
+        if (laDonShopeeChoXacNhan(don)) {
+            throw new CommonException(ThongDiep.of("banHang.donShopeeChoXacNhanChiXem"), HttpStatus.BAD_REQUEST, null);
+        }
 
         Integer trangThai = don.getTrangThai();
         if (trangThai != null && (trangThai == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO
@@ -1036,6 +1056,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         boolean trongPhieuNhat = don.getDanhSachNhatHang() != null;
         don.setTrangThai(ITrangThaiDonBanHang.DA_HUY);
         don.setLyDoTuChoi(lyDo);
+        if (don.getGhiChu() != null && don.getGhiChu().contains(OmnichannelOrderSyncJob.TAG_SHOPEE_CHO_XAC_NHAN)) {
+            don.setGhiChu(OmnichannelOrderSyncJob.xoaTagShopeeChoXacNhan(don.getGhiChu()));
+        }
         don.setNgayCapNhat(Instant.now());
         repository.save(don);
 
@@ -1134,6 +1157,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         } else if (st.equals("processed")) {
             if (trangThaiHienTai == ITrangThaiDonBanHang.NHAP) {
                 don.setTrangThai(ITrangThaiDonBanHang.CHO_NHAT_HANG);
+                if (don.getGhiChu() != null && don.getGhiChu().contains(OmnichannelOrderSyncJob.TAG_SHOPEE_CHO_XAC_NHAN)) {
+                    don.setGhiChu(OmnichannelOrderSyncJob.xoaTagShopeeChoXacNhan(don.getGhiChu()));
+                }
                 don.setNgayCapNhat(Instant.now());
                 repository.save(don);
                 ghiNhatKyDon(don, "san_sang_xu_ly_tu_san", "Sàn cập nhật đang chuẩn bị hàng (" + trangThaiSan + ")");
@@ -1367,6 +1393,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
         if (Integer.valueOf(ITrangThaiDonBanHang.DA_HUY).equals(don.getTrangThai())) {
             throw new CommonException(ThongDiep.of("banHang.donDaHuyKhongInVanDon"), HttpStatus.BAD_REQUEST, null);
+        }
+        if (laDonShopeeChoXacNhan(don)) {
+            throw new CommonException(ThongDiep.of("banHang.donShopeeChoXacNhanKhongInVanDon"), HttpStatus.BAD_REQUEST, null);
         }
 
         if (don.getKenhBanHang() == null) {
