@@ -105,6 +105,10 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     @Autowired
     private ChiTietLoiLoHangRepository chiTietLoiLoHangRepository;
 
+    /** Kệ của lô xếp nhiều kệ; null khi unit test dựng tay (khi đó lô chỉ một kệ như trước). */
+    @Autowired(required = false)
+    private LoHangKeNhapRepository loHangKeNhapRepository;
+
     @Autowired
     private ChiTietTraHangNccRepository chiTietTraHangNccRepository;
 
@@ -364,6 +368,9 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         }
 
         List<ChiTietPhieuNhapKho> danhSachNhapTheoLo = chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(phieuNhapKhoId);
+        // Lô xếp nhiều kệ: hàng đạt lên từng kệ theo lo_hang_ke_nhap thay vì cả lô lên kệ chính
+        Map<Integer, List<LoHangKeNhap>> keNhapTheoLo = keNhapTheoLo(danhSachNhapTheoLo.stream()
+                .map(ct -> ct.getLoHang().getId()).distinct().toList());
 
         // 0. Phiếu từ đơn mua: tồn kho cộng theo số trên dòng phiếu, còn kiểm đủ và "đã nhận" của đơn tính theo số trên lô.
         // Khóa lô luôn ghi hai số bằng nhau; lô tạo trước khi có kiểm đếm có thể lệch hoặc đã Hoạt động khi phiếu còn nháp,
@@ -384,6 +391,13 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                 } else if (lo.getSoLuongNhap() != null && soTrenDong.compareTo(BigDecimal.valueOf(lo.getSoLuongNhap())) != 0) {
                     loSai.add(ThongDiep.of("chungTuKho.loSaiLechSo",
                             lo.getMaLo(), ct.getBienTheSanPham().getMaSku(), soTrenDong.stripTrailingZeros().toPlainString(), lo.getSoLuongNhap()));
+                } else if (keNhapTheoLo.containsKey(lo.getId())) {
+                    // Lô nhiều kệ: tổng các kệ phải bằng số đạt vào tồn (backend cũ sửa lô mà không biết các kệ)
+                    int tongKe = keNhapTheoLo.get(lo.getId()).stream().mapToInt(LoHangKeNhap::getSoLuong).sum();
+                    if (soTrenDong.compareTo(BigDecimal.valueOf(tongKe)) != 0) {
+                        loSai.add(ThongDiep.of("chungTuKho.loSaiLechKe",
+                                lo.getMaLo(), ct.getBienTheSanPham().getMaSku(), tongKe, soTrenDong.stripTrailingZeros().toPlainString()));
+                    }
                 }
             }
             if (!loSai.isEmpty()) {
@@ -455,11 +469,13 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
             for (ChiTietPhieuNhapKho ct : danhSachNhapTheoLo) {
                 if (ct.getSoLuongNhap() == null || ct.getSoLuongNhap().signum() <= 0) continue;
                 LoHang lo = ct.getLoHang();
-                ViTriKho keCuaLo = lo.getViTriKho();
-                if (keCuaLo != null && keCuaLo.getKho() != null && kho.getId().equals(keCuaLo.getKho().getId())) {
-                    khoaKiemKeGuard.kiemTraNhapKe(kho.getId(), keCuaLo.getId(), List.of(lo.getId()), "nhập hàng lên kệ");
-                } else {
+                // Lô nhiều kệ: kiểm từng kệ hàng sẽ lên, không chỉ kệ chính
+                List<KeLen> keLen = keLenCuaLo(lo, ct.getSoLuongNhap().intValue(), keNhapTheoLo, kho);
+                if (keLen.isEmpty()) {
                     khoaKiemKeGuard.kiemTraNhapKho(kho.getId(), List.of(lo.getId()), "nhập hàng vào kho");
+                }
+                for (KeLen ke : keLen) {
+                    khoaKiemKeGuard.kiemTraNhapKe(kho.getId(), ke.ke().getId(), List.of(lo.getId()), "nhập hàng lên kệ");
                 }
             }
         }
@@ -501,20 +517,18 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
             }
 
             // 2. Ghi nhận số lượng ĐẠT lên sổ kệ (ton_kho_vi_tri) khi kệ của lô thuộc đúng kho nhập; phiếu nhập hoàn trả về
-            // kho khác kho của kệ thì hàng vào phần chưa có kệ của kho nhập (sổ kệ phải đi cùng tồn lô ở kho, xem SoTonKeService)
-            ViTriKho keNhap = loHang.getViTriKho();
-            boolean keCungKho = keNhap != null && (keNhap.getKho() != null ? kho.getId().equals(keNhap.getKho().getId())
-                    : keNhap.getKhuVucKho() != null && keNhap.getKhuVucKho().getKho() != null
-                    && kho.getId().equals(keNhap.getKhuVucKho().getKho().getId()));
-            if (keCungKho && soLuongNhap.compareTo(BigDecimal.ZERO) > 0) {
-                TonKhoViTri tkvt = tonKhoViTriRepository.findByViTriKho_IdAndLoHang_Id(keNhap.getId(), loHang.getId())
+            // kho khác kho của kệ thì hàng vào phần chưa có kệ của kho nhập (sổ kệ phải đi cùng tồn lô ở kho, xem SoTonKeService).
+            // Lô nhiều kệ: mỗi kệ một dòng sổ kệ theo phần đã xếp lúc khóa lô.
+            List<KeLen> keLen = keLenCuaLo(loHang, soLuongNhap.intValue(), keNhapTheoLo, kho);
+            for (KeLen ke : keLen) {
+                TonKhoViTri tkvt = tonKhoViTriRepository.findByViTriKho_IdAndLoHang_Id(ke.ke().getId(), loHang.getId())
                         .orElse(TonKhoViTri.builder()
-                                .viTriKho(keNhap)
+                                .viTriKho(ke.ke())
                                 .loHang(loHang)
                                 .bienTheSanPham(ct.getBienTheSanPham())
                                 .soLuong(0)
                                 .build());
-                tkvt.setSoLuong(tkvt.getSoLuong() + soLuongNhap.intValue());
+                tkvt.setSoLuong(tkvt.getSoLuong() + ke.soLuong());
                 tonKhoViTriRepository.save(tkvt);
             }
 
@@ -542,7 +556,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
 
             // Ghi lịch sử giao dịch kho
             String ghiChuLS = donMuaHang != null
-                    ? "Nhập kho từ phiếu: " + phieu.getSoPhieuNhap() + " (Kệ: " + (loHang.getViTriKho() != null ? loHang.getViTriKho().getMaViTri() : "Chưa gắn kệ") + ")"
+                    ? "Nhập kho từ phiếu: " + phieu.getSoPhieuNhap() + " (Kệ: " + moTaKeNhap(loHang, keLen) + ")"
                     : "Nhập hoàn trả (Return) từ phiếu: " + phieu.getSoPhieuNhap();
 
             LichSuGiaoDichKho history = LichSuGiaoDichKho.builder()
@@ -671,6 +685,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                 LoHang lo = ct.getLoHang();
                 if (!"TAM_KHOA".equals(lo.getTrangThai())) continue;
                 chiTietLoiLoHangRepository.deleteByLoHangId(lo.getId());
+                if (loHangKeNhapRepository != null) loHangKeNhapRepository.xoaCuaLo(lo.getId());
                 chiTietTraHangNccRepository.boLienKetLo(lo.getId());
                 chiTietPhieuNhapKhoRepository.delete(ct);
                 loHangRepository.delete(lo);
@@ -809,42 +824,52 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
             }
         }
 
+        // Kệ cho hàng đạt: từng phần (kệ, số đạt) theo thứ tự quét, phần đầu là kệ chính của lô. Lô một kệ có một phần
+        // mang cả số đạt; lô chỉ có hàng không đạt có thể vẫn gắn kệ (phần số 0); lô không lên kệ thì danh sách rỗng.
+        List<PhanKe> phanKe = phanKeCuaLo(request, loDangSua, viTriKhoId, soLuongNhap.intValue(), maLo);
+
         // Lô có hàng đạt phải lên kệ khi kho đã có kệ đang hoạt động (kho chưa dựng kệ thì nhập kho chưa gắn kệ)
-        if (viTriKhoId == null && soLuongNhap.signum() > 0
+        if (phanKe.isEmpty() && soLuongNhap.signum() > 0
                 && (viTriKhoRepository.existsByKho_IdAndTrangThai(phieu.getKho().getId(), "HOAT_DONG")
                     || viTriKhoRepository.existsByKho_IdAndTrangThai(phieu.getKho().getId(), "DAY_HANG"))) {
             throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.chonKeChoLo", soLuongNhap.intValue(), maLo));
         }
 
-        // Kiểm tra và xác thực vị trí kệ (nếu có chọn)
-        ViTriKho viTri = null;
-        if (viTriKhoId != null) {
-            // Khóa dòng kệ: hai lô lên cùng kệ cùng lúc chạy tuần tự, lô sau thấy "chờ nhập" của lô trước
-            viTri = viTriKhoRepository.khoaTheoId(viTriKhoId)
-                    .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.viTriKeKhongTimThay", viTriKhoId)));
-            if (!viTri.getKhuVucKho().getKho().getId().equals(phieu.getKho().getId())) {
+        // Kiểm tra và xác thực các kệ. Khóa dòng kệ theo thứ tự id: hai lô lên cùng kệ cùng lúc chạy tuần tự (lô sau thấy
+        // "chờ nhập" của lô trước), và hai lô nhiều kệ khóa chéo nhau không bị deadlock.
+        Map<Integer, ViTriKho> keDaKhoa = new HashMap<>();
+        for (Integer keId : phanKe.stream().map(PhanKe::viTriKhoId).distinct().sorted().toList()) {
+            ViTriKho ke = viTriKhoRepository.khoaTheoId(keId)
+                    .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.viTriKeKhongTimThay", keId)));
+            if (!ke.getKhuVucKho().getKho().getId().equals(phieu.getKho().getId())) {
                 throw new CommonException(HttpStatus.FORBIDDEN, ThongDiep.of("chungTuKho.viTriKeKhacKhoPhieuNhap"));
             }
-            if (viTri.getTrangThai() != null && !"HOAT_DONG".equalsIgnoreCase(viTri.getTrangThai())
-                    && !"DAY_HANG".equalsIgnoreCase(viTri.getTrangThai())) {
+            if (ke.getTrangThai() != null && !"HOAT_DONG".equalsIgnoreCase(ke.getTrangThai())
+                    && !"DAY_HANG".equalsIgnoreCase(ke.getTrangThai())) {
                 // Không viết "bị khóa": giao diện coi câu có cụm đó là tài khoản bị khóa và đăng xuất
-                throw new CommonException(HttpStatus.BAD_REQUEST, "KHOA_KIEM_KE".equalsIgnoreCase(viTri.getTrangThai())
-                        ? ThongDiep.of("chungTuKho.keDangKiemKeChonKhac", viTri.getMaViTri())
+                throw new CommonException(HttpStatus.BAD_REQUEST, "KHOA_KIEM_KE".equalsIgnoreCase(ke.getTrangThai())
+                        ? ThongDiep.of("chungTuKho.keDangKiemKeChonKhac", ke.getMaViTri())
                         : ThongDiep.of("chungTuKho.viTriKeTamKhoa"));
             }
-            if (viTri.getSucChuaToiDa() != null && viTri.getSucChuaToiDa() > 0 && soLuongNhap.compareTo(BigDecimal.ZERO) > 0) {
-                Integer tonTrenKe = tonKhoViTriRepository.sumDangChuaByViTriId(viTri.getId());
-                int dangChua = tonTrenKe != null ? tonTrenKe : 0;
-                // Lô đã khóa của các phiếu chưa nhập kho cũng sẽ lên kệ này
-                Long choNhapTrenKe = chiTietPhieuNhapKhoRepository.sumChoNhapTheoViTri(viTri.getId(), loDangSuaId);
-                int choNhap = choNhapTrenKe != null ? choNhapTrenKe.intValue() : 0;
-                if (dangChua + choNhap + soLuongNhap.intValue() > viTri.getSucChuaToiDa()) {
-                    int conTrong = Math.max(0, viTri.getSucChuaToiDa() - dangChua - choNhap);
-                    throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.keKhongDuCho",
-                            viTri.getMaViTri(), conTrong, soLuongNhap.intValue(), viTri.getSucChuaToiDa(), dangChua, choNhap));
-                }
+            keDaKhoa.put(keId, ke);
+        }
+        for (PhanKe phan : phanKe) {
+            ViTriKho ke = keDaKhoa.get(phan.viTriKhoId());
+            if (ke.getSucChuaToiDa() == null || ke.getSucChuaToiDa() <= 0 || phan.soLuong() <= 0) continue;
+            Integer tonTrenKe = tonKhoViTriRepository.sumDangChuaByViTriId(ke.getId());
+            int dangChua = tonTrenKe != null ? tonTrenKe : 0;
+            // Lô đã khóa của các phiếu chưa nhập kho cũng sẽ lên kệ này (cả phần của lô nhiều kệ)
+            Long choNhapTrenKe = chiTietPhieuNhapKhoRepository.sumChoNhapTheoViTri(ke.getId(), loDangSuaId);
+            int choNhap = choNhapTrenKe != null ? choNhapTrenKe.intValue() : 0;
+            if (dangChua + choNhap + phan.soLuong() > ke.getSucChuaToiDa()) {
+                int conTrong = Math.max(0, ke.getSucChuaToiDa() - dangChua - choNhap);
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of(
+                        phanKe.size() > 1 ? "chungTuKho.keKhongDuChoPhan" : "chungTuKho.keKhongDuCho",
+                        ke.getMaViTri(), conTrong, phan.soLuong(), ke.getSucChuaToiDa(), dangChua, choNhap));
             }
         }
+        // Kệ chính của lô (lo_hang.vi_tri_kho_id)
+        ViTriKho viTri = phanKe.isEmpty() ? null : keDaKhoa.get(phanKe.get(0).viTriKhoId());
 
         List<ChiTietPhieuNhapKho> dsLoHienTai = chiTietPhieuNhapKhoRepository.findDeclaredLots(phieuNhapKhoId, request.getBienTheSanPhamId());
 
@@ -923,6 +948,20 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         if (!dsLoi.isEmpty()) {
             chiTietLoiLoHangRepository.saveAll(dsLoi);
         }
+        // Lô nhiều kệ ghi từng phần vào lo_hang_ke_nhap; lô một kệ không có dòng (kệ và số đạt nằm trên lô). Sửa lô thì
+        // ghi lại từ đầu.
+        if (loHangKeNhapRepository != null) {
+            if (existingCtOpt.isPresent()) {
+                loHangKeNhapRepository.xoaCuaLo(loDaLuu.getId());
+            }
+            if (phanKe.size() > 1) {
+                List<LoHangKeNhap> dong = new ArrayList<>();
+                for (PhanKe phan : phanKe) {
+                    dong.add(LoHangKeNhap.builder().loHang(loDaLuu).viTriKho(keDaKhoa.get(phan.viTriKhoId())).soLuong(phan.soLuong()).build());
+                }
+                loHangKeNhapRepository.saveAll(dong);
+            }
+        }
 
         // Cập nhật số lượng đạt/lỗi tổng và trạng thái kiểm đếm của dòng draft
         int tongDatMoi = tongDatCu + soLuongNhap.intValue();
@@ -938,6 +977,92 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
             dongDraft.setTrangThaiKiemDem("CHO_KIEM_DEM");
         }
         chiTietPhieuNhapKhoRepository.save(dongDraft);
+    }
+
+    /** Một phần hàng đạt của lô xếp vào một kệ. */
+    private record PhanKe(Integer viTriKhoId, int soLuong) {}
+
+    /**
+     * Các kệ của lô khi khóa / sửa lô, theo thứ tự quét (phần đầu là kệ chính).
+     * <ul>
+     *   <li>Gửi {@code phanKe}: mỗi kệ một dòng, số đạt nguyên dương, tổng bằng số đạt của lô.</li>
+     *   <li>Gửi {@code viTriKhoId} (hoặc sửa lô một kệ mà không gửi kệ): một phần mang cả số đạt.</li>
+     *   <li>Màn khai báo lô cũ sửa lô nhiều kệ mà không gửi kệ: giữ các kệ cũ nếu số đạt không đổi; đổi số đạt thì báo
+     *   lỗi (không biết chia lại vào kệ nào).</li>
+     * </ul>
+     */
+    private List<PhanKe> phanKeCuaLo(KhaiBaoLoRequest request, LoHang loDangSua, Integer viTriKhoId, int soDat, String maLo) {
+        List<KhaiBaoLoRequest.PhanKeRequest> gui = request.getPhanKe();
+        if (gui != null && !gui.isEmpty()) {
+            List<PhanKe> ds = new ArrayList<>();
+            Set<Integer> daCo = new HashSet<>();
+            long tong = 0;
+            for (KhaiBaoLoRequest.PhanKeRequest dong : gui) {
+                if (dong == null || dong.getViTriKhoId() == null || dong.getSoLuong() == null || dong.getSoLuong() <= 0) {
+                    throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.phanKeSoKhongHopLe"));
+                }
+                if (!daCo.add(dong.getViTriKhoId())) {
+                    throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.phanKeTrungKe", maLo));
+                }
+                tong += dong.getSoLuong();
+                ds.add(new PhanKe(dong.getViTriKhoId(), dong.getSoLuong()));
+            }
+            if (tong != soDat) {
+                throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.phanKeTongKhongKhop", tong, maLo, soDat));
+            }
+            return ds;
+        }
+        if (request.getViTriKhoId() == null && loDangSua != null && soDat > 0 && loHangKeNhapRepository != null) {
+            List<LoHangKeNhap> cu = loHangKeNhapRepository.theoLo(List.of(loDangSua.getId()));
+            if (!cu.isEmpty()) {
+                int tongCu = cu.stream().mapToInt(LoHangKeNhap::getSoLuong).sum();
+                if (tongCu != soDat) {
+                    throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.loNhieuKeKhongDoiSoDat", maLo));
+                }
+                return cu.stream().map(k -> new PhanKe(k.getViTriKho().getId(), k.getSoLuong())).toList();
+            }
+        }
+        return viTriKhoId == null ? List.of() : List.of(new PhanKe(viTriKhoId, soDat));
+    }
+
+    /** Một phần hàng đạt của lô lên một kệ lúc nhập kho. */
+    private record KeLen(ViTriKho ke, int soLuong) {}
+
+    private static boolean keThuocKho(ViTriKho ke, Kho kho) {
+        return ke != null && (ke.getKho() != null ? kho.getId().equals(ke.getKho().getId())
+                : ke.getKhuVucKho() != null && ke.getKhuVucKho().getKho() != null
+                && kho.getId().equals(ke.getKhuVucKho().getKho().getId()));
+    }
+
+    /**
+     * Hàng đạt của lô lên những kệ nào khi nhập kho: lô nhiều kệ theo các phần đã xếp lúc khóa lô (tổng khớp số đạt),
+     * lô một kệ lên kệ của lô. Kệ không thuộc kho nhập (phiếu nhập hoàn trả về kho khác) thì hàng vào phần chưa có kệ.
+     */
+    private List<KeLen> keLenCuaLo(LoHang lo, int soDat, Map<Integer, List<LoHangKeNhap>> keNhapTheoLo, Kho kho) {
+        if (soDat <= 0) return List.of();
+        List<LoHangKeNhap> phan = keNhapTheoLo.get(lo.getId());
+        if (phan != null && phan.stream().mapToInt(LoHangKeNhap::getSoLuong).sum() == soDat) {
+            return phan.stream().filter(k -> keThuocKho(k.getViTriKho(), kho)).map(k -> new KeLen(k.getViTriKho(), k.getSoLuong())).toList();
+        }
+        return keThuocKho(lo.getViTriKho(), kho) ? List.of(new KeLen(lo.getViTriKho(), soDat)) : List.of();
+    }
+
+    /** Ghi chú lịch sử nhập kho: "B-03-01" hoặc "B-03-01 150, B-03-02 1" (lưu tiếng Việt như các ghi chú khác). */
+    private static String moTaKeNhap(LoHang lo, List<KeLen> keLen) {
+        if (keLen.size() > 1) {
+            return String.join(", ", keLen.stream().map(k -> k.ke().getMaViTri() + " " + k.soLuong()).toList());
+        }
+        return lo.getViTriKho() != null ? lo.getViTriKho().getMaViTri() : "Chưa gắn kệ";
+    }
+
+    /** Các kệ của những lô xếp nhiều kệ, theo lô; lô một kệ không có trong kết quả. */
+    private Map<Integer, List<LoHangKeNhap>> keNhapTheoLo(Collection<Integer> loIds) {
+        if (loHangKeNhapRepository == null || loIds == null || loIds.isEmpty()) return Map.of();
+        Map<Integer, List<LoHangKeNhap>> theoLo = new HashMap<>();
+        for (LoHangKeNhap k : loHangKeNhapRepository.theoLo(loIds)) {
+            theoLo.computeIfAbsent(k.getLoHang().getId(), id -> new ArrayList<>()).add(k);
+        }
+        return theoLo;
     }
 
     /**
@@ -1048,6 +1173,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                         .add(ChiTietLoiLoHangDto.builder().lyDo(loi.getLyDo()).soLuong(loi.getSoLuong()).ghiChu(loi.getGhiChu()).build());
             }
         }
+        Map<Integer, List<LoHangKeNhap>> keNhapTheoLo = keNhapTheoLo(loIds);
         return dsLo.stream()
                 .map(ct -> {
                     LoHang lo = ct.getLoHang();
@@ -1063,6 +1189,13 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                             .trangThai(lo.getTrangThai())
                             .ghiChu(ct.getGhiChu())
                             .chiTietLoi(loiTheoLo.getOrDefault(lo.getId(), List.of()))
+                            .phanKe(keNhapTheoLo.getOrDefault(lo.getId(), List.of()).stream()
+                                    .map(k -> LoHangKhaiBaoDto.PhanKeDto.builder()
+                                            .viTriKhoId(k.getViTriKho().getId())
+                                            .maViTri(k.getViTriKho().getMaViTri())
+                                            .soLuong(k.getSoLuong())
+                                            .build())
+                                    .toList())
                             .build();
                 })
                 .toList();
@@ -1103,6 +1236,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         if (lo != null) {
             // Chi tiết lỗi đi theo lô; dòng biên bản trả hàng (nếu đã lập) chỉ còn giữ mã lô và biên bản bị đánh dấu lệch
             chiTietLoiLoHangRepository.deleteByLoHangId(lo.getId());
+            if (loHangKeNhapRepository != null) loHangKeNhapRepository.xoaCuaLo(lo.getId());
             chiTietTraHangNccRepository.boLienKetLo(lo.getId());
         }
         chiTietPhieuNhapKhoRepository.delete(ct);
