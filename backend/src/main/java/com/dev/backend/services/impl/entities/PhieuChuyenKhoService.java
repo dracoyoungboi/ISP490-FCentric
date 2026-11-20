@@ -483,7 +483,9 @@ public class PhieuChuyenKhoService {
         toiDa(maVanDon, 50, ThongDiep.of("chungTuKho.truongMaVanDon"));
         toiDa(chuoiHoacNull(yeuCau.getMaTraCuuXknb()), 100, ThongDiep.of("chungTuKho.truongMaTraCuuXknb"));
         kiemTraNgayLapXknb(yeuCau.getNgayLapXknb());
-        if (yeuCau.getNgayDuKienDen() != null && yeuCau.getNgayDuKienDen().isBefore(Instant.now().minus(Duration.ofMinutes(10)))) {
+        // Hàng rời kho lúc này nên dự kiến đến phải sau hiện tại; chỉ chừa 1 phút cho đồng hồ máy người dùng lệch / đường
+        // truyền chậm (trước đây chừa 10 phút nên giờ đã qua vẫn lọt và phiếu vừa xuất đã nằm ở mục Trễ hẹn)
+        if (yeuCau.getNgayDuKienDen() != null && !yeuCau.getNgayDuKienDen().isAfter(Instant.now().minus(Duration.ofMinutes(1)))) {
             throw new CommonException(ThongDiep.of("chungTuKho.duKienDenSauLucXuat"));
         }
         if (canPhuongTien && loaiPhuongTien == null) throw new CommonException(ThongDiep.of("chungTuKho.nhapLoaiPhuongTien"));
