@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { toast } from "@/lib/thongBaoNhanh";
 import { FileX, Lock } from "lucide-react";
 import PrintLayout from "@/components/print/PrintLayout";
@@ -12,6 +12,9 @@ import { printTemplateConfigService } from "@/services/printTemplateConfigServic
 import { companyProfileService } from "@/services/companyProfileService";
 import { getPageFooterText } from "@/components/print/paperStyles";
 import { cauGocCuaLoi } from "@/i18n/cauGoc";
+import { t } from "@/i18n";
+import useQuayLai from "@/hooks/useQuayLai";
+import useNutVeTrangIn from "@/hooks/useNutVeTrangIn";
 
 /**
  * Khung chung cho các trang in thật của mọi loại chứng từ:
@@ -40,13 +43,13 @@ export default function PrintRoutePage({
     fetcher,
     adapter,
     backPath,
-    loadingLabel = "Đang tải dữ liệu phiếu in",
-    titleFallback = "In phiếu",
-    notFoundTitle = "Không tìm thấy phiếu",
-    notFoundDescription = "Phiếu có thể đã bị xóa hoặc bạn không có quyền truy cập.",
-    forbiddenTitle = "Bạn không có quyền xem phiếu này.",
-    forbiddenDescription = "Tài khoản của bạn không có quyền truy cập phiếu này.",
-    errorDescription = "Không thể tải dữ liệu phiếu. Vui lòng thử lại.",
+    loadingLabel = t("Đang tải dữ liệu phiếu in"),
+    titleFallback = t("In phiếu"),
+    notFoundTitle = t("Không tìm thấy phiếu"),
+    notFoundDescription = t("Phiếu có thể đã bị xóa hoặc bạn không có quyền truy cập."),
+    forbiddenTitle = t("Bạn không có quyền xem phiếu này."),
+    forbiddenDescription = t("Tài khoản của bạn không có quyền truy cập phiếu này."),
+    errorDescription = t("Không thể tải dữ liệu phiếu. Vui lòng thử lại."),
     getDataError,
     // In nhiều liên (vd. biên bản trả hàng: ["1 · Giao khách hàng", "2 · Lưu quầy"]): mỗi liên một trang, nhãn liên
     // đặt vào model.copy. Không truyền thì in một bản như cũ.
@@ -54,8 +57,12 @@ export default function PrintRoutePage({
     // Tự mở hộp in một lần khi mọi thứ đã sẵn sàng (in ngay sau khi lập chứng từ ở quầy)
     autoPrint = false,
 }) {
-    const navigate = useNavigate();
     const { id } = useParams();
+    // Về trang chứng từ khi trang in nằm trong cùng thẻ: lùi một bước nếu đi từ trang chứng từ tới (không đẩy thêm
+    // một mục lịch sử, Back của trình duyệt khỏi quay lại trang in); mở thẳng thì mở trang chứng từ
+    const goBack = useQuayLai(backPath ? backPath.replace(":id", id) : "/");
+    // Trang in ở thẻ riêng: các nút về trong khối lỗi cũng là Đóng thẻ, như nút trên thanh
+    const nutVe = useNutVeTrangIn(goBack);
 
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -126,7 +133,7 @@ export default function PrintRoutePage({
                 setErrorType("notfound");
             } else {
                 setErrorType("error");
-                toast.error("Không thể tải dữ liệu phiếu in");
+                toast.error(t("Không thể tải dữ liệu phiếu in"));
             }
         } finally {
             setLoading(false);
@@ -138,15 +145,7 @@ export default function PrintRoutePage({
     }, [id, load]);
 
     const model = data ? adapter(data) : null;
-    const title = model ? `In phiếu: ${model.documentNumber}` : titleFallback;
-
-    const goBack = () => {
-        if (backPath) {
-            navigate(backPath.replace(":id", id));
-        } else {
-            navigate(-1);
-        }
-    };
+    const title = model ? t("In phiếu: {{so}}", { so: model.documentNumber }) : titleFallback;
 
     const paper = config
         ? { size: config.paperSize, orientation: config.orientation, margin: config.margin }
@@ -206,10 +205,10 @@ export default function PrintRoutePage({
                     description={forbiddenDescription}
                     action={
                         <Button
-                            onClick={goBack}
+                            onClick={nutVe.ve}
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                         >
-                            Quay lại
+                            {nutVe.nhan}
                         </Button>
                     }
                 />
@@ -220,31 +219,31 @@ export default function PrintRoutePage({
                     description={notFoundDescription}
                     action={
                         <Button
-                            onClick={goBack}
+                            onClick={nutVe.ve}
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                         >
-                            Quay lại
+                            {nutVe.nhan}
                         </Button>
                     }
                 />
             ) : errorType === "error" ? (
                 <ErrorState
-                    title="Không thể tải phiếu in"
+                    title={t("Không thể tải phiếu in")}
                     description={errorDescription}
                     onRetry={load}
                     className="mx-auto max-w-xl"
                 />
             ) : configError ? (
                 <ErrorState
-                    title="Không thể tải cấu hình mẫu in"
-                    description="Không thể tải cấu hình mẫu in từ máy chủ. Không in khi chưa tải xong cấu hình."
+                    title={t("Không thể tải cấu hình mẫu in")}
+                    description={t("Không thể tải cấu hình mẫu in từ máy chủ. Không in khi chưa tải xong cấu hình.")}
                     onRetry={loadConfig}
                     className="mx-auto max-w-xl"
                 />
             ) : companyError ? (
                 <ErrorState
-                    title="Không thể tải hồ sơ công ty"
-                    description="Không thể tải hồ sơ công ty từ máy chủ. Không in khi chưa tải xong hồ sơ."
+                    title={t("Không thể tải hồ sơ công ty")}
+                    description={t("Không thể tải hồ sơ công ty từ máy chủ. Không in khi chưa tải xong hồ sơ.")}
                     onRetry={loadCompany}
                     className="mx-auto max-w-xl"
                 />
@@ -262,18 +261,18 @@ export default function PrintRoutePage({
                     description={notFoundDescription}
                     action={
                         <Button
-                            onClick={goBack}
+                            onClick={nutVe.ve}
                             className="bg-bo-primary text-white hover:bg-bo-primary-hover"
                         >
-                            Quay lại
+                            {nutVe.nhan}
                         </Button>
                     }
                 />
             ) : !config ? (
                 <EmptyState
                     icon={FileX}
-                    title="Chưa có cấu hình mẫu in"
-                    description="Loại chứng từ này chưa có mẫu in được cấu hình."
+                    title={t("Chưa có cấu hình mẫu in")}
+                    description={t("Loại chứng từ này chưa có mẫu in được cấu hình.")}
                 />
             ) : copies?.length ? (
                 copies.map((copy, index) => (

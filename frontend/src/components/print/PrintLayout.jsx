@@ -1,8 +1,10 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Printer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getPaperPageCss, getPaperSheetClasses, getPaperSheetWidthPx, getThermalFixedHeightMm, isThermalPaper } from "@/components/print/paperStyles";
 import { useThermalPageHeight } from "@/components/print/useThermalPageHeight";
+import useNutVeTrangIn from "@/hooks/useNutVeTrangIn";
+import { t } from "@/i18n";
 import "@/styles/print.css";
 
 const DEFAULT_PAPER = { size: "A4", orientation: "portrait", margin: "default" };
@@ -18,6 +20,8 @@ const DEFAULT_PAPER = { size: "A4", orientation: "portrait", margin: "default" }
  * và các class `print:*!`; @page được ghi đè động theo cấu hình.
  * `pageFooter`: chữ in ở lề dưới mỗi trang kèm "Trang n/N" (khổ tờ).
  * `toolbarExtra`: tùy chọn in đặt cạnh nút In phiếu (vd. ô "In kèm phụ lục"), chỉ hiện trên màn hình.
+ * `onBack`: về trang chứng từ khi trang in nằm trong cùng thẻ; trang in mở ở thẻ riêng thì nút là Đóng thẻ
+ * (hooks/useNutVeTrangIn).
  */
 export default function PrintLayout({
     title,
@@ -30,6 +34,7 @@ export default function PrintLayout({
     children,
 }) {
     const paperConfig = paper ?? DEFAULT_PAPER;
+    const nutVe = useNutVeTrangIn(onBack);
     // K80 / K57 (giấy cuộn): chiều cao trang = chiều cao thật của phiếu; tem A6 cao cố định nên không cần đo
     const { ref: thermalRef, heightMm: thermalHeightMm } = useThermalPageHeight(
         isThermalPaper(paperConfig.size) && !getThermalFixedHeightMm(paperConfig.size)
@@ -71,10 +76,10 @@ export default function PrintLayout({
                     <Button
                         variant="outline"
                         className="border-bo-border bg-white text-bo-foreground hover:bg-bo-surface-subtle"
-                        onClick={onBack}
+                        onClick={nutVe.ve}
                     >
-                        <ArrowLeft className="size-4" />
-                        Quay lại
+                        {nutVe.theRieng ? <X className="size-4" /> : <ArrowLeft className="size-4" />}
+                        {nutVe.nhan}
                     </Button>
                     <span className="truncate text-sm font-semibold text-bo-foreground">
                         {title}
@@ -88,7 +93,7 @@ export default function PrintLayout({
                         disabled={disablePrint}
                     >
                         <Printer className="size-4" />
-                        In phiếu
+                        {t("In phiếu")}
                     </Button>
                 </div>
             </div>
