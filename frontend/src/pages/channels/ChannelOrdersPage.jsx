@@ -94,9 +94,15 @@ function nguoiNhanCua(don) {
 /** Cờ của một dòng: "Khách yêu cầu hủy" (yeuCauHuy hoặc cờ YEU_CAU_HUY) đứng đầu, ngay sau thẻ trạng thái, và chỉ một lần. */
 function coCuaDon(don) {
   const co = parseFlags(don.canXuLy);
-  const khac = co.filter((ma) => ma !== "YEU_CAU_HUY");
+  const khac = co.filter((ma) => ma !== "YEU_CAU_HUY" && ma !== "CHO_XAC_NHAN_SAN");
   const coHuy = don?.yeuCauHuy || (don?.ghiChu && don.ghiChu.includes("[KHÁCH YÊU CẦU HỦY]"));
-  return coHuy || khac.length !== co.length ? ["YEU_CAU_HUY", ...khac] : khac;
+  const coChoXacNhan = don?.choXacNhanSan
+    || ((don?.trangThai == null || Number(don.trangThai) === 0) && don?.ghiChu && don.ghiChu.includes("[SHOPEE_CHO_XAC_NHAN]"));
+  const ketQua = [];
+  if (coHuy || khac.length !== co.filter((ma) => ma !== "CHO_XAC_NHAN_SAN").length) ketQua.push("YEU_CAU_HUY");
+  if (coChoXacNhan || co.includes("CHO_XAC_NHAN_SAN")) ketQua.push("CHO_XAC_NHAN_SAN");
+  ketQua.push(...khac);
+  return ketQua;
 }
 
 /** Đơn sàn đang giữ tồn kho trên 24h chưa xuất: cảnh báo nhân viên kiểm tra hoặc chờ sàn tự hủy. */

@@ -167,6 +167,11 @@ export const FLAG_META = {
     description: "Trạng thái trên sàn không khớp với kho.",
     resolve: "Kiểm tra rồi Đánh dấu đã xử lý.",
   },
+  CHO_XAC_NHAN_SAN: {
+    label: "Chờ xác nhận sàn",
+    description: "Đơn đang chờ Shopee xác nhận thanh toán hoặc kiểm duyệt COD, hiện chỉ xem.",
+    resolve: "Chờ Shopee chuyển Chờ lấy hàng (Chưa xử lý) rồi gửi sang kho.",
+  },
 };
 
 /** `canXuLy` là chuỗi "A,B" ở DonBanHangDto và mảng ở ThongTinKenhDto. */

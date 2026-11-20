@@ -40,7 +40,7 @@ export const LY_DO_SAN_HUY = Object.freeze({
 // Đơn sàn bị sàn hủy: OmnichannelOrderSyncJob ghi lyDoTuChoi = "Hủy từ sàn Shopify: <cancel_reason>"
 const MAU_SAN_HUY = /^Hủy từ sàn\s+([^:]+):\s*(.*)$/i;
 // Ghi chú tự sinh của đơn sàn: "Đơn hàng đồng bộ tự động từ Shopify #1021" (trùng mã đơn nên không hiện)
-const MAU_GHI_CHU_TU_SINH = /^Đơn hàng đồng bộ tự động từ\s/i;
+const MAU_GHI_CHU_TU_SINH = /^Đơn hàng đồng bộ tự động từ\s|^\[SHOPEE_CHO_XAC_NHAN\]$/i;
 
 const coChu = (x) => x != null && String(x).trim() !== "";
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -85,6 +85,17 @@ export const tenKenhCua = (don) => String(don?.kenhBanHang?.tenKenh ?? "").trim(
 
 /** Ghi chú tự sinh khi đồng bộ đơn sàn ("Đơn hàng đồng bộ tự động từ Shopify #…") — trùng mã đơn nên ẩn. */
 export const laGhiChuTuSinh = (ghiChu) => MAU_GHI_CHU_TU_SINH.test(String(ghiChu ?? "").trim());
+
+/** Đơn Shopee đang ở trạng thái Chờ xác nhận (UNPAID): chỉ xem, chưa gửi sang kho / hủy / in vận đơn. */
+export function laChoXacNhanSan(ct) {
+  const don = ct?.donBanHang ?? ct;
+  const dangNhap = don?.trangThai == null || Number(don.trangThai) === TT.NHAP;
+  return dangNhap && Boolean(
+    ct?.choXacNhanSan
+    || don?.choXacNhanSan
+    || (typeof don?.ghiChu === "string" && don.ghiChu.includes("[SHOPEE_CHO_XAC_NHAN]")),
+  );
+}
 
 /**
  * Lý do sàn hủy đơn, đọc từ `lyDoTuChoi` ("Hủy từ sàn Shopify: customer"). Không phải sàn hủy → null.
@@ -244,15 +255,16 @@ export function thaoTacDonBan(ct, { laBan = false, laKho = false, laQuanLyKhoTon
   const laPos = laDonTaiQuay(ct);
   const laShopify = laDonShopify(ct?.donBanHang);
   const coTheGuiKhoShopify = laShopify && (laQuanLyKhoTong || Boolean(ct?.coTheGuiSangKho));
+  const choXacNhanSan = laChoXacNhanSan(ct);
   const pxMo = phieuXuatDangMo(ct);
   const daNhat = ct?.trangThaiPhieuNhat === "da_nhat";
-  const menuHuy = laBan && !laPos && [TT.NHAP, TT.CHO_NHAT_HANG, TT.CHO_DONG_GOI, TT.DA_DONG_GOI, TT.DA_XUAT_MOT_PHAN].includes(tt);
+  const menuHuy = laBan && !laPos && !choXacNhanSan && [TT.NHAP, TT.CHO_NHAT_HANG, TT.CHO_DONG_GOI, TT.DA_DONG_GOI, TT.DA_XUAT_MOT_PHAN].includes(tt);
   return {
     coIn: laBan && tt !== TT.DA_HUY,
     menuHoanTra: laBan && (tt === TT.DA_XUAT_MOT_PHAN || tt === TT.DA_XUAT_KHO),
     menuHuy,
     lyDoKhoaHuy: menuHuy ? lyDoKhoaHuy(ct) : "",
-    nutGuiKho: tt === TT.NHAP && (laBan || coTheGuiKhoShopify),
+    nutGuiKho: tt === TT.NHAP && !choXacNhanSan && (laBan || coTheGuiKhoShopify),
     nutDaGiao: laBan && tt === TT.DA_XUAT_KHO,
     nutDongGoi: laKho && tt === TT.CHO_DONG_GOI,
     nutXuat: laKho && tt === TT.DA_DONG_GOI && Boolean(pxMo),
@@ -346,7 +358,13 @@ export function thongBaoDonBan(ct, { laBan = false, laKho = false, laQuanLyKhoTo
   if (laDonTaiQuay(ct)) {
     them("taiQuay", "neutral", t("Đã thu tiền và trừ tồn ở {{tenKho}} ngay lúc bán.", { tenKho }));
   } else if (tt === TT.NHAP) {
-    if (!coTheDieuTiet) them("nhap", "neutral", t("Đơn nháp, bán hàng chưa gửi sang kho."));
+    if (laChoXacNhanSan(ct)) {
+      them(
+        "choXacNhanSan",
+        "warn",
+        t("Đơn {{tenKenh}} đang ở trạng thái Chờ xác nhận nên chỉ xem được. Hệ thống sẽ mở Gửi sang kho khi sàn chuyển Chờ lấy hàng (Chưa xử lý).", { tenKenh }),
+      );
+    } else if (!coTheDieuTiet) them("nhap", "neutral", t("Đơn nháp, bán hàng chưa gửi sang kho."));
     else if (laSan) them("nhap", "info", t("Đơn {{tenKenh}} tự về {{tenKho}}. Chọn kho gần khách rồi gửi sang kho.", { tenKenh, tenKho }));
     else them("nhap", "info", t("Đơn nháp đã trừ vào tồn có thể bán của {{tenKho}}, chưa giữ lô. Gửi sang kho để kho bắt đầu nhặt hàng.", { tenKho }));
 

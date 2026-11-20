@@ -532,7 +532,14 @@ export default function DonBanHangList() {
                         />
                       </span>
                     ) : null}
-                    {item.canXuLy ? <OrderFlagBadges value={item.canXuLy} /> : null}
+                    {item.canXuLy || item.choXacNhanSan ? (
+                      <OrderFlagBadges
+                        value={[
+                          ...String(item.canXuLy ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+                          ...(item.choXacNhanSan ? ["CHO_XAC_NHAN_SAN"] : []),
+                        ]}
+                      />
+                    ) : null}
                   </Link>
                 </li>
               );
@@ -617,9 +624,14 @@ export default function DonBanHangList() {
                     </td>
                     <td className="px-3 py-3">
                       <StatusBadge quyTrinh="donBan" label={st.label} />
-                      {item.canXuLy ? (
+                      {item.canXuLy || item.choXacNhanSan ? (
                         <div className="mt-1 flex">
-                          <OrderFlagBadges value={item.canXuLy} />
+                          <OrderFlagBadges
+                            value={[
+                              ...String(item.canXuLy ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+                              ...(item.choXacNhanSan ? ["CHO_XAC_NHAN_SAN"] : []),
+                            ]}
+                          />
                         </div>
                       ) : null}
                     </td>

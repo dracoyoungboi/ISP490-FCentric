@@ -33,6 +33,7 @@ import {
   dongHangBan,
   gioNgay,
   hauQuaHuy,
+  laChoXacNhanSan,
   laDonLazada,
   laDonShopee,
   laDonShopify,
@@ -109,7 +110,8 @@ function ChiTietDonBanHang({ id }) {
   const laShopee = laDonShopee(don);
   const laShopify = laDonShopify(don);
   const laSanXuatKhoTong = laLazada || laShopee;
-  const hoTroInVanDonSan = laSan && !laShopify && don?.trangThai !== TRANG_THAI_DON.DA_HUY;
+  const choXacNhanSan = laChoXacNhanSan(ct);
+  const hoTroInVanDonSan = laSan && !laShopify && !choXacNhanSan && don?.trangThai !== TRANG_THAI_DON.DA_HUY;
 
   const [hop, setHop] = useState(""); // "" | "guiKho" | "huy" | "daGiao" | "hoanTra"
   const [dangChay, setDangChay] = useState(""); // thao tác đang gửi lên máy chủ

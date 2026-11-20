@@ -336,7 +336,8 @@ export default function ChannelMappingsPage() {
       capNhatDongTrongTrang(cu, dongMoi.id, (r) => ({
         ...r,
         ...dongMoi,
-        soLuongKhaDung: r.soLuongKhaDung ?? dongMoi.soLuongKhaDung,
+        soLuongKhaDung: dongMoi.soLuongKhaDung ?? r.soLuongKhaDung,
+        soLuongSeDay: dongMoi.soLuongSeDay ?? r.soLuongSeDay,
         anhDaiDien: dongMoi.anhDaiDien ?? r.anhDaiDien,
         bienTheSanPhamId: dongMoi.bienTheSanPhamId ?? r.bienTheSanPhamId,
         maSku: dongMoi.maSku ?? r.maSku,
@@ -683,7 +684,12 @@ export default function ChannelMappingsPage() {
   };
 
   /** Số lần đẩy tới sẽ gửi lên sàn (khả dụng × quy tắc ở Cấu hình); null khi dòng ngừng hoặc chưa tải quy tắc. */
-  const soSeDay = (dong) => (dangDongBo(dong) && quyTac ? tinhSoTonDayLenSan(dong.soLuongKhaDung, quyTac) : null);
+  /** Số tồn sẽ gửi ở lần đẩy tới cho dòng đang đồng bộ; ưu tiên số tính chính xác từ máy chủ (hỗ trợ đa kho Shopify). */
+  const soSeDay = (dong) => {
+    if (!dangDongBo(dong)) return null;
+    if (coSo(dong.soLuongSeDay)) return Number(dong.soLuongSeDay);
+    return quyTac ? tinhSoTonDayLenSan(dong.soLuongKhaDung, quyTac) : null;
+  };
 
   /**
    * Một dòng SKU. `trongNhom`: nằm dưới hàng sản phẩm (chỉ ghi biến thể, thụt vào); `gioNhom`: giờ đẩy chung đã ghi

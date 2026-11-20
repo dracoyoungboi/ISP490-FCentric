@@ -34,6 +34,11 @@ function Dong({ nhan, children }) {
 export default function SyncLogDetailSheet({ lienKet, open, onOpenChange, quyTac, duongDanCauHinh, tenSan = "Shopify", dangXuLy, onThuLai, onDoiBienThe, onBatTat }) {
   const trangThai = lienKet?.trangThaiLienKet;
   const dangDongBo = trangThai !== "chua_lien_ket";
+  const seDay = dangDongBo
+    ? (lienKet.soLuongSeDay !== null && lienKet.soLuongSeDay !== undefined
+      ? Number(lienKet.soLuongSeDay)
+      : (quyTac ? tinhSoTonDayLenSan(lienKet.soLuongKhaDung, quyTac) : null))
+    : null;
   const meta = LIEN_KET_STATUS[trangThai] ?? { label: trangThai ? `Không xác định (mã ${trangThai})` : "Chưa có trạng thái" }; // i18n-giu-nguyen: nhãn đưa vào StatusBadge, thẻ tự dịch
   const khoa = Boolean(dangXuLy);
   const nutPhu = "h-9 gap-2 rounded-lg border-bo-border bg-white px-3.5 text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11";
@@ -84,7 +89,7 @@ export default function SyncLogDetailSheet({ lienKet, open, onOpenChange, quyTac
                   )}
                 </Dong>
                 <Dong nhan={t("Lần đẩy tới")}>
-                  {dangDongBo && quyTac ? <span className="tabular-nums">{formatNumberOrDash(tinhSoTonDayLenSan(lienKet.soLuongKhaDung, quyTac))}</span> : t("Không cập nhật")}
+                  {seDay !== null && seDay !== undefined ? <span className="tabular-nums">{formatNumberOrDash(seDay)}</span> : t("Không cập nhật")}
                 </Dong>
                 {quyTac ? (
                   <Dong nhan={t("Quy tắc")}>
