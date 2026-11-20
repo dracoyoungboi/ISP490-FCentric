@@ -32,6 +32,8 @@ public class LienKetSanPhamDto {
     BigDecimal soLuongKhaDung;
     /** Số tồn sàn đã nhận ở lần đẩy thành công gần nhất; null = chưa đẩy lần nào. */
     BigDecimal soLuongDaDay;
+    /** Số tồn dự kiến sẽ đẩy lên sàn theo quy tắc & cấu hình kho hiện hành của kênh. */
+    Integer soLuongSeDay;
     /** Thời điểm của lần đẩy thành công đó. */
     Instant ngayDayTonCuoi;
     Boolean choPhepDongBo;

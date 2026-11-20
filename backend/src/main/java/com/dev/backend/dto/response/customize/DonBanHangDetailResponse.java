@@ -31,4 +31,6 @@ public class DonBanHangDetailResponse {
     private Boolean tachNhieuKhoSan;
     /** true nếu người dùng hiện tại được phép điều tiết gửi đơn sang kho (tính theo @RequireAuth + Quản lý Kho Tổng Shopify). */
     private Boolean coTheGuiSangKho;
+    /** true nếu đơn Shopee đang chờ xác nhận (UNPAID) — chỉ cho phép xem, chưa gửi kho/in vận đơn. */
+    private Boolean choXacNhanSan;
 }
