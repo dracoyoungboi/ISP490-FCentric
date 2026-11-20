@@ -13,9 +13,11 @@ import com.dev.backend.dto.request.KhoTrangThaiUpdating;
 import com.dev.backend.dto.request.KhoUpdating;
 import com.dev.backend.dto.response.KhoTomTatResponse;
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.dto.response.QuanLyKhoTomTat;
 import com.dev.backend.dto.response.entities.KhoDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.Kho;
+import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.KhoMapper;
 import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
@@ -31,6 +33,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -67,6 +70,7 @@ public class KhoController {
         }
         KhoDto dto = khoMapper.toDto(findingKho.get());
         ganSoLuongTon(List.of(dto));
+        ganQuanLyKhac(List.of(dto));
         return ResponseEntity.ok(
                 ResponseData.<KhoDto>builder()
                         .status(HttpStatus.OK.value())
@@ -78,7 +82,7 @@ public class KhoController {
 
     /**
      * Số liệu tóm tắt cho popup Chi tiết kho: tồn, khả dụng, giá trị theo giá vốn lô, số mã hàng
-     * (hết / sắp hết) và số người được phân quyền. Quản lý kho chỉ xem được kho mình được phân quyền
+     * (hết / sắp hết) và những người đang làm việc tại kho. Quản lý kho chỉ xem được kho mình được phân quyền
      * (kiểm tra theo id trên đường dẫn, không theo kho làm việc).
      */
     @GetMapping("/{id}/tom-tat")
@@ -102,6 +106,24 @@ public class KhoController {
         );
     }
 
+    /**
+     * Quản lý kho chọn được làm người quản lý chính của kho (ô "Người quản lý" ở form Sửa kho): tài khoản đang hoạt động,
+     * có phân quyền hiệu lực tại chính kho này, xếp theo họ tên. Kho Trung Chuyển (kho ảo) trả danh sách rỗng.
+     */
+    @GetMapping("/{id}/ung-vien-quan-ly")
+    @RequireAuth(
+            roles = {IRoleType.quan_tri_vien}
+    )
+    public ResponseEntity<ResponseData<List<QuanLyKhoTomTat>>> ungVienQuanLy(@PathVariable Integer id) {
+        return ResponseEntity.ok(
+                ResponseData.<List<QuanLyKhoTomTat>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(khoService.ungVienQuanLy(id).stream().map(QuanLyKhoTomTat::tu).toList())
+                        .message("Success")
+                        .build()
+        );
+    }
+
     /** Ngừng hoạt động (0) / cho phép hoạt động lại (1). Kho Trung Chuyển (kho ảo) luôn hoạt động. */
     @PutMapping("/{id}/trang-thai")
     @RequireAuth(
@@ -111,6 +133,7 @@ public class KhoController {
                                                            @Valid @RequestBody KhoTrangThaiUpdating updating) {
         KhoDto dto = khoMapper.toDto(khoService.doiTrangThai(id, updating.getTrangThai()));
         ganSoLuongTon(List.of(dto));
+        ganQuanLyKhac(List.of(dto));
         return ResponseEntity.ok(
                 ResponseData.<KhoDto>builder()
                         .status(HttpStatus.OK.value())
@@ -129,6 +152,7 @@ public class KhoController {
     public ResponseEntity<ResponseData<Page<KhoDto>>> filter(@RequestBody BaseFilterRequest filter) {
         Page<KhoDto> page = khoMapper.toDtoPage(khoService.filter(filter));
         ganSoLuongTon(page.getContent());
+        ganQuanLyKhac(page.getContent());
         return ResponseEntity.ok(
                 ResponseData.<Page<KhoDto>>builder()
                         .status(HttpStatus.OK.value())
@@ -147,6 +171,26 @@ public class KhoController {
             tongTheoKho.put(((Number) dong[0]).intValue(), dong[1] == null ? BigDecimal.ZERO : new BigDecimal(dong[1].toString()));
         }
         dsKho.forEach(kho -> kho.setSoLuongTon(tongTheoKho.getOrDefault(kho.getId(), BigDecimal.ZERO)));
+    }
+
+    /**
+     * Điền các quản lý kho khác đang làm việc tại từng kho (ngoài người quản lý chính) bằng một truy vấn gộp, để màn Kho
+     * cho thấy kho có nhiều quản lý kho. Kho ảo không phân người nên luôn rỗng.
+     */
+    private void ganQuanLyKhac(List<KhoDto> dsKho) {
+        if (dsKho == null || dsKho.isEmpty()) return;
+        List<Integer> khoIds = dsKho.stream().map(KhoDto::getId).toList();
+        Map<Integer, List<QuanLyKhoTomTat>> theoKho = new HashMap<>();
+        for (Object[] dong : phanQuyenNguoiDungKhoRepository.quanLyKhoTheoKhoTai(khoIds, Instant.now())) {
+            theoKho.computeIfAbsent(((Number) dong[0]).intValue(), k -> new ArrayList<>())
+                    .add(QuanLyKhoTomTat.tu((NguoiDung) dong[1]));
+        }
+        dsKho.forEach(kho -> {
+            Integer chinh = kho.getQuanLy() == null ? null : kho.getQuanLy().getId();
+            kho.setQuanLyKhac(theoKho.getOrDefault(kho.getId(), List.of()).stream()
+                    .filter(q -> !q.id().equals(chinh))
+                    .toList());
+        });
     }
 
     @GetMapping("/all")

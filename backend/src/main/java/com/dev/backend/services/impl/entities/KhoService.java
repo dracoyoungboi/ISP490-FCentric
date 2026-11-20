@@ -8,6 +8,7 @@ import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
 import com.dev.backend.dto.request.KhoCreating;
 import com.dev.backend.dto.request.KhoUpdating;
 import com.dev.backend.dto.response.KhoTomTatResponse;
+import com.dev.backend.dto.response.NhanVienKhoTomTat;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.KhoDto;
 import com.dev.backend.entities.Kho;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class KhoService extends BaseServiceImpl<Kho, Integer> {
@@ -327,6 +329,17 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
         return null;
     }
 
+    /** Quản lý kho chọn được làm người quản lý chính: đang hoạt động, có phân quyền hiệu lực tại kho (xếp theo họ tên). */
+    @Transactional(readOnly = true)
+    public List<NguoiDung> ungVienQuanLy(Integer khoId) {
+        Kho kho = getOne(khoId).orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND,
+                ThongDiep.of("sanPhamMuaHang.khoKhongTimThay", khoId)));
+        if (laKhoAo(kho)) {
+            return List.of();
+        }
+        return phanQuyenNguoiDungKhoRepository.nguoiDungTheoKhoVaVaiTroTai(khoId, Set.of(IRoleType.quan_ly_kho), Instant.now());
+    }
+
     /** Kho ảo giữ hàng đang chuyển giữa các kho, ngừng nó thì phiếu chuyển đang đi không nhận được. */
     private static void kiemTraKhoAoLuonHoatDong(Kho kho, Integer trangThaiMoi) {
         if (laKhoAo(kho) && !Integer.valueOf(1).equals(trangThaiMoi)) {
@@ -399,6 +412,7 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
         Integer cauHinh = khoTomTatRepository.cauHinhSoDuong(CH_NGUONG_SAP_HET);
         int nguong = cauHinh != null ? cauHinh : TongQuanAdminServiceImpl.NGUONG_TON_MAC_DINH;
         KhoTomTatRepository.TonKhoDong ton = khoTomTatRepository.tonKho(khoId, nguong);
+        List<NhanVienKhoTomTat> nhanVien = khoTomTatRepository.nhanVienTaiKho(khoId);
         return new KhoTomTatResponse(
                 khoId,
                 tron(ton.ton()),
@@ -409,7 +423,8 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
                 ton.soMaHetHang(),
                 ton.soMaSapHet(),
                 nguong,
-                khoTomTatRepository.soNguoiPhanQuyen(khoId)
+                nhanVien.size(),
+                nhanVien
         );
     }
 

@@ -1,5 +1,7 @@
 package com.dev.backend.dto.response;
 
+import java.util.List;
+
 /**
  * Số liệu tóm tắt của một kho cho popup Chi tiết kho (GET /api/v1/kho/{id}/tom-tat).
  * Cùng cách tính với khối Tồn kho của màn Tổng quan (TongQuanAdminRepository.CTE_TON_THEO_CAP),
@@ -15,7 +17,8 @@ package com.dev.backend.dto.response;
  *                          dùng cấu hình DEFAULT_MIN_STOCK_ALERT)
  * @param nguongSapHet      ngưỡng mặc định đang dùng (DEFAULT_MIN_STOCK_ALERT)
  * @param soNguoiPhanQuyen  số người đang được phân quyền ở kho (tài khoản hoạt động, quyền còn hiệu lực),
- *                          không tính người quản lý chính của kho
+ *                          không tính người quản lý chính của kho (bằng số phần tử của nhanVien)
+ * @param nhanVien          những người đó: quản lý kho trước, rồi theo vai trò và họ tên
  */
 public record KhoTomTatResponse(
         Integer khoId,
@@ -27,6 +30,7 @@ public record KhoTomTatResponse(
         long soMaHetHang,
         long soMaSapHet,
         int nguongSapHet,
-        long soNguoiPhanQuyen
+        long soNguoiPhanQuyen,
+        List<NhanVienKhoTomTat> nhanVien
 ) {
 }
