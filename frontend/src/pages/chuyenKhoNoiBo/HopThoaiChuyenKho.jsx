@@ -17,8 +17,10 @@ import {
 } from "@/constants/phieuChuyenKho";
 import {
     aiXuLyChenhLechHienThi,
+    giaTriONgay,
     kiemTraGhiSoXknb,
     kiemTraXacNhanXuat,
+    phutKeTiep,
     tongCot,
 } from "@/components/chuyen-kho/hienThiChuyenKho";
 import { VI_DU_BIEN_SO, kiemTraBienSo, loiKhiDangGo } from "@/components/chuyen-kho/bienSoXe";
@@ -256,10 +258,11 @@ function KhungXknb({ form, doi, loi, chiGhiSo, cheDo, onTaiDuLieu, laySo, dangLa
             <button type="button" aria-expanded={them} onClick={() => setThem((x) => !x)} className="justify-self-start text-[13px] font-medium text-bo-primary hover:underline">
                 {them ? t("Ẩn thông tin thêm") : t("Thông tin thêm: ngày lập, mã tra cứu")}
             </button>
-            {them ? (
+            {/* Ngày lập sai mà phần này đang thu gọn thì vẫn mở ra cho thấy lỗi */}
+            {them || loi.ngayLap ? (
                 <div className="grid gap-3 sm:grid-cols-2">
-                    <O nhan={t("Ngày lập")}>
-                        {(p) => <input {...p} type="date" value={form.ngayLap} onChange={(e) => doi("ngayLap", e.target.value)} className={O_NHAP} />}
+                    <O nhan={t("Ngày lập")} loi={loi.ngayLap}>
+                        {(p) => <input {...p} type="date" max={giaTriONgay()} value={form.ngayLap} onChange={(e) => doi("ngayLap", e.target.value)} className={lopO(loi.ngayLap)} />}
                     </O>
                     <O nhan={t("Mã tra cứu")}>
                         {(p) => <input {...p} value={form.maTraCuu} maxLength={100} autoComplete="off" onChange={(e) => doi("maTraCuu", e.target.value)} className={cn(O_NHAP, "font-mono")} />}
@@ -419,6 +422,8 @@ export function HopXacNhanXuat({ mo, onDong, ct, dangChay, loi, onXacNhan, onTai
                             {...p}
                             aria-describedby={[p["aria-describedby"], idGoiYDuKien].filter(Boolean).join(" ")}
                             type="datetime-local"
+                            // Lịch chọn làm mờ ngày giờ đã qua; gõ tay giờ cũ vẫn bị kiemTraXacNhanXuat chặn lúc bấm xuất
+                            min={phutKeTiep()}
                             value={form.duKienDen}
                             onChange={(e) => doi("duKienDen", e.target.value)}
                             className={lopO(loiO.duKienDen)}

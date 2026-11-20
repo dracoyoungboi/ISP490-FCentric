@@ -51,6 +51,20 @@ export function giaTriONgayGio(v) {
     return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}T${p2(d.getHours())}:${p2(d.getMinutes())}`;
 }
 
+/** Giá trị ô date ("2026-10-23") của hôm nay theo giờ máy người dùng: chặn trên của ô Ngày lập XKNB. */
+export function giaTriONgay(bayGio = Date.now()) {
+    const d = new Date(bayGio);
+    return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+}
+
+/**
+ * Chặn dưới của ô Dự kiến đến: phút kế tiếp ("15:56:20" → "15:57"), vì ô chỉ chọn tới phút; chọn đúng phút hiện tại
+ * thì lúc bấm xuất đã thành quá khứ.
+ */
+export function phutKeTiep(bayGio = Date.now()) {
+    return giaTriONgayGio(Math.floor(bayGio / 60000) * 60000 + 60000);
+}
+
 /** Ô datetime-local → chuỗi ISO gửi máy chủ (Instant); trống → null; sai → undefined. */
 export function tuONgayGio(chuoi) {
     if (!chuoi) return null;
@@ -282,13 +296,22 @@ export function buocChuyenKho(ct, bayGio = Date.now()) {
 
 const chuoi = (v) => String(v ?? "").trim();
 
+/** Ngày lập phiếu XKNB (ô date, không bắt buộc): đúng dạng và không sau hôm nay, cùng luật máy chủ (kiemTraNgayLapXknb). */
+function kiemTraNgayLap(ngayLap, bayGio) {
+    const s = chuoi(ngayLap);
+    if (!s) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return t("Ngày không hợp lệ");
+    return s > giaTriONgay(bayGio) ? t("Ngày lập không được sau hôm nay") : null;
+}
+
 /**
  * Kiểm tra hộp Xác nhận xuất (B.3), cùng quy tắc máy chủ (PhieuChuyenKhoService.xacNhanXuat).
  * `form`: { hinhThuc, nguoi, sdt, loaiPhuongTien, bienSo, donVi, maVanDon, duKienDen (ô datetime-local), kyHieu, soXknb,
  * ngayLap, maTraCuu }. `cheDo`: CHAN | CHI_CANH_BAO. `daDongYThieu`: người dùng đã bấm "Vẫn xuất khi chưa có số".
+ * `bayGio`: mốc "hiện tại" (ms) để so ô Dự kiến đến và Ngày lập.
  * Trả về { loi: { ô: câu }, chan: câu | null, canhBaoThieu: boolean, thieu: boolean, yeuCau: body gửi máy chủ | null }.
  */
-export function kiemTraXacNhanXuat(form, cheDo, daDongYThieu = false) {
+export function kiemTraXacNhanXuat(form, cheDo, daDongYThieu = false, bayGio = Date.now()) {
     const f = form ?? {};
     const loi = {};
     const hinhThuc = HINH_THUC_VAN_CHUYEN.some((h) => h.ma === f.hinhThuc) ? f.hinhThuc : "";
@@ -307,11 +330,15 @@ export function kiemTraXacNhanXuat(form, cheDo, daDongYThieu = false) {
     if (hinhThuc === "CHUYEN_PHAT" && !chuoi(f.maVanDon)) loi.maVanDon = t("Nhập mã vận đơn");
     const duKienDen = tuONgayGio(f.duKienDen);
     if (duKienDen === undefined) loi.duKienDen = t("Thời gian không hợp lệ");
+    // Hàng rời kho lúc bấm xuất: dự kiến đến phải sau thời điểm này (máy chủ cũng chặn, PhieuChuyenKhoService.xacNhanXuat)
+    else if (duKienDen && new Date(duKienDen).getTime() <= bayGio) loi.duKienDen = t("Chọn thời điểm sau hiện tại");
 
     const kyHieu = chuoi(f.kyHieu).toUpperCase();
     const so = chuoi(f.soXknb);
     if (kyHieu && !KY_HIEU_XKNB_RE.test(kyHieu)) loi.kyHieu = t("Ký hiệu gồm 7 ký tự, ví dụ 6K26NAB");
     if (so && !SO_XKNB_RE.test(so)) loi.soXknb = t("Số phiếu gồm 7 chữ số, ví dụ 0000125");
+    const loiNgayLap = kiemTraNgayLap(f.ngayLap, bayGio);
+    if (loiNgayLap) loi.ngayLap = loiNgayLap;
     const thieu = !kyHieu || !so;
     let chan = null;
     let canhBaoThieu = false;
@@ -345,13 +372,15 @@ export function kiemTraXacNhanXuat(form, cheDo, daDongYThieu = false) {
 }
 
 /** Kiểm tra hộp Ghi số XKNB: { loi, yeuCau }. */
-export function kiemTraGhiSoXknb(form) {
+export function kiemTraGhiSoXknb(form, bayGio = Date.now()) {
     const f = form ?? {};
     const loi = {};
     const kyHieu = chuoi(f.kyHieu).toUpperCase();
     const so = chuoi(f.soXknb);
     if (!KY_HIEU_XKNB_RE.test(kyHieu)) loi.kyHieu = t("Ký hiệu gồm 7 ký tự, ví dụ 6K26NAB");
     if (!SO_XKNB_RE.test(so)) loi.soXknb = t("Số phiếu gồm 7 chữ số, ví dụ 0000125");
+    const loiNgayLap = kiemTraNgayLap(f.ngayLap, bayGio);
+    if (loiNgayLap) loi.ngayLap = loiNgayLap;
     if (Object.keys(loi).length) return { loi, yeuCau: null };
     return {
         loi,
