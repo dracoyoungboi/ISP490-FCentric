@@ -139,6 +139,7 @@ test("laChoDay: lệch số, vừa bật lại; dòng ngừng và dòng lỗi kh
   assert.equal(laChoDay({ trangThaiLienKet: "da_lien_ket", soLuongDaDay: null }, 0), true, "chưa đẩy lần nào");
   assert.equal(laChoDay({ trangThaiLienKet: "chua_lien_ket", soLuongDaDay: 5 }, 9, true), false);
   assert.equal(laChoDay({ trangThaiLienKet: "loi", soLuongDaDay: 5 }, 9), false);
+  assert.equal(laChoDay({ trangThaiLienKet: "da_lien_ket", soLuongKhaDung: 135, soLuongDaDay: 122, soLuongSeDay: 122 }, 122), false);
 });
 
 test("gioChungCuaNhom: giờ gặp nhiều nhất, bỏ dòng ngừng và dòng chưa đẩy", () => {

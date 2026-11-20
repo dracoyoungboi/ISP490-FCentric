@@ -259,3 +259,22 @@ test("dongHangBan: máy chủ mới trả tên gốc, màu, mã màu, cỡ, ản
   assert.equal(cu.anh, null);
   assert.equal(cu.khoaNhom, null);
 });
+
+test("Shopee UNPAID Chờ xác nhận: chỉ cho xem, khóa Gửi sang kho & Hủy đơn, hiện thông báo nhắc", () => {
+  const ban = { laBan: true, laKho: false };
+  const shopee = { kenhBanHang: { maKenh: "SHOPEE_OFFICIAL", tenKenh: "Shopee" }, maDonHangKenh: "261120TEST" };
+  const unpaidCt = ct(
+    { ...shopee, trangThai: 0, ghiChu: "Đơn hàng đồng bộ tự động từ Shopee #261120TEST [SHOPEE_CHO_XAC_NHAN]" },
+    { choXacNhanSan: true, coTheGuiSangKho: false },
+  );
+  const vUnpaid = thaoTacDonBan(unpaidCt, ban);
+  assert.equal(vUnpaid.nutGuiKho, false);
+  assert.equal(vUnpaid.menuHuy, false);
+  const tb = thongBaoDonBan(unpaidCt, ban);
+  assert.equal(tb[0].ma, "choXacNhanSan");
+  assert.match(tb[0].chu, /Chờ xác nhận nên chỉ xem được/);
+
+  const readyCt = ct({ ...shopee, trangThai: 0, ghiChu: "Đơn hàng đồng bộ tự động từ Shopee #261120TEST" });
+  assert.equal(thaoTacDonBan(readyCt, ban).nutGuiKho, true);
+  assert.equal(thaoTacDonBan(readyCt, ban).menuHuy, true);
+});
