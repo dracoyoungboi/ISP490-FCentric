@@ -17,6 +17,7 @@ import {
   QrCode,
   Clock,
   Landmark,
+  Loader2,
   WifiOff,
 } from 'lucide-react';
 import MoneyInput from '@/components/shared/MoneyInput';
@@ -748,7 +749,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
           {ketHop ? <PhanThanhToanKetHop ketHop={ketHop} /> : <p className="mt-1 text-xs text-bo-muted">{receipt?.phuongThuc === 'PAYOS' ? t("Chuyển khoản qua payOS · Đã nhận đủ tiền") : t("Tiền mặt · Khách đưa {{soTienThu}} · Tiền thừa {{soTienThua}}", { soTienThu: formatMoney(receipt?.soTienThu), soTienThua: formatMoney(receipt?.soTienThua) })}</p>}
         </div>
         <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row">
-          <button className={`${secondaryButton} flex-1`} onClick={actions.onPrintReceipt} type="button"><Printer aria-hidden="true" size={16} />{t("In hóa đơn")}</button>
+          <button aria-busy={state.dangInHoaDon || undefined} className={`${secondaryButton} flex-1`} disabled={state.dangInHoaDon} onClick={actions.onPrintReceipt} type="button">{state.dangInHoaDon ? <Loader2 aria-hidden="true" className="animate-spin" size={16} /> : <Printer aria-hidden="true" size={16} />}{state.dangInHoaDon ? t("Đang chuẩn bị bản in…") : t("In hóa đơn")}</button>
           <button className={`${primaryButton} flex-1`} onClick={actions.onCloseReceipt} type="button">{t("Hoàn tất")}</button>
         </div>
         <p className="mt-3 text-center text-[11px] leading-4 text-bo-muted">{t("In lỗi chỉ cần thử in lại từ đơn đã lưu — giao dịch không chạy lại.")}</p>
@@ -769,7 +770,7 @@ export default function PosDialogs({ dialog, state, actions, onClose, checkoutEn
           {ketHop ? <PhanThanhToanKetHop ketHop={ketHop} /> : <p className="mt-1 text-xs text-bo-muted">{t("Tiền thừa")} {formatMoney(receipt?.soTienThua)}</p>}
         </div>
         <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row">
-          <button className={`${secondaryButton} flex-1`} onClick={actions.onPrintRecovered} type="button"><Printer aria-hidden="true" size={16} />{t("In hóa đơn")}</button>
+          <button aria-busy={state.dangInHoaDon || undefined} className={`${secondaryButton} flex-1`} disabled={state.dangInHoaDon} onClick={actions.onPrintRecovered} type="button">{state.dangInHoaDon ? <Loader2 aria-hidden="true" className="animate-spin" size={16} /> : <Printer aria-hidden="true" size={16} />}{state.dangInHoaDon ? t("Đang chuẩn bị bản in…") : t("In hóa đơn")}</button>
           <button className={`${primaryButton} flex-1`} onClick={actions.onCloseRecovered} type="button">{t("Đóng")}</button>
         </div>
       </PosModal>

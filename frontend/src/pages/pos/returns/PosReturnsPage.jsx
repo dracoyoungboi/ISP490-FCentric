@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Banknote, Check, Clock3, Minus, PackageOpen, Plus, Printer, Search, ShieldCheck, Tag, Undo2, X } from 'lucide-react';
+import { AlertTriangle, Banknote, Check, Clock3, Loader2, Minus, PackageOpen, Plus, Printer, Search, ShieldCheck, Tag, Undo2, X } from 'lucide-react';
 import { toast } from '@/lib/thongBaoNhanh';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { formatDateTime } from '@/utils/formatters';
@@ -48,6 +48,8 @@ import {
   tongKet,
 } from './tra-hang';
 import { t, tDuLieu } from "@/i18n";
+import useInTaiCho from "@/components/in-tai-cho/useInTaiCho";
+import { NGUON_IN_BIEN_BAN_TRA } from "@/components/in-tai-cho/nguonIn";
 
 const NGAN_HANG = ['Vietcombank', 'VietinBank', 'BIDV', 'Agribank', 'Techcombank', 'MB Bank', 'ACB', 'VPBank',
   'Sacombank', 'TPBank', 'HDBank', 'VIB', 'SHB', 'OCB', 'MSB', 'SeABank', 'Eximbank', 'LPBank', 'Nam A Bank',
@@ -303,8 +305,6 @@ export default function PosReturnsPage() {
     const khoa = khoaNoiDung(payload);
     if (requestRef.current.khoa !== khoa) requestRef.current = { id: newReturnRequestId(), khoa };
     payload.requestId = requestRef.current.id;
-    // Mở sẵn cửa sổ in ngay trong cú bấm (trình duyệt chặn cửa sổ mở sau khi chờ máy chủ)
-    const cuaSoIn = window.open('', '_blank');
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -319,9 +319,8 @@ export default function PosReturnsPage() {
       requestRef.current = { id: null, khoa: null };
       // MSG-RET-04
       toast.success(message || t("Hoàn tất thủ tục trả hàng thành công. Mã phiếu: {{so}}. Hệ thống đang in biên lai", { so: data?.soPhieu }));
-      inBienBan(data?.phieuTraHangId, cuaSoIn);
+      inBienBan(data?.phieuTraHangId);
     } catch (err) {
-      cuaSoIn?.close();
       const status = err?.response?.status;
       // Mất mạng, hết giờ chờ, lỗi máy chủ / cổng trung gian: chưa biết máy chủ đã ghi chưa -> giữ requestId
       const khongRo = !err?.response || status >= 500 || status === 408;
@@ -355,15 +354,10 @@ export default function PosReturnsPage() {
     }
   };
 
-  const inBienBan = (id, cuaSo = null) => {
-    if (!id) { cuaSo?.close(); return; }
-    const url = `/pos/returns/${id}/print`;
-    if (cuaSo && !cuaSo.closed) {
-      cuaSo.opener = null;
-      cuaSo.location.href = url;
-    } else {
-      window.open(url, '_blank', 'noopener');
-    }
+  // In biên bản 02 liên ngay trên màn trả hàng (hộp in của trình duyệt bật đè lên màn Hoàn tất), không mở thẻ mới
+  const { inPhieu, dangIn: dangInBienBan, khungIn } = useInTaiCho();
+  const inBienBan = (id) => {
+    if (id) inPhieu(NGUON_IN_BIEN_BAN_TRA, id);
   };
 
   // Phím tắt như màn bán: F1 bảng phím tắt, F3 về ô tìm hóa đơn, F9 hoàn tiền
@@ -437,7 +431,7 @@ export default function PosReturnsPage() {
       {renderTopBar()}
 
       {ketQua ? (
-        <HoanTat ketQua={ketQua} onIn={() => inBienBan(ketQua.phieuTraHangId)} onLamMoi={lamMoi} onVeBanHang={() => navigate('/pos')} />
+        <HoanTat dangIn={dangInBienBan} ketQua={ketQua} onIn={() => inBienBan(ketQua.phieuTraHangId)} onLamMoi={lamMoi} onVeBanHang={() => navigate('/pos')} />
       ) : (
         <main className="grid min-h-0 flex-1 gap-3 overflow-y-auto p-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:overflow-hidden">
           {/* ───────── Trái: hóa đơn gốc (như danh mục của màn bán) ───────── */}
@@ -517,6 +511,7 @@ export default function PosReturnsPage() {
                 banDau={phieuXem.banDau}
                 bayGio={bayGio}
                 id={phieuXem.id}
+                dangIn={dangInBienBan}
                 key={phieuXem.id}
                 onDong={() => setPhieuXem(null)}
                 onIn={(id) => inBienBan(id)}
@@ -688,8 +683,9 @@ export default function PosReturnsPage() {
       ) : null}
 
       {modal === 'phieuDaTra' && phieuNhanh ? (
-        <HopPhieuDaTra bayGio={bayGio} id={phieuNhanh} onDong={() => { setModal(null); setPhieuNhanh(null); }} onIn={(id) => inBienBan(id)} />
+        <HopPhieuDaTra bayGio={bayGio} dangIn={dangInBienBan} id={phieuNhanh} onDong={() => { setModal(null); setPhieuNhanh(null); }} onIn={(id) => inBienBan(id)} />
       ) : null}
+      {khungIn}
     </div>
   );
 }
@@ -1033,7 +1029,7 @@ function ThongTinChuyenKhoan({ ck, loi, hienLoi, onChange }) {
 // i18n-giu-nguyen: nhãn liên in trên giấy (mẫu in giữ tiếng Việt)
 const LIEN_XEM_TRUOC = "1 · Giao khách hàng giữ";
 
-function HoanTat({ ketQua, onIn, onLamMoi, onVeBanHang }) {
+function HoanTat({ ketQua, dangIn, onIn, onLamMoi, onVeBanHang }) {
   // Xem trước đúng bản sẽ in: mẫu đang dùng của Biên bản trả hàng + Thông tin cửa hàng (như trang in)
   const [xem, setXem] = useState(null);
   useEffect(() => {
@@ -1057,7 +1053,7 @@ function HoanTat({ ketQua, onIn, onLamMoi, onVeBanHang }) {
         <p className="mt-2 text-3xl font-bold tracking-tight tabular-nums">{formatMoney(ketQua.tongTienHoan)}</p>
         <p className="text-[13px] text-bo-muted">{ketQua.phuongThucHoan === HOAN_CHUYEN_KHOAN ? t("Đã hoàn bằng chuyển khoản") : t("Chi tiền mặt cho khách")}</p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
-          <button className={secondaryButton} onClick={onIn} type="button"><Printer aria-hidden="true" size={16} />{t("In lại biên bản")}</button>
+          <button aria-busy={dangIn || undefined} className={`${secondaryButton} disabled:cursor-not-allowed disabled:opacity-60`} disabled={dangIn} onClick={onIn} type="button">{dangIn ? <Loader2 aria-hidden="true" className="animate-spin" size={16} /> : <Printer aria-hidden="true" size={16} />}{dangIn ? t("Đang chuẩn bị bản in…") : t("In lại biên bản")}</button>
           <button className={secondaryButton} onClick={onLamMoi} type="button">{t("Trả đơn khác")}</button>
           <button className="inline-flex min-h-9 items-center justify-center rounded-lg bg-bo-primary px-4 text-sm font-semibold text-white hover:bg-bo-primary-hover" onClick={onVeBanHang} type="button">{t("Về bán hàng")}</button>
         </div>
