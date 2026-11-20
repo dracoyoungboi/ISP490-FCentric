@@ -33,11 +33,12 @@ import {
   GOI_Y_QC,
   HOAN_CHUYEN_KHOAN,
   HOAN_TIEN_MAT,
-  LY_DO_TRA,
+  LY_DO_TRA_DAT,
   NHOM_LOI,
   QC_DAT,
   QC_LOI,
   conTra,
+  canGhiRo,
   dungYeuCau,
   khoaNoiDung,
   khoiTaoDong,
@@ -604,7 +605,7 @@ export default function PosReturnsPage() {
                   <ThongTinChuyenKhoan ck={ck} hienLoi={daBamXacNhan} loi={loiCk} onChange={(patch) => { setCk((x) => ({ ...x, ...patch })); setSubmitError(null); }} />
                 ) : null}
                 {daBamXacNhan && duyetDu && (Object.keys(loiDong).length || loiCk.length) ? (
-                  <p className="text-xs text-bo-danger" role="alert">{t("Chọn đủ kệ, nhóm lỗi và lý do ở ô viền đỏ.")}</p>
+                  <p className="text-xs text-bo-danger" role="alert">{t("Chọn hoặc ghi đủ ở ô viền đỏ.")}</p>
                 ) : null}
                 {submitError && modal !== 'xacNhan' ? (
                   <p className="rounded-md bg-bo-danger-soft px-3 py-2 text-xs text-bo-danger" role="alert">{submitError}</p>
@@ -929,7 +930,7 @@ function MonTra({ d, c, ke, khoCoKe, loi, daBamXacNhan, onCapNhat }) {
               aria-checked={c.tinhTrang === gt}
               className={`rounded px-2.5 text-xs transition ${c.tinhTrang === gt ? `${mau} font-semibold` : 'font-medium text-bo-muted hover:text-bo-foreground'}`}
               key={gt}
-              onClick={() => onCapNhat({ tinhTrang: gt })}
+              onClick={() => (c.tinhTrang === gt ? null : onCapNhat({ tinhTrang: gt, ghiChu: '' }))}
               role="radio"
               type="button"
             >
@@ -949,12 +950,28 @@ function MonTra({ d, c, ke, khoCoKe, loi, daBamXacNhan, onCapNhat }) {
         </p>
       ) : null}
       <GoiYKiemHang laLoi={laLoi} />
-      <div className={`grid gap-2 ${laLoi || khoCoKe ? 'grid-cols-2' : 'grid-cols-1'}`}>
-        {laLoi
-          ? chonO('nhomLoi', c.nhomLoi, NHOM_LOI, t("Chọn nhóm lỗi"))
-          : khoCoKe ? chonO('ke', c.viTriKhoId, ke.map((k) => [k.id, k.ma]), t("Chọn kệ cất"), false) : null}
-        {chonO('lyDo', c.lyDo, LY_DO_TRA, t("Chọn lý do"))}
+      {/* Hàng Lỗi chỉ chọn lỗi gì (lý do máy chủ tự ghi là lỗi sản xuất); hàng Đạt chọn kệ cất và lý do khách trả. */}
+      <div className={`grid gap-2 ${!laLoi && khoCoKe ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        {laLoi ? chonO('nhomLoi', c.nhomLoi, NHOM_LOI, t("Chọn lỗi")) : (
+          <>
+            {khoCoKe ? chonO('ke', c.viTriKhoId, ke.map((k) => [k.id, k.ma]), t("Chọn kệ cất"), false) : null}
+            {chonO('lyDo', c.lyDo, LY_DO_TRA_DAT, t("Chọn lý do"))}
+          </>
+        )}
       </div>
+      {canGhiRo(c) ? (
+        <label className="block min-w-0 text-[11px] text-bo-muted" htmlFor={`${id}-ghiChu`}>
+          {laLoi ? t("Ghi rõ lỗi") : t("Ghi rõ lý do")}
+          <input
+            aria-invalid={Boolean(hien('ghiChu'))}
+            className={`mt-0.5 h-8 w-full min-w-0 rounded-md border bg-bo-surface px-2 text-xs text-bo-foreground outline-none focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/15 ${hien('ghiChu') ? 'border-red-400' : 'border-bo-input-border'}`}
+            id={`${id}-ghiChu`}
+            maxLength={255}
+            onChange={(e) => onCapNhat({ ghiChu: e.target.value })}
+            value={c.ghiChu ?? ''}
+          />
+        </label>
+      ) : null}
     </li>
   );
 }

@@ -19,6 +19,13 @@ export const LY_DO_TRA = [
   ['khac', 'Khác'],
 ];
 
+/** Mã lý do máy chủ tự ghi cho dòng hàng Lỗi (TraHangQuyTac.LY_DO_LOI); hàng Đạt không chọn được. */
+export const LY_DO_LOI = 'loi_san_xuat';
+/** Mã "Khác" của cả lý do lẫn nhóm lỗi: chọn mã này thì phải ghi rõ. */
+export const MA_KHAC = 'khac';
+/** Lý do chọn được cho hàng Đạt: bỏ lỗi sản xuất (hàng lỗi thì chấm Lỗi). */
+export const LY_DO_TRA_DAT = LY_DO_TRA.filter(([ma]) => ma !== LY_DO_LOI);
+
 /** Nhóm lỗi khi hàng Lỗi (khớp TraHangQuyTac.NHOM_LOI). */
 export const NHOM_LOI = [
   ['rach_vai', 'Rách vải'],
@@ -68,7 +75,7 @@ export const CHINH_SACH_DAY_DU = [
 /** Gợi ý dưới công tắc Đạt / Lỗi của từng món: [nhãn in đậm, phần còn lại]. */
 export const GOI_Y_QC = {
   [QC_DAT]: ['Đạt:', 'còn tem mác, chưa sử dụng, không ám mùi, không bẩn.'],
-  [QC_LOI]: ['Lỗi:', 'để riêng, không cộng tồn. Chọn nhóm lỗi bên dưới.'],
+  [QC_LOI]: ['Lỗi:', 'để riêng, không cộng tồn. Chọn lỗi bên dưới.'],
 };
 
 export const nhanTheoMa = (ds, ma) => ds.find(([m]) => m === ma)?.[1] ?? ma;
@@ -83,6 +90,7 @@ export function khoiTaoDong(dong = []) {
     viTriKhoId: d.keGoiYId ?? null,
     lyDo: '',
     nhomLoi: '',
+    ghiChu: '',
   }));
 }
 
@@ -117,9 +125,13 @@ export function tongKet(dongGoc = [], chon = []) {
   return { soSanPham, tongSoLuong, soDat, soLoi, tongTien };
 }
 
+/** Dòng phải ghi rõ: hàng Đạt chọn lý do Khác, hoặc hàng Lỗi chọn Lỗi khác (khớp TraHangQuyTac.canGhiRo). */
+export const canGhiRo = (c) => (c.tinhTrang === QC_LOI ? c.nhomLoi : c.lyDo) === MA_KHAC;
+
 /**
- * Lỗi theo dòng (chỉ dòng đang chọn): { [chiTietId]: { soLuong?, ke?, lyDo?, nhomLoi? } } với mã lỗi:
- * soLuong: 'thieu' | 'vuot' (MSG-RET-03); ke: 'thieu'; lyDo: 'thieu'; nhomLoi: 'thieu'.
+ * Lỗi theo dòng (chỉ dòng đang chọn): { [chiTietId]: { soLuong?, ke?, lyDo?, nhomLoi?, ghiChu? } } với mã lỗi:
+ * soLuong: 'thieu' | 'vuot' (MSG-RET-03); ke, lyDo, nhomLoi, ghiChu: 'thieu'.
+ * Hàng Đạt cần kệ (kho có kệ) và lý do; hàng Lỗi chỉ cần nhóm lỗi. Chọn Khác thì phải ghi rõ.
  */
 export function loiTheoDong(dongGoc = [], chon = [], khoCoKe = false) {
   const theoId = new Map(dongGoc.map((d) => [d.chiTietId, d]));
@@ -132,8 +144,9 @@ export function loiTheoDong(dongGoc = [], chon = [], khoCoKe = false) {
     if (!Number.isInteger(raw) || raw < 1) e.soLuong = 'thieu';
     else if (raw > conTra(d)) e.soLuong = 'vuot';
     if (c.tinhTrang === QC_DAT && khoCoKe && !c.viTriKhoId) e.ke = 'thieu';
-    if (!c.lyDo) e.lyDo = 'thieu';
+    if (c.tinhTrang === QC_DAT && !c.lyDo) e.lyDo = 'thieu';
     if (c.tinhTrang === QC_LOI && !c.nhomLoi) e.nhomLoi = 'thieu';
+    if (canGhiRo(c) && !c.ghiChu?.trim()) e.ghiChu = 'thieu';
     if (Object.keys(e).length) loi[c.chiTietId] = e;
   }
   return loi;
@@ -170,8 +183,9 @@ export function dungYeuCau({ requestId, don, khoId, chon, phuongThuc, ck, yeuCau
       soLuong: Math.floor(Number(c.soLuong)),
       tinhTrang: c.tinhTrang,
       viTriKhoId: c.tinhTrang === QC_DAT ? (c.viTriKhoId || null) : null,
-      lyDo: c.lyDo,
+      lyDo: c.tinhTrang === QC_DAT ? c.lyDo : null,
       nhomLoi: c.tinhTrang === QC_LOI ? c.nhomLoi : null,
+      ghiChu: canGhiRo(c) ? c.ghiChu.trim() : null,
     })),
   };
 }
