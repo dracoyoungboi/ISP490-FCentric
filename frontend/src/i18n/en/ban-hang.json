@@ -939,5 +939,8 @@
   " · Khách chọn nhận tại cửa hàng": " · Customer chose store pickup",
   "Đơn Shopify đang tách từ nhiều điểm giao nhận trên sàn. Khi điều tiết về một kho, hệ thống tự chuyển vị trí xử lý trên Shopify.": "This Shopify order spans multiple fulfillment locations. Dispatching it to one warehouse updates the assigned location on Shopify.",
   "Đơn bán hàng được tạo khi bán tại quầy hoặc nhận từ sàn.": "Sales orders are created at the point of sale or come in from marketplaces.",
-  "Hệ thống không theo dõi thanh toán của đơn này.": "Payments for this order aren't tracked in the system."
+  "Hệ thống không theo dõi thanh toán của đơn này.": "Payments for this order aren't tracked in the system.",
+  "Đang tải dữ liệu hóa đơn": "Loading invoice",
+  "Không tìm thấy hóa đơn": "Invoice not found",
+  "Đơn bán hàng có thể đã bị xóa hoặc bạn không có quyền truy cập.": "The sales order may have been deleted, or you don't have access to it."
 }

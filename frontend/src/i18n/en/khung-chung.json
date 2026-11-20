@@ -534,5 +534,16 @@
   "Từ {{count}} đơn, đã trừ {{tien}} trả hàng_one": "From {{count}} order, less {{tien}} in returns",
   "Từ {{count}} đơn, đã trừ {{tien}} trả hàng_other": "From {{count}} orders, less {{tien}} in returns",
   "Mã không được bắt đầu bằng {{tienTo}} (dành cho khách từ sàn)": "Code can't start with {{tienTo}} (reserved for marketplace customers)",
-  "Mua {{khi}}": "Bought {{khi}}"
+  "Mua {{khi}}": "Bought {{khi}}",
+  "Không tìm thấy phiếu": "Document not found",
+  "Tài khoản của bạn không có quyền truy cập phiếu này.": "Your account doesn't have access to this document.",
+  "In phiếu: {{so}}": "Print {{so}}",
+  "Không thể tải cấu hình mẫu in từ máy chủ. Không in khi chưa tải xong cấu hình.": "Couldn't load the print template from the server. Printing waits until it loads.",
+  "Chưa có cấu hình mẫu in": "No print template yet",
+  "Loại chứng từ này chưa có mẫu in được cấu hình.": "This document type doesn't have a print template yet.",
+  "Đang chuẩn bị bản in…": "Preparing printout…",
+  "Bạn không có quyền in phiếu này.": "You don't have permission to print this document.",
+  "Không tìm thấy phiếu để in. Phiếu có thể đã bị xóa.": "Couldn't find the document to print. It may have been deleted.",
+  "Không tải được bản in. Kiểm tra mạng rồi bấm In lại.": "Couldn't load the printout. Check your connection and print again.",
+  "Không mở được hộp in. Bấm In lại.": "Couldn't open the print dialog. Try printing again."
 }
