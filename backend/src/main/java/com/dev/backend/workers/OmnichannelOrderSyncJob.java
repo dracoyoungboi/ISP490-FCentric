@@ -73,6 +73,29 @@ public class OmnichannelOrderSyncJob {
 
     public static final String MA_KENH_SHOPEE = "SHOPEE";
     public static final String MA_KENH_SHOPEE_SANDBOX = "SHOPEE_SANDBOX";
+    /** Cờ nội bộ đánh dấu đơn Shopee đang ở UNPAID (Chờ xác nhận) — chỉ cho phép xem, chưa gửi kho/in vận đơn. */
+    public static final String TAG_SHOPEE_CHO_XAC_NHAN = "[SHOPEE_CHO_XAC_NHAN]";
+
+    public static String ganTagShopeeChoXacNhan(String ghiChu) {
+        if (ghiChu != null && ghiChu.contains(TAG_SHOPEE_CHO_XAC_NHAN)) {
+            return ghiChu;
+        }
+        return (ghiChu == null || ghiChu.isBlank())
+                ? TAG_SHOPEE_CHO_XAC_NHAN
+                : ghiChu.trim() + " " + TAG_SHOPEE_CHO_XAC_NHAN;
+    }
+
+    public static String xoaTagShopeeChoXacNhan(String ghiChu) {
+        if (ghiChu == null || !ghiChu.contains(TAG_SHOPEE_CHO_XAC_NHAN)) {
+            return ghiChu;
+        }
+        String cleaned = ghiChu.replace(TAG_SHOPEE_CHO_XAC_NHAN, "")
+                .replaceAll("\\s*\\|\\s*\\|\\s*", " | ")
+                .replaceAll("^\\s*\\|\\s*|\\s*\\|\\s*$", "")
+                .replaceAll("\\s{2,}", " ")
+                .trim();
+        return cleaned.isEmpty() ? null : cleaned;
+    }
 
     public static boolean isShopify(String maKenh) {
         return MA_KENH_SHOPIFY.equalsIgnoreCase(maKenh);
@@ -1876,6 +1899,9 @@ public class OmnichannelOrderSyncJob {
             price = totalPrice.subtract(shippingFee).max(BigDecimal.ZERO);
         }
 
+        String shopeeStatus = order.getOrderStatus() != null ? order.getOrderStatus().trim().toUpperCase() : "";
+        boolean laChoXacNhan = "UNPAID".equals(shopeeStatus);
+
         Optional<DonBanHang> existingOpt = donBanHangRepository.findBySoDonHang(soDonHang);
         if (existingOpt.isPresent()) {
             DonBanHang existing = existingOpt.get();
@@ -1909,11 +1935,15 @@ public class OmnichannelOrderSyncJob {
                 }
             }
 
-            String shopeeStatus = order.getOrderStatus() != null ? order.getOrderStatus().trim().toUpperCase() : "";
             boolean laHuy = "CANCELLED".equals(shopeeStatus) || "IN_CANCEL".equals(shopeeStatus);
             boolean laHoanTra = "TO_RETURN".equals(shopeeStatus) || "RETURNED".equals(shopeeStatus) || "RETURN_REFUND".equals(shopeeStatus);
 
             if (laHuy) {
+                if (existing.getGhiChu() != null && existing.getGhiChu().contains(TAG_SHOPEE_CHO_XAC_NHAN)) {
+                    existing.setGhiChu(xoaTagShopeeChoXacNhan(existing.getGhiChu()));
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                }
                 if (existing.getTrangThai() != null && existing.getTrangThai() != ITrangThaiDonBanHang.DA_HUY) {
                     try {
                         String lyDoHuy = order.getCancelReason() != null && !order.getCancelReason().isBlank()
@@ -1925,6 +1955,11 @@ public class OmnichannelOrderSyncJob {
                     }
                 }
             } else if (laHoanTra) {
+                if (existing.getGhiChu() != null && existing.getGhiChu().contains(TAG_SHOPEE_CHO_XAC_NHAN)) {
+                    existing.setGhiChu(xoaTagShopeeChoXacNhan(existing.getGhiChu()));
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                }
                 try {
                     donBanHangService.capNhatTrangThaiGiaoHangTuSan(existing.getId(), shopeeStatus);
                     log.info("[JOB-01] Đơn {} có trạng thái hoàn trả trên Shopee ({}) -> Cập nhật Bị hoàn trả (6)", soDonHang, shopeeStatus);
@@ -1932,6 +1967,24 @@ public class OmnichannelOrderSyncJob {
                     log.error("[JOB-01] Lỗi khi cập nhật hoàn trả đơn {} theo Shopee: {}", soDonHang, ex.getMessage());
                 }
             } else {
+                // Giữ hoặc gỡ cờ [SHOPEE_CHO_XAC_NHAN] tùy theo Shopee còn UNPAID hay đã xác nhận (READY_TO_SHIP+)
+                String currentGhiChu = existing.getGhiChu() != null ? existing.getGhiChu() : "";
+                boolean dangCoTagCho = currentGhiChu.contains(TAG_SHOPEE_CHO_XAC_NHAN);
+                if (laChoXacNhan && !dangCoTagCho) {
+                    existing.setGhiChu(ganTagShopeeChoXacNhan(currentGhiChu));
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                } else if (!laChoXacNhan && dangCoTagCho) {
+                    existing.setGhiChu(xoaTagShopeeChoXacNhan(currentGhiChu));
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                    if ("READY_TO_SHIP".equals(shopeeStatus)
+                            && Integer.valueOf(ITrangThaiDonBanHang.NHAP).equals(existing.getTrangThai())) {
+                        demDonNhapMoi(kenh);
+                        log.info("[JOB-01] Đơn Shopee {} chuyển từ UNPAID sang READY_TO_SHIP -> Mở khóa Gửi sang kho", soDonHang);
+                    }
+                }
+
                 if (order.getCancelReason() != null && !order.getCancelReason().isBlank()) {
                     String ghiChuCu = existing.getGhiChu() != null ? existing.getGhiChu() : "";
                     if (!ghiChuCu.contains("[KHÁCH YÊU CẦU HỦY]")) {
@@ -2014,8 +2067,17 @@ public class OmnichannelOrderSyncJob {
                 : "Đơn hàng đồng bộ tự động từ Shopee #" + orderId;
 
         String carrier = order.getShippingCarrier() != null ? order.getShippingCarrier() : "Shopee Xpress";
-        String trackingNo = order.getTrackingNumber() != null ? order.getTrackingNumber() : ("SPXVN" + orderId);
-        String fullGhiChu = "[VẬN ĐƠN: " + trackingNo + "] [ĐƠN VỊ: " + carrier + "] | " + ghiChu;
+        String fullGhiChu;
+        if (laChoXacNhan) {
+            // Đơn Shopee UNPAID (chờ xác nhận COD/thanh toán): không sinh giả mã vận đơn SPXVN; gắn cờ chỉ xem
+            String vanDonPart = (order.getTrackingNumber() != null && !order.getTrackingNumber().isBlank())
+                    ? "[VẬN ĐƠN: " + order.getTrackingNumber().trim() + "] [ĐƠN VỊ: " + carrier + "] | "
+                    : "";
+            fullGhiChu = ganTagShopeeChoXacNhan(vanDonPart + ghiChu);
+        } else {
+            String trackingNo = order.getTrackingNumber() != null ? order.getTrackingNumber() : ("SPXVN" + orderId);
+            fullGhiChu = "[VẬN ĐƠN: " + trackingNo + "] [ĐƠN VỊ: " + carrier + "] | " + ghiChu;
+        }
 
         DonBanHang don = DonBanHang.builder()
                 .soDonHang(soDonHang)
@@ -2036,7 +2098,7 @@ public class OmnichannelOrderSyncJob {
 
         DonBanHang savedOrder = donBanHangRepository.save(don);
         if (coYeuCauHuy && thongBaoXuatKhoService != null) thongBaoXuatKhoService.khachYeuCauHuy(savedOrder, kenh);
-        if (Integer.valueOf(0).equals(savedOrder.getTrangThai())) demDonNhapMoi(kenh);
+        if (!laChoXacNhan && Integer.valueOf(0).equals(savedOrder.getTrangThai())) demDonNhapMoi(kenh);
 
         Map<String, Integer> skuThieu = new LinkedHashMap<>();
         if (order.getItemList() != null) {
