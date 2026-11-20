@@ -42,7 +42,7 @@ import { toast } from "@/lib/thongBaoNhanh";
 import purchaseRequestService from "@/services/purchaseRequestService";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { khoTrongToken } from "@/utils/khoLamViec";
-import { ROLES, getCurrentUserId, hasAnyRole } from "@/utils/roles";
+import { ROLES, hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
 
 const TEN_CHUNG_TU = t("yêu cầu nhập hàng");
@@ -133,7 +133,6 @@ function ChiTietYeuCauNhapHang({ id }) {
     const quyen = quyenDuyetYeuCau({
         laQuanTriVien: hasAnyRole([ROLES.QUAN_TRI_VIEN]),
         laQuanLyKho: hasAnyRole([ROLES.QUAN_LY_KHO]),
-        nguoiDungId: getCurrentUserId(),
         khoNhap: kho,
         // Mọi kho được phân quyền còn hiệu lực trong token (kể cả kho ngừng hoạt động): đúng danh sách backend dùng
         // (authInfo.phanQuyenNguoiDungKhos trong coQuyenDuyetKho)

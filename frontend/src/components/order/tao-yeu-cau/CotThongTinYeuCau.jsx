@@ -90,7 +90,8 @@ export default function CotThongTinYeuCau({
             ) : (
               <>
                 {t("Chỉ Kho tổng nhận hàng từ nhà cung cấp.")}
-                {kho?.quanLy ? <> {t("Quản lý kho")} <span className="text-bo-foreground">{kho.quanLy}</span> {t("duyệt yêu cầu này.")}</> : t(" Quản lý Kho tổng duyệt yêu cầu này.")}
+                {/* Mọi quản lý kho làm việc tại Kho tổng đều duyệt được, không riêng người quản lý ghi trên kho */}
+                {t(" Quản lý Kho tổng duyệt yêu cầu này.")}
               </>
             )}
           </p>
