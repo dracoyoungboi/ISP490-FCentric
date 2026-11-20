@@ -221,7 +221,7 @@ class KhachHangServiceTest {
     @Test
     void create_trungEmail_bao409() {
         when(repository.existsByMaKhachHang("KH005")).thenReturn(false);
-        when(repository.findFirstByEmail("a@shop.vn"))
+        when(repository.timTrungEmail("a@shop.vn", null))
                 .thenReturn(Optional.of(khachHang(1, "KH001", "Nguyễn Văn A", null, "a@shop.vn")));
 
         CommonException ex = assertThrows(CommonException.class, () -> service.create(KhachHangCreating.builder()
@@ -266,7 +266,7 @@ class KhachHangServiceTest {
                 .build());
 
         verify(repository, never()).timTrungSoDienThoai(anyString(), any());
-        verify(repository, never()).findFirstByEmailAndIdNot(anyString(), anyInt());
+        verify(repository, never()).timTrungEmail(anyString(), any());
         KhachHang saved = updatedEntity();
         assertEquals("C mới", saved.getTenKhachHang());
         assertEquals("+84901234567", saved.getSoDienThoai());

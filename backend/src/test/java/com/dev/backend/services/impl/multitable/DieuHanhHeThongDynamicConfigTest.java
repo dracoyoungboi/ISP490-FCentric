@@ -132,6 +132,14 @@ class DieuHanhHeThongDynamicConfigTest {
             assertTrue(ex.getMessage().startsWith("Tiền tố mã khách hàng"));
         }
 
+        for (String trungSan : new String[] {"KH-SHP-", "KH-SP-", "KH-TTS-A", "KH-LZD-01"}) {
+            CauHinhHeThongUpdateRequest req = new CauHinhHeThongUpdateRequest();
+            req.setGiaTri(trungSan);
+            CommonException ex = assertThrows(CommonException.class,
+                    () -> service.updateCauHinh("MA_KHACH_HANG_TIEN_TO", req, null), trungSan);
+            assertTrue(ex.getMessage().startsWith("Tiền tố mã khách hàng không được bắt đầu bằng"), ex.getMessage());
+        }
+
         CauHinhHeThongUpdateRequest dung = new CauHinhHeThongUpdateRequest();
         dung.setGiaTri("KH-HN");
         service.updateCauHinh("MA_KHACH_HANG_TIEN_TO", dung, null);

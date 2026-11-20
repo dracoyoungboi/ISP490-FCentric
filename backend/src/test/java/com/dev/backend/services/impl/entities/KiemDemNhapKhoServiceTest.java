@@ -1059,4 +1059,156 @@ class KiemDemNhapKhoServiceTest {
             assertEquals(0, phieu.getTrangThai());
         }
     }
+
+    // ── Một lô xếp nhiều kệ (20/11/2026) ──
+
+    @Nested
+    @DisplayName("Lô xếp nhiều kệ")
+    class LoNhieuKe {
+
+        @org.mockito.Mock private LoHangKeNhapRepository loHangKeNhapRepository;
+        private ViTriKho ke2;
+
+        @BeforeEach
+        void coHaiKe() {
+            ReflectionTestUtils.setField(service, "loHangKeNhapRepository", loHangKeNhapRepository);
+            ke2 = ViTriKho.builder().id(21).kho(kho).maViTri("A-02-01").sucChuaToiDa(60).trangThai("HOAT_DONG")
+                    .khuVucKho(KhuVucKho.builder().id(5).kho(kho).build()).build();
+            when(viTriKhoRepository.khoaTheoId(21)).thenReturn(Optional.of(ke2));
+            when(tonKhoViTriRepository.sumDangChuaByViTriId(21)).thenReturn(0);
+            when(chiTietPhieuNhapKhoRepository.sumChoNhapTheoViTri(eq(21), any())).thenReturn(0L);
+            when(loHangKeNhapRepository.theoLo(any())).thenReturn(List.of());
+        }
+
+        private KhaiBaoLoRequest.PhanKeRequest pk(int keId, int sl) {
+            return KhaiBaoLoRequest.PhanKeRequest.builder().viTriKhoId(keId).soLuong(sl).build();
+        }
+
+        @Test
+        @DisplayName("Khóa lô hai kệ: lưu từng phần, kệ chính là kệ đầu, khóa kệ theo thứ tự id")
+        void khoaLoHaiKe() {
+            service.khaiBaoLo(1, lo("LO-1", 40, 0).viTriKhoId(21).phanKe(List.of(pk(21, 35), pk(20, 5))).build());
+
+            ArgumentCaptor<LoHang> loLuu = ArgumentCaptor.forClass(LoHang.class);
+            verify(loHangRepository).save(loLuu.capture());
+            assertEquals(21, loLuu.getValue().getViTriKho().getId(), "kệ chính là kệ quét đầu tiên");
+            assertEquals(40, loLuu.getValue().getSoLuongNhap());
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<Iterable<LoHangKeNhap>> dong = ArgumentCaptor.forClass(Iterable.class);
+            verify(loHangKeNhapRepository).saveAll(dong.capture());
+            List<String> ds = new ArrayList<>();
+            dong.getValue().forEach(k -> ds.add(k.getViTriKho().getMaViTri() + ":" + k.getSoLuong()));
+            assertEquals(List.of("A-02-01:35", "A-01-02:5"), ds);
+            InOrder thuTu = inOrder(viTriKhoRepository);
+            thuTu.verify(viTriKhoRepository).khoaTheoId(20);
+            thuTu.verify(viTriKhoRepository).khoaTheoId(21);
+        }
+
+        @Test
+        @DisplayName("Lô 61 đạt, mỗi kệ tối đa 60: một kệ bị từ chối, hai kệ khóa được")
+        void loVuotSucChuaMotKe() {
+            dongDraft.setSoLuongNhap(new BigDecimal("61"));
+            CommonException motKe = loi(() -> service.khaiBaoLo(1, lo("LO-1", 61, 0).build()));
+            assertTrue(motKe.getMessage().contains("chỉ còn trống 60"), motKe.getMessage());
+
+            service.khaiBaoLo(1, lo("LO-1", 61, 0).phanKe(List.of(pk(20, 60), pk(21, 1))).build());
+            verify(loHangKeNhapRepository).saveAll(any());
+        }
+
+        @Test
+        @DisplayName("Một phần vượt chỗ trống của kệ: báo theo phần của kệ đó")
+        void phanVuotSucChua() {
+            when(chiTietPhieuNhapKhoRepository.sumChoNhapTheoViTri(eq(21), any())).thenReturn(55L);
+            CommonException ex = loi(() -> service.khaiBaoLo(1, lo("LO-1", 40, 0).phanKe(List.of(pk(20, 30), pk(21, 10))).build()));
+            assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+            assertTrue(ex.getMessage().contains("Kệ A-02-01 chỉ còn trống 5, không đủ cho 10"), ex.getMessage());
+            verify(loHangRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Tổng các kệ khác số đạt, kệ trùng, số không dương: từ chối")
+        void phanKeSai() {
+            CommonException tong = loi(() -> service.khaiBaoLo(1, lo("LO-1", 40, 0).phanKe(List.of(pk(20, 30), pk(21, 5))).build()));
+            assertTrue(tong.getMessage().contains("Đã xếp 35 sản phẩm đạt vào kệ nhưng lô LO-1 có 40 đạt"), tong.getMessage());
+            CommonException trung = loi(() -> service.khaiBaoLo(1, lo("LO-1", 40, 0).phanKe(List.of(pk(20, 20), pk(20, 20))).build()));
+            assertTrue(trung.getMessage().contains("chọn hai lần"), trung.getMessage());
+            CommonException am = loi(() -> service.khaiBaoLo(1, lo("LO-1", 40, 0).phanKe(List.of(pk(20, 40), pk(21, 0))).build()));
+            assertTrue(am.getMessage().contains("số nguyên lớn hơn 0"), am.getMessage());
+            verify(loHangRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Gửi một kệ trong phanKe: như lô một kệ, không ghi bảng kệ")
+        void motDongPhanKe() {
+            service.khaiBaoLo(1, lo("LO-1", 40, 0).viTriKhoId(null).phanKe(List.of(pk(21, 40))).build());
+            ArgumentCaptor<LoHang> loLuu = ArgumentCaptor.forClass(LoHang.class);
+            verify(loHangRepository).save(loLuu.capture());
+            assertEquals(21, loLuu.getValue().getViTriKho().getId());
+            verify(loHangKeNhapRepository, never()).saveAll(any());
+        }
+
+        @Test
+        @DisplayName("Nhập kho lô hai kệ: mỗi kệ một dòng sổ kệ, ghi chú lịch sử nêu các kệ")
+        void nhapKhoHaiKe() {
+            LoHang lo = loDaKhoa(60, "LO-1", 40, 0);
+            when(chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(1)).thenReturn(List.of(ctLo(lo)));
+            when(tonKhoTheoLoRepository.findByKho_IdAndLoHang_Id(eq(1), anyInt())).thenReturn(Optional.empty());
+            when(tonKhoViTriRepository.findByViTriKho_IdAndLoHang_Id(anyInt(), anyInt())).thenReturn(Optional.empty());
+            when(loHangKeNhapRepository.theoLo(any())).thenReturn(List.of(
+                    LoHangKeNhap.builder().id(1).loHang(lo).viTriKho(ke).soLuong(30).build(),
+                    LoHangKeNhap.builder().id(2).loHang(lo).viTriKho(ke2).soLuong(10).build()));
+
+            service.completePhieuNhap(1, 9);
+
+            ArgumentCaptor<TonKhoViTri> ton = ArgumentCaptor.forClass(TonKhoViTri.class);
+            verify(tonKhoViTriRepository, times(2)).save(ton.capture());
+            assertEquals(List.of("A-01-02:30", "A-02-01:10"),
+                    ton.getAllValues().stream().map(t -> t.getViTriKho().getMaViTri() + ":" + t.getSoLuong()).toList());
+            ArgumentCaptor<LichSuGiaoDichKho> ls = ArgumentCaptor.forClass(LichSuGiaoDichKho.class);
+            verify(lichSuGiaoDichKhoRepository).save(ls.capture());
+            assertTrue(ls.getValue().getGhiChu().contains("(Kệ: A-01-02 30, A-02-01 10)"), ls.getValue().getGhiChu());
+            assertEquals(3, phieu.getTrangThai());
+        }
+
+        @Test
+        @DisplayName("Nhập kho lô hai kệ mà tổng các kệ lệch số đạt: chặn, không ghi tồn")
+        void nhapKhoLechKe() {
+            LoHang lo = loDaKhoa(60, "LO-1", 40, 0);
+            when(chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(1)).thenReturn(List.of(ctLo(lo)));
+            when(loHangKeNhapRepository.theoLo(any())).thenReturn(List.of(
+                    LoHangKeNhap.builder().id(1).loHang(lo).viTriKho(ke).soLuong(30).build(),
+                    LoHangKeNhap.builder().id(2).loHang(lo).viTriKho(ke2).soLuong(5).build()));
+
+            CommonException ex = loi(() -> service.completePhieuNhap(1, 9));
+            assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+            assertTrue(ex.getMessage().contains("xếp 35 sản phẩm đạt vào các kệ nhưng dòng phiếu ghi 40"), ex.getMessage());
+            verify(tonKhoViTriRepository, never()).save(any());
+            assertEquals(0, phieu.getTrangThai());
+        }
+
+        @Test
+        @DisplayName("Danh sách lô đã khóa trả các phần kệ của lô nhiều kệ")
+        void danhSachLoCoPhanKe() {
+            LoHang lo = loDaKhoa(60, "LO-1", 40, 0);
+            when(chiTietPhieuNhapKhoRepository.findDeclaredLots(1, 100)).thenReturn(List.of(ctLo(lo)));
+            when(loHangKeNhapRepository.theoLo(any())).thenReturn(List.of(
+                    LoHangKeNhap.builder().id(1).loHang(lo).viTriKho(ke).soLuong(30).build(),
+                    LoHangKeNhap.builder().id(2).loHang(lo).viTriKho(ke2).soLuong(10).build()));
+
+            List<LoHangKhaiBaoDto> ds = service.getDanhSachLoDaKhaiBao(1, 100);
+            assertEquals(List.of("A-01-02:30", "A-02-01:10"),
+                    ds.get(0).getPhanKe().stream().map(k -> k.getMaViTri() + ":" + k.getSoLuong()).toList());
+        }
+
+        @Test
+        @DisplayName("Xóa lô: xóa luôn các phần kệ trước khi xóa lô")
+        void xoaLoXoaPhanKe() {
+            LoHang a = loDaKhoa(60, "LO-1", 40, 0);
+            when(chiTietPhieuNhapKhoRepository.findByIdAndPhieuNhapKho_Id(1060, 1)).thenReturn(Optional.of(ctLo(a)));
+            service.xoaLo(1, 1060);
+            InOrder thuTu = inOrder(loHangKeNhapRepository, loHangRepository);
+            thuTu.verify(loHangKeNhapRepository).xoaCuaLo(60);
+            thuTu.verify(loHangRepository).delete(a);
+        }
+    }
 }

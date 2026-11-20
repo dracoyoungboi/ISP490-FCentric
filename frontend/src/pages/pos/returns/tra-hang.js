@@ -19,6 +19,13 @@ export const LY_DO_TRA = [
   ['khac', 'Khác'],
 ];
 
+/** Mã lý do máy chủ tự ghi cho dòng hàng Lỗi (TraHangQuyTac.LY_DO_LOI); hàng Đạt không chọn được. */
+export const LY_DO_LOI = 'loi_san_xuat';
+/** Mã "Khác" của cả lý do lẫn nhóm lỗi: chọn mã này thì phải ghi rõ. */
+export const MA_KHAC = 'khac';
+/** Lý do chọn được cho hàng Đạt: bỏ lỗi sản xuất (hàng lỗi thì chấm Lỗi). */
+export const LY_DO_TRA_DAT = LY_DO_TRA.filter(([ma]) => ma !== LY_DO_LOI);
+
 /** Nhóm lỗi khi hàng Lỗi (khớp TraHangQuyTac.NHOM_LOI). */
 export const NHOM_LOI = [
   ['rach_vai', 'Rách vải'],
@@ -35,6 +42,42 @@ export const LY_DO_DUYET = [
   'Sự cố vận chuyển / đổi size quà tặng',
 ];
 
+/*
+ * Chính sách trả hàng: một chỗ khai báo cho cả khung tóm tắt ở chân Phiếu trả, hộp "Xem đầy đủ" và gợi ý dưới công tắc
+ * Đạt / Lỗi. Đổi luật thì sửa cả ba khối dưới đây cho khớp nhau (tóm tắt là câu ngắn của bản đầy đủ).
+ * Máy đã tự chặn hạn 03 ngày, mã duyệt quá hạn và hóa đơn gốc; điều duy nhất thu ngân phải tự nhìn là tình trạng hàng,
+ * nên câu đó có ở cả tóm tắt lẫn gợi ý lúc chấm Đạt / Lỗi.
+ */
+
+/** Bốn ý ở khung tóm tắt: [khóa biểu tượng, câu]. Biểu tượng chọn ở màn (han, tem, duyet, hoan). */
+export const CHINH_SACH_TOM_TAT = [
+  ['han', 'Nhận trả trong 03 ngày kể từ lúc thanh toán, ở mọi cửa hàng.'],
+  ['tem', 'Hàng còn nguyên tem mác, chưa sử dụng, không ám mùi, không bẩn.'],
+  ['duyet', 'Quá hạn: cần quản lý cửa hàng duyệt bằng mã.'],
+  ['hoan', 'Hoàn theo giá khách thực trả, tiền mặt hoặc chuyển khoản.'],
+];
+
+/** Bản đầy đủ trong hộp "Xem đầy đủ": [tiêu đề nhóm, các ý]. */
+export const CHINH_SACH_DAY_DU = [
+  ['Điều kiện nhận trả', [
+    'Trong vòng 03 ngày kể từ lúc thanh toán (in trên hóa đơn gốc). Quá hạn cần quản lý cửa hàng duyệt bằng mã.',
+    'Hàng còn nguyên tem mác, chưa sử dụng, chưa giặt ủi, không ám mùi, không dính bẩn.',
+    'Tra được hóa đơn gốc đã thanh toán trên hệ thống.',
+  ]],
+  ['Khi nhận trả', [
+    'Trả được ở mọi cửa hàng: hàng nhập vào kho cửa hàng nhận trả, doanh thu giảm ở cửa hàng đã bán.',
+    'Hoàn theo giá khách thực trả trên từng sản phẩm, bằng tiền mặt hoặc chuyển khoản.',
+    'Hàng Đạt cất lên kệ và mở bán lại ngay; hàng Lỗi để riêng, không cộng tồn.',
+    'In biên bản 02 liên: khách giữ một liên, cửa hàng giữ một liên.',
+  ]],
+];
+
+/** Gợi ý dưới công tắc Đạt / Lỗi của từng món: [nhãn in đậm, phần còn lại]. */
+export const GOI_Y_QC = {
+  [QC_DAT]: ['Đạt:', 'còn tem mác, chưa sử dụng, không ám mùi, không bẩn.'],
+  [QC_LOI]: ['Lỗi:', 'để riêng, không cộng tồn. Chọn lỗi bên dưới.'],
+};
+
 export const nhanTheoMa = (ds, ma) => ds.find(([m]) => m === ma)?.[1] ?? ma;
 
 /** Trạng thái chọn ban đầu của từng dòng đơn gốc: chưa chọn, SL 1, QC Đạt (mặc định BA), kệ gợi ý. */
@@ -47,6 +90,7 @@ export function khoiTaoDong(dong = []) {
     viTriKhoId: d.keGoiYId ?? null,
     lyDo: '',
     nhomLoi: '',
+    ghiChu: '',
   }));
 }
 
@@ -81,13 +125,21 @@ export function tongKet(dongGoc = [], chon = []) {
   return { soSanPham, tongSoLuong, soDat, soLoi, tongTien };
 }
 
+/** Dòng phải ghi rõ: hàng Đạt chọn lý do Khác, hoặc hàng Lỗi chọn Lỗi khác (khớp TraHangQuyTac.canGhiRo). */
+export const canGhiRo = (c) => (c.tinhTrang === QC_LOI ? c.nhomLoi : c.lyDo) === MA_KHAC;
+
 /**
- * Lỗi theo dòng (chỉ dòng đang chọn): { [chiTietId]: { soLuong?, ke?, lyDo?, nhomLoi? } } với mã lỗi:
- * soLuong: 'thieu' | 'vuot' (MSG-RET-03); ke: 'thieu'; lyDo: 'thieu'; nhomLoi: 'thieu'.
+ * Lỗi theo dòng (chỉ dòng đang chọn): { [chiTietId]: { soLuong?, ke?, lyDo?, nhomLoi?, ghiChu? } } với mã lỗi:
+ * soLuong: 'thieu' | 'vuot' (MSG-RET-03); ke: 'thieu' | 'het-cho'; lyDo, nhomLoi, ghiChu: 'thieu'.
+ * Hàng Đạt cần kệ (kho có kệ) và lý do; hàng Lỗi chỉ cần nhóm lỗi. Chọn Khác thì phải ghi rõ.
+ * 'het-cho': tổng hàng Đạt các món đang xếp vào cùng một kệ vượt số kệ còn chứa được ({@code ke[].conCho}, cùng chốt
+ * chặn máy chủ) — báo ngay để thu ngân đổi kệ, không đợi máy chủ từ chối lúc xác nhận.
  */
-export function loiTheoDong(dongGoc = [], chon = [], khoCoKe = false) {
+export function loiTheoDong(dongGoc = [], chon = [], khoCoKe = false, ke = []) {
   const theoId = new Map(dongGoc.map((d) => [d.chiTietId, d]));
   const loi = {};
+  const canTheoKe = canXepTheoKe(chon);
+  const conChoTheoKe = new Map(ke.map((k) => [k.id, k.conCho]));
   for (const c of chon) {
     if (!c.chon) continue;
     const d = theoId.get(c.chiTietId);
@@ -96,11 +148,27 @@ export function loiTheoDong(dongGoc = [], chon = [], khoCoKe = false) {
     if (!Number.isInteger(raw) || raw < 1) e.soLuong = 'thieu';
     else if (raw > conTra(d)) e.soLuong = 'vuot';
     if (c.tinhTrang === QC_DAT && khoCoKe && !c.viTriKhoId) e.ke = 'thieu';
-    if (!c.lyDo) e.lyDo = 'thieu';
+    else if (c.tinhTrang === QC_DAT && c.viTriKhoId) {
+      const conCho = conChoTheoKe.get(c.viTriKhoId);
+      if (conCho != null && (canTheoKe.get(c.viTriKhoId) ?? 0) > conCho) e.ke = 'het-cho';
+    }
+    if (c.tinhTrang === QC_DAT && !c.lyDo) e.lyDo = 'thieu';
     if (c.tinhTrang === QC_LOI && !c.nhomLoi) e.nhomLoi = 'thieu';
+    if (canGhiRo(c) && !c.ghiChu?.trim()) e.ghiChu = 'thieu';
     if (Object.keys(e).length) loi[c.chiTietId] = e;
   }
   return loi;
+}
+
+/** Tổng số hàng Đạt các món đang chọn xếp vào từng kệ: Map viTriKhoId → số. */
+export function canXepTheoKe(chon = []) {
+  const m = new Map();
+  for (const c of chon) {
+    const sl = Number(c.soLuong);
+    if (!c.chon || c.tinhTrang !== QC_DAT || !c.viTriKhoId || !Number.isInteger(sl) || sl < 1) continue;
+    m.set(c.viTriKhoId, (m.get(c.viTriKhoId) ?? 0) + sl);
+  }
+  return m;
 }
 
 /** Thông tin chuyển khoản hoàn tiền còn thiếu / sai: mảng tên ô. */
@@ -134,8 +202,9 @@ export function dungYeuCau({ requestId, don, khoId, chon, phuongThuc, ck, yeuCau
       soLuong: Math.floor(Number(c.soLuong)),
       tinhTrang: c.tinhTrang,
       viTriKhoId: c.tinhTrang === QC_DAT ? (c.viTriKhoId || null) : null,
-      lyDo: c.lyDo,
+      lyDo: c.tinhTrang === QC_DAT ? c.lyDo : null,
       nhomLoi: c.tinhTrang === QC_LOI ? c.nhomLoi : null,
+      ghiChu: canGhiRo(c) ? c.ghiChu.trim() : null,
     })),
   };
 }

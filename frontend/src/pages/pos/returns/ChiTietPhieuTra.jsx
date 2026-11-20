@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
-import { Check, Printer, Receipt, X } from 'lucide-react';
+import { Check, Loader2, Printer, Receipt, X } from 'lucide-react';
 import LoadingState from '@/components/shared/LoadingState';
 import { formatDateTime } from '@/utils/formatters';
 import PosModal from '../components/PosModal';
 import { formatMoney } from '../pos-format';
 import { nhanLuc } from './nhan-thoi-gian';
 import { usePhieuTra } from './usePhieuTra';
-import { HOAN_TIEN_MAT, LY_DO_TRA, NHOM_LOI, QC_DAT, nhanTheoMa } from './tra-hang';
+import { HOAN_TIEN_MAT, LY_DO_LOI, LY_DO_TRA, MA_KHAC, NHOM_LOI, QC_DAT, nhanTheoMa } from './tra-hang';
 import { t, tDuLieu } from "@/i18n";
 
 function TrangThai({ tone, children }) {
@@ -87,10 +87,17 @@ export function NoiDungPhieu({ phieu: p, bayGio, onMoHoaDon }) {
                 </span>
               ) : (
                 <span className="inline-flex h-[22px] items-center rounded-full bg-red-50 px-2 font-medium text-red-700">
-                  {d.nhomLoi ? t("Lỗi · {{nhom}}", { nhom: t(nhanTheoMa(NHOM_LOI, d.nhomLoi)) }) : t("Hàng lỗi để riêng")}
+                  {d.nhomLoi === MA_KHAC && d.ghiChu
+                    ? t("Lỗi · {{nhom}}", { nhom: d.ghiChu })
+                    : d.nhomLoi ? t("Lỗi · {{nhom}}", { nhom: t(nhanTheoMa(NHOM_LOI, d.nhomLoi)) }) : t("Hàng lỗi để riêng")}
                 </span>
               )}
-              {d.lyDo ? <span className="text-bo-muted">{t(nhanTheoMa(LY_DO_TRA, d.lyDo))}</span> : null}
+              {/* Hàng Lỗi: lý do luôn là lỗi sản xuất (máy chủ tự ghi), chip Lỗi đã nói đủ nên không lặp lại. */}
+              {d.tinhTrang === QC_DAT && d.lyDo === MA_KHAC && d.ghiChu ? (
+                <span className="min-w-0 break-words text-bo-muted">{t("Khác: {{ghiChu}}", { ghiChu: d.ghiChu })}</span>
+              ) : d.lyDo && !(d.tinhTrang !== QC_DAT && d.lyDo === LY_DO_LOI) ? (
+                <span className="text-bo-muted">{t(nhanTheoMa(LY_DO_TRA, d.lyDo))}</span>
+              ) : null}
             </div>
           </li>
         ))}
@@ -111,7 +118,7 @@ const nutPhu = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-l
 const nutChinh = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-bo-primary px-3 text-sm font-semibold text-white transition hover:bg-bo-primary-hover';
 
 /** Hai nút cuối phiếu: mở hóa đơn gốc (bỏ khi không có) và in lại biên bản 02 liên. */
-export function NutPhieu({ phieu, onMoHoaDon, onIn }) {
+export function NutPhieu({ phieu, onMoHoaDon, onIn, dangIn = false }) {
   return (
     <div className={`grid gap-2 ${onMoHoaDon ? 'grid-cols-2' : 'grid-cols-1'}`}>
       {onMoHoaDon ? (
@@ -120,9 +127,9 @@ export function NutPhieu({ phieu, onMoHoaDon, onIn }) {
           {t("Mở hóa đơn gốc")}
         </button>
       ) : null}
-      <button className={nutChinh} onClick={() => onIn(phieu.id)} type="button">
-        <Printer aria-hidden="true" size={16} />
-        {t("In lại biên bản")}
+      <button aria-busy={dangIn || undefined} className={`${nutChinh} disabled:cursor-not-allowed disabled:opacity-60`} disabled={dangIn} onClick={() => onIn(phieu.id)} type="button">
+        {dangIn ? <Loader2 aria-hidden="true" className="animate-spin" size={16} /> : <Printer aria-hidden="true" size={16} />}
+        {dangIn ? t("Đang chuẩn bị bản in…") : t("In lại biên bản")}
       </button>
     </div>
   );
@@ -132,7 +139,7 @@ export function NutPhieu({ phieu, onMoHoaDon, onIn }) {
  * Hộp xem nhanh một phiếu đã trả trước đó của hóa đơn đang mở (dòng "Đã trả trước đó" ở đầu hóa đơn). Dùng hộp thay
  * vì khung phải để không mất các món thu ngân đang chọn trả.
  */
-export function HopPhieuDaTra({ id, bayGio, onDong, onIn }) {
+export function HopPhieuDaTra({ id, bayGio, onDong, onIn, dangIn }) {
   const { phieu, loi, dangTai, thuLai } = usePhieuTra(id);
   // Esc đóng hộp (PosModal chưa tự bắt phím)
   useEffect(() => {
@@ -147,7 +154,7 @@ export function HopPhieuDaTra({ id, bayGio, onDong, onIn }) {
   }, [onDong]);
   return (
     <PosModal
-      footer={phieu ? <NutPhieu onIn={onIn} phieu={phieu} /> : null}
+      footer={phieu ? <NutPhieu dangIn={dangIn} onIn={onIn} phieu={phieu} /> : null}
       onClose={onDong}
       title={t("Phiếu đã trả")}
     >
@@ -171,7 +178,7 @@ export function HopPhieuDaTra({ id, bayGio, onDong, onIn }) {
  * Khung Phiếu trả (bên phải) khi xem lại một phiếu ở thẻ Phiếu đã trả. Chỉ xem và in lại: phiếu đã ghi sổ, không sửa
  * hay hủy ở quầy.
  */
-export default function KhungPhieuDaTra({ id, banDau, bayGio, onDong, onMoHoaDon, onIn }) {
+export default function KhungPhieuDaTra({ id, banDau, bayGio, onDong, onMoHoaDon, onIn, dangIn }) {
   const { phieu, loi, dangTai, thuLai } = usePhieuTra(id, banDau);
   const soLuong = Number(phieu?.tongSoLuong) || 0;
   return (
@@ -198,7 +205,7 @@ export default function KhungPhieuDaTra({ id, banDau, bayGio, onDong, onMoHoaDon
             <NoiDungPhieu bayGio={bayGio} onMoHoaDon={onMoHoaDon} phieu={phieu} />
           </div>
           <div className="shrink-0 space-y-2 border-t border-bo-border px-4 pb-4 pt-3">
-            <NutPhieu onIn={onIn} onMoHoaDon={onMoHoaDon} phieu={phieu} />
+            <NutPhieu dangIn={dangIn} onIn={onIn} onMoHoaDon={onMoHoaDon} phieu={phieu} />
             <p className="text-center text-[11px] text-bo-muted">{t("Phiếu đã ghi sổ, chỉ xem và in lại, không sửa hay hủy ở đây.")}</p>
           </div>
         </>

@@ -13,8 +13,9 @@ export const INVENTORY_SETTINGS = [
     group: "customer",
     type: "STRING",
     maxLength: 10,
-    pattern: /^[A-Z0-9._-]{1,10}$/,
-    patternMessage: t("Gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -"),
+    // Không bắt đầu bằng tiền tố của khách tự tạo từ đơn sàn (hienThiKhachHang.js TIEN_TO_SAN), máy chủ cũng chặn
+    pattern: /^(?!KH-(?:SHP|TTS|LZD|SP)-)[A-Z0-9._-]{1,10}$/,
+    patternMessage: t("Gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -; không bắt đầu bằng KH-SHP-, KH-TTS-, KH-LZD-, KH-SP- (dành cho khách từ sàn)"),
   },
   {
     // Màn Kiểm đếm & khóa lô (pages/receipt/kiemDem.js · CHE_DO_XAC_NHAN); BE chỉ nhận đúng hai giá trị này

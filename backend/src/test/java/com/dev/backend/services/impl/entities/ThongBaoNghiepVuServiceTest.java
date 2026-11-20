@@ -124,12 +124,11 @@ class ThongBaoNghiepVuServiceTest {
     // ══════════════════════════ M1–M3 Yêu cầu nhập hàng ══════════════════════════
 
     @Test
-    @DisplayName("M1: yêu cầu chờ duyệt → quản lý Kho tổng + quản lý ghi trên kho, không gửi người lập")
+    @DisplayName("M1: yêu cầu chờ duyệt → các quản lý kho có phân quyền ở Kho tổng, không gửi người lập")
     void m1_choDuyet() {
-        khoTong.setQuanLy(nguoi(13, IRoleType.quan_ly_kho));
         muaHang.yeuCauChoDuyet(yeuCau(), nguoi(40, IRoleType.nhan_vien_mua_hang), 3);
 
-        assertEquals(Set.of(11, 12, 13), nguoiNhan());
+        assertEquals(Set.of(11, 12), nguoiNhan());
         ThongBao t = cuaNguoi(11);
         assertEquals("Yêu cầu nhập hàng YC2026110105 chờ duyệt", t.getTieuDe());
         assertEquals("Người 40 đề nghị nhập 3 mã hàng về Kho tổng.", t.getMoTa());
@@ -142,16 +141,10 @@ class ThongBaoNghiepVuServiceTest {
     }
 
     @Test
-    @DisplayName("M1: quản lý ghi trên kho đã ngừng hoạt động hoặc không phải quản lý kho thì không nhận")
-    void m1_quanLyGhiTrenKhoKhongHopLe() {
-        NguoiDung nghi = nguoi(13, IRoleType.quan_ly_kho);
-        nghi.setTrangThai(0);
-        khoTong.setQuanLy(nghi);
-        muaHang.yeuCauChoDuyet(yeuCau(), nguoi(40, IRoleType.nhan_vien_mua_hang), 1);
-        assertEquals(Set.of(11, 12), nguoiNhan());
-
-        clearInvocations(thongBaoRepo);
-        khoTong.setQuanLy(nguoi(14, IRoleType.nhan_vien_kho));
+    @DisplayName("M1: người quản lý ghi trên kho không được nhận thêm ngoài danh sách quản lý kho có phân quyền")
+    void m1_quanLyGhiTrenKhoKhongNhanThem() {
+        // Kho.quanLy chỉ để hiển thị: người không có phân quyền ở Kho tổng (dữ liệu cũ) không nhận yêu cầu chờ duyệt
+        khoTong.setQuanLy(nguoi(13, IRoleType.quan_ly_kho));
         muaHang.yeuCauChoDuyet(yeuCau(), nguoi(40, IRoleType.nhan_vien_mua_hang), 1);
         assertEquals(Set.of(11, 12), nguoiNhan());
     }

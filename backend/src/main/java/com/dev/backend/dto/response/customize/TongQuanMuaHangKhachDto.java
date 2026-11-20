@@ -19,33 +19,29 @@ import java.util.List;
 @Builder
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class TongQuanMuaHangKhachDto {
-    /** Số đơn đã đặt: mọi đơn trừ đơn nháp (kể cả đơn đã hủy / bị hoàn trả). */
+    /**
+     * Số đơn đã đặt: mọi đơn trừ đơn nháp tạo tay (kể cả đơn đã hủy / bị hoàn trả, và đơn sàn đang chờ xử lý dù lưu
+     * trạng thái Nháp).
+     */
     long soDonDat;
     /** Số đơn tính vào chi tiêu: đơn đã đặt trừ đơn đã hủy và bị hoàn trả. */
     long soDonTinhChiTieu;
     long soDonHuy;
     long soDonHoanTra;
-    /** Đơn nháp: chưa gửi đi nên không tính vào số đơn và chi tiêu. */
+    /** Đơn nháp tạo tay (không gắn kênh): chưa gửi đi nên không tính vào số đơn và chi tiêu. */
     long soDonNhap;
     /** Đơn chưa kết thúc (mọi trạng thái trừ Hoàn thành, Đã hủy, Bị hoàn trả; kể cả nháp). */
     long soDonDangXuLy;
-    /** Tổng tiền (tong_cong) của các đơn tính chi tiêu. */
+    /** Tổng tiền (tong_cong) của các đơn tính chi tiêu, đã trừ {@link #tienTraHang}; không âm. */
     BigDecimal tongChiTieu;
+    /** Tiền đã hoàn cho khách qua phiếu trả hàng tại quầy của các đơn tính chi tiêu. */
+    BigDecimal tienTraHang;
     /** tongChiTieu / soDonTinhChiTieu, làm tròn đến đồng; null khi chưa có đơn tính chi tiêu. */
     BigDecimal trungBinhMoiDon;
     /** Đơn đã đặt gần nhất (theo ngày đặt); null khi chưa có. */
     DonGanNhat donGanNhat;
     /** Các kênh khách đã mua qua (đơn đã đặt), nhiều đơn nhất ở trước. */
     List<KenhMua> kenhMua;
-    /**
-     * Còn phải thu: cộng phần chưa thu đủ của từng đơn đã đặt còn hiệu lực (không tính nháp, đơn sàn — thanh toán theo
-     * sàn, đơn cũ chưa theo dõi). Mỗi đơn tính riêng: đơn thu dư không bù cho đơn còn nợ.
-     */
-    BigDecimal conPhaiThu;
-    long soDonConPhaiThu;
-    /** Cần hoàn lại khách: phần thu dư của các đơn (khách trả dư, đơn đã thu rồi bị hủy / hoàn trả). */
-    BigDecimal canHoan;
-    long soDonCanHoan;
 
     @AllArgsConstructor
     @NoArgsConstructor

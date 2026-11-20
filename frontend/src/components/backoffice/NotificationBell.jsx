@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   AlertCircle,
   ArrowLeftRight,
-  Banknote,
   Bell,
   BellRing,
   Building2,
@@ -49,7 +48,6 @@ const LOAI_THONG_BAO = {
   dot_kiem_ke: ClipboardCheck,
   phieu_xuat_kho: Truck,
   pos_payos_payment: QrCode,
-  thanh_toan_don_ban: Banknote,
   kenh_ban_hang: Store,
   // Đổi email / thông tin tài khoản (mở /users/{id}) — cùng biểu tượng thông báo bảo mật tài khoản
   nguoi_dung: ShieldCheck,

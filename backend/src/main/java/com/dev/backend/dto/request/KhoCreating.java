@@ -13,6 +13,7 @@ public class KhoCreating {
     String maKho;
     String tenKho;
     String diaChi;
+    /** Phải để trống: kho mới chưa ai được phân quyền nên chưa có người quản lý chính (xem Kho.quanLy). */
     Integer quanLyId;
     Integer trangThai;
     String loaiKho;

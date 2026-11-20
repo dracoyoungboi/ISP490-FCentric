@@ -23,7 +23,13 @@ public class KhaiBaoLoRequest {
     )
     Instant ngaySanXuat;
     BigDecimal soLuongNhap;
+    /** Kệ cho hàng đạt khi lô chỉ lên một kệ. Có {@link #phanKe} thì bỏ qua trường này. */
     Integer viTriKhoId;
+    /**
+     * Hàng đạt xếp vào từng kệ, theo thứ tự quét (kệ đầu tiên là kệ chính của lô). Tổng số phải bằng
+     * {@link #soLuongNhap}; mỗi kệ một dòng. Một dòng thì như gửi {@link #viTriKhoId}.
+     */
+    List<PhanKeRequest> phanKe;
     BigDecimal soLuongLoi;
     /** Cách cũ: một lý do cho cả số lỗi. Có {@link #chiTietLoi} thì bỏ qua trường này. */
     String lyDoLoi;
@@ -47,5 +53,16 @@ public class KhaiBaoLoRequest {
         String lyDo;
         Integer soLuong;
         String ghiChu;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class PhanKeRequest {
+        Integer viTriKhoId;
+        Integer soLuong;
     }
 }

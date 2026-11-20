@@ -36,6 +36,7 @@ import useQuayLai from "@/hooks/useQuayLai";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
+import { moTrangIn } from "@/lib/moTrangIn";
 
 const B = ({ children }) => <b className="font-semibold text-bo-foreground">{children}</b>;
 const LienKetPhieu = ({ to, children }) => (
@@ -219,7 +220,7 @@ function ManPhieuDieuChinh({ id }) {
       khoa: `bb-${pdc.bienBan.id}`,
       loai: t("Biên bản giao nhận"),
       ma: pdc.bienBan.so,
-      to: `/transfer-tickets/${pc.id}/print/bien-ban`,
+      onClick: () => moTrangIn(`/transfer-tickets/${pc.id}/print/bien-ban`, navigate),
     } : null,
     pdc.phieuGiaoBu ? {
       khoa: `gb-${pdc.phieuGiaoBu.id}`,
@@ -246,7 +247,7 @@ function ManPhieuDieuChinh({ id }) {
             onQuayLai={quayLai}
             nhanQuayLai={t("Quay lại")}
             saoChepMa={{ giaTri: pdc.soPhieu, nhan: t("Sao chép mã phiếu") }}
-            nutPhu={{ nhan: t("In phiếu"), icon: Printer, onClick: () => navigate(`/transfer-tickets/adjustments/${id}/print`) }}
+            nutPhu={{ nhan: t("In phiếu"), icon: Printer, onClick: () => moTrangIn(`/transfer-tickets/adjustments/${id}/print`, navigate) }}
           />
         }
         thongBao={

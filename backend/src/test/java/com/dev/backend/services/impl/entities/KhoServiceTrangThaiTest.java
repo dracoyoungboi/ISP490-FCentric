@@ -2,6 +2,7 @@ package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.dto.request.KhoUpdating;
 import com.dev.backend.dto.response.KhoTomTatResponse;
+import com.dev.backend.dto.response.NhanVienKhoTomTat;
 import com.dev.backend.entities.Kho;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.exception.customize.CommonException;
@@ -84,7 +85,7 @@ class KhoServiceTrangThaiTest {
         when(nguoiDungService.getOne(7)).thenReturn(Optional.of(NguoiDung.builder().id(7).build()));
         when(khoRepository.findByMaKho("KHO_TRANSIT")).thenReturn(Optional.of(ao));
         KhoUpdating sua = KhoUpdating.builder().id(2).maKho("KHO_TRANSIT").tenKho("Kho Trung Chuyển")
-                .diaChi("—").quanLyId(7).trangThai(0).loaiKho(KhoService.KHO_BAN_HANG).build();
+                .diaChi("—").trangThai(0).loaiKho(KhoService.KHO_BAN_HANG).build();
         service.update(sua);
 
         assertEquals(1, ao.getTrangThai());
@@ -98,7 +99,7 @@ class KhoServiceTrangThaiTest {
     }
 
     private static KhoUpdating.KhoUpdatingBuilder suaKho01() {
-        return KhoUpdating.builder().id(3).maKho("KHO01").tenKho("Kho Quận 1 (mới)").diaChi("—").quanLyId(7)
+        return KhoUpdating.builder().id(3).maKho("KHO01").tenKho("Kho Quận 1 (mới)").diaChi("—")
                 .loaiKho(KhoService.KHO_BAN_HANG);
     }
 
@@ -143,15 +144,15 @@ class KhoServiceTrangThaiTest {
         when(khoRepository.findByMaKho(anyString())).thenReturn(Optional.empty());
 
         KhoUpdating doiMa = KhoUpdating.builder().id(2).maKho("KHO_X").tenKho("Kho Trung Chuyển")
-                .diaChi("—").quanLyId(7).trangThai(1).loaiKho(KhoService.KHO_BAN_HANG).build();
+                .diaChi("—").trangThai(1).loaiKho(KhoService.KHO_BAN_HANG).build();
         assertThrows(CommonException.class, () -> service.update(doiMa));
 
         KhoUpdating doiLoai = KhoUpdating.builder().id(2).maKho("KHO_TRANSIT").tenKho("Kho Trung Chuyển")
-                .diaChi("—").quanLyId(7).trangThai(1).loaiKho(KhoService.KHO_TONG).build();
+                .diaChi("—").trangThai(1).loaiKho(KhoService.KHO_TONG).build();
         assertThrows(CommonException.class, () -> service.update(doiLoai));
 
         KhoUpdating doiTen = KhoUpdating.builder().id(2).maKho("KHO_TRANSIT").tenKho("Kho đang chuyển")
-                .diaChi("Kho ảo").quanLyId(7).trangThai(1).loaiKho(KhoService.KHO_BAN_HANG).build();
+                .diaChi("Kho ảo").trangThai(1).loaiKho(KhoService.KHO_BAN_HANG).build();
         when(khoRepository.findByMaKho("KHO_TRANSIT")).thenReturn(Optional.empty());
         assertDoesNotThrow(() -> service.update(doiTen));
         verify(khoRepository, times(1)).save(any());
@@ -204,11 +205,16 @@ class KhoServiceTrangThaiTest {
         when(khoTomTatRepository.tonKho(1, 5)).thenReturn(new KhoTomTatRepository.TonKhoDong(
                 new BigDecimal("1396.000"), new BigDecimal("44.000"), new BigDecimal("1352.000"),
                 new BigDecimal("139600000.50"), 39, 3, 5));
-        when(khoTomTatRepository.soNguoiPhanQuyen(1)).thenReturn(4L);
+        List<NhanVienKhoTomTat> nhanVien = List.of(
+                new NhanVienKhoTomTat(5, "An", "an", "quan_ly_kho", null),
+                new NhanVienKhoTomTat(6, "Bình", "binh", "nhan_vien_kho", null),
+                new NhanVienKhoTomTat(7, "Chi", "chi", "nhan_vien_kho", null),
+                new NhanVienKhoTomTat(8, "Dũng", "dung", "nhan_vien_ban_hang", "https://anh/8.png"));
+        when(khoTomTatRepository.nhanVienTaiKho(1)).thenReturn(nhanVien);
 
         KhoTomTatResponse r = service.tomTat(1);
 
-        assertEquals(new KhoTomTatResponse(1, 1396, 1352, 44, 139_600_001, 39, 3, 5, 5, 4), r);
+        assertEquals(new KhoTomTatResponse(1, 1396, 1352, 44, 139_600_001, 39, 3, 5, 5, 4, nhanVien), r);
     }
 
     @Test

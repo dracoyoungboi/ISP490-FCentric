@@ -52,7 +52,7 @@ public class KeToanNguonRepository {
                    kh.ma_khach_hang, kh.ten_khach_hang, kh.dia_chi,
                    -- Đơn bán tại quầy (có pos_payment, luôn thu đủ tổng cộng): tiền mặt -> CASH (111), QR payOS
                    -- -> PAYOS (112), tiền mặt trả trước + QR -> KET_HOP (tạm 131, kèm cảnh báo cách tách).
-                   -- Đơn khác -> NULL (131): tiền thu đơn thường (thanh_toan_don_ban) kế toán lập phiếu thu riêng.
+                   -- Đơn khác -> NULL (131): kế toán lập phiếu thu riêng.
                    (SELECT CASE WHEN p.phuong_thuc = 'CASH' THEN 'CASH'
                                 WHEN COALESCE(p.tien_mat_truoc, 0) > 0 THEN 'KET_HOP'
                                 ELSE 'PAYOS' END

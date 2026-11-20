@@ -46,6 +46,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { hasAnyRole, ROLES } from "@/utils/roles";
 import { t } from "@/i18n";
 import { cauGocMayChu } from "@/i18n/cauGoc";
+import { moTrangIn } from "@/lib/moTrangIn";
 
 const DANH_SACH = "/goods-issues";
 const KHONG_CO_DONG = [];
@@ -404,11 +405,11 @@ function ManPhieuXuatKho({ id }) {
             ]}
             onQuayLai={() => navigate(DANH_SACH)}
             nhanQuayLai={t("Về danh sách phiếu xuất kho")}
-            nutPhu={quyen.coIn ? { ma: "in", nhan: t("In phiếu"), icon: Printer, onClick: () => navigate(`/goods-issues/${phieu.id}/print`) } : null}
+            nutPhu={quyen.coIn ? { ma: "in", nhan: t("In phiếu"), icon: Printer, onClick: () => moTrangIn(`/goods-issues/${phieu.id}/print`, navigate) } : null}
             saoChepMa={{ giaTri: phieu.soPhieuXuat, nhan: t("Sao chép mã phiếu") }}
                         menu={[
               hoTroInVanDonSan
-                ? { ma: "inPackingSlip", nhan: t("In vận đơn / phiếu đóng gói sàn (A6)"), icon: Printer, onSelect: () => navigate(`/goods-issues/${phieu.id}/print-packing-slip`) }
+                ? { ma: "inPackingSlip", nhan: t("In vận đơn / phiếu đóng gói sàn (A6)"), icon: Printer, onSelect: () => moTrangIn(`/goods-issues/${phieu.id}/print-packing-slip`, navigate) }
                 : null,
               coXemBangChung
                 ? { ma: "bangChung", nhan: t("Xem bằng chứng đóng gói"), icon: ShieldCheck, onSelect: () => setHop("bangChung") }

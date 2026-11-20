@@ -34,7 +34,7 @@ import MockModeNotice from "@/components/shared/MockModeNotice";
 import BieuTuongKenhDon from "@/components/channel/BieuTuongKenhDon";
 import OrderFlagBadges from "@/components/channel/OrderFlagBadges";
 import { CHANNELS, MARKETPLACE_FILTER_OPTIONS } from "@/constants/channel";
-import { DON_BAN_HANG_DA_KET_THUC_KHONG_THU, DON_BAN_HANG_TABS, DON_BAN_HANG_THANH_TOAN, getDonBanHangStatus } from "@/constants/donBanHang";
+import { DON_BAN_HANG_TABS, DON_BAN_HANG_THANH_TOAN, getDonBanHangStatus } from "@/constants/donBanHang";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
@@ -49,12 +49,9 @@ const ORDER_CHANNEL_OPTIONS = [
   { value: "pos", label: "POS", id: CHANNELS.POS.id },
 ];
 
-// Lọc theo trạng thái thanh toán (đơn bán thường theo phiếu ghi nhận, đơn sàn theo sàn, đơn tại quầy đã thu).
-// "Còn phải thu" = Chưa thanh toán + Thanh toán một phần (Báo cáo doanh thu mở thẳng bằng ?thanhToan=con_phai_thu)
-const CON_PHAI_THU = "con_phai_thu";
+// Lọc theo trạng thái thanh toán lưu trên đơn (đơn sàn theo sàn, đơn tại quầy đã thu)
 const THANH_TOAN_OPTIONS = [
   { value: "", label: t("Mọi thanh toán") },
-  { value: CON_PHAI_THU, label: t("Còn phải thu") },
   ...Object.entries(DON_BAN_HANG_THANH_TOAN).map(([value, { label }]) => ({ value, label: t(label) })),
 ];
 
@@ -121,12 +118,7 @@ function buildFilterList({ keyword, kenh, ngay, trangThai, thanhToan }) {
     });
   }
 
-  if (thanhToan === CON_PHAI_THU) {
-    // Như Còn phải thu của Báo cáo doanh thu: đơn bán thường đã chốt, chưa hủy / hoàn trả (đơn sàn thanh toán theo sàn)
-    filterList.push({ fieldName: "trangThaiThanhToan", operation: "IN", value: ["chua_thanh_toan", "thanh_toan_mot_phan"] });
-    filterList.push({ fieldName: "trangThai", operation: "NOT_IN", value: [0, 4, 6] });
-    filterList.push({ fieldName: "kenhBanHang", operation: "IS_NULL" });
-  } else if (thanhToan) {
+  if (thanhToan) {
     filterList.push({ fieldName: "trangThaiThanhToan", operation: "EQUALS", value: thanhToan });
   }
 
@@ -164,7 +156,7 @@ export default function DonBanHangList() {
   const kenhParam = (searchParams.get("kenh") || "").toLowerCase();
   const kenh = ORDER_CHANNEL_OPTIONS.some((option) => option.value === kenhParam) ? kenhParam : "";
 
-  // ?thanhToan= trên URL (Báo cáo doanh thu mở danh sách Còn phải thu) chỉ dùng làm giá trị đầu
+  // ?thanhToan= trên URL chỉ dùng làm giá trị đầu; giá trị không còn trong bộ lọc thì về "Mọi thanh toán"
   const thanhToanParam = searchParams.get("thanhToan") || "";
   // ?q= từ "Xem tất cả" của ô tìm kiếm toàn hệ thống: vào thẳng ô tìm của trang
   const [filters, setFilters] = useState(() => ({
@@ -522,13 +514,12 @@ export default function DonBanHangList() {
                       <span className="min-w-0 truncate">{formatDate(item.ngayDatHang)}{item.khoXuat?.tenKho ? ` · ${item.khoXuat.tenKho}` : ""}</span>
                       <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-foreground">{formatCurrency(item.tongCong)}</span>
                     </span>
-                    {/* Cùng thẻ thanh toán với cột Thanh toán của bảng (đơn sàn / đã kết thúc không tô màu nhắc) */}
+                    {/* Cùng thẻ thanh toán với cột Thanh toán của bảng ("Chưa thanh toán" của đơn sàn không tô màu nhắc) */}
                     {item.trangThaiThanhToan ? (
                       <span className="flex">
                         <StatusBadge
                           label={DON_BAN_HANG_THANH_TOAN[item.trangThaiThanhToan]?.label ?? item.trangThaiThanhToan}
-                          nhom={item.trangThaiThanhToan === "chua_thanh_toan"
-                            && (item.kenhBanHang || item.maDonHangKenh || DON_BAN_HANG_DA_KET_THUC_KHONG_THU.includes(Number(item.trangThai))) ? "dong" : undefined}
+                          nhom={item.trangThaiThanhToan === "chua_thanh_toan" ? "dong" : undefined}
                         />
                       </span>
                     ) : null}
@@ -613,12 +604,11 @@ export default function DonBanHangList() {
                       ) : null}
                     </td>
                     <td className="px-3 py-3 cam-ung:max-lg:hidden">
-                      {/* "Chưa thanh toán" của đơn sàn chỉ chụp lúc đồng bộ; đơn đã hủy / hoàn trả không còn phải thu: không tô màu nhắc */}
+                      {/* "Chưa thanh toán" chỉ có ở đơn sàn, chụp lúc đồng bộ (hệ thống không thu): không tô màu nhắc */}
                       {item.trangThaiThanhToan ? (
                         <StatusBadge
                           label={DON_BAN_HANG_THANH_TOAN[item.trangThaiThanhToan]?.label ?? item.trangThaiThanhToan}
-                          nhom={item.trangThaiThanhToan === "chua_thanh_toan"
-                            && (item.kenhBanHang || item.maDonHangKenh || DON_BAN_HANG_DA_KET_THUC_KHONG_THU.includes(Number(item.trangThai))) ? "dong" : undefined}
+                          nhom={item.trangThaiThanhToan === "chua_thanh_toan" ? "dong" : undefined}
                         />
                       ) : <span className="text-xs text-bo-muted">—</span>}
                     </td>

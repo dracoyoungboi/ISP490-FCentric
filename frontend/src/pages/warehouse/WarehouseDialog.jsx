@@ -62,12 +62,20 @@ export default function WarehouseDialog({
     errors,
     managers,
     isLoadingManagers,
+    loiManagers,
+    onTaiLaiManagers,
     onSubmit,
     onClose
 }) {
-    const managerLabel = formData.quanLyId
-        ? managers.find(m => m.id.toString() === formData.quanLyId)?.name
-        : t("Chọn người quản lý");
+    // Người đang chọn có thể không còn trong danh sách (danh sách kho đã cũ): dùng tên lúc mở form
+    const tenDangChon = managers.find(m => m.id.toString() === formData.quanLyId)?.name
+        ?? (formData.quanLyId && formData.quanLyId === formData.quanLyIdBanDau ? formData.quanLyTenBanDau : '');
+    const managerLabel = formData.quanLyId ? tenDangChon || "—" : t("Chọn người đứng tên");
+    const khoAo = laKhoAo(formData);
+    const chuaCoAiLamViec = !isLoadingManagers && !loiManagers && managers.length === 0 && !formData.quanLyIdBanDau;
+    // Chỉ cho chọn khi kho có từ 2 quản lý kho; 1 người thì người đó đứng tên, hiện chữ chỉ đọc
+    const tenChiDoc = tenDangChon || managers[0]?.name || "—";
+    const seDungTenKhiLuu = managers.length === 1 && !formData.quanLyIdBanDau;
 
     return (
         <Dialog
@@ -190,46 +198,81 @@ export default function WarehouseDialog({
                             <FieldError message={errors.diaChi} />
                         </div>
 
-                        {/* Người quản lý */}
+                        {/* Người quản lý: chỉ quản lý kho đang làm việc tại chính kho này (phân quyền ở màn Người dùng) */}
                         <div className="space-y-1.5">
-                            <Label className={FIELD_LABEL_CLASS}>{t("Người quản lý *")}</Label>
-                            <DropdownMenu modal={false}>
-                                <DropdownMenuTrigger asChild>
-                                    <button
-                                        type="button"
-                                        disabled={isLoadingManagers}
-                                        className={`flex h-10 w-full items-center justify-between rounded-md border border-bo-border bg-bo-surface px-3 text-left text-sm transition-colors hover:bg-bo-surface-subtle disabled:opacity-60 ${
-                                            formData.quanLyId ? "text-bo-foreground" : "text-bo-muted"
-                                        }`}
-                                    >
-                                        <span>{isLoadingManagers ? t("Đang tải...") : managerLabel}</span>
-                                        <ChevronDown className="size-4 shrink-0 text-bo-muted" />
-                                    </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="start"
-                                    className={`${DROPDOWN_CONTENT_CLASS} max-h-60 w-(--radix-dropdown-menu-trigger-width) overflow-auto`}
-                                >
-                                    {managers.length === 0 ? (
-                                        <div className="p-3 text-center text-sm text-bo-muted">
-                                            {t("Không có người quản lý")}
-                                        </div>
-                                    ) : (
-                                        managers.map((m) => (
-                                            <DropdownMenuItem
-                                                key={m.id}
-                                                onClick={() => setFormData({ ...formData, quanLyId: m.id.toString() })}
-                                                className={`${DROPDOWN_ITEM_CLASS} flex items-center justify-between`}
+                            {/* Từ 2 quản lý kho (đúng lúc hiện ô chọn) thì nói rõ là chọn người quản lý chính */}
+                            <Label className={FIELD_LABEL_CLASS}>
+                                {dialogMode !== "create" && !khoAo && managers.length >= 2 ? t("Người quản lý chính") : t("Người quản lý")}
+                            </Label>
+                            {dialogMode === 'create' || khoAo ? (
+                                <p className="rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2.5 text-sm text-bo-muted">
+                                    {khoAo
+                                        ? t("Kho hệ thống, không có người quản lý.")
+                                        : t("Tạo kho xong, phân quyền cho quản lý kho tại kho này ở màn Người dùng. Người đầu tiên được phân sẽ đứng tên người quản lý.")}
+                                </p>
+                            ) : loiManagers ? (
+                                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2 text-sm text-bo-muted">
+                                    <span>{t("Không tải được danh sách quản lý kho của kho này.")}</span>
+                                    <Button type="button" variant="outline" size="sm" className="h-8 border-bo-border bg-bo-surface" onClick={onTaiLaiManagers}>
+                                        {t("Thử lại")}
+                                    </Button>
+                                </div>
+                            ) : chuaCoAiLamViec ? (
+                                <p className="rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2.5 text-sm text-bo-muted">
+                                    {t("Chưa có quản lý kho nào làm việc tại kho này. Phân quyền cho quản lý kho tại kho này ở màn Người dùng.")}
+                                </p>
+                            ) : isLoadingManagers ? (
+                                <p className="rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2.5 text-sm text-bo-muted">
+                                    {t("Đang tải...")}
+                                </p>
+                            ) : managers.length < 2 ? (
+                                <>
+                                    <p className="rounded-md border border-bo-border bg-bo-surface-subtle px-3 py-2.5 text-sm text-bo-foreground">
+                                        {tenChiDoc}
+                                    </p>
+                                    {seDungTenKhiLuu ? (
+                                        <p className="text-xs text-bo-muted">
+                                            {t("Quản lý kho duy nhất tại kho này, sẽ đứng tên người quản lý sau khi lưu.")}
+                                        </p>
+                                    ) : null}
+                                </>
+                            ) : (
+                                <>
+                                    <DropdownMenu modal={false}>
+                                        <DropdownMenuTrigger asChild>
+                                            <button
+                                                type="button"
+                                                className={`flex h-10 w-full items-center justify-between rounded-md border border-bo-border bg-bo-surface px-3 text-left text-sm transition-colors hover:bg-bo-surface-subtle ${
+                                                    formData.quanLyId ? "text-bo-foreground" : "text-bo-muted"
+                                                }`}
                                             >
-                                                {m.name}
-                                                {formData.quanLyId === m.id.toString() && (
-                                                    <Check className="size-4 text-bo-primary" />
-                                                )}
-                                            </DropdownMenuItem>
-                                        ))
-                                    )}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                                <span>{managerLabel}</span>
+                                                <ChevronDown className="size-4 shrink-0 text-bo-muted" />
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent
+                                            align="start"
+                                            className={`${DROPDOWN_CONTENT_CLASS} max-h-60 w-(--radix-dropdown-menu-trigger-width) overflow-auto`}
+                                        >
+                                            {managers.map((m) => (
+                                                <DropdownMenuItem
+                                                    key={m.id}
+                                                    onClick={() => setFormData({ ...formData, quanLyId: m.id.toString() })}
+                                                    className={`${DROPDOWN_ITEM_CLASS} flex items-center justify-between`}
+                                                >
+                                                    {m.name}
+                                                    {formData.quanLyId === m.id.toString() && (
+                                                        <Check className="size-4 text-bo-primary" />
+                                                    )}
+                                                </DropdownMenuItem>
+                                            ))}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                    <p className="text-xs leading-5 text-bo-muted">
+                                        {t("Kho có nhiều quản lý kho, mọi người có cùng quyền. Người được chọn hiện ở danh sách kho và là người liên hệ của kho.")}
+                                    </p>
+                                </>
+                            )}
                             <FieldError message={errors.quanLyId} />
                         </div>
                     </div>

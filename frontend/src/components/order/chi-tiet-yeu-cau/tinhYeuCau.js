@@ -221,8 +221,8 @@ export function tinhBuocYeuCau(yc) {
 
   let duyet;
   if (tt === TRANG_THAI_YEU_CAU.CHO_DUYET) {
-    const quanLy = yc?.khoNhap?.quanLy?.hoTen;
-    duyet = { nhan: t("Quản lý kho duyệt"), trangThai: "dangLam", phu: quanLy ? t("Chờ {{quanLy}}", { quanLy }) : t("Chờ quản lý kho") };
+    // Mọi quản lý kho làm việc tại kho nhận đều duyệt được, không riêng người quản lý ghi trên kho
+    duyet = { nhan: t("Quản lý kho duyệt"), trangThai: "dangLam", phu: t("Chờ quản lý kho") };
   } else if (daDuyet) {
     duyet = { nhan: t("Quản lý kho duyệt"), trangThai: "xong", ngay: yc?.ngayDuyet ?? null, coGio: true };
   } else if (tt === TRANG_THAI_YEU_CAU.TU_CHOI) {
@@ -258,21 +258,20 @@ export function tinhBuocYeuCau(yc) {
 
 /**
  * Quyền Phê duyệt / Từ chối, khớp backend YeuCauMuaHangService.coQuyenDuyetKho: quản trị viên mọi kho; quản lý kho
- * chỉ kho nhận của yêu cầu — là quản lý ghi trên kho (`khoNhap.quanLy`) hoặc được phân quyền còn hiệu lực tại kho đó.
+ * chỉ kho nhận của yêu cầu — được phân quyền còn hiệu lực tại kho đó (người quản lý ghi trên kho `khoNhap.quanLy`
+ * luôn nằm trong số này, không được thêm quyền gì).
  *
  * @param tuyChon
  *   - `laQuanTriVien`, `laQuanLyKho`: vai trò người đang đăng nhập
- *   - `nguoiDungId`: id người đang đăng nhập (JWT `id`)
- *   - `khoNhap`: kho nhận của yêu cầu (`{ id, quanLy: { id } }`)
+ *   - `khoNhap`: kho nhận của yêu cầu (`{ id }`)
  *   - `khoPhuTrachIds`: id các kho được phân quyền còn hiệu lực (đọc từ token như backend)
  * @returns `{ duocDuyet, khacKho }` — `khacKho`: là quản lý kho nhưng không phụ trách kho nhận (hiện câu giải thích)
  */
-export function quyenDuyetYeuCau({ laQuanTriVien = false, laQuanLyKho = false, nguoiDungId = null, khoNhap = null, khoPhuTrachIds = [] } = {}) {
+export function quyenDuyetYeuCau({ laQuanTriVien = false, laQuanLyKho = false, khoNhap = null, khoPhuTrachIds = [] } = {}) {
   if (laQuanTriVien) return { duocDuyet: true, khacKho: false };
   if (!laQuanLyKho) return { duocDuyet: false, khacKho: false };
   const giong = (a, b) => a != null && b != null && String(a) === String(b);
-  const laQuanLyGhiTrenKho = giong(khoNhap?.quanLy?.id, nguoiDungId);
   const duocPhanQuyen = (Array.isArray(khoPhuTrachIds) ? khoPhuTrachIds : []).some((id) => giong(id, khoNhap?.id));
-  const duocDuyet = Boolean(khoNhap) && (laQuanLyGhiTrenKho || duocPhanQuyen);
+  const duocDuyet = Boolean(khoNhap) && duocPhanQuyen;
   return { duocDuyet, khacKho: !duocDuyet };
 }

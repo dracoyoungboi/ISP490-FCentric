@@ -5,6 +5,7 @@
 import { t } from "../../i18n/t.js";
 import { cauGocMayChu } from "../../i18n/cauGoc.js";
 import { chuanHoaHoTen } from "../../validations/hoTen.js";
+import { tienToSan } from "./hienThiKhachHang.js";
 
 /**
  * Độ dài tối đa = độ dài cột trong bảng khach_hang (địa chỉ: giới hạn của form). Chỉ dùng để báo lỗi, không đặt
@@ -127,6 +128,8 @@ export function kiemTraForm(form, { laSua = false, banDau = FORM_THEM } = {}) {
     const ma = gon(form.maKhachHang);
     if (ma.length > MAX_LENGTH.maKhachHang) loi.maKhachHang = t("Mã khách hàng tối đa 50 ký tự");
     else if (ma && !MA_REGEX.test(ma)) loi.maKhachHang = t("Mã gồm chữ không dấu, số và . _ -, mở đầu bằng chữ hoặc số");
+    // Tiền tố dành cho khách tự tạo từ đơn sàn (trùng banHang.maKhachHangTrungTienToSan của máy chủ)
+    else if (tienToSan(ma)) loi.maKhachHang = t("Mã không được bắt đầu bằng {{tienTo}} (dành cho khách từ sàn)", { tienTo: tienToSan(ma) });
   }
 
   const sdt = gon(form.soDienThoai);

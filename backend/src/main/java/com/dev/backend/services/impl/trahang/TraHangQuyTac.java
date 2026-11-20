@@ -28,8 +28,19 @@ public final class TraHangQuyTac {
             "doi_y", "khac");
     /** Nhóm lỗi khi hàng Lỗi (rách vải, hỏng khóa, ố bẩn, bung chỉ…). */
     public static final Set<String> NHOM_LOI = Set.of("rach_vai", "hong_khoa", "o_ban", "bung_chi", "khac");
+    /** Lý do máy chủ tự ghi cho dòng hàng Lỗi; hàng Đạt không được chọn lý do này. */
+    public static final String LY_DO_LOI = "loi_san_xuat";
+    /** Mã "Khác" dùng chung cho lý do (hàng Đạt) và nhóm lỗi (hàng Lỗi): chọn mã này thì phải ghi rõ. */
+    public static final String KHAC = "khac";
+    /** Độ dài tối đa phần ghi rõ của một dòng (cột chi_tiet_phieu_tra_hang.ghi_chu). */
+    public static final int GHI_CHU_DONG_TOI_DA = 255;
 
     private TraHangQuyTac() {
+    }
+
+    /** Dòng phải ghi rõ khi chọn Khác: lý do Khác ở hàng Đạt, hoặc nhóm Lỗi khác ở hàng Lỗi. */
+    public static boolean canGhiRo(boolean dat, String lyDo, String nhomLoi) {
+        return KHAC.equals(dat ? lyDo : nhomLoi);
     }
 
     /** Đã quá hạn trả (lúc {@code bayGio} cách lúc thanh toán hơn 03 ngày). Không rõ lúc thanh toán thì coi là quá hạn. */

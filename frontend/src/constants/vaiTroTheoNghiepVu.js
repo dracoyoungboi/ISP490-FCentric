@@ -68,7 +68,7 @@ export const VAI_TRO_KHACH_HANG = Object.freeze([QTV, NVBH]);
  * đọc như nhân viên kho (nhập hàng khách trả mở từ chi tiết đơn).
  */
 export const VAI_TRO_DON_BAN = Object.freeze([QTV, NVBH, NVK, QLK]);
-/** Xử lý đơn bán: in hóa đơn, ghi nhận thanh toán. */
+/** In hóa đơn bán hàng. */
 export const VAI_TRO_GHI_DON_BAN = Object.freeze([QTV, NVBH]);
 /** "POS Payment", "POS Return & Exchange": bán và trả hàng tại quầy. */
 export const VAI_TRO_BAN_TAI_QUAY = Object.freeze([QTV, NVBH]);

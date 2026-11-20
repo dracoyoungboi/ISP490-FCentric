@@ -53,6 +53,8 @@ public class TraHangTaiQuayService {
     @Autowired
     private YeuCauDuyetTraHangRepository yeuCauRepository;
     @Autowired
+    private ChiTietPhieuTraHangLoRepository chiTietLoRepository;
+    @Autowired
     private PhanQuyenNguoiDungKhoRepository phanQuyenNguoiDungKhoRepository;
 
     // ================= Bước 1: tra cứu =================
@@ -164,7 +166,8 @@ public class TraHangTaiQuayService {
         Map<Integer, BigDecimal> daTra = daTraTheoDong(don.getId());
         Map<Integer, BigDecimal> daHoan = daHoanTheoDong(don.getId());
         List<Integer> bienTheIds = don.getChiTietDonBanHangs().stream().map(c -> c.getBienTheSanPham().getId()).toList();
-        Map<Integer, Integer> keGoiY = keGoiY(khoNhanId, bienTheIds);
+        List<TraHangDto.Ke> ke = keCuaKho(khoNhanId);
+        Map<Integer, Integer> keGoiY = keGoiY(khoNhanId, don.getId(), bienTheIds, ke);
         List<TraHangDto.Dong> dong = new ArrayList<>();
         for (ChiTietDonBanHang ct : don.getChiTietDonBanHangs()) {
             BienTheSanPham bt = ct.getBienTheSanPham();
@@ -182,7 +185,6 @@ public class TraHangTaiQuayService {
                             daHoan.getOrDefault(ct.getId(), BigDecimal.ZERO), ct.getSoLuongDat().subtract(tra).max(BigDecimal.ZERO))));
         }
 
-        List<TraHangDto.Ke> ke = keCuaKho(khoNhanId);
         KhachHang kh = don.getKhachHang();
         List<TraHangDto.PhieuDaTra> daCo = phieuTraHangRepository.findByDonBanHangIdOrderByIdAsc(don.getId()).stream()
                 .map(p -> new TraHangDto.PhieuDaTra(p.getId(), p.getSoPhieu(), p.getNgayTao(), p.getTongTienHoan(),
@@ -219,7 +221,7 @@ public class TraHangTaiQuayService {
                     bt.getMaSku(), bt.getMauSac() == null ? null : bt.getMauSac().getTenMau(),
                     bt.getSize() == null ? null : bt.getSize().getTenSize(), c.getSoLuong(), c.getDonGiaHoan(),
                     c.getThanhTienHoan(), c.getTinhTrang(), ke == null ? null : ke.getMaViTri(), c.getLyDo(),
-                    c.getNhomLoi()));
+                    c.getNhomLoi(), c.getGhiChu()));
         }
         String soPn = p.getPhieuNhapKhoId() == null ? null
                 : em.find(PhieuNhapKho.class, p.getPhieuNhapKhoId()).getSoPhieuNhap();
@@ -409,16 +411,32 @@ public class TraHangTaiQuayService {
         return r.isEmpty() || r.get(0) == null ? null : String.valueOf(r.get(0));
     }
 
-    /** Kệ đang hoạt động (kể cả kệ báo đầy — xếp kệ tự kiểm sức chứa) của kho, theo mã. */
+    /**
+     * Kệ đang hoạt động (kể cả kệ báo đầy — xếp kệ tự kiểm sức chứa) của kho, theo mã, kèm số còn xếp thêm được. Số
+     * đang chứa tính như chốt chặn lúc xếp kệ (SoTonKeService.kiemTraSucChua) để màn hình không mở chỗ mà máy chủ chặn.
+     */
     public List<TraHangDto.Ke> keCuaKho(Integer khoId) {
         @SuppressWarnings("unchecked")
         List<Object[]> rows = em.createNativeQuery("""
-                SELECT id, ma_vi_tri FROM vi_tri_kho
-                 WHERE kho_id = :kho AND (trang_thai IS NULL OR trang_thai IN (:hd, :day))
-                 ORDER BY ma_vi_tri
+                SELECT v.id, v.ma_vi_tri, v.suc_chua_toi_da,
+                       COALESCE((SELECT SUM(t.so_luong) FROM ton_kho_vi_tri t WHERE t.vi_tri_kho_id = v.id), 0)
+                  FROM vi_tri_kho v
+                 WHERE v.kho_id = :kho AND (v.trang_thai IS NULL OR v.trang_thai IN (:hd, :day))
+                 ORDER BY v.ma_vi_tri
                 """).setParameter("kho", khoId).setParameter("hd", IKiemKe.KE_HOAT_DONG)
                 .setParameter("day", IKiemKe.KE_DAY_HANG).getResultList();
-        return rows.stream().map(r -> new TraHangDto.Ke(((Number) r[0]).intValue(), (String) r[1])).toList();
+        return rows.stream().map(r -> new TraHangDto.Ke(((Number) r[0]).intValue(), (String) r[1],
+                conCho(r[2] == null ? null : ((Number) r[2]).intValue(), ((Number) r[3]).intValue()))).toList();
+    }
+
+    /** Số còn xếp thêm được; null khi kệ không đặt sức chứa (cùng quy ước SoTonKeService.kiemTraSucChua). */
+    static Integer conCho(Integer sucChua, int dangChua) {
+        if (sucChua == null || sucChua <= 0) return null;
+        return Math.max(0, sucChua - dangChua);
+    }
+
+    static boolean conChoXep(TraHangDto.Ke ke) {
+        return ke != null && (ke.conCho() == null || ke.conCho() > 0);
     }
 
     public Set<Integer> keHoatDongCuaKho(Integer khoId) {
@@ -433,21 +451,56 @@ public class TraHangTaiQuayService {
                 .setParameter("kho", khoId).getResultList().isEmpty();
     }
 
-    /** Kệ đang chứa mã nhiều nhất ở kho (gợi ý chọn sẵn cho hàng Đạt): bienTheId → viTriId. */
-    private Map<Integer, Integer> keGoiY(Integer khoId, Collection<Integer> bienTheIds) {
+    /**
+     * Kệ chọn sẵn cho hàng Đạt theo biến thể (bienTheId → viTriId), chỉ kệ còn chỗ trong {@code ke} (kệ dùng được của
+     * cửa hàng nhận):
+     * <ol>
+     *   <li>kệ đang chứa mã nhiều nhất;</li>
+     *   <li>không có thì kệ chính của lô sẽ nhận hàng trả, theo đúng thứ tự chia lô lúc xác nhận (lô xuất sau cùng
+     *   trước, TraHangTaiQuayTransaction.loConTraTheoBienThe) — kệ cũ đã bán hết thì hàng vẫn về kệ của lô.</li>
+     * </ol>
+     * Lúc bán hệ thống không ghi hàng lấy ở kệ nào (sổ kệ trừ theo thứ tự kệ chính của lô trước), nên đây là kệ gần
+     * nhất với "kệ cũ" mà không cần lưu thêm.
+     */
+    private Map<Integer, Integer> keGoiY(Integer khoId, Integer donId, Collection<Integer> bienTheIds,
+                                         List<TraHangDto.Ke> ke) {
         Map<Integer, Integer> m = new HashMap<>();
-        if (bienTheIds.isEmpty()) return m;
+        if (bienTheIds.isEmpty() || ke.isEmpty()) return m;
+        Map<Integer, TraHangDto.Ke> keTheoId = new HashMap<>();
+        ke.forEach(k -> keTheoId.put(k.id(), k));
         @SuppressWarnings("unchecked")
         List<Object[]> rows = em.createNativeQuery("""
                 SELECT t.bien_the_san_pham_id, t.vi_tri_kho_id, SUM(t.so_luong) AS sl
                   FROM ton_kho_vi_tri t JOIN vi_tri_kho v ON v.id = t.vi_tri_kho_id
                  WHERE v.kho_id = :kho AND t.bien_the_san_pham_id IN (:bt) AND t.so_luong > 0
-                   AND (v.trang_thai IS NULL OR v.trang_thai IN (:hd, :day))
                  GROUP BY t.bien_the_san_pham_id, t.vi_tri_kho_id
-                 ORDER BY sl DESC
-                """).setParameter("kho", khoId).setParameter("bt", bienTheIds)
-                .setParameter("hd", IKiemKe.KE_HOAT_DONG).setParameter("day", IKiemKe.KE_DAY_HANG).getResultList();
-        for (Object[] r : rows) m.putIfAbsent(((Number) r[0]).intValue(), ((Number) r[1]).intValue());
+                 ORDER BY sl DESC, t.vi_tri_kho_id
+                """).setParameter("kho", khoId).setParameter("bt", bienTheIds).getResultList();
+        for (Object[] r : rows) {
+            int viTri = ((Number) r[1]).intValue();
+            if (conChoXep(keTheoId.get(viTri))) m.putIfAbsent(((Number) r[0]).intValue(), viTri);
+        }
+        if (m.keySet().containsAll(bienTheIds)) return m;
+        // Kệ chính của các lô đơn đã xuất còn trả được (lô xuất sau cùng trước), trừ phần đã trả các lần trước
+        Map<String, BigDecimal> daTraLo = new HashMap<>();
+        for (Object[] r : chiTietLoRepository.daTraTheoLo(donId)) daTraLo.put(r[0] + ":" + r[1], (BigDecimal) r[2]);
+        @SuppressWarnings("unchecked")
+        List<Object[]> lo = em.createNativeQuery("""
+                SELECT ct.bien_the_san_pham_id, ct.lo_hang_id, SUM(ct.so_luong_xuat), MAX(ct.id) AS cuoi, l.vi_tri_kho_id
+                  FROM chi_tiet_phieu_xuat_kho ct
+                  JOIN phieu_xuat_kho px ON px.id = ct.phieu_xuat_kho_id
+                  JOIN lo_hang l ON l.id = ct.lo_hang_id
+                 WHERE px.don_ban_hang_id = :don AND px.trang_thai = 3
+                 GROUP BY ct.bien_the_san_pham_id, ct.lo_hang_id, l.vi_tri_kho_id
+                 ORDER BY cuoi DESC
+                """).setParameter("don", donId).getResultList();
+        for (Object[] r : lo) {
+            int bt = ((Number) r[0]).intValue();
+            if (m.containsKey(bt) || r[4] == null) continue;
+            BigDecimal con = ((BigDecimal) r[2]).subtract(daTraLo.getOrDefault(bt + ":" + r[1], BigDecimal.ZERO));
+            int viTri = ((Number) r[4]).intValue();
+            if (con.signum() > 0 && conChoXep(keTheoId.get(viTri))) m.put(bt, viTri);
+        }
         return m;
     }
 

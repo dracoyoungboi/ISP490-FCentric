@@ -69,6 +69,7 @@ import { formatDateTime } from "@/utils/formatters";
 import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, getCurrentUserId, hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
+import { moTrangIn } from "@/lib/moTrangIn";
 
 const SO_DEM_TOI_DA = 1_000_000;
 // Ứng viên của lần quét khớp nhiều dòng chỉ dùng để thu hẹp trong ngần này (ms)
@@ -688,10 +689,10 @@ function ManKiemKe({ dotId }) {
   const menu = [
     quyen.suaNhap ? { nhan: t("Sửa đợt nháp"), icon: PencilLine, onSelect: () => navigate(`/stock-take/${dot.id}/edit`) } : null,
     inBienBan
-      ? { nhan: t("In biên bản kiểm kê"), icon: Printer, moTa: tt === TT_DOT.CHO_DUYET ? t("Bản nháp, chưa duyệt") : dot.ma, onSelect: () => navigate(`/stock-take/${dot.id}/print`) }
+      ? { nhan: t("In biên bản kiểm kê"), icon: Printer, moTa: tt === TT_DOT.CHO_DUYET ? t("Bản nháp, chưa duyệt") : dot.ma, onSelect: () => moTrangIn(`/stock-take/${dot.id}/print`, navigate) }
       : null,
     inPhieu
-      ? { nhan: t("In phiếu điều chỉnh kho"), icon: Printer, moTa: dot.phieuDieuChinh.ma, onSelect: () => navigate(`/stock-take/${dot.id}/print-adjustment`) }
+      ? { nhan: t("In phiếu điều chỉnh kho"), icon: Printer, moTa: dot.phieuDieuChinh.ma, onSelect: () => moTrangIn(`/stock-take/${dot.id}/print-adjustment`, navigate) }
       : null,
     dot.kho?.id ? { nhan: t("Xem sơ đồ khóa của kho"), icon: Grid2x2, onSelect: () => navigate(`/stock-take/lock-map?khoId=${dot.kho.id}`) } : null,
     quyen.huy ? { nhan: t("Hủy đợt"), moTa: t("Mở khóa phạm vi, tồn kho không đổi"), icon: Ban, nguyHiem: true, onSelect: () => moHop("huy") } : null,
@@ -794,7 +795,7 @@ function ManKiemKe({ dotId }) {
       )
     ) : null,
     tt === TT_DOT.DA_DUYET ? (
-      <DongThongBao key="da-duyet" tone="ok" actions={<NutChu onClick={() => navigate(`/stock-take/${dot.id}/print`)}>{t("In biên bản")}</NutChu>}>
+      <DongThongBao key="da-duyet" tone="ok" actions={<NutChu onClick={() => moTrangIn(`/stock-take/${dot.id}/print`, navigate)}>{t("In biên bản")}</NutChu>}>
         {t("Đã duyệt")}
         {dot.nguoiDuyet?.hoTen ? t(" bởi {{hoTen}}", { hoTen: dot.nguoiDuyet.hoTen }) : ""}
         {dot.phieuDieuChinh?.ma ? t(" · phiếu điều chỉnh {{ma}}", { ma: dot.phieuDieuChinh.ma }) : ""}{t(". Tồn kho và sổ kệ đã cập nhật, kệ đã mở khóa.")}

@@ -39,6 +39,7 @@ import {
   banNhapTuNguoiDung,
   canKho,
   danhGiaQuyen,
+  ghiChuNguoiQuanLy,
   kiemTraBanNhap,
   moTaVaiTro,
   noiDungLuu,
@@ -231,6 +232,8 @@ export default function NganKeoPhanQuyen({
     const k = dsKho.find((x) => x.id === id);
     return k ? k.tenKho || k.maKho : `kho #${id}`;
   };
+  // Báo trước người này có thành / thôi là người quản lý của kho không (máy chủ tự đặt khi kho chưa có ai)
+  const ghiChuQuanLy = ghiChuNguoiQuanLy({ nhap, goc, dsKho, nguoiDung });
 
   const mauCua = (vaiTro) => locTran(cauHinh?.mauQuyen?.[vaiTro] ?? [], vaiTro);
   const mau = mauCua(nhap.vaiTro);
@@ -433,6 +436,12 @@ export default function NganKeoPhanQuyen({
                       : t("Không cần nơi làm việc hay quyền tại kho.")}
                   </div>
                 </OThongTin>
+                {/* Người quản lý chính chuyển sang quản trị viên: kho cũ thành trống */}
+                {ghiChuQuanLy.map((cau) => (
+                  <div key={cau} className="mt-2">
+                    <OThongTin>{cau}</OThongTin>
+                  </div>
+                ))}
               </section>
             ) : null}
 
@@ -512,6 +521,14 @@ export default function NganKeoPhanQuyen({
                     </div>
                     </>
                   )}
+
+                  {ghiChuQuanLy.length ? (
+                    <div className="mt-3 grid gap-2">
+                      {ghiChuQuanLy.map((cau) => (
+                        <OThongTin key={cau}>{cau}</OThongTin>
+                      ))}
+                    </div>
+                  ) : null}
 
                   {coKho ? (
                     <div className="mt-3 flex flex-wrap items-center gap-3">

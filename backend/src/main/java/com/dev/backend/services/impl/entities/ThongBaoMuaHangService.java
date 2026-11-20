@@ -24,7 +24,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -48,8 +47,8 @@ import java.util.function.Supplier;
  *   M7 Đơn mua nhận đủ hàng               Người lập đơn mua + người lập yêu cầu (vai trò không xem được đơn mua thì nhận
  *                                         đường dẫn tới yêu cầu nhập hàng)
  * </pre>
- * Người duyệt theo đúng luật YeuCauMuaHangService.coQuyenDuyetKho: quản lý kho có phân quyền hiệu lực ở kho nhập, hoặc
- * là quản lý ghi trên kho (kho.quanLy).
+ * Người duyệt theo đúng luật YeuCauMuaHangService.coQuyenDuyetKho: quản lý kho có phân quyền hiệu lực ở kho nhập
+ * (người quản lý chính Kho.quanLy luôn nằm trong số đó).
  */
 @Slf4j
 @Service
@@ -82,8 +81,6 @@ public class ThongBaoMuaHangService {
             Integer nguoiTaoId = nguoiTao == null ? null : nguoiTao.getId();
             return new Lan("yêu cầu nhập hàng " + so + " chờ duyệt", nguoiTaoId, () -> {
                 List<Integer> nhan = new ArrayList<>(nguoiNhan.quanLyKho(khoId));
-                Integer quanLyGhiTrenKho = quanLyGhiTrenKho(khoId);
-                if (quanLyGhiTrenKho != null) nhan.add(quanLyGhiTrenKho);
                 String tenKho = tenKho(khoId);
                 String moTa = tenNguoiTao == null || tenNguoiTao.isBlank()
                         ? cau("deNghiNhap", soMaHang, tenKho)
@@ -464,15 +461,6 @@ public class ThongBaoMuaHangService {
         }
     }
 
-    /** Quản lý ghi trên kho (kho.quanLy, luật duyệt cũ) nếu còn hoạt động và đúng vai trò quản lý kho. */
-    private Integer quanLyGhiTrenKho(Integer khoId) {
-        if (khoId == null) return null;
-        return khoRepository.findById(khoId)
-                .map(k -> k.getQuanLy())
-                .filter(n -> Objects.equals(n.getTrangThai(), 1) && IRoleType.quan_ly_kho.equals(n.getVaiTro()))
-                .map(NguoiDung::getId)
-                .orElse(null);
-    }
 
     private static NoiDung noiDungDuyet(String tieuDe, String moTa, String duongDan, Integer id, Integer khoId, String khoa) {
         return new NoiDung(ThongBaoService.LOAI_YEU_CAU_NHAP_HANG, ThongBaoService.TONE_SUCCESS, tieuDe, moTa, duongDan,

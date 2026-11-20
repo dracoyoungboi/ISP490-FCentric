@@ -7,6 +7,7 @@ import ErrorState from "@/components/shared/ErrorState";
 import EmptyState from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import useQuayLai from "@/hooks/useQuayLai";
+import useNutVeTrangIn from "@/hooks/useNutVeTrangIn";
 import { toast } from "@/lib/thongBaoNhanh";
 import { companyProfileService } from "@/services/companyProfileService";
 import { phieuChuyenKhoService } from "@/services/phieuChuyenKhoService";
@@ -100,9 +101,11 @@ export default function InChuyenKho({ dieuChinh = false }) {
 
   // Mở từ phiếu thì lùi về đúng trang đó (không chồng thêm lịch sử); mở thẳng bằng đường dẫn thì mở phiếu
   const ve = useQuayLai(duongDanVe);
+  // Trang in ở thẻ riêng: nút về trong khối lỗi cũng là Đóng thẻ, như nút trên thanh
+  const nutVeIn = useNutVeTrangIn(ve);
   const nutVe = (
-    <Button onClick={ve} className="bg-bo-primary text-white hover:bg-bo-primary-hover">
-      {t("Quay lại")}
+    <Button onClick={nutVeIn.ve} className="bg-bo-primary text-white hover:bg-bo-primary-hover">
+      {nutVeIn.nhan}
     </Button>
   );
 

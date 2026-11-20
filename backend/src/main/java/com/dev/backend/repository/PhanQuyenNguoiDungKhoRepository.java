@@ -5,6 +5,7 @@ import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.PhanQuyenNguoiDungKho;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -69,6 +70,39 @@ public interface PhanQuyenNguoiDungKhoRepository extends JpaRepository<PhanQuyen
     List<Object[]> layKhoVaQuyenHieuLuc(@Param("nguoiDungId") Integer nguoiDungId, @Param("now") Instant now);
 
     Optional<PhanQuyenNguoiDungKho> findByNguoiDungIdAndKhoId(Integer nguoiDungId, Integer khoId);
+
+    /**
+     * Bỏ dấu "người quản lý chính" (la_quan_ly_kho) ở mọi dòng phân quyền của kho, kể cả dòng đã thu hồi hay hết hạn.
+     * Câu UPDATE thẳng, không cập nhật thực thể đang nạp trong phiên: nơi gọi phải nạp lại (refresh) kho / dòng phân quyền
+     * nếu còn đọc hoặc ghi chúng sau đó, kẻo lần lưu thực thể cũ ghi đè dấu.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE PhanQuyenNguoiDungKho pq SET pq.laQuanLyKho = 0 WHERE pq.kho.id = :khoId AND pq.laQuanLyKho <> 0")
+    int boDauQuanLyChinhCuaKho(@Param("khoId") Integer khoId);
+
+    /** Gắn dấu người quản lý chính cho một dòng phân quyền (gọi sau {@link #boDauQuanLyChinhCuaKho}). */
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE PhanQuyenNguoiDungKho pq SET pq.laQuanLyKho = 1 WHERE pq.id = :id")
+    int datDauQuanLyChinh(@Param("id") Integer id);
+
+    /**
+     * Dòng phân quyền mang dấu người quản lý chính ở kho {@code khoId}, còn hiệu lực tại {@code now}: mỗi dòng
+     * {id phân quyền, id người dùng}, xếp theo id. Nơi gọi tự lọc tài khoản hoạt động + vai trò quản lý kho (như
+     * Kho.SQL_QUAN_LY_CHINH).
+     * Đọc BẢN MỚI NHẤT (FOR SHARE): gọi sau khi khóa dòng kho để thấy dấu giao dịch khác vừa ghi — đọc thường trong
+     * REPEATABLE READ chỉ thấy ảnh chụp lúc giao dịch bắt đầu. Chỉ khóa dòng phân quyền, không khóa người dùng.
+     */
+    @Query(value = """
+            SELECT pq.id, pq.nguoi_dung_id FROM phan_quyen_nguoi_dung_kho pq
+            WHERE pq.kho_id = :khoId
+              AND pq.la_quan_ly_kho = 1
+              AND pq.trang_thai = 1
+              AND (pq.ngay_bat_dau IS NULL OR pq.ngay_bat_dau <= :now)
+              AND (pq.ngay_ket_thuc IS NULL OR pq.ngay_ket_thuc > :now)
+            ORDER BY pq.id
+            FOR SHARE
+            """, nativeQuery = true)
+    List<Object[]> dauQuanLyChinhMoiNhat(@Param("khoId") Integer khoId, @Param("now") Instant now);
 
     /**
      * Danh sách kho (chỉ mã + tên) đang phụ trách hiệu lực cho hồ sơ cá nhân:
@@ -155,6 +189,24 @@ public interface PhanQuyenNguoiDungKhoRepository extends JpaRepository<PhanQuyen
             """)
     List<NguoiDung> nguoiDungTheoKhoVaVaiTroTai(@Param("khoId") Integer khoId, @Param("vaiTros") Collection<String> vaiTros,
                                                 @Param("now") Instant now);
+
+    /**
+     * Quản lý kho (tài khoản hoạt động) có phân quyền hiệu lực tại {@code now} ở các kho {@code khoIds}, trong một truy vấn
+     * cho cả trang danh sách kho: mỗi dòng {khoId, NguoiDung}, xếp theo họ tên. Cùng điều kiện với
+     * {@link #nguoiDungTheoKhoVaVaiTroTai} (danh sách chọn người quản lý ở form Sửa kho).
+     */
+    @Query("""
+            SELECT pqndk.kho.id, nd FROM PhanQuyenNguoiDungKho pqndk
+            JOIN pqndk.nguoiDung nd
+            WHERE pqndk.kho.id IN :khoIds
+              AND nd.vaiTro = 'quan_ly_kho'
+              AND nd.trangThai = 1
+              AND pqndk.trangThai = 1
+              AND (pqndk.ngayBatDau IS NULL OR pqndk.ngayBatDau <= :now)
+              AND (pqndk.ngayKetThuc IS NULL OR pqndk.ngayKetThuc > :now)
+            ORDER BY nd.hoTen, nd.id
+            """)
+    List<Object[]> quanLyKhoTheoKhoTai(@Param("khoIds") Collection<Integer> khoIds, @Param("now") Instant now);
 
     /**
      * Như {@link #nguoiDungTheoKhoTai} nhưng theo loại kho (vd. kho_tong): quản lý Kho tổng = quản lý kho đang được phân

@@ -178,6 +178,28 @@ class PhanQuyenNguoiDungServiceImplTest {
             }
             return p;
         });
+        // Dấu người quản lý chính (la_quan_ly_kho) — như câu đọc FOR SHARE và hai câu UPDATE thẳng
+        when(phanQuyenRepository.dauQuanLyChinhMoiNhat(anyInt(), any(Instant.class))).thenAnswer(i -> phanQuyen.stream()
+                .filter(p -> p.getKho().getId().equals(i.getArgument(0)))
+                .filter(p -> Integer.valueOf(1).equals(p.getLaQuanLyKho()) && Integer.valueOf(1).equals(p.getTrangThai()))
+                .filter(p -> p.getNgayBatDau() == null || !p.getNgayBatDau().isAfter(i.getArgument(1)))
+                .filter(p -> p.getNgayKetThuc() == null || p.getNgayKetThuc().isAfter(i.getArgument(1)))
+                .map(p -> new Object[]{p.getId(), p.getNguoiDung().getId()})
+                .collect(Collectors.toList()));
+        when(phanQuyenRepository.boDauQuanLyChinhCuaKho(anyInt())).thenAnswer(i -> {
+            int n = 0;
+            for (PhanQuyenNguoiDungKho p : phanQuyen) {
+                if (p.getKho().getId().equals(i.getArgument(0)) && !Integer.valueOf(0).equals(p.getLaQuanLyKho())) {
+                    p.setLaQuanLyKho(0);
+                    n++;
+                }
+            }
+            return n;
+        });
+        when(phanQuyenRepository.datDauQuanLyChinh(anyInt())).thenAnswer(i -> {
+            phanQuyen.stream().filter(p -> p.getId().equals(i.getArgument(0))).forEach(p -> p.setLaQuanLyKho(1));
+            return 1;
+        });
 
         chiTietRepository = mock(ChiTietQuyenKhoRepository.class);
         when(chiTietRepository.findByPhanQuyenNguoiDungKhoId(anyInt())).thenAnswer(i -> chiTiet.stream()
@@ -779,26 +801,104 @@ class PhanQuyenNguoiDungServiceImplTest {
         }
 
         @Test
-        @DisplayName("B6: quản lý kho chuyển kho hoặc thôi làm quản lý thì bỏ khỏi kho.quan_ly_id")
-        void boQuanLyKho() {
-            phanKhoSan(quanLy, khoTong, List.of(1));
-            khoTong.setQuanLy(quanLy);
-            service.luuPhanQuyen(60, yeuCau(IRoleType.quan_ly_kho, 23, List.of(1)));
-            assertNull(khoTong.getQuanLy(), "chuyển kho");
-            verify(khoRepository).save(khoTong);
+        /** Quản lý kho đang là người quản lý chính của kho: dấu trên dòng phân quyền + Kho.quanLy (máy chủ tính lúc đọc). */
+        private PhanQuyenNguoiDungKho quanLyChinh(NguoiDung n, Kho k) {
+            PhanQuyenNguoiDungKho p = phanKhoSan(n, k, List.of(1));
+            p.setLaQuanLyKho(1);
+            k.setQuanLy(n);
+            return p;
+        }
 
-            khoHaNoi.setQuanLy(quanLy);
-            service.luuPhanQuyen(60, yeuCau(IRoleType.nhan_vien_kho, 23, List.of(1)));
-            assertNull(khoHaNoi.getQuanLy(), "thôi làm quản lý nhưng vẫn ở kho");
+        private PhanQuyenNguoiDungKho dongCua(NguoiDung n, Kho k) {
+            return phanQuyen.stream().filter(p -> p.getNguoiDung() == n && p.getKho() == k).findFirst().orElseThrow();
         }
 
         @Test
-        @DisplayName("B6: quản lý kho vẫn ở kho cũ thì giữ nguyên quan_ly_id")
+        @DisplayName("B6: quản lý kho chuyển kho hoặc thôi làm quản lý thì bỏ dấu người quản lý chính, không ghi bảng kho")
+        void boQuanLyKho() {
+            PhanQuyenNguoiDungKho cu = quanLyChinh(quanLy, khoTong);
+            service.luuPhanQuyen(60, yeuCau(IRoleType.quan_ly_kho, 23, List.of(1)));
+            assertEquals(0, cu.getLaQuanLyKho(), "chuyển kho: bỏ dấu ở kho cũ");
+            verify(khoRepository, never()).save(any());
+            PhanQuyenNguoiDungKho moi = dongCua(quanLy, khoHaNoi);
+            assertEquals(1, moi.getLaQuanLyKho(), "Kho Hà Nội chưa có người quản lý: người vừa vào đứng tên");
+
+            khoHaNoi.setQuanLy(quanLy);
+            service.luuPhanQuyen(60, yeuCau(IRoleType.nhan_vien_kho, 23, List.of(1)));
+            assertEquals(0, moi.getLaQuanLyKho(), "thôi làm quản lý nhưng vẫn ở kho");
+        }
+
+        @Test
+        @DisplayName("B6: quản lý kho vẫn ở kho cũ thì giữ nguyên dấu người quản lý chính")
         void giuQuanLyKho() {
-            phanKhoSan(quanLy, khoTong, List.of(1));
-            khoTong.setQuanLy(quanLy);
+            PhanQuyenNguoiDungKho p = quanLyChinh(quanLy, khoTong);
             service.luuPhanQuyen(60, yeuCau(IRoleType.quan_ly_kho, 22, List.of(1, 2)));
-            assertSame(quanLy, khoTong.getQuanLy());
+            assertEquals(1, p.getLaQuanLyKho());
+            verify(phanQuyenRepository, never()).boDauQuanLyChinhCuaKho(anyInt());
+        }
+
+        @Test
+        @DisplayName("B6: vào kho đã có người quản lý khác thì làm việc cùng, không giành tên")
+        void vaoKhoDaCoQuanLy_lamViecCung() {
+            NguoiDung binh = PhanQuyenNguoiDungServiceImplTest.this.them(NguoiDung.builder().id(61).hoTen("Bình")
+                    .vaiTro(IRoleType.quan_ly_kho).trangThai(1).build());
+            PhanQuyenNguoiDungKho cuaBinh = quanLyChinh(binh, khoHaNoi);
+
+            service.luuPhanQuyen(60, yeuCau(IRoleType.quan_ly_kho, 23, List.of(1)));
+
+            assertEquals(0, dongCua(quanLy, khoHaNoi).getLaQuanLyKho());
+            assertEquals(1, cuaBinh.getLaQuanLyKho());
+            verify(phanQuyenRepository, never()).datDauQuanLyChinh(anyInt());
+        }
+
+        @Test
+        @DisplayName("B6: phân lại vào kho cũ không làm sống lại dấu người quản lý chính của lần làm trước")
+        void phanLai_khongSongLaiDauCu() {
+            NguoiDung binh = PhanQuyenNguoiDungServiceImplTest.this.them(NguoiDung.builder().id(61).hoTen("Bình")
+                    .vaiTro(IRoleType.quan_ly_kho).trangThai(1).build());
+            quanLyChinh(binh, khoHaNoi);
+            // Lần làm trước ở Kho Hà Nội: đã thu hồi nhưng dòng còn dấu (dữ liệu cũ)
+            PhanQuyenNguoiDungKho cu = phanKhoSan(quanLy, khoHaNoi, List.of(1));
+            cu.setTrangThai(0);
+            cu.setLaQuanLyKho(1);
+            cu.setNgayKetThuc(BAY_GIO.minusSeconds(3600));
+
+            service.luuPhanQuyen(60, yeuCau(IRoleType.quan_ly_kho, 23, List.of(1)));
+
+            assertEquals(1, cu.getTrangThai(), "dùng lại đúng dòng cũ");
+            assertEquals(0, cu.getLaQuanLyKho());
+        }
+
+        @Test
+        @DisplayName("B6: nhân viên kho được nâng lên quản lý kho tại kho chưa có người quản lý thì đứng tên")
+        void nangLenQuanLy_taiKhoTrong_thiDungTen() {
+            PhanQuyenNguoiDungKho p = phanKhoSan(nhanVien, khoHaNoi, List.of(1));
+
+            service.luuPhanQuyen(52, yeuCau(IRoleType.quan_ly_kho, 23, List.of(1)));
+
+            assertEquals(1, p.getLaQuanLyKho());
+        }
+
+        @Test
+        @DisplayName("B6: kho trống, lưu lại phân quyền của quản lý kho đang ở đó thì không tự đặt (chỉ khi mới vào)")
+        void luuLaiCungKho_khongTuDat() {
+            PhanQuyenNguoiDungKho p = phanKhoSan(quanLy, khoHaNoi, List.of(1));
+
+            service.luuPhanQuyen(60, yeuCau(IRoleType.quan_ly_kho, 23, List.of(1, 2)));
+
+            assertEquals(0, p.getLaQuanLyKho());
+            verify(phanQuyenRepository, never()).datDauQuanLyChinh(anyInt());
+        }
+
+        @Test
+        @DisplayName("B6: thu hồi phân quyền (DELETE xoa-quyen) của người quản lý chính thì bỏ dấu")
+        void thuHoiTheoId_boDau() {
+            PhanQuyenNguoiDungKho p = quanLyChinh(quanLy, khoTong);
+
+            service.thuHoiPhanQuyenKhoTheoId(p.getId(), null);
+
+            assertEquals(0, p.getTrangThai());
+            assertEquals(0, p.getLaQuanLyKho());
         }
 
         @Test

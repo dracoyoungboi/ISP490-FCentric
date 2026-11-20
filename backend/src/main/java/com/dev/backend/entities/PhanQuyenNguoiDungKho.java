@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.Generated;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -21,6 +22,9 @@ import java.util.Set;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Entity
 @Table(name = "phan_quyen_nguoi_dung_kho")
+// Chỉ ghi cột thật sự đổi: dấu người quản lý chính (la_quan_ly_kho) được đổi bằng câu UPDATE thẳng
+// (PhanQuyenNguoiDungKhoRepository); lần lưu thực thể đã nạp từ trước (đổi hạn, trạng thái) không được ghi lại dấu cũ.
+@DynamicUpdate
 public class PhanQuyenNguoiDungKho {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

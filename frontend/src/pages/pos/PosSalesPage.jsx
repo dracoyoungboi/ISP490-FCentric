@@ -51,6 +51,8 @@ import {
   tienMatTruocCua,
 } from './pos-payment';
 import { laTiengAnh, t } from "@/i18n";
+import useInTaiCho from "@/components/in-tai-cho/useInTaiCho";
+import { NGUON_IN_HOA_DON_TAI_QUAY } from "@/components/in-tai-cho/nguonIn";
 
 // Danh mục gộp kích cỡ: mỗi trang 60 dòng mẫu + màu (mỗi dòng gồm đủ các kích cỡ của nó).
 const PAGE_SIZE = 60;
@@ -1917,6 +1919,8 @@ export default function PosSalesPage({
     return () => window.removeEventListener('beforeunload', warn);
   }, [hasInFlightPayment]);
 
+  // In hóa đơn ngay trên màn bán: hộp in của trình duyệt bật đè lên màn, không mở thẻ mới
+  const { inPhieu: inHoaDon, dangIn: dangInHoaDon, khungIn: khungInHoaDon } = useInTaiCho();
   const printReceipt = (result) => {
     if (!result?.donBanHangId) {
       showToast(t("Không có thông tin hóa đơn để in."), 'error');
@@ -1924,7 +1928,7 @@ export default function PosSalesPage({
     }
     // In từ đơn ĐÃ LƯU trên server bằng mẫu hóa đơn tại quầy (khổ nhiệt); lỗi in chỉ thử lại in,
     // không bao giờ chạy lại checkout.
-    window.open(`/sales-orders/${result.donBanHangId}/invoice?mau=tai-quay`, '_blank', 'noopener');
+    inHoaDon(NGUON_IN_HOA_DON_TAI_QUAY, result.donBanHangId);
   };
 
   const closeReceipt = () => {
@@ -2056,6 +2060,7 @@ export default function PosSalesPage({
     invoiceNumber: ticketNumber,
     attemptStatus: attempt?.status ?? null,
     receipt: receiptResult,
+    dangInHoaDon,
     priceChange: priceChangeInfo,
     frozen,
     recoveredResult,
@@ -2359,6 +2364,7 @@ export default function PosSalesPage({
       </div> : null}
 
       <PosDialogs actions={actions} checkoutEnabled={checkoutEnabled} dialog={dialog} onClose={() => { if (!isSubmitting) setDialog(null); }} state={dialogState} />
+      {khungInHoaDon}
     </div>
   );
 }

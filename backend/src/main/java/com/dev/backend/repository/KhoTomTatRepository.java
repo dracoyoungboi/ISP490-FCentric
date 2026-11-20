@@ -1,5 +1,8 @@
 package com.dev.backend.repository;
 
+import com.dev.backend.dto.response.NhanVienKhoTomTat;
+import com.dev.backend.entities.Kho;
+import com.dev.backend.utils.PublicAssetUrl;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -58,22 +61,28 @@ public class KhoTomTatRepository {
             """;
 
     /**
-     * Người được phân quyền ở kho: quyền đang bật, đã tới ngày bắt đầu và chưa hết hạn (cùng điều kiện với
+     * Người đang làm việc tại kho: quyền đang bật, đã tới ngày bắt đầu và chưa hết hạn (cùng điều kiện với
      * PhanQuyenNguoiDungKhoRepository.findActiveKhoInfoByNguoiDungId), tài khoản đang hoạt động,
-     * không tính người quản lý chính ghi trên kho.
+     * không tính người quản lý chính của kho (Kho.quanLy, cùng câu con).
+     * Sắp quản lý kho trước rồi tới nhân viên kho, bán hàng, mua hàng; cùng vai trò thì theo họ tên.
      */
-    static final String SQL_SO_NGUOI_PHAN_QUYEN = """
-            SELECT COUNT(DISTINCT pq.nguoi_dung_id)
+    static final String SQL_NHAN_VIEN_TAI_KHO = """
+            SELECT nd.id, nd.ho_ten, nd.ten_dang_nhap, nd.vai_tro, MAX(tt.duong_dan) AS anh
             FROM phan_quyen_nguoi_dung_kho pq
-            JOIN nguoi_dung nd ON nd.id = pq.nguoi_dung_id
-            JOIN kho k         ON k.id = pq.kho_id
+            JOIN nguoi_dung nd   ON nd.id = pq.nguoi_dung_id
+            JOIN kho k           ON k.id = pq.kho_id
+            LEFT JOIN tep_tin tt ON tt.id = nd.avatar_tep_tin_id
             WHERE pq.kho_id = :khoId
               AND pq.trang_thai = 1
               AND (pq.ngay_bat_dau IS NULL OR pq.ngay_bat_dau <= CURRENT_TIMESTAMP)
               AND (pq.ngay_ket_thuc IS NULL OR pq.ngay_ket_thuc > CURRENT_TIMESTAMP)
               AND nd.trang_thai = 1
-              AND (k.quan_ly_id IS NULL OR pq.nguoi_dung_id <> k.quan_ly_id)
-            """;
+              AND pq.nguoi_dung_id <> COALESCE(%s, 0)
+            GROUP BY nd.id, nd.ho_ten, nd.ten_dang_nhap, nd.vai_tro
+            ORDER BY FIELD(nd.vai_tro, 'quan_ly_kho', 'nhan_vien_kho', 'nhan_vien_ban_hang', 'nhan_vien_mua_hang',
+                           'quan_tri_vien'),
+                     COALESCE(NULLIF(nd.ho_ten, ''), nd.ten_dang_nhap), nd.id
+            """.formatted(Kho.sqlQuanLyChinh("k.id"));
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -88,9 +97,10 @@ public class KhoTomTatRepository {
                 rs.getLong("so_ma"), rs.getLong("het"), rs.getLong("sap_het")));
     }
 
-    public long soNguoiPhanQuyen(Integer khoId) {
-        Long n = jdbc.queryForObject(SQL_SO_NGUOI_PHAN_QUYEN, new MapSqlParameterSource("khoId", khoId), Long.class);
-        return n == null ? 0L : n;
+    public List<NhanVienKhoTomTat> nhanVienTaiKho(Integer khoId) {
+        return jdbc.query(SQL_NHAN_VIEN_TAI_KHO, new MapSqlParameterSource("khoId", khoId), (rs, i) -> new NhanVienKhoTomTat(
+                rs.getInt("id"), rs.getString("ho_ten"), rs.getString("ten_dang_nhap"), rs.getString("vai_tro"),
+                PublicAssetUrl.toHttps(rs.getString("anh"))));
     }
 
     /** Giá trị số nguyên dương của một cấu hình hệ thống, null nếu chưa có hoặc không hợp lệ. */

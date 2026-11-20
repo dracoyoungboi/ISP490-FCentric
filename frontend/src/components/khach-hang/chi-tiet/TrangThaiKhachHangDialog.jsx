@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { capNhatTrangThaiKhachHang } from "@/services/khachHangService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { TRANG_THAI_KHACH, laHoatDong } from "./tinhKhachHang";
+import { tenHienThi } from "../hienThiKhachHang";
 import { t } from "@/i18n";
 
 /**
@@ -67,7 +68,7 @@ function NoiDung({ khachHang: khachLucMo, onClose, onChanged, soDonDangXuLy }) {
 
   const ten = (
     <span className="font-semibold text-bo-foreground">
-      {khachHang.tenKhachHang}
+      {tenHienThi(khachHang)}
       {khachHang.maKhachHang ? <span className="font-mono font-normal text-bo-muted"> ({khachHang.maKhachHang})</span> : null}
     </span>
   );

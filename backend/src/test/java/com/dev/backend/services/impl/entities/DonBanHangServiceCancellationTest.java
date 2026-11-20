@@ -39,7 +39,6 @@ class DonBanHangServiceCancellationTest {
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private PhieuXuatKhoService phieuXuatKhoService;
     @Mock private LichSuThayDoiService lichSuThayDoiService;
-    @Mock private ThanhToanDonBanService thanhToanDonBanService;
     @Mock private ThongBaoXuatKhoService thongBaoXuatKho;
 
     private DonBanHangService service;
@@ -58,7 +57,6 @@ class DonBanHangServiceCancellationTest {
         ReflectionTestUtils.setField(service, "phieuXuatKhoService", phieuXuatKhoService);
         ReflectionTestUtils.setField(service, "thongBaoXuatKhoService", thongBaoXuatKho);
         ReflectionTestUtils.setField(service, "lichSuThayDoiService", lichSuThayDoiService);
-        ReflectionTestUtils.setField(service, "thanhToanDonBanService", thanhToanDonBanService);
         kho = Kho.builder().id(1).tenKho("Kho Tổng").build();
         bt = BienTheSanPham.builder().id(10).maSku("SKU-X").build();
     }

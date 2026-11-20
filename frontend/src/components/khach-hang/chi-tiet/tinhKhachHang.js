@@ -96,11 +96,10 @@ export function tongSoDon(tongQuan) {
 }
 
 /**
- * Năm ô "Tình hình mua hàng" từ GET /khach-hang/{id}/tong-quan-mua-hang.
- * Mỗi ô: { ma, nhan, giaTri, coGiaTri, phu, donGanNhat? }. Đơn nháp không tính là đã đặt;
- * đơn đã hủy / bị hoàn trả vẫn là đơn đã đặt nhưng không tính vào chi tiêu.
- * Còn phải thu: phần chưa thu đủ của đơn bán thường theo phiếu thu (đơn sàn thanh toán theo sàn, đơn tại quầy đã thu đủ,
- * đơn cũ chưa theo dõi không tính), kèm số cần hoàn lại khách nếu có; máy chủ cũ không trả thì ô trống.
+ * Bốn ô "Tình hình mua hàng" từ GET /khach-hang/{id}/tong-quan-mua-hang.
+ * Mỗi ô: { ma, nhan, giaTri, coGiaTri, phu, donGanNhat? }. Đơn nháp tạo tay không tính là đã đặt (đơn sàn chờ xử lý
+ * lưu trạng thái Nháp vẫn tính, máy chủ đã gộp vào soDonDat); đơn đã hủy / bị hoàn trả vẫn là đơn đã đặt nhưng không
+ * tính vào chi tiêu; tổng chi tiêu đã trừ tiền trả hàng tại quầy (tienTraHang).
  */
 export function tinhKpi(tongQuan, homNay = new Date()) {
   const soDonDat = Number(tongQuan?.soDonDat) || 0;
@@ -117,13 +116,6 @@ export function tinhKpi(tongQuan, homNay = new Date()) {
 
   const gan = tongQuan?.donGanNhat ?? null;
   const coTrungBinh = coDon && soDonTinh > 0 && tongQuan?.trungBinhMoiDon != null;
-  const coCongNo = coDon && tongQuan?.conPhaiThu != null;
-  const soDonNo = Number(tongQuan?.soDonConPhaiThu) || 0;
-  const canHoan = Number(tongQuan?.canHoan) || 0;
-  const phuCongNo = [
-    soDonNo ? t("{{count}} đơn chưa thu đủ", { count: soDonNo }) : t("Không còn đơn chưa thu đủ"),
-    canHoan > 0 ? t("cần hoàn khách {{canHoan}}", { canHoan: formatCurrency(canHoan) }) : "",
-  ].filter(Boolean).join(" · ");
 
   return [
     {
@@ -131,7 +123,12 @@ export function tinhKpi(tongQuan, homNay = new Date()) {
       nhan: t("Tổng chi tiêu"),
       coGiaTri: coDon,
       giaTri: coDon ? formatCurrency(tongQuan.tongChiTieu) : "—",
-      phu: coDon ? t("Từ {{count}} đơn, không tính hủy và hoàn trả", { count: soDonTinh }) : trong,
+      // Trả hàng tại quầy đã trừ khỏi tổng (máy chủ trừ sẵn): nói rõ để số không lệch với tổng tiền các đơn
+      phu: !coDon
+        ? trong
+        : Number(tongQuan?.tienTraHang) > 0
+          ? t("Từ {{count}} đơn, đã trừ {{tien}} trả hàng", { count: soDonTinh, tien: formatCurrency(tongQuan.tienTraHang) })
+          : t("Từ {{count}} đơn, không tính hủy và hoàn trả", { count: soDonTinh }),
     },
     {
       ma: "so-don",
@@ -154,13 +151,6 @@ export function tinhKpi(tongQuan, homNay = new Date()) {
       giaTri: gan ? formatDate(gan.ngayDatHang) : "—",
       phu: gan ? cachDay(gan.ngayDatHang, homNay) : trong,
       donGanNhat: gan,
-    },
-    {
-      ma: "con-phai-thu",
-      nhan: t("Còn phải thu"),
-      coGiaTri: coCongNo,
-      giaTri: coCongNo ? formatCurrency(tongQuan.conPhaiThu) : "—",
-      phu: coCongNo ? phuCongNo : trong,
     },
   ];
 }

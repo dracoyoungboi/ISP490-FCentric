@@ -12,7 +12,6 @@ import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.dto.response.entities.PhanQuyenNguoiDungKhoDto;
 import com.dev.backend.entities.DonBanHang;
 import com.dev.backend.repository.DonBanHangRepository;
-import com.dev.backend.services.impl.entities.DonBanHangService.SoLieuTrangThai;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,9 +27,7 @@ import org.springframework.data.jpa.domain.Specification;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -58,8 +55,14 @@ class DonBanHangServiceTongQuanKhachTest {
         SecurityContextHolder.clear();
     }
 
-    private static SoLieuTrangThai so(long soDon, String tongTien) {
-        return new SoLieuTrangThai(soDon, new BigDecimal(tongTien));
+    /** Nhóm đơn không gắn kênh (đơn tạo trên hệ thống / POS). */
+    private static TinhMuaHangKhach.Dong so(int trangThai, long soDon, String tongTien) {
+        return new TinhMuaHangKhach.Dong(trangThai, false, soDon, new BigDecimal(tongTien));
+    }
+
+    /** Nhóm đơn sàn (gắn kênh). */
+    private static TinhMuaHangKhach.Dong san(int trangThai, long soDon, String tongTien) {
+        return new TinhMuaHangKhach.Dong(trangThai, true, soDon, new BigDecimal(tongTien));
     }
 
     private static NguoiDungAuthInfo nguoiDung(int id, Set<String> vaiTro, Integer... khoIds) {
@@ -74,16 +77,16 @@ class DonBanHangServiceTongQuanKhachTest {
 
     @Test
     void tongHop_khongTinhNhapVaoSoDon_khongTinhHuyHoanTraVaoChiTieu() {
-        Map<Integer, SoLieuTrangThai> theoTrangThai = new HashMap<>();
-        theoTrangThai.put(ITrangThaiDonBanHang.NHAP, so(1, "12600000"));
-        theoTrangThai.put(ITrangThaiDonBanHang.CHO_NHAT_HANG, so(1, "18400000"));
-        theoTrangThai.put(ITrangThaiDonBanHang.DA_DONG_GOI, so(1, "2350000"));
-        theoTrangThai.put(ITrangThaiDonBanHang.DA_XUAT_TOAN_BO, so(1, "24750000"));
-        theoTrangThai.put(ITrangThaiDonBanHang.HOAN_THANH, so(7, "114300000"));
-        theoTrangThai.put(ITrangThaiDonBanHang.BI_HOAN_TRA, so(1, "1890000"));
-        theoTrangThai.put(ITrangThaiDonBanHang.DA_HUY, so(1, "9800000"));
+        List<TinhMuaHangKhach.Dong> theoTrangThai = List.of(
+                so(ITrangThaiDonBanHang.NHAP, 1, "12600000"),
+                so(ITrangThaiDonBanHang.CHO_NHAT_HANG, 1, "18400000"),
+                so(ITrangThaiDonBanHang.DA_DONG_GOI, 1, "2350000"),
+                so(ITrangThaiDonBanHang.DA_XUAT_TOAN_BO, 1, "24750000"),
+                so(ITrangThaiDonBanHang.HOAN_THANH, 7, "114300000"),
+                so(ITrangThaiDonBanHang.BI_HOAN_TRA, 1, "1890000"),
+                so(ITrangThaiDonBanHang.DA_HUY, 1, "9800000"));
 
-        TongQuanMuaHangKhachDto kq = DonBanHangService.tongHopMuaHang(theoTrangThai, null);
+        TongQuanMuaHangKhachDto kq = DonBanHangService.tongHopMuaHang(theoTrangThai, null, null);
 
         assertEquals(12, kq.getSoDonDat(), "13 đơn trừ 1 nháp");
         assertEquals(10, kq.getSoDonTinhChiTieu(), "đơn đã đặt trừ 1 hủy và 1 hoàn trả");
@@ -98,9 +101,8 @@ class DonBanHangServiceTongQuanKhachTest {
 
     @Test
     void tongHop_trungBinhLamTronDenDong() {
-        Map<Integer, SoLieuTrangThai> theoTrangThai = Map.of(ITrangThaiDonBanHang.HOAN_THANH, so(3, "100000"));
-
-        TongQuanMuaHangKhachDto kq = DonBanHangService.tongHopMuaHang(theoTrangThai, null);
+        TongQuanMuaHangKhachDto kq = DonBanHangService.tongHopMuaHang(
+                List.of(so(ITrangThaiDonBanHang.HOAN_THANH, 3, "100000")), null, null);
 
         assertEquals(0, new BigDecimal("33333").compareTo(kq.getTrungBinhMoiDon()));
         assertEquals(0, kq.getTrungBinhMoiDon().scale());
@@ -108,7 +110,7 @@ class DonBanHangServiceTongQuanKhachTest {
 
     @Test
     void tongHop_khachChuaCoDon_traSoKhongVaTrungBinhNull() {
-        TongQuanMuaHangKhachDto kq = DonBanHangService.tongHopMuaHang(Map.of(), null);
+        TongQuanMuaHangKhachDto kq = DonBanHangService.tongHopMuaHang(List.of(), null, null);
 
         assertEquals(0, kq.getSoDonDat());
         assertEquals(0, kq.getSoDonTinhChiTieu());
@@ -119,7 +121,7 @@ class DonBanHangServiceTongQuanKhachTest {
     @Test
     void tongHop_chiCoDonNhap_chuaTinhLaDaDat() {
         TongQuanMuaHangKhachDto kq = DonBanHangService.tongHopMuaHang(
-                Map.of(ITrangThaiDonBanHang.NHAP, so(2, "5000000")), null);
+                List.of(so(ITrangThaiDonBanHang.NHAP, 2, "5000000")), null, null);
 
         assertEquals(0, kq.getSoDonDat());
         assertEquals(2, kq.getSoDonNhap());
@@ -131,7 +133,7 @@ class DonBanHangServiceTongQuanKhachTest {
     @Test
     void tongHop_chiCoDonHuy_daDatNhungKhongCoChiTieu() {
         TongQuanMuaHangKhachDto kq = DonBanHangService.tongHopMuaHang(
-                Map.of(ITrangThaiDonBanHang.DA_HUY, so(2, "5000000")), null);
+                List.of(so(ITrangThaiDonBanHang.DA_HUY, 2, "5000000")), null, null);
 
         assertEquals(2, kq.getSoDonDat());
         assertEquals(0, kq.getSoDonTinhChiTieu());
@@ -145,16 +147,66 @@ class DonBanHangServiceTongQuanKhachTest {
                 .id(9).soDonHang("SO202610162").ngayDatHang(Instant.parse("2026-10-16T03:15:00Z")).build();
 
         TongQuanMuaHangKhachDto kq = DonBanHangService.tongHopMuaHang(
-                Map.of(ITrangThaiDonBanHang.CHO_NHAT_HANG, so(1, "18400000")), gan);
+                List.of(so(ITrangThaiDonBanHang.CHO_NHAT_HANG, 1, "18400000")), null, gan);
 
         assertSame(gan, kq.getDonGanNhat());
     }
 
     @Test
-    void soLieuTrangThai_cong() {
-        SoLieuTrangThai tong = so(2, "100").cong(so(3, "50.5"));
-        assertEquals(5, tong.soDon());
-        assertEquals(0, new BigDecimal("150.5").compareTo(tong.tongTien()));
+    void tongHop_donSanChoXuLyLuuNhap_vanLaDonDaDatVaTinhChiTieu() {
+        // Shopee chờ giao / TikTok mới về đều lưu trạng thái 0; đơn nháp tạo tay thì không tính
+        TongQuanMuaHangKhachDto kq = DonBanHangService.tongHopMuaHang(List.of(
+                san(ITrangThaiDonBanHang.NHAP, 2, "578000"),
+                so(ITrangThaiDonBanHang.NHAP, 1, "900000"),
+                san(ITrangThaiDonBanHang.HOAN_THANH, 1, "289000")), null, null);
+
+        assertEquals(3, kq.getSoDonDat());
+        assertEquals(3, kq.getSoDonTinhChiTieu());
+        assertEquals(1, kq.getSoDonNhap(), "chỉ đơn nháp tạo tay");
+        assertEquals(3, kq.getSoDonDangXuLy(), "2 đơn sàn chờ xử lý + 1 nháp tạo tay");
+        assertEquals(0, new BigDecimal("867000").compareTo(kq.getTongChiTieu()));
+    }
+
+    @Test
+    void tongHop_donSanChoXuLyBiHuy_khongTinhChiTieu() {
+        TongQuanMuaHangKhachDto kq = DonBanHangService.tongHopMuaHang(List.of(
+                san(ITrangThaiDonBanHang.DA_HUY, 1, "199000")), null, null);
+
+        assertEquals(1, kq.getSoDonDat());
+        assertEquals(1, kq.getSoDonHuy());
+        assertEquals(0, kq.getSoDonNhap());
+        assertEquals(0, BigDecimal.ZERO.compareTo(kq.getTongChiTieu()));
+    }
+
+    @Test
+    void tongHop_truTienTraHang_trungBinhTinhTrenTongDaTru() {
+        TongQuanMuaHangKhachDto kq = DonBanHangService.tongHopMuaHang(
+                List.of(so(ITrangThaiDonBanHang.HOAN_THANH, 3, "1870000")), new BigDecimal("250000"), null);
+
+        assertEquals(0, new BigDecimal("1620000").compareTo(kq.getTongChiTieu()));
+        assertEquals(0, new BigDecimal("250000").compareTo(kq.getTienTraHang()));
+        assertEquals(0, new BigDecimal("540000").compareTo(kq.getTrungBinhMoiDon()));
+        assertEquals(3, kq.getSoDonTinhChiTieu(), "trả một phần không bớt số đơn");
+    }
+
+    @Test
+    void tongHop_tienTraHangVuotTong_khongAm() {
+        TongQuanMuaHangKhachDto kq = DonBanHangService.tongHopMuaHang(
+                List.of(so(ITrangThaiDonBanHang.HOAN_THANH, 1, "100000")), new BigDecimal("150000"), null);
+
+        assertEquals(0, BigDecimal.ZERO.compareTo(kq.getTongChiTieu()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(kq.getTrungBinhMoiDon()));
+    }
+
+    @Test
+    void tongHop_trangThaiNullKhongKenh_laNhap() {
+        TongQuanMuaHangKhachDto kq = DonBanHangService.tongHopMuaHang(List.of(
+                new TinhMuaHangKhach.Dong(null, false, 1, new BigDecimal("50000")),
+                new TinhMuaHangKhach.Dong(null, true, 1, new BigDecimal("70000"))), null, null);
+
+        assertEquals(1, kq.getSoDonNhap());
+        assertEquals(1, kq.getSoDonDat(), "trạng thái trống nhưng có kênh: đơn sàn chờ xử lý");
+        assertEquals(0, new BigDecimal("70000").compareTo(kq.getTongChiTieu()));
     }
 
     // ───────────────────────── Phạm vi theo vai trò ─────────────────────────

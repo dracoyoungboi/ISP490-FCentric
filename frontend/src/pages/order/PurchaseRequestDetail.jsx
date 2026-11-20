@@ -42,8 +42,9 @@ import { toast } from "@/lib/thongBaoNhanh";
 import purchaseRequestService from "@/services/purchaseRequestService";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { khoTrongToken } from "@/utils/khoLamViec";
-import { ROLES, getCurrentUserId, hasAnyRole } from "@/utils/roles";
+import { ROLES, hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
+import { moTrangIn } from "@/lib/moTrangIn";
 
 const TEN_CHUNG_TU = t("yêu cầu nhập hàng");
 const LY_DO_RONG = cauChungTuRong(TEN_CHUNG_TU, { dauCham: false });
@@ -133,7 +134,6 @@ function ChiTietYeuCauNhapHang({ id }) {
     const quyen = quyenDuyetYeuCau({
         laQuanTriVien: hasAnyRole([ROLES.QUAN_TRI_VIEN]),
         laQuanLyKho: hasAnyRole([ROLES.QUAN_LY_KHO]),
-        nguoiDungId: getCurrentUserId(),
         khoNhap: kho,
         // Mọi kho được phân quyền còn hiệu lực trong token (kể cả kho ngừng hoạt động): đúng danh sách backend dùng
         // (authInfo.phanQuyenNguoiDungKhos trong coQuyenDuyetKho)
@@ -286,7 +286,7 @@ function ChiTietYeuCauNhapHang({ id }) {
                         ]}
                         onQuayLai={quayLai}
                         nhanQuayLai={t("Về danh sách yêu cầu nhập hàng")}
-                        nutPhu={{ nhan: t("In yêu cầu"), icon: Printer, onClick: () => navigate(`/purchase-requests/${id}/print`) }}
+                        nutPhu={{ nhan: t("In yêu cầu"), icon: Printer, onClick: () => moTrangIn(`/purchase-requests/${id}/print`, navigate) }}
                         saoChepMa={{ giaTri: yc.soYeuCauMuaHang, nhan: t("Sao chép mã yêu cầu") }}
                         menu={
                             coYeuCauBaoGia && xemYeuCauBaoGia

@@ -483,7 +483,8 @@
   "Không thể lưu ảnh đại diện": "Couldn't save the profile picture",
   "Không thể gỡ ảnh đại diện": "Couldn't remove the profile picture",
   "Ảnh đại diện": "Profile picture",
-  "Hiện ở thanh trên cùng, trên phiếu và lịch sử thao tác.": "Shown in the top bar, on documents and in the activity history.",
+  "Hiện ở thanh trên cùng và trang Hồ sơ.": "Shown in the top bar and on your profile.",
+  "Thanh trên cùng": "Top bar",
   "Vùng cắt ảnh. Kéo hoặc dùng phím mũi tên để chỉnh vị trí, phím + và - để phóng to, thu nhỏ.": "Crop area. Drag or use the arrow keys to adjust the position, + and - keys to zoom in and out.",
   "Thu phóng": "Zoom",
   "Xem trước": "Preview",
@@ -932,5 +933,9 @@
   "Vai trò này không được cấp hoặc không mở màn hình dùng các quyền đó.": "This role can't be granted these permissions or doesn't open any screen that uses them.",
   "{{count}} quyền vai trò này không được cấp_one": "{{count}} permission this role can't be granted",
   "{{count}} quyền vai trò này không được cấp_other": "{{count}} permissions this role can't be granted",
-  "Theo ma trận phân quyền, {{tenVt}} không được cấp: {{dsQuyen}}. Bỏ chọn rồi lưu.": "Under the permission matrix, {{tenVt}} can't be granted: {{dsQuyen}}. Clear them, then save."
+  "Theo ma trận phân quyền, {{tenVt}} không được cấp: {{dsQuyen}}. Bỏ chọn rồi lưu.": "Under the permission matrix, {{tenVt}} can't be granted: {{dsQuyen}}. Clear them, then save.",
+  "Người này": "This person",
+  "{{ten}} đang là người quản lý của {{kho}}. Sau khi lưu, {{kho}} chưa có người quản lý; chọn người mới ở màn Kho.": "{{ten}} is the manager of {{kho}}. After you save, {{kho}} will have no manager; choose a new one on the Warehouses screen.",
+  "{{kho}} đã có người quản lý là {{quanLy}}. {{ten}} sẽ làm việc cùng; đổi người quản lý ở màn Kho.": "{{kho}} already has a manager: {{quanLy}}. {{ten}} will work alongside them; change the manager on the Warehouses screen.",
+  "{{kho}} chưa có người quản lý, {{ten}} sẽ thành người quản lý sau khi lưu.": "{{kho}} has no manager yet, so {{ten}} will become its manager when you save."
 }

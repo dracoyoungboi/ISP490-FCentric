@@ -115,6 +115,88 @@ class KhachHangServiceJpaTest {
     }
 
     @Test
+    void maNhapTayMangTienToSan_biTuChoi() {
+        long truoc = repository.count();
+        for (String ma : new String[] {"KH-SHP-001", "kh-tts-9", "KH-LZD-1", "KH-SP-77"}) {
+            CommonException ex = assertThrows(CommonException.class, () -> them(ma, "Khách thử", null), ma);
+            assertTrue(ex.getMessage().startsWith("Mã khách hàng không được bắt đầu bằng KH-"), ex.getMessage());
+        }
+        assertEquals(truoc, repository.count());
+        // Giống nhưng không trùng tiền tố: vẫn nhận
+        assertDoesNotThrow(() -> them("KH-SPX-01", "Khách sổ cũ", "0905000009"));
+        assertDoesNotThrow(() -> them("KHSHP01", "Khách sổ cũ hai", "0905000008"));
+    }
+
+    @Test
+    void locTheoNguon_theoTienToMa() {
+        for (String[] k : new String[][] {
+                {"KH-SHP-261119A", "****"}, {"KH-TTS-5872", "T***t N**"}, {"KH-LZD-11", "Lan"},
+                {"KH-SP-821", "Quân"}, {"KH000777", "An"}, {"KH0912345678", "Ngọc"}}) {
+            em.persist(KhachHang.builder().maKhachHang(k[0]).tenKhachHang(k[1]).trangThai(1).build());
+        }
+        em.flush();
+        java.util.function.Function<String, java.util.List<String>> loc = nguon -> {
+            com.dev.backend.dto.request.BaseFilterRequest req = new com.dev.backend.dto.request.BaseFilterRequest();
+            req.setFilters(new java.util.ArrayList<>(java.util.List.of(
+                    com.dev.backend.dto.request.FilterCriteria.builder().fieldName("nguon")
+                            .operation(com.dev.backend.constant.enums.FilterOperation.EQUALS).value(nguon).build(),
+                    com.dev.backend.dto.request.FilterCriteria.builder().fieldName("maKhachHang")
+                            .operation(com.dev.backend.constant.enums.FilterOperation.LIKE).value("KH").build())));
+            req.setSorts(java.util.List.of());
+            req.setPage(0);
+            req.setSize(50);
+            return service.filter(req).getContent().stream().map(KhachHang::getMaKhachHang).sorted().toList();
+        };
+
+        assertEquals(java.util.List.of("KH-SHP-261119A"), loc.apply("shopee"));
+        assertEquals(java.util.List.of("KH-TTS-5872"), loc.apply("tiktok"));
+        assertEquals(java.util.List.of("KH-LZD-11"), loc.apply("lazada"));
+        assertEquals(java.util.List.of("KH-SP-821"), loc.apply("shopify"));
+        assertEquals(java.util.List.of("KH000777", "KH0912345678"), loc.apply("cua_hang"));
+        assertEquals(java.util.List.of(), loc.apply("khong-co"), "giá trị lạ: không khách nào");
+    }
+
+    @Test
+    void chiKhachCuaHang_oDanhSach_pos_chonKhach_vaKiemTrung() {
+        // Người mua Shopify có số và email thật; khách Shopee bị che
+        em.persist(KhachHang.builder().maKhachHang("KH-SP-9001").tenKhachHang("Lan Shopify")
+                .soDienThoai("+84 912 345 678").email("lan@shop.vn").trangThai(1).build());
+        em.persist(KhachHang.builder().maKhachHang("KH-SHP-9002").tenKhachHang("****").soDienThoai("****")
+                .trangThai(1).build());
+        em.flush();
+
+        // Số và email chỉ trùng khách sàn: tạo được hồ sơ cửa hàng riêng
+        assertNull(service.timKhachTrung("soDienThoai", "0912345678", null));
+        assertNull(service.timKhachTrung("email", "lan@shop.vn", null));
+        KhachHangDto cuaHang = service.create(KhachHangCreating.builder().maKhachHang("KH950")
+                .tenKhachHang("Nguyễn Thị Lan").soDienThoai("0912345678").email("lan@shop.vn").build());
+        em.flush();
+
+        // Trùng khách cửa hàng thì vẫn chặn
+        assertEquals("KH950", service.timKhachTrung("soDienThoai", "0912 345 678", null).getMaKhachHang());
+        assertEquals("KH950", service.timKhachTrung("email", "lan@shop.vn", null).getMaKhachHang());
+        assertNull(service.timKhachTrung("email", "lan@shop.vn", cuaHang.getId()), "bỏ qua chính khách đang sửa");
+        CommonException trungEmail = assertThrows(CommonException.class, () -> service.create(KhachHangCreating.builder()
+                .maKhachHang("KH951").tenKhachHang("Lan Hai").email("lan@shop.vn").build()));
+        assertEquals(HttpStatus.CONFLICT, trungEmail.getHttpStatus());
+
+        // Danh sách trang Khách hàng, ô tìm POS, danh sách chọn khách: không có khách sàn
+        java.util.List<String> danhSach = service.filterKhachCuaHang(
+                com.dev.backend.dto.request.BaseFilterRequest.builder().size(100).build())
+                .getContent().stream().map(KhachHang::getMaKhachHang).toList();
+        assertTrue(danhSach.contains("KH950"));
+        assertFalse(danhSach.contains("KH-SP-9001"));
+        assertFalse(danhSach.contains("KH-SHP-9002"));
+        assertEquals(java.util.List.of("KH950"), service.searchActiveForPos("lan", 0, 20).getContent().stream()
+                .map(KhachHangDto::getMaKhachHang).toList());
+        assertTrue(service.searchActiveForPos(null, 0, 100).getContent().stream()
+                .noneMatch(k -> k.getMaKhachHang().startsWith("KH-S")));
+        java.util.List<String> chon = service.getAllActiveForSales().stream().map(KhachHangDto::getMaKhachHang).toList();
+        assertTrue(chon.contains("KH950"));
+        assertTrue(chon.stream().noneMatch(ma -> ma.startsWith("KH-S")));
+    }
+
+    @Test
     void maNhapTayTrung_bao409_khongGhiThem() {
         them("KH900", "Khách A", "0902000001");
         long truoc = repository.count();

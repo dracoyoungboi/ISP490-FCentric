@@ -16,15 +16,10 @@ const TT = TRANG_THAI_DON;
 /** Phiếu nhặt còn khóa đơn (khớp PHIEU_NHAT_DANG_HOAT_DONG của DonBanHangService). */
 export const PHIEU_NHAT_KHOA_DON = Object.freeze(["cho_nhat", "dang_nhat", "da_nhat"]);
 
-/**
- * Phương thức thu tiền (thanhToanTaiQuay.phuongThuc, phiếu thu đơn bán thường) → tên hiển thị. CASH là mã tiền mặt tại
- * quầy; TIEN_MAT / CHUYEN_KHOAN: phiếu thu / hoàn ghi tay của đơn bán thường (chuyển khoản kèm mã giao dịch trên sao kê).
- */
-export const PHUONG_THUC_TAI_QUAY = Object.freeze({
+/** Phương thức thu tiền tại quầy (thanhToanTaiQuay.phuongThuc) → tên hiển thị. */
+const PHUONG_THUC_TAI_QUAY = Object.freeze({
   CASH: t("Tiền mặt"),
-  TIEN_MAT: t("Tiền mặt"),
   PAYOS: t("Chuyển khoản qua PayOS"),
-  CHUYEN_KHOAN: t("Chuyển khoản"),
 });
 
 /** Mã lý do Shopify hủy đơn (cancel_reason) → tiếng Việt. */
@@ -190,7 +185,7 @@ export function phieuDaXuatCuoi(ct) {
 /**
  * Tiền của đơn: hiện NGUYÊN 3 số máy chủ trả (không tự cộng). `lechTong` khi tiền hàng + phí ≠ tổng cộng: đơn sàn (tổng
  * theo sàn gồm thuế, phí), hoặc đơn cũ mà xác nhận xuất kho từng ghi đè phí bằng cước thực tế (trước 25/10/2026; nay cước
- * lưu trên phiếu xuất, migration-2026-10-25 khôi phục phí đơn bán buôn).
+ * lưu trên phiếu xuất, migration-2026-10-25 khôi phục phí của các đơn tạo tay trước đây).
  * Đơn sàn: tiền hàng = current_subtotal_price của Shopify, có thể khác tổng các dòng
  * (giảm giá, dòng chưa liên kết SKU bị bỏ qua) → `lechDong`, `chenhDong` (số dương).
  */
@@ -447,14 +442,11 @@ export function hauQuaHuy(ct) {
  * - Đơn tại quầy: "Đã thanh toán", phương thức (`phuongThuc` đã dịch) và giờ thu (`ngayThu`), `laTienMat` → có Khách đưa /
  *   Tiền thừa. Trả kết hợp (QR payOS kèm tiền mặt khách trả trước): `ketHop` = { tienMat, qr }.
  * - Đơn sàn: trạng thái chụp lúc đồng bộ (`maTrangThai` da_thanh_toan / chua_thanh_toan).
- * - Đơn thường (máy chủ báo `thanhToan.donThuong`): trạng thái theo phiếu ghi nhận thu (đặt cọc, thu nhiều lần),
- *   `laDonThuong` → khối phải thu / đã thu / còn lại và nút Ghi nhận thanh toán. Đơn cũ chưa theo dõi: trạng thái trống.
- * - Máy chủ cũ không trả `thanhToan`: câu trung tính, không có thẻ.
+ * - Đơn bán thường (chỉ còn đơn cũ): trạng thái lưu trên đơn; trống là chưa theo dõi, kèm câu trung tính.
  */
 export function thanhToanDonBan(ct) {
   const don = ct?.donBanHang;
   const ttq = ct?.thanhToanTaiQuay;
-  const tt = ct?.thanhToan;
   if (ttq) {
     const ma = String(ttq.phuongThuc ?? "").trim().toUpperCase();
     const tienMat = Number(ttq.tienMatTruoc) > 0 ? Number(ttq.tienMatTruoc) : 0;
@@ -474,15 +466,6 @@ export function thanhToanDonBan(ct) {
       chu: t("Theo {{tenKenh}} lúc đồng bộ đơn.", { tenKenh: tenKenhCua(don) }),
     };
   }
-  if (tt?.donThuong) {
-    const coThu = (tt.phieu ?? []).some((p) => p.trangThai === "HIEU_LUC");
-    return {
-      maTrangThai: tt.trangThai || null,
-      laDonThuong: true,
-      thuThua: Number(tt.thuThua) > 0 ? Number(tt.thuThua) : 0,
-      chu: !tt.trangThai ? t("Đơn tạo trước khi có ghi nhận thanh toán: chưa theo dõi.")
-        : coThu ? t("Theo phiếu thu bên dưới.") : t("Chưa ghi nhận khoản thu nào."),
-    };
-  }
-  return { maTrangThai: null, chu: t("Hệ thống chưa theo dõi thanh toán của đơn bán thường.") };
+  const maTrangThai = don?.trangThaiThanhToan || null;
+  return { maTrangThai, chu: maTrangThai ? null : t("Hệ thống không theo dõi thanh toán của đơn này.") };
 }

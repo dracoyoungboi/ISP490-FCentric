@@ -9,6 +9,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import useQuayLai from "@/hooks/useQuayLai";
+import useNutVeTrangIn from "@/hooks/useNutVeTrangIn";
 import { toast } from "@/lib/thongBaoNhanh";
 import { companyProfileService } from "@/services/companyProfileService";
 import { layDong, layDot, layPhieuDieuChinh } from "@/services/stockTakeService";
@@ -99,9 +100,11 @@ export default function InKiemKe({ loai = "bien-ban" }) {
   }, [id, mau, tai]);
 
   const ve = useQuayLai(`/stock-take/${id}`);
+  // Trang in ở thẻ riêng: nút về trong khối lỗi cũng là Đóng thẻ, như nút trên thanh
+  const nutVeIn = useNutVeTrangIn(ve);
   const nutVe = (
-    <Button onClick={ve} className="bg-bo-primary text-white hover:bg-bo-primary-hover">
-      {t("Quay lại")}
+    <Button onClick={nutVeIn.ve} className="bg-bo-primary text-white hover:bg-bo-primary-hover">
+      {nutVeIn.nhan}
     </Button>
   );
 

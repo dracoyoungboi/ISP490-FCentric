@@ -37,6 +37,7 @@ import {
   cauChanLuot,
   cauChuaKiemKhoaChuaRo,
   cauKeKhongDuoc,
+  chiaKe,
   chonLyDo,
   chuanHoaPhien,
   coKeHoatDong,
@@ -63,6 +64,7 @@ import {
   tenDayDu,
   thanhDat,
   thanhKhongDat,
+  themKeVaoLo,
   themLuot,
   THE_LENH,
   tinh,
@@ -151,7 +153,7 @@ function KiemDemLoNoiDung() {
       ghiLoDangKiem(
         phieuNhapKhoId,
         btId,
-        moi && (moi.log.length || moi.keId || moi.maLo || moi.nsx)
+        moi && (moi.log.length || moi.dsKe?.length || moi.maLo || moi.nsx)
           ? { ...moi, cheDo: ctxRef.current.phieu?.cheDoXacNhanChatLuong ?? null }
           : null,
       );
@@ -403,9 +405,19 @@ function KiemDemLoNoiDung() {
     const ph = phienRef.current;
     const tt = tinhHienTai();
     const dieuKien = dieuKienHienTai();
-    const keGui = tt.datLo > 0 && dieuKien.ke ? dieuKien.ke : null;
-    // `dem`: lượt có id nhỏ hơn là lượt nằm trong lần khóa này (đối chiếu khi lần này mất phản hồi)
-    const lanNay = { maLo: dieuKien.maLo, dat: tt.datLo, loi: tt.loiLo, keId: keGui?.id ?? null, nsx: ph.nsx, dem: ph.dem };
+    // Kệ nhận hàng đạt (kệ đầu là kệ chính). Lô chỉ có hàng không đạt không gửi kệ.
+    const keGui = tt.datLo > 0 ? dieuKien.phanGui : [];
+    // `dem`: lượt có id nhỏ hơn là lượt nằm trong lần khóa này (đối chiếu khi lần này mất phản hồi). `phanKe` chỉ có khi
+    // lô xếp từ hai kệ (máy chủ chỉ trả các phần kệ cho lô đó)
+    const lanNay = {
+      maLo: dieuKien.maLo,
+      dat: tt.datLo,
+      loi: tt.loiLo,
+      keId: keGui[0]?.ke.id ?? null,
+      phanKe: keGui.length > 1 ? keGui.map((x) => ({ id: x.ke.id, sl: x.sl })) : null,
+      nsx: ph.nsx,
+      dem: ph.dem,
+    };
     const nhomLoi = nhomLoiTheoLyDo(ph.log);
     // Lô đã khóa trước lần này (để nhận ra lô bị xóa ở máy khác khi tải lại). Bỏ lô tạm vừa khóa mà chưa tải lại
     // được (chưa có id dòng): lô đó không có id thật để so, không phải lô bị xóa.
@@ -428,6 +440,7 @@ function KiemDemLoNoiDung() {
           soLuongLoi: lan.loi,
           maViTri: keTheoId(lan.keId)?.maViTri ?? null,
           viTriKhoId: lan.keId,
+          phanKe: (lan.phanKe ?? []).map((k) => ({ viTriKhoId: k.id, maViTri: keTheoId(k.id)?.maViTri ?? null, soLuong: k.sl })),
           ngaySanXuat: lan.nsx,
           chiTietLoi: nhomLoi,
         };
@@ -435,10 +448,14 @@ function KiemDemLoNoiDung() {
         ctxRef.current = { ...ctxRef.current, lots: ds };
         setLots(ds);
       }
-      // Bộ đếm về 0; giữ ngày sản xuất, giữ kệ nếu còn chỗ cho thùng sau
-      const conSau = dieuKien.ke ? conTrongKe(dieuKien.ke) : null;
-      const giuKe = dieuKien.ke && (conSau === null || conSau - tt.datLo > 0);
-      setPhien({ ...phienMoi(ph.nsx), dem: ph.dem, keId: giuKe ? dieuKien.ke.id : null });
+      // Bộ đếm về 0; giữ ngày sản xuất, giữ các kệ còn chỗ cho thùng sau (máy tự chia lại)
+      const giuKe = dieuKien.phan
+        .filter((x) => {
+          const con = conTrongKe(x.ke);
+          return con === null || con - (tt.datLo > 0 ? x.sl : 0) > 0;
+        })
+        .map((x) => ({ id: x.ke.id, sl: null }));
+      setPhien({ ...phienMoi(ph.nsx), dem: ph.dem, dsKe: giuKe });
       setHopKhoaLo(false);
       setLoiQuetKhoa("");
     };
@@ -448,10 +465,14 @@ function KiemDemLoNoiDung() {
       const conId = new Set((dsMoi ?? []).map((l) => l.chiTietPhieuNhapKhoId ?? l.loHangId));
       const biXoa = dsMoi ? loTruoc.filter((l) => !conId.has(l.id)).map((l) => l.maLo) : [];
       const ke = lan.dat > 0 ? keTheoId(lan.keId) : null;
+      // Lô nhiều kệ: "B-03-01 (150), B-03-02 (1)"
+      const tenKe = lan.phanKe?.length
+        ? lan.phanKe.map((k) => `${keTheoId(k.id)?.maViTri ?? "?"} (${formatNumber(k.sl)})`).join(", ")
+        : ke?.maViTri;
       setThongBao({
         tone: biXoa.length ? "warn" : "ok",
         chu:
-          t("Đã khóa lô {{maLo}}: {{dat}} đạt{{phanKe}}", { maLo: lan.maLo, dat: formatNumber(lan.dat), phanKe: ke ? t(" tại kệ {{maViTri}}", { maViTri: ke.maViTri }) : "" }) +
+          t("Đã khóa lô {{maLo}}: {{dat}} đạt{{phanKe}}", { maLo: lan.maLo, dat: formatNumber(lan.dat), phanKe: ke ? t(" tại kệ {{maViTri}}", { maViTri: tenKe }) : "" }) +
           `${lan.loi ? t(", {{loi}} không đạt để ở khu chờ trả NCC", { loi: formatNumber(lan.loi) }) : ""}.` +
           ghiChuThem +
           (biXoa.length ? t(" Lô {{dsLo}} vừa bị xóa ở máy khác, còn thiếu {{conLai}}.", { dsLo: biXoa.join(", "), conLai: formatNumber(ttSau.conLai) }) : "") +
@@ -509,7 +530,8 @@ function KiemDemLoNoiDung() {
         soLuongLoi: lanNay.loi,
         chiTietLoi: nhomLoi,
         taoMoi: true,
-        ...(keGui ? { viTriKhoId: keGui.id } : {}),
+        ...(keGui.length ? { viTriKhoId: keGui[0].ke.id } : {}),
+        ...(keGui.length > 1 ? { phanKe: keGui.map((x) => ({ viTriKhoId: x.ke.id, soLuong: x.sl })) } : {}),
       });
       chotLo();
       const [dsMoi] = await Promise.all([taiLai({ silent: true }), taiKe()]);
@@ -570,6 +592,27 @@ function KiemDemLoNoiDung() {
   };
 
   // ── Quét kệ ──
+  // Thêm kệ vào bảng kệ của lô (còn hàng đạt chưa có kệ), hoặc đổi sang kệ đó (đã đủ kệ). Trả câu báo bước tiếp theo.
+  const chonKe = (ke) => {
+    const c = ctxRef.current;
+    const tt = tinhHienTai();
+    const { phien: moi, loai } = themKeVaoLo(phienRef.current, ke.id, { datLo: tt.datLo, viTris: c.viTris ?? [] });
+    if (loai !== "da-co") setPhien(moi);
+    const { phan, chuaXep } = chiaKe(moi.dsKe, tt.datLo, c.viTris ?? []);
+    const sl = phan.find((x) => x.ke.id === ke.id)?.sl ?? 0;
+    const chu =
+      loai === "da-co"
+        ? t("Kệ {{maViTri}} đã có trong bảng kệ của lô đang kiểm.", { maViTri: ke.maViTri })
+        : chuaXep > 0
+          ? t("Kệ {{maViTri}} nhận {{sl}}. Còn {{soCon}} đạt chưa có kệ, quét thêm kệ.", { maViTri: ke.maViTri, sl: formatNumber(sl), soCon: formatNumber(chuaXep) })
+          : loai === "doi"
+            ? t("Đã đổi sang kệ {{maViTri}}. Quét thẻ KHÓA LÔ để khóa.", { maViTri: ke.maViTri })
+            : phan.length > 1
+              ? t("Kệ {{maViTri}} nhận {{sl}}. Đã xếp đủ hàng đạt vào {{soKe}} kệ, quét thẻ KHÓA LÔ để khóa.", { maViTri: ke.maViTri, sl: formatNumber(sl), soKe: phan.length })
+              : t("Đã chọn kệ cho hàng đạt. Quét thẻ KHÓA LÔ để khóa.");
+    return { loai, chuaXep, chu };
+  };
+
   const quetKe = (ke) => {
     const kt = keDungDuoc(ke, 0);
     if (!kt.duoc) {
@@ -577,15 +620,10 @@ function KiemDemLoNoiDung() {
       return;
     }
     const tt = tinhHienTai();
-    const con = conTrongKe(ke);
-    setPhien({ ...phienRef.current, keId: ke.id });
+    const kq = chonKe(ke);
     // Mã kệ, khu, chỗ trống đã hiện ở "Kệ cho hàng đạt": câu báo chỉ nói bước tiếp theo
-    if (con !== null && tt.datLo > con) {
-      setThongBao({ tone: "warn", chu: t("Đã chọn kệ nhưng kệ không đủ chỗ cho hàng đạt của lô này. Quét kệ khác.") });
-    } else {
-      setThongBao({ tone: "info", chu: t("Đã chọn kệ cho hàng đạt. Quét thẻ KHÓA LÔ để khóa.") });
-    }
-    bipKiemDem("ok");
+    setThongBao({ tone: kq.chuaXep > 0 ? "warn" : "info", chu: kq.chu });
+    bipKiemDem(kq.loai === "da-co" ? "sai" : "ok");
     if (tt.trongLo > 0) moHopKhoaLo();
     else focusQuet();
   };
@@ -619,9 +657,12 @@ function KiemDemLoNoiDung() {
       bipKiemDem("sai");
       return;
     }
-    setPhien({ ...phienRef.current, keId: ke.id });
-    setLoiQuetKhoa("");
-    bipKiemDem("ok");
+    // Bảng kệ trong hộp đã cho thấy kệ nhận bao nhiêu, còn bao nhiêu chưa có kệ: chỉ báo khi kệ đã có trong bảng.
+    // Dòng báo ở màn chính cũng theo lần quét này (không còn câu của lần quét kệ trước).
+    const kq = chonKe(ke);
+    setThongBao({ tone: kq.chuaXep > 0 ? "warn" : "info", chu: kq.chu });
+    setLoiQuetKhoa(kq.loai === "da-co" ? kq.chu : "");
+    bipKiemDem(kq.loai === "da-co" ? "sai" : "ok");
   };
 
   // ── Thẻ lệnh ──
@@ -1014,7 +1055,10 @@ function KiemDemLoNoiDung() {
   const keChon = dk.ke;
   const conKe = keChon ? conTrongKe(keChon) : null;
   const tenKhuChon = keChon ? khuVucs.find((k) => k.id === keChon.khuVucId)?.tenKhuVuc : null;
-  const keTxt = keChon
+  // Lô xếp nhiều kệ: "B-03-01 · 150, B-03-02 · 1" (chưa có hàng đạt thì chỉ mã kệ); một kệ: mã kệ · khu · chỗ trống
+  const keTxt = dk.phan.length > 1
+    ? dk.phan.map((x) => (tg.datLo > 0 ? `${x.ke.maViTri} · ${formatNumber(x.sl)}` : x.ke.maViTri)).join(", ")
+    : keChon
     ? [keChon.maViTri, tenKhuChon, conKe !== null ? t("còn trống {{conKe}}", { conKe: formatNumber(conKe) }) : null].filter(Boolean).join(" · ")
     : tg.datLo > 0
       ? keTai === "dang"
@@ -1285,7 +1329,16 @@ function KiemDemLoNoiDung() {
                 {lots.map((l) => (
                   <tr key={l.chiTietPhieuNhapKhoId ?? l.loHangId}>
                     <td className="h-14 max-w-[280px] px-5 font-mono font-semibold text-bo-foreground"><span className="block truncate" title={l.maLo}>{l.maLo}</span></td>
-                    <td className="whitespace-nowrap px-5 font-mono text-[13px]">{l.maViTri || "—"}</td>
+                    <td className="whitespace-nowrap px-5 py-2 font-mono text-[13px]">
+                      {/* Lô xếp nhiều kệ: mỗi kệ một dòng kèm số đạt */}
+                      {l.phanKe?.length
+                        ? l.phanKe.map((k) => (
+                            <span key={k.viTriKhoId} className="block">
+                              {k.maViTri} <span className="text-bo-muted">({formatNumber(k.soLuong)})</span>
+                            </span>
+                          ))
+                        : l.maViTri || "—"}
+                    </td>
                     <td className="px-5 tabular-nums">{formatDate(l.ngaySanXuat)}</td>
                     <td className="px-5 text-right tabular-nums">{formatNumber(l.soLuongNhap)}</td>
                     <td className="px-5 py-2 text-right">
@@ -1381,7 +1434,7 @@ function KiemDemLoNoiDung() {
         khuVucs={khuVucs}
         coKe={coKe}
         keDangTai={keTai === "dang"}
-        keId={p.keId}
+        dsKe={p.dsKe}
         nsx={p.nsx}
         maLo={p.maLo ?? maLoGoiY}
         homNay={homNay}
@@ -1390,8 +1443,17 @@ function KiemDemLoNoiDung() {
         loiQuet={loiQuetKhoa}
         nhacThieu={nhacThieu}
         onQuet={(ma) => enqueue({ raw: ma })}
-        onChonKe={(id) => {
-          setPhien({ ...phienRef.current, keId: id });
+        onThemKe={(id) => {
+          // Chọn tay kệ chưa dán mã: như quét mã kệ (thêm kệ khi còn hàng đạt chưa có kệ, đổi kệ khi đã đủ)
+          const ke = (ctxRef.current.viTris ?? []).find((v) => v.id === id);
+          if (!ke) return;
+          const kq = chonKe(ke);
+          setThongBao({ tone: kq.chuaXep > 0 ? "warn" : "info", chu: kq.chu });
+          setLoiQuetKhoa(kq.loai === "da-co" ? kq.chu : "");
+          setNhacThieu(false);
+        }}
+        onDoiDsKe={(ds) => {
+          setPhien({ ...phienRef.current, dsKe: ds });
           setLoiQuetKhoa("");
           setNhacThieu(false);
         }}

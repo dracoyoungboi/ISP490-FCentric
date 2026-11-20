@@ -519,59 +519,48 @@ public class DoanhThuReportService {
     }
 
     /**
-     * Tiền thu trong kỳ: theo ngày thu tiền, tách tiền mặt / chuyển khoản (QR payOS + ghi tay) / hoàn, kèm sàn thu hộ và
-     * còn phải thu tới hiện tại. Quản trị viên xem mọi cửa hàng; quản lý kho chỉ các cửa hàng mình phụ trách (chọn kho
-     * khác thì 403, "Tất cả kho" thì gom các cửa hàng của mình).
+     * Tiền thu tại quầy trong kỳ: theo ngày thu tiền, tách tiền mặt / chuyển khoản (QR payOS) / hoàn trả hàng, kèm sàn thu
+     * hộ. Quản trị viên xem mọi cửa hàng; quản lý kho chỉ các cửa hàng mình phụ trách (chọn kho khác thì 403, "Tất cả kho"
+     * thì gom các cửa hàng của mình).
      */
     public TienThuDTO layTienThu(String loai, LocalDate tuNgay, LocalDate denNgay, Integer nam, Integer thang,
                                  Integer tuNam, Integer denNam, Integer khoId) {
         KhoangKy ky = khoangKy(loai, tuNgay, denNgay, nam, thang, tuNam, denNam);
         PhamVi pv = phamVi(khoId);
-        boolean quanTri = pv.quanTri();
         boolean tatCaKho = pv.tatCaKho();
         List<Integer> khoIds = pv.khoIds();
 
         Map<String, TienThuDTO.Ky> theoNhan = new LinkedHashMap<>();
-        BigDecimal tmQuay = BigDecimal.ZERO, tmDon = BigDecimal.ZERO, qr = BigDecimal.ZERO, ckTay = BigDecimal.ZERO, hoan = BigDecimal.ZERO;
+        BigDecimal tienMat = BigDecimal.ZERO, chuyenKhoan = BigDecimal.ZERO, hoan = BigDecimal.ZERO;
         long soHoan = 0;
         for (Object[] r : repo.tienThuTheoNgay(ky.tu(), ky.den(), tatCaKho, khoIds)) {
             LocalDate ngay = LocalDate.parse(String.valueOf(r[0]));
             int tuan = r[1] == null ? ngay.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR) : ((Number) r[1]).intValue();
-            boolean taiQuay = "POS".equals(String.valueOf(r[2]));
-            BigDecimal tm = so(r[3]), q = so(r[4]), ck = so(r[5]), h = so(r[6]);
-            if (taiQuay) tmQuay = tmQuay.add(tm); else tmDon = tmDon.add(tm);
-            qr = qr.add(q);
-            ckTay = ckTay.add(ck);
+            BigDecimal tm = so(r[2]), qr = so(r[3]), h = so(r[4]);
+            tienMat = tienMat.add(tm);
+            chuyenKhoan = chuyenKhoan.add(qr);
             hoan = hoan.add(h);
-            soHoan += dem(r[7]);
+            soHoan += dem(r[5]);
             NhanKy nhan = nhanKy(ky.loai(), ngay, tuan);
             TienThuDTO.Ky k = theoNhan.computeIfAbsent(nhan.nhan(), n -> TienThuDTO.Ky.builder()
                     .nhanThoiGian(n).sortKey(nhan.sortKey())
                     .tienMat(BigDecimal.ZERO).chuyenKhoan(BigDecimal.ZERO).hoan(BigDecimal.ZERO).build());
             k.setTienMat(k.getTienMat().add(tm));
-            k.setChuyenKhoan(k.getChuyenKhoan().add(q).add(ck));
+            k.setChuyenKhoan(k.getChuyenKhoan().add(qr));
             k.setHoan(k.getHoan().add(h));
         }
         List<TienThuDTO.Ky> dsKy = new ArrayList<>(theoNhan.values());
         dsKy.sort(Comparator.comparing(TienThuDTO.Ky::getSortKey, Comparator.nullsLast(Comparator.naturalOrder())));
 
         Object[] san = dongDau(repo.sanThuHo(ky.tu(), ky.den(), tatCaKho, khoIds));
-        Object[] no = dongDau(repo.conPhaiThu(tatCaKho, khoIds));
         return TienThuDTO.builder()
-                .tienMat(tmQuay.add(tmDon))
-                .tienMatTaiQuay(tmQuay)
-                .tienMatDonThuong(tmDon)
-                .chuyenKhoan(qr.add(ckTay))
-                .qrPayos(qr)
-                .chuyenKhoanGhiTay(ckTay)
+                .tienMat(tienMat)
+                .chuyenKhoan(chuyenKhoan)
                 .hoan(hoan)
                 .soPhieuHoan(soHoan)
                 .soDonSan(dem(san[0]))
                 .sanThuHo(so(san[1]))
-                .soDonConPhaiThu(dem(no[0]))
-                .conPhaiThu(so(no[1]))
-                .chuaDoiChieu(quanTri ? repo.chuaDoiChieu(tatCaKho, khoIds) : null)
-                .theoKhoPhuTrach(!quanTri && khoId == null)
+                .theoKhoPhuTrach(!pv.quanTri() && khoId == null)
                 .theoKy(dsKy)
                 .build();
     }

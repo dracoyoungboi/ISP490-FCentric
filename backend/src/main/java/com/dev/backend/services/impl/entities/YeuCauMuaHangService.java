@@ -335,14 +335,13 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
     }
 
     /**
-     * Quản trị viên: mọi kho. Quản lý kho: chỉ kho mình quản lý — là quản lý
-     * ghi trên kho, hoặc được phân quyền (còn hiệu lực) tại kho đó.
+     * Quản trị viên: mọi kho. Quản lý kho: kho mình được phân quyền (còn hiệu lực) — mọi quản lý kho của kho đều duyệt
+     * được, không riêng người quản lý chính (Kho.quanLy chỉ để hiển thị, và người đó luôn có phân quyền tại kho).
      */
     static boolean coQuyenDuyetKho(NguoiDungAuthInfo authInfo, Kho kho) {
         Set<String> vaiTro = authInfo.getVaiTro() == null ? Set.of() : authInfo.getVaiTro();
         if (vaiTro.contains(IRoleType.quan_tri_vien)) return true;
         if (!vaiTro.contains(IRoleType.quan_ly_kho) || kho == null) return false;
-        if (kho.getQuanLy() != null && Objects.equals(kho.getQuanLy().getId(), authInfo.getId())) return true;
         List<PhanQuyenNguoiDungKhoDto> phanQuyen = authInfo.getPhanQuyenNguoiDungKhos();
         return phanQuyen != null && phanQuyen.stream().anyMatch(pq ->
                 pq.getKho() != null

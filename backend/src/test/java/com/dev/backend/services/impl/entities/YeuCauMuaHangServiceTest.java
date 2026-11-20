@@ -412,14 +412,16 @@ class YeuCauMuaHangServiceTest {
     }
 
     @Test
-    void quanLyKho_laQuanLyGhiTrenKho_duocDuyet() {
+    void quanLyKho_chiDungTenTrenKho_khongCoPhanQuyen_biTuChoiQuyen() {
+        // Kho.quanLy chỉ để hiển thị (người quản lý chính luôn có phân quyền tại kho); dữ liệu cũ ghi tên một người ở kho
+        // họ không làm việc thì không cho người đó duyệt
         SecurityContextHolder.setUser(nguoiDung(7, "quan_ly_kho"));
         Kho kho = Kho.builder().id(2).tenKho("Cửa hàng 1").quanLy(NguoiDung.builder().id(7).build()).build();
-        YeuCauMuaHang yc = yeuCauChoDuyet(kho);
-        choPhepLuu();
+        yeuCauChoDuyet(kho);
 
-        service.duyetTuChoi(12, YeuCauMuaHangService.TRANG_THAI_DA_DUYET, null);
-        assertEquals(YeuCauMuaHangService.TRANG_THAI_DA_DUYET, yc.getTrangThai());
+        assertThrows(AccessDeniedException.class,
+                () -> service.duyetTuChoi(12, YeuCauMuaHangService.TRANG_THAI_DA_DUYET, null));
+        verify(repository, never()).save(any());
     }
 
     @Test

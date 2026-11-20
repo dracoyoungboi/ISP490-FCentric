@@ -30,6 +30,7 @@ import { LOAI_PHIEU_NHAP, cauChoNhap, demLo, dongPhieuNhap, moTaXacNhan, quyTacP
 import { t } from "@/i18n";
 import { VAI_TRO_KHO } from "@/constants/vaiTroTheoNghiepVu";
 import { hasAnyRole } from "@/utils/roles";
+import { moTrangIn } from "@/lib/moTrangIn";
 
 const B = ({ children }) => <b className="font-semibold text-bo-foreground">{children}</b>;
 
@@ -175,7 +176,7 @@ export default function ChiTietNhapChuyenKho({ data, onReload }) {
             ]}
             onQuayLai={quayLai}
             nhanQuayLai={t("Về danh sách phiếu nhập kho")}
-            nutPhu={quyTac.inDuoc ? { ma: "in", nhan: t("In phiếu"), icon: Printer, onClick: () => navigate(`/goods-receipts/${id}/print`) } : null}
+            nutPhu={quyTac.inDuoc ? { ma: "in", nhan: t("In phiếu"), icon: Printer, onClick: () => moTrangIn(`/goods-receipts/${id}/print`, navigate) } : null}
             saoChepMa={{ giaTri: data.soPhieuNhap, nhan: t("Sao chép mã phiếu") }}
             nutChinh={khoaKhiChoGoc(nutChinh, choGoc)}
           />

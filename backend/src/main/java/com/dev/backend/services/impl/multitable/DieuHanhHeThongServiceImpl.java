@@ -31,6 +31,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.dev.backend.utils.MaVachSku;
+import com.dev.backend.utils.NguonKhachHang;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -149,8 +150,12 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
             firstTimeInWorkSpace = false;
         }
 
-        // Cập nhật các thông tin cơ bản về vai trò trong kho
-        phanQuyenNguoiDungKho.setLaQuanLyKho(pqndkCreating.getLaQuanLyKho());
+        // Dấu "người quản lý chính" (la_quan_ly_kho, xem Kho.quanLy) không nhận từ luồng cũ này: chỉ đổi ở màn Kho
+        // (KhoService) và luồng lưu phân quyền. Dòng phân lại sau khi đã thu hồi thì bỏ dấu cũ.
+        if (firstTimeInWorkSpace || !Integer.valueOf(1).equals(phanQuyenNguoiDungKho.getTrangThai())
+                || phanQuyenNguoiDungKho.getLaQuanLyKho() == null) {
+            phanQuyenNguoiDungKho.setLaQuanLyKho(0);
+        }
         // 0: không hoạt động 1: hoạt động
         phanQuyenNguoiDungKho.setTrangThai(1);
         phanQuyenNguoiDungKho.setNgayBatDau(pqndkCreating.getNgayBatDau());
@@ -571,6 +576,12 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         } else if (CAU_HINH_MA_KHACH_HANG_TIEN_TO.equals(maCauHinh)) {
             if (giaTri == null || !TIEN_TO_MA_PATTERN.matcher(giaTri).matches()) {
                 throw new CommonException(ThongDiep.of("khoVanHanh.tienToMaKhachKhongHopLe"));
+            }
+            // Mã tự tạo = tiền tố + số: tiền tố bắt đầu bằng tiền tố khách sàn (KH-SP-…) làm khách cửa hàng bị nhận là
+            // khách sàn ở danh sách khách hàng
+            String tienToSan = NguonKhachHang.tienToSan(giaTri);
+            if (tienToSan != null) {
+                throw new CommonException(ThongDiep.of("khoVanHanh.tienToMaKhachTrungSan", tienToSan));
             }
         } else if (CAU_HINH_MA_LO_TIEN_TO.equals(maCauHinh)) {
             if (giaTri == null || !TIEN_TO_MA_PATTERN.matcher(giaTri).matches()) {

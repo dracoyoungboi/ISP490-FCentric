@@ -8,6 +8,7 @@ import {
   cuoiNgay,
   danhGiaQuyen,
   dienGiaiLichSu,
+  ghiChuNguoiQuanLy,
   giaTriHieuLuc,
   goiYHoSo,
   hieuLucCuaToi,
@@ -680,4 +681,37 @@ test("cột Tài khoản chỉ có dòng Tên đăng nhập khi họ tên khác 
   assert.equal(hienTenDangNhapRieng({ tenDangNhap: "nvan", hoTen: "  " }), false);
   assert.equal(hienTenDangNhapRieng({ tenDangNhap: "nvan", hoTen: "nvan" }), false, "trùng tên đăng nhập");
   assert.equal(hienTenDangNhapRieng({ tenDangNhap: "", hoTen: "An" }), false);
+});
+
+test("ghi chú người quản lý trong ngăn kéo: khớp luật máy chủ (tự đặt khi kho trống, không tự đẩy người khác lên)", () => {
+  const an = { id: 5, hoTen: "An" };
+  const khoTrong = { id: 1, maKho: "KHO01", tenKho: "Cửa hàng Hà Nội", quanLy: null };
+  const khoCoBinh = { id: 2, maKho: "KHO02", tenKho: "Cửa hàng HCM", quanLy: { id: 9, hoTen: "Bình" } };
+  const khoAnQuanLy = { id: 3, maKho: "KHO03", tenKho: "Cửa hàng Nghệ An", quanLy: { id: 5, hoTen: "An" } };
+  const khoAo = { id: 4, maKho: "KHO_TRANSIT", tenKho: "Kho Trung Chuyển", quanLy: null };
+  const dsKho = [khoTrong, khoCoBinh, khoAnQuanLy, khoAo];
+  const QLK = "quan_ly_kho";
+  const goi = (goc, nhap) => ghiChuNguoiQuanLy({ goc, nhap, dsKho, nguoiDung: an });
+
+  // Quản lý kho vào kho chưa có người quản lý: thành người quản lý
+  assert.deepEqual(goi({ vaiTro: QLK, khoId: null }, { vaiTro: QLK, khoId: 1 }),
+    ["Cửa hàng Hà Nội chưa có người quản lý, An sẽ thành người quản lý sau khi lưu."]);
+  // Kho đã có người khác: làm việc cùng
+  assert.deepEqual(goi({ vaiTro: QLK, khoId: null }, { vaiTro: QLK, khoId: 2 }),
+    ["Cửa hàng HCM đã có người quản lý là Bình. An sẽ làm việc cùng; đổi người quản lý ở màn Kho."]);
+  // Đang là người quản lý, chuyển sang kho trống: báo kho cũ trống + thành người quản lý kho mới
+  assert.deepEqual(goi({ vaiTro: QLK, khoId: 3 }, { vaiTro: QLK, khoId: 1 }), [
+    "An đang là người quản lý của Cửa hàng Nghệ An. Sau khi lưu, Cửa hàng Nghệ An chưa có người quản lý; chọn người mới ở màn Kho.",
+    "Cửa hàng Hà Nội chưa có người quản lý, An sẽ thành người quản lý sau khi lưu.",
+  ]);
+  // Đang là người quản lý, đổi sang vai trò khác ở cùng kho: kho trống
+  assert.equal(goi({ vaiTro: QLK, khoId: 3 }, { vaiTro: "nhan_vien_kho", khoId: 3 }).length, 1);
+  // Lưu lại cùng kho, cùng vai trò: không báo gì (kể cả kho trống: máy chủ không tự đặt khi không vào mới)
+  assert.deepEqual(goi({ vaiTro: QLK, khoId: 3 }, { vaiTro: QLK, khoId: 3 }), []);
+  assert.deepEqual(goi({ vaiTro: QLK, khoId: 1 }, { vaiTro: QLK, khoId: 1 }), []);
+  // Nhân viên kho được nâng lên quản lý kho tại kho trống: thành người quản lý
+  assert.equal(goi({ vaiTro: "nhan_vien_kho", khoId: 1 }, { vaiTro: QLK, khoId: 1 }).length, 1);
+  // Vai trò khác quản lý kho, kho ảo: không báo
+  assert.deepEqual(goi({ vaiTro: "nhan_vien_kho", khoId: null }, { vaiTro: "nhan_vien_kho", khoId: 1 }), []);
+  assert.deepEqual(goi({ vaiTro: QLK, khoId: null }, { vaiTro: QLK, khoId: 4 }), []);
 });

@@ -6,9 +6,11 @@ import {
     buocChuyenKho,
     cheGiua,
     chuanSoDem,
+    giaTriONgay,
     kiemTraGhiSoXknb,
     kiemTraXacNhanXuat,
     nhanPhieuXuatLienQuan,
+    phutKeTiep,
     quetMotMa,
     tinhNhanHang,
     tinhNhatChuyenKho,
@@ -115,7 +117,7 @@ test("nhãn phiếu xuất ở chứng từ liên quan theo bước nhặt, khô
 
 const formXuat = (them = {}) => ({
     hinhThuc: "XE_CONG_TY", nguoi: "Nguyễn Văn Tài", sdt: "0912 345 678", loaiPhuongTien: "Xe tải 1,5 tấn", bienSo: "29H-123.45",
-    duKienDen: "2026-10-23T16:00", kyHieu: "6k26nab", soXknb: "0000125", ...them,
+    duKienDen: "2099-10-23T16:00", kyHieu: "6k26nab", soXknb: "0000125", ...them,
 });
 
 test("xác nhận xuất: đủ thông tin thì ra thân yêu cầu, ký hiệu viết hoa, số điện thoại bỏ khoảng trắng", () => {
@@ -125,7 +127,7 @@ test("xác nhận xuất: đủ thông tin thì ra thân yêu cầu, ký hiệu 
     assert.equal(kq.yeuCau.soDienThoaiVanChuyen, "0912345678");
     assert.equal(kq.yeuCau.donViVanChuyen, null);
     assert.equal(kq.yeuCau.vanXuatKhiChuaCoSo, null);
-    assert.equal(kq.yeuCau.ngayDuKienDen, new Date(2026, 9, 23, 16, 0).toISOString());
+    assert.equal(kq.yeuCau.ngayDuKienDen, new Date(2099, 9, 23, 16, 0).toISOString());
 });
 
 test("xác nhận xuất: bắt buộc theo hình thức vận chuyển", () => {
@@ -169,6 +171,20 @@ test("chưa có số XKNB: Chặn xuất báo lỗi; Chỉ cảnh báo hỏi l�
     assert.equal(lan2.yeuCau.vanXuatKhiChuaCoSo, true);
     assert.equal(lan2.yeuCau.kyHieuXknb, null);
     assert.equal(lan2.yeuCau.ngayLapXknb, null);
+});
+
+test("xác nhận xuất: dự kiến đến phải sau hiện tại, ngày lập XKNB không sau hôm nay", () => {
+    const bayGio = new Date(2026, 10, 20, 15, 56, 20).getTime();
+    const loi = (them) => kiemTraXacNhanXuat(formXuat(them), "CHAN", false, bayGio).loi;
+    assert.equal(loi({ duKienDen: "2026-11-20T15:00" }).duKienDen, "Chọn thời điểm sau hiện tại");
+    assert.equal(loi({ duKienDen: "2026-11-20T15:56" }).duKienDen, "Chọn thời điểm sau hiện tại");
+    assert.equal(loi({ duKienDen: "2026-11-20T15:57" }).duKienDen, undefined);
+    assert.equal(loi({ duKienDen: "" }).duKienDen, undefined);
+    assert.equal(loi({ duKienDen: "2026-11-20T16:00", ngayLap: "2026-11-21" }).ngayLap, "Ngày lập không được sau hôm nay");
+    assert.equal(loi({ duKienDen: "2026-11-20T16:00", ngayLap: "2026-11-20" }).ngayLap, undefined);
+    assert.equal(kiemTraGhiSoXknb({ kyHieu: "6C26NAB", soXknb: "0000001", ngayLap: "2026-11-21" }, bayGio).loi.ngayLap, "Ngày lập không được sau hôm nay");
+    assert.equal(phutKeTiep(bayGio), "2026-11-20T15:57");
+    assert.equal(giaTriONgay(bayGio), "2026-11-20");
 });
 
 test("ghi số XKNB bắt buộc đúng định dạng", () => {

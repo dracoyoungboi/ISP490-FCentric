@@ -121,8 +121,9 @@ export function ShopeeMenuIcon({ className }) {
 }
 
 /**
- * Biểu tượng kênh "Bán hàng tại quầy" (mẫu A đã duyệt): ô vuông bo góc nền xanh chuyển màu theo chữ F của logo
- * FCentric, hình quầy thu ngân (màn hình + quầy) màu trắng. Kênh nội bộ nên tự vẽ, không phải logo của bên thứ ba.
+ * Biểu tượng kênh "Bán hàng tại quầy" (mẫu A, user chọn lại 19/11): ô vuông bo góc nền chuyển từ xanh ngọc của chữ F
+ * logo FCentric sang màu chính hệ thống #0d61e4, hình quầy thu ngân (màn hình + quầy) màu trắng. Kênh nội bộ nên tự vẽ,
+ * không phải logo của bên thứ ba. Dùng chung ở menu trái, trang Kênh bán và trước số đơn (BieuTuongKenhDon).
  * Cỡ do nơi dùng đặt qua `className` (menu ép 16px) hoặc `size`.
  */
 export function BieuTuongTaiQuay({ size, className }) {
@@ -133,7 +134,7 @@ export function BieuTuongTaiQuay({ size, className }) {
       <defs>
         <linearGradient id={idGradient} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#38bdf8" />
-          <stop offset="1" stopColor="#1677ff" />
+          <stop offset="1" stopColor="#0d61e4" />
         </linearGradient>
       </defs>
       <rect width="16" height="16" rx="4" fill={`url(#${idGradient})`} />

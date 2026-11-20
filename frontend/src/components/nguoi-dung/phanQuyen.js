@@ -10,6 +10,7 @@
 
 import { ROLES } from "../../constants/backend/role.js";
 import { t } from "../../i18n/t.js";
+import { laKhoAo } from "../../utils/kho.js";
 
 // ───────────────────────────── Vai trò ─────────────────────────────
 
@@ -18,6 +19,39 @@ import { t } from "../../i18n/t.js";
 export const VAI_TRO = ROLES.map(({ value, label, moTa }) => ({ ma: value, ten: t(label), moTa: t(moTa) }));
 
 export const QUAN_TRI_VIEN = "quan_tri_vien";
+export const QUAN_LY_KHO = "quan_ly_kho";
+
+/**
+ * Câu báo trước trong ngăn kéo phân quyền về người quản lý của kho (khớp backend PhanQuyenNguoiDungServiceImpl):
+ * quản lý kho vào kho chưa có người quản lý thì thành người quản lý; kho đã có người khác thì làm việc cùng;
+ * người quản lý rời kho / đổi vai trò thì kho trống, quản trị viên chọn lại ở màn Kho (không tự đẩy người khác lên).
+ * `dsKho`: kho từ API danh sách kho (có `quanLy`). Trả mảng câu (có thể rỗng).
+ */
+export function ghiChuNguoiQuanLy({ nhap, goc, dsKho = [], nguoiDung }) {
+  const cau = [];
+  const ten = nguoiDung?.hoTen || nguoiDung?.tenDangNhap || t("Người này");
+  const cungNguoi = (q) => q != null && nguoiDung?.id != null && String(q.id) === String(nguoiDung.id);
+  const tim = (id) => (id == null ? null : dsKho.find((k) => k.id === id) ?? null);
+  const tenCua = (k) => k?.tenKho || k?.maKho || "";
+
+  const khoGoc = canKho(goc?.vaiTro) ? tim(goc?.khoId) : null;
+  const roiViTri = khoGoc && cungNguoi(khoGoc.quanLy)
+    && (nhap?.khoId !== goc.khoId || nhap?.vaiTro !== QUAN_LY_KHO);
+  if (roiViTri) {
+    cau.push(t("{{ten}} đang là người quản lý của {{kho}}. Sau khi lưu, {{kho}} chưa có người quản lý; chọn người mới ở màn Kho.", { ten, kho: tenCua(khoGoc) }));
+  }
+
+  const khoMoi = nhap?.vaiTro === QUAN_LY_KHO ? tim(nhap?.khoId) : null;
+  if (khoMoi && !laKhoAo(khoMoi) && !cungNguoi(khoMoi.quanLy)) {
+    const vaoMoi = nhap.khoId !== goc?.khoId || !canKho(goc?.vaiTro) || goc?.vaiTro !== QUAN_LY_KHO;
+    if (khoMoi.quanLy) {
+      cau.push(t("{{kho}} đã có người quản lý là {{quanLy}}. {{ten}} sẽ làm việc cùng; đổi người quản lý ở màn Kho.", { kho: tenCua(khoMoi), quanLy: khoMoi.quanLy.hoTen || khoMoi.quanLy.tenDangNhap, ten }));
+    } else if (vaoMoi) {
+      cau.push(t("{{kho}} chưa có người quản lý, {{ten}} sẽ thành người quản lý sau khi lưu.", { kho: tenCua(khoMoi), ten }));
+    }
+  }
+  return cau;
+}
 
 /** Vai trò có phải vai trò nhân sự không. Vai trò khác (dữ liệu lạ, chuỗi rỗng) không có màn hình, kho hay quyền. */
 export function laVaiTroNoiBo(ma) {

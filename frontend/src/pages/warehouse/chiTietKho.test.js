@@ -1,6 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cauNgungHoatDong, gopKhuVuc, nhanMucDay, nhanPhanQuyen, taoOSo, tomTatKe } from "./chiTietKho.js";
+import {
+  cauKhongCoNhanVien, cauNgungHoatDong, dsNhanVienKho, gopKhuVuc, locNhanVien, nhanConLai, nhanMucDay, nhanNguoiQuanLy,
+  soQuanLyKho, taoOSo, tomTatKe,
+  tomTatQuanLyKho, tomTatVaiTro,
+} from "./chiTietKho.js";
+
+test("tomTatQuanLyKho: người quản lý chính và các quản lý kho khác cùng kho", () => {
+  const an = { id: 1, hoTen: "An" };
+  const binh = { id: 2, hoTen: "Bình" };
+  const chi = { id: 3, hoTen: "", tenDangNhap: "chi" };
+  assert.deepEqual(tomTatQuanLyKho({ quanLy: an, quanLyKhac: [binh, chi] }),
+    { chinh: "An", khac: ["Bình", "chi"], moTaKhac: "Cùng quản lý: Bình, chi" });
+  assert.deepEqual(tomTatQuanLyKho({ quanLy: null, quanLyKhac: [binh] }),
+    { chinh: "", khac: ["Bình"], moTaKhac: "Quản lý kho tại kho: Bình" }, "chưa ai đứng tên");
+  assert.deepEqual(tomTatQuanLyKho({ quanLy: an }), { chinh: "An", khac: [], moTaKhac: "" }, "API khác không trả quanLyKhac");
+  assert.deepEqual(tomTatQuanLyKho(null), { chinh: "", khac: [], moTaKhac: "" });
+});
 
 const khoTong = { id: 1, maKho: "KHO_TONG", tenKho: "Kho tổng", loaiKho: "kho_tong", trangThai: 1, soLuongTon: 1396 };
 const khoAo = { id: 2, maKho: "KHO_TRANSIT", tenKho: "Kho Trung Chuyển", loaiKho: "cua_hang", trangThai: 1 };
@@ -134,10 +150,66 @@ test("taoOSo: kho ảo có 3 ô hàng đang chuyển, không gắn liên kết (
   assert.ok(o.every((x) => !x.den));
 });
 
-test("nhanPhanQuyen và câu hệ quả khi ngừng hoạt động", () => {
-  assert.equal(nhanPhanQuyen(4), "4 người, ngoài quản lý kho");
-  assert.equal(nhanPhanQuyen(0), "Chưa phân quyền thêm ai");
+test("dsNhanVienKho: giữ cả quản lý kho cùng làm ở kho, giữ thứ tự máy chủ, nhãn vai trò", () => {
+  const nhanVien = [
+    { id: 2, hoTen: "Bình", tenDangNhap: "binh", vaiTro: "quan_ly_kho", avatarUrl: null },
+    { id: 5, hoTen: "  ", tenDangNhap: "lan", vaiTro: "nhan_vien_kho", avatarUrl: "https://anh/5.png" },
+    { id: 6, hoTen: "Dũng", tenDangNhap: "dung", vaiTro: "nhan_vien_ban_hang" },
+    null,
+    { id: 7, hoTen: "Hà", tenDangNhap: "ha", vaiTro: "vai_tro_la" },
+  ];
+  assert.deepEqual(dsNhanVienKho(nhanVien), [
+    { id: 2, ten: "Bình", maVaiTro: "quan_ly_kho", vaiTro: "Quản lý kho", avatarUrl: null },
+    { id: 5, ten: "lan", maVaiTro: "nhan_vien_kho", vaiTro: "Nhân viên kho", avatarUrl: "https://anh/5.png" },
+    { id: 6, ten: "Dũng", maVaiTro: "nhan_vien_ban_hang", vaiTro: "Nhân viên bán hàng", avatarUrl: null },
+    { id: 7, ten: "Hà", maVaiTro: "vai_tro_la", vaiTro: "", avatarUrl: null },
+  ]);
+  assert.deepEqual(dsNhanVienKho(undefined), []);
+});
+
+test("tomTatVaiTro: đếm theo vai trò, giữ thứ tự, vai trò lạ gộp vào người khác", () => {
+  const ds = [
+    { maVaiTro: "nhan_vien_kho" }, { maVaiTro: "nhan_vien_ban_hang" },
+    { maVaiTro: "nhan_vien_mua_hang" }, { maVaiTro: "nhan_vien_mua_hang" }, { maVaiTro: "nhan_vien_mua_hang" },
+  ];
+  assert.equal(tomTatVaiTro(ds), "1 nhân viên kho · 1 bán hàng · 3 mua hàng");
+  assert.equal(tomTatVaiTro([{ maVaiTro: "quan_ly_kho" }, { maVaiTro: "ke_toan" }]), "1 quản lý kho · 1 người khác");
+  assert.equal(tomTatVaiTro([]), "");
+});
+
+test("cauKhongCoNhanVien và câu hệ quả khi ngừng hoạt động", () => {
+  assert.equal(cauKhongCoNhanVien(true), "Chưa có nhân viên nào khác");
+  assert.equal(cauKhongCoNhanVien(false), "Chưa có nhân viên nào");
   assert.deepEqual(cauNgungHoatDong(khoTong).map((c) => c.loai), ["ton", "kho-tong", "giu-nguyen"]);
   assert.equal(cauNgungHoatDong(khoTong)[0].soLuong, "1.396");
   assert.deepEqual(cauNgungHoatDong({ ...khoTong, loaiKho: "cua_hang", soLuongTon: 0 }).map((c) => c.loai), ["giu-nguyen"]);
+});
+
+test("nhanConLai và locNhanVien: ô +N quá 99 ghi 99+, tìm không dấu theo tên hoặc vai trò", () => {
+  assert.equal(nhanConLai(12), "+12");
+  assert.equal(nhanConLai(99), "+99");
+  assert.equal(nhanConLai(146), "99+");
+  const ds = [
+    { id: 1, ten: "Đặng Thị Lan", vaiTro: "Nhân viên bán hàng" },
+    { id: 2, ten: "Nguyễn Văn An", vaiTro: "Nhân viên kho" },
+    { id: 3, ten: "lan.kho", vaiTro: "Nhân viên mua hàng" },
+  ];
+  assert.deepEqual(locNhanVien(ds, "dang").map((x) => x.id), [1]);
+  assert.deepEqual(locNhanVien(ds, " LAN ").map((x) => x.id), [1, 3]);
+  assert.deepEqual(locNhanVien(ds, "mua hang").map((x) => x.id), [3]);
+  assert.equal(locNhanVien(ds, "").length, 3);
+  assert.deepEqual(locNhanVien(ds, "zzz"), []);
+});
+
+test("soQuanLyKho và nhanNguoiQuanLy: từ 2 quản lý kho mới ghi người quản lý chính", () => {
+  const an = { id: 1, hoTen: "An" };
+  const ds = [{ id: 2, maVaiTro: "quan_ly_kho" }, { id: 3, maVaiTro: "nhan_vien_kho" }];
+  assert.equal(soQuanLyKho({ quanLy: an }, ds), 2);
+  assert.equal(soQuanLyKho({ quanLy: an }, [{ id: 3, maVaiTro: "nhan_vien_kho" }]), 1);
+  assert.equal(soQuanLyKho({ quanLy: null }, ds), 1, "chưa ai đứng tên");
+  assert.equal(soQuanLyKho({ quanLy: an, quanLyKhac: [{ id: 2 }, { id: 4 }] }, null), 3, "không có danh sách thì dùng quanLyKhac");
+  assert.equal(soQuanLyKho(null, null), 0);
+  assert.equal(nhanNguoiQuanLy(2), "Người quản lý chính");
+  assert.equal(nhanNguoiQuanLy(1), "Người quản lý");
+  assert.equal(nhanNguoiQuanLy(0), "Người quản lý");
 });

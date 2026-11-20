@@ -335,10 +335,11 @@ public class TimKiemService {
     /* ───────────────────────────── Khách hàng ───────────────────────────── */
 
     TimKiemDto.Nhom timKhachHang(String tk, int soDong) {
-        // Như trang Khách hàng: bỏ khách lẻ hệ thống KHLE
+        // Như trang Khách hàng: chỉ khách cửa hàng, bỏ khách lẻ hệ thống KHLE (khách sàn tìm qua đơn bán)
         FilterCriteria boKhachLe = loc("maKhachHang", FilterOperation.NOT_IN, List.of(KhachHang.MA_KHACH_LE));
-        Page<KhachHang> chua = khachHangService.filter(yeuCau(List.of(boKhachLe, tuKhoa(tk, false)), "ngayTao", SO_DONG_XEP_HANG));
-        List<KhachHang> dung = khachHangService.filter(yeuCau(List.of(boKhachLe, tuKhoa(tk, true)), "ngayTao", SO_DONG_TOI_DA)).getContent();
+        FilterCriteria cuaHang = KhachHangService.locChiKhachCuaHang();
+        Page<KhachHang> chua = khachHangService.filter(yeuCau(List.of(boKhachLe, cuaHang, tuKhoa(tk, false)), "ngayTao", SO_DONG_XEP_HANG));
+        List<KhachHang> dung = khachHangService.filter(yeuCau(List.of(boKhachLe, cuaHang, tuKhoa(tk, true)), "ngayTao", SO_DONG_TOI_DA)).getContent();
         List<KhachHang> ds = gop(dung, chua.getContent(), KhachHang::getId);
         List<Object[]> xep = new ArrayList<>();
         for (int i = 0; i < ds.size(); i++) {

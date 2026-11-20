@@ -24,7 +24,11 @@ const MAX_SOURCE_BYTES = 15 * 1024 * 1024;
 const CROP_BOX = 280; // cạnh khung cắt (px)
 const OUTPUT_SIZE = 512; // cạnh ảnh lưu (px)
 const ZOOM_MAX = 3;
-const PREVIEW_SIZES = [56, 32]; // cỡ thật: ảnh ở đầu trang Hồ sơ và ở thanh trên cùng
+// Cỡ thật của ảnh ở hai chỗ chính người dùng thấy ảnh của mình; nhãn ghi dưới mỗi vòng để biết vòng nào là chỗ nào.
+const PREVIEW_SIZES = [
+  { size: 56, nhan: t("Hồ sơ") },
+  { size: 32, nhan: t("Thanh trên cùng") },
+];
 
 /** Kích thước ảnh trong khung cắt theo mức phóng, và giới hạn kéo để ảnh luôn phủ kín khung. */
 function khungCat(anh, zoom) {
@@ -252,7 +256,7 @@ export default function AvatarEditorModal({
       >
         <DialogHeader>
           <DialogTitle>{t("Ảnh đại diện")}</DialogTitle>
-          <DialogDescription className="text-bo-muted">{t("Hiện ở thanh trên cùng, trên phiếu và lịch sử thao tác.")}</DialogDescription>
+          <DialogDescription className="text-bo-muted">{t("Hiện ở thanh trên cùng và trang Hồ sơ.")}</DialogDescription>
         </DialogHeader>
 
         {anh ? (
@@ -306,9 +310,13 @@ export default function AvatarEditorModal({
 
             <div className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2.5">
               <span className="text-[12.5px] text-bo-muted">{t("Xem trước")}</span>
-              <span className="flex items-center gap-3">
-                {PREVIEW_SIZES.map((s) => (
-                  <AnhTheoKhung key={s} anh={anh} zoom={zoom} viTri={viTri} size={s} className="rounded-full bg-slate-200" />
+              {/* Đáy thẳng hàng để hai dòng chữ dưới vòng nằm cùng một đường */}
+              <span className="flex items-end gap-4">
+                {PREVIEW_SIZES.map(({ size, nhan }) => (
+                  <figure key={size} className="m-0 flex flex-col items-center gap-[5px]">
+                    <AnhTheoKhung anh={anh} zoom={zoom} viTri={viTri} size={size} className="rounded-full bg-slate-200" />
+                    <figcaption className="whitespace-nowrap text-[11.5px] leading-[14px] text-bo-muted">{nhan}</figcaption>
+                  </figure>
                 ))}
               </span>
               <label className="cursor-pointer rounded text-[13px] font-medium text-bo-primary hover:underline focus-within:ring-2 focus-within:ring-bo-primary/40">

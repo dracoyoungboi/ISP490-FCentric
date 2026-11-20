@@ -1346,7 +1346,8 @@ function HopBienBan({ ct, khoNhap, kq, anhChon, tienDoAnh, dangChay, loi, onDong
                 </div>
                 <div className="grid gap-1.5">
                     <label htmlFor={idThoiDiem} className={NHAN_O}>{t("Thời điểm")} <span className="text-bo-danger">*</span></label>
-                    <input id={idThoiDiem} type="datetime-local" value={thoiDiem} onChange={(e) => {
+                    {/* max: lịch chọn làm mờ giờ chưa tới (máy chủ chỉ cho lệch tối đa 5 phút) */}
+                    <input id={idThoiDiem} type="datetime-local" max={giaTriONgayGio(new Date())} value={thoiDiem} onChange={(e) => {
                         setThoiDiem(e.target.value);
                         setTuongLai(false);
                     }} aria-invalid={loiThoiDiem || undefined} aria-describedby={loiThoiDiem ? `${idThoiDiem}-loi` : undefined} className={cn(O_NHAP, loiThoiDiem && O_SO_LOI)} />

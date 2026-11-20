@@ -23,8 +23,7 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Entity
 @Table(name = "don_ban_hang")
-// Chỉ ghi cột đã đổi: luồng kho nạp đơn không khóa rồi lưu không được ghi lại trạng thái thanh toán cũ (phiếu thu vừa
-// ghi ở giao dịch khác đã đổi cột này)
+// Chỉ ghi cột đã đổi: luồng nạp đơn không khóa rồi lưu không ghi đè cột mà giao dịch khác vừa đổi
 @DynamicUpdate
 public class DonBanHang {
     @Id

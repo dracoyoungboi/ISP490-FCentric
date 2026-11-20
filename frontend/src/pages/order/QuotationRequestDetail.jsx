@@ -28,6 +28,7 @@ import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import purchaseRequestService from "@/services/purchaseRequestService";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
+import { moTrangIn } from "@/lib/moTrangIn";
 
 // Ai chấp nhận / không chấp nhận báo giá ở Chi tiết báo giá (giữ như màn đó): quản trị viên, nhân viên mua hàng
 const VAI_TRO_CHOT_BAO_GIA = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
@@ -146,7 +147,7 @@ function SoSanhBaoGia({ id }) {
                         nutPhu={
                             // Trang in chặn như đơn mua (in có giá mua): vai trò không xem đơn mua không có nút in
                             xemDonMua
-                                ? { nhan: t("In yêu cầu báo giá"), icon: Printer, onClick: () => navigate(`/quotation-requests/${id}/print`) }
+                                ? { nhan: t("In yêu cầu báo giá"), icon: Printer, onClick: () => moTrangIn(`/quotation-requests/${id}/print`, navigate) }
                                 : null
                         }
                         saoChepMa={{ giaTri: yc.soYeuCauMuaHang, nhan: t("Sao chép mã yêu cầu") }}

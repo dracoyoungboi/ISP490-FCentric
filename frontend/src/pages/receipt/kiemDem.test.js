@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  chiaKe,
+  themKeVaoLo,
   khopLanKhoa,
   maLoChuaTheLenh,
   CHE_DO_XAC_NHAN,
@@ -179,11 +181,12 @@ test("điều kiện khóa lô", () => {
   assert.deepEqual(dk0.thieu, ["sản phẩm", "ngày sản xuất"]);
 
   ({ phien: p } = them(p, "SKU", 12));
-  p = { ...p, nsx: "2026-10-20", keId: 7 };
+  p = { ...p, nsx: "2026-10-20", dsKe: [{ id: 7, sl: null }] };
   let dk = dieuKienKhoaLo(p, { t: tinh(p, { canNhap: 40 }), viTris, coKe: true, maLoGoiY: "LO-1", maLoDaCo: ["lo-1"], homNay });
   assert.equal(dk.ok, false);
+  assert.equal(dk.cauChuaXep, "Còn 2 đạt chưa có kệ, quét thêm kệ.");
   assert.deepEqual(dk.loi, [
-    "Kệ A-01-02 chỉ còn trống 10, lô đang có 12 đạt. Chọn kệ khác.",
+    "Còn 2 đạt chưa có kệ, quét thêm kệ.",
     "Mã lô LO-1 đã có trong phiếu, hãy đổi mã khác.",
     "Ngày sản xuất không được sau hôm nay.",
   ]);
@@ -237,8 +240,15 @@ test("đọc lại phiên từ trình duyệt: bỏ dữ liệu hỏng", () => {
   assert.equal(p.log[1].kq, "dat");
   assert.equal(p.cur, null, "lượt hiện tại không còn thì bỏ");
   assert.equal(p.dem, 4);
-  assert.equal(p.keId, null);
+  assert.deepEqual(p.dsKe, [], "keId hỏng thì không có kệ");
   assert.deepEqual(chuanHoaPhien("rác", "2026-09-01"), phienMoi("2026-09-01"));
+  // Bản tạm trước khi có nhiều kệ chỉ có keId: thành một kệ tự chia
+  assert.deepEqual(chuanHoaPhien({ log: [], keId: 7 }, "").dsKe, [{ id: 7, sl: null }]);
+  // dsKe: bỏ dòng hỏng và kệ trùng, số âm / không nguyên thành tự chia
+  assert.deepEqual(
+    chuanHoaPhien({ log: [], dsKe: [{ id: 7, sl: 5 }, { id: 7, sl: 1 }, null, { id: "8" }, { id: 9, sl: -1 }, { id: 10, sl: 1.5 }] }, "").dsKe,
+    [{ id: 7, sl: 5 }, { id: 9, sl: null }, { id: 10, sl: null }],
+  );
 });
 
 test("tên đầy đủ và mã của biến thể", () => {
@@ -403,11 +413,11 @@ test("kho có kệ nhưng kệ nào cũng bảo trì: không bắt chọn kệ (
   const dk = dieuKienKhoaLo(ph, { t, viTris: baoTri, coKe: coKeHoatDong(baoTri), maLoGoiY: "LO-1", homNay: "2026-10-19" });
   assert.equal(dk.ok, true);
   // Kệ chọn từ trước rồi chuyển bảo trì: không chọn kệ khác được nên bỏ qua, khóa không gắn kệ
-  const cu = dieuKienKhoaLo({ ...ph, keId: 7 }, { t, viTris: baoTri, coKe: false, maLoGoiY: "LO-1", homNay: "2026-10-19" });
+  const cu = dieuKienKhoaLo({ ...ph, dsKe: [{ id: 7, sl: null }] }, { t, viTris: baoTri, coKe: false, maLoGoiY: "LO-1", homNay: "2026-10-19" });
   assert.deepEqual([cu.ok, cu.ke], [true, null]);
   // Kho còn kệ hoạt động: kệ đã chọn mà bảo trì vẫn chặn, chọn kệ khác
   const conKe = [...baoTri, { id: 9, maViTri: "B-01", trangThai: "HOAT_DONG" }];
-  const chan = dieuKienKhoaLo({ ...ph, keId: 7 }, { t, viTris: conKe, coKe: true, maLoGoiY: "LO-1", homNay: "2026-10-19" });
+  const chan = dieuKienKhoaLo({ ...ph, dsKe: [{ id: 7, sl: null }] }, { t, viTris: conKe, coKe: true, maLoGoiY: "LO-1", homNay: "2026-10-19" });
   assert.equal(chan.ok, false);
   assert.match(chan.loi.join(" "), /A-01 đang bảo trì/);
 });
@@ -491,4 +501,105 @@ test("chưa tải được danh sách lô để đối chiếu: câu đúng cho 
     cauChuaKiemKhoaChuaRo("LO-1", "Không tìm thấy phiếu nhập kho. "),
     /hay chưa \(Không tìm thấy phiếu nhập kho\)\. Lô đang kiểm/,
   );
+});
+
+// ── Một lô xếp nhiều kệ (20/11/2026, PA A) ──
+const keB = [
+  { id: 31, maViTri: "B-03-01", sucChua: 150, dangChua: 0, choNhap: 0, trangThai: "HOAT_DONG" },
+  { id: 32, maViTri: "B-03-02", sucChua: 150, dangChua: 0, choNhap: 0, trangThai: "HOAT_DONG" },
+  { id: 33, maViTri: "C-01-01", sucChua: 100, dangChua: 40, choNhap: 10, trangThai: "HOAT_DONG" },
+  { id: 34, maViTri: "D-00-00", sucChua: 0, dangChua: 999, trangThai: "HOAT_DONG" },
+];
+
+test("chia hàng đạt vào các kệ theo thứ tự quét", () => {
+  // Lô 151, kệ tối đa 150: kệ đầu nhận 150, kệ sau nhận 1
+  let kq = chiaKe([{ id: 31, sl: null }, { id: 32, sl: null }], 151, keB);
+  assert.deepEqual(kq.phan.map((x) => [x.ke.maViTri, x.sl, x.tuChia]), [["B-03-01", 150, true], ["B-03-02", 1, true]]);
+  assert.deepEqual([kq.chuaXep, kq.xepThua], [0, 0]);
+  // Một kệ không đủ: còn hàng chưa có kệ
+  kq = chiaKe([{ id: 31, sl: null }], 151, keB);
+  assert.deepEqual([kq.phan[0].sl, kq.chuaXep], [150, 1]);
+  // Kệ có tồn và chờ nhập: chỗ trống = 100 - 40 - 10
+  kq = chiaKe([{ id: 33, sl: null }, { id: 31, sl: null }], 120, keB);
+  assert.deepEqual(kq.phan.map((x) => x.sl), [50, 70]);
+  // Gõ tay giữ đúng số, phần còn lại máy tự chia; kệ không giới hạn nhận hết phần còn lại
+  kq = chiaKe([{ id: 31, sl: 20 }, { id: 34, sl: null }], 151, keB);
+  assert.deepEqual(kq.phan.map((x) => [x.sl, x.tuChia]), [[20, false], [131, true]]);
+  // Gõ tay vượt số đạt: báo phần thừa, kệ tự chia nhận 0
+  kq = chiaKe([{ id: 31, sl: 100 }, { id: 32, sl: 60 }, { id: 33, sl: null }], 151, keB);
+  assert.deepEqual([kq.xepThua, kq.chuaXep, kq.phan[2].sl], [9, 0, 0]);
+  // Kệ không còn trong danh sách kệ của kho thì bỏ qua
+  kq = chiaKe([{ id: 99, sl: null }, { id: 32, sl: null }], 5, keB);
+  assert.deepEqual(kq.phan.map((x) => x.ke.id), [32]);
+  assert.deepEqual(chiaKe([], 5, keB), { phan: [], chuaXep: 5, xepThua: 0 });
+});
+
+test("quét kệ: thêm khi còn hàng chưa có kệ, đổi khi đã đủ", () => {
+  let p = { ...phienMoi("2026-10-01") };
+  let kq = themKeVaoLo(p, 31, { datLo: 151, viTris: keB });
+  assert.equal(kq.loai, "them");
+  p = kq.phien;
+  kq = themKeVaoLo(p, 31, { datLo: 151, viTris: keB });
+  assert.equal(kq.loai, "da-co");
+  assert.equal(kq.phien, p, "kệ đã có: không đổi phiên");
+  kq = themKeVaoLo(p, 32, { datLo: 151, viTris: keB });
+  assert.equal(kq.loai, "them");
+  p = kq.phien;
+  assert.deepEqual(p.dsKe, [{ id: 31, sl: null }, { id: 32, sl: null }]);
+  // Đã xếp đủ mà quét kệ khác: đổi hẳn sang kệ đó (như trước khi có nhiều kệ)
+  kq = themKeVaoLo(p, 33, { datLo: 151, viTris: keB });
+  assert.deepEqual([kq.loai, kq.phien.dsKe], ["doi", [{ id: 33, sl: null }]]);
+  // Chưa có hàng đạt: kệ đầu là chọn, kệ sau là đổi
+  const rong = themKeVaoLo(phienMoi(""), 31, { datLo: 0, viTris: keB }).phien;
+  assert.deepEqual(themKeVaoLo(rong, 32, { datLo: 0, viTris: keB }).phien.dsKe, [{ id: 32, sl: null }]);
+});
+
+test("điều kiện khóa lô nhiều kệ", () => {
+  let p = { ...phienMoi("2026-10-01") };
+  ({ phien: p } = them(p, "SKU", 151, 159));
+  const homNay = "2026-10-19";
+  const t = tinh(p, { canNhap: 159 });
+  const dk1 = (ph) => dieuKienKhoaLo(ph, { t, viTris: keB, coKe: true, maLoGoiY: "LO-1", homNay });
+  // Một kệ không đủ chỗ: không còn câu "chọn kệ khác" mà bảo quét thêm kệ
+  let dk = dk1({ ...p, dsKe: [{ id: 31, sl: null }] });
+  assert.equal(dk.ok, false);
+  assert.deepEqual(dk.loi, ["Còn 1 đạt chưa có kệ, quét thêm kệ."]);
+  // Hai kệ đủ: khóa được, gửi hai phần, kệ chính là kệ đầu
+  dk = dk1({ ...p, dsKe: [{ id: 31, sl: null }, { id: 32, sl: null }] });
+  assert.equal(dk.ok, true);
+  assert.equal(dk.ke.id, 31);
+  assert.deepEqual(dk.phanGui.map((x) => [x.ke.id, x.sl]), [[31, 150], [32, 1]]);
+  // Kệ tự chia nhận 0 thì không gửi
+  dk = dk1({ ...p, dsKe: [{ id: 31, sl: null }, { id: 34, sl: null }, { id: 32, sl: null }] });
+  assert.deepEqual(dk.phanGui.map((x) => x.ke.id), [31, 34]);
+  // Gõ tay vượt chỗ trống của kệ
+  dk = dk1({ ...p, dsKe: [{ id: 31, sl: 151 }] });
+  assert.deepEqual(dk.loi, ["Kệ B-03-01 chỉ còn trống 150, đang xếp 151. Giảm số ở kệ này rồi quét thêm kệ khác."]);
+  // Gõ tay tổng vượt số đạt
+  dk = dk1({ ...p, dsKe: [{ id: 31, sl: 100 }, { id: 32, sl: 60 }] });
+  assert.deepEqual(dk.loi, ["Đã xếp 160 vào kệ nhưng lô chỉ có 151 đạt. Giảm số ở bảng kệ."]);
+  // Một kệ trong bảng chuyển bảo trì
+  const baoTri = keB.map((v) => (v.id === 32 ? { ...v, trangThai: "BAO_TRI" } : v));
+  dk = dieuKienKhoaLo({ ...p, dsKe: [{ id: 31, sl: null }, { id: 32, sl: null }] }, { t, viTris: baoTri, coKe: true, maLoGoiY: "LO-1", homNay });
+  assert.match(dk.loi.join(" "), /B-03-02 đang bảo trì/);
+});
+
+test("đối chiếu lần khóa lô nhiều kệ khi mất phản hồi", () => {
+  const lo = {
+    maLo: "LO-PN1-01",
+    soLuongNhap: 151,
+    soLuongLoi: 0,
+    viTriKhoId: 31,
+    ngaySanXuat: "2026-10-01T00:00:00Z",
+    phanKe: [{ viTriKhoId: 31, maViTri: "B-03-01", soLuong: 150 }, { viTriKhoId: 32, maViTri: "B-03-02", soLuong: 1 }],
+  };
+  const lan = { maLo: "lo-pn1-01", dat: 151, loi: 0, keId: 31, phanKe: [{ id: 31, sl: 150 }, { id: 32, sl: 1 }], nsx: "2026-10-01" };
+  assert.equal(khopLanKhoa(lo, lan), true);
+  assert.equal(khopLanKhoa(lo, { ...lan, phanKe: [{ id: 31, sl: 149 }, { id: 32, sl: 2 }] }), false, "khác cách chia");
+  assert.equal(khopLanKhoa(lo, { ...lan, phanKe: null }), false, "lần một kệ không khớp lô nhiều kệ");
+  assert.equal(khopLanKhoa({ ...lo, phanKe: [] }, { ...lan, phanKe: null }), true, "lô một kệ");
+  // Bản tạm lần khóa có phanKe vẫn đọc lại được
+  const ph = chuanHoaPhien({ log: [], khoaChuaRo: { ...lan, dem: 3 } }, "");
+  assert.deepEqual(ph.khoaChuaRo.phanKe, lan.phanKe);
+  assert.equal(chuanHoaPhien({ log: [], khoaChuaRo: { ...lan, dem: 3, phanKe: [{ id: "x" }] } }, "").khoaChuaRo, null);
 });

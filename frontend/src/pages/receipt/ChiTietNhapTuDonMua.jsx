@@ -36,6 +36,7 @@ import { chuanHoaDongInTem } from "@/components/print/tinhTem";
 import HopInTem from "@/pages/product/components/product/HopInTem";
 import { t } from "@/i18n";
 import { VAI_TRO_KHO } from "@/constants/vaiTroTheoNghiepVu";
+import { moTrangIn } from "@/lib/moTrangIn";
 
 const TH = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
@@ -320,7 +321,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
             </Button>
           ) : null}
           {!daHuy ? (
-            <Button variant="outline" onClick={() => navigate(`/goods-receipts/${id}/print`)} className="gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
+            <Button variant="outline" onClick={() => moTrangIn(`/goods-receipts/${id}/print`, navigate)} className="gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
               <Printer className="size-4" /> {t("In phiếu")}
             </Button>
           ) : null}
