@@ -6,7 +6,7 @@ import PosModal from '../components/PosModal';
 import { formatMoney } from '../pos-format';
 import { nhanLuc } from './nhan-thoi-gian';
 import { usePhieuTra } from './usePhieuTra';
-import { HOAN_TIEN_MAT, LY_DO_TRA, NHOM_LOI, QC_DAT, nhanTheoMa } from './tra-hang';
+import { HOAN_TIEN_MAT, LY_DO_LOI, LY_DO_TRA, MA_KHAC, NHOM_LOI, QC_DAT, nhanTheoMa } from './tra-hang';
 import { t, tDuLieu } from "@/i18n";
 
 function TrangThai({ tone, children }) {
@@ -87,10 +87,17 @@ export function NoiDungPhieu({ phieu: p, bayGio, onMoHoaDon }) {
                 </span>
               ) : (
                 <span className="inline-flex h-[22px] items-center rounded-full bg-red-50 px-2 font-medium text-red-700">
-                  {d.nhomLoi ? t("Lỗi · {{nhom}}", { nhom: t(nhanTheoMa(NHOM_LOI, d.nhomLoi)) }) : t("Hàng lỗi để riêng")}
+                  {d.nhomLoi === MA_KHAC && d.ghiChu
+                    ? t("Lỗi · {{nhom}}", { nhom: d.ghiChu })
+                    : d.nhomLoi ? t("Lỗi · {{nhom}}", { nhom: t(nhanTheoMa(NHOM_LOI, d.nhomLoi)) }) : t("Hàng lỗi để riêng")}
                 </span>
               )}
-              {d.lyDo ? <span className="text-bo-muted">{t(nhanTheoMa(LY_DO_TRA, d.lyDo))}</span> : null}
+              {/* Hàng Lỗi: lý do luôn là lỗi sản xuất (máy chủ tự ghi), chip Lỗi đã nói đủ nên không lặp lại. */}
+              {d.tinhTrang === QC_DAT && d.lyDo === MA_KHAC && d.ghiChu ? (
+                <span className="min-w-0 break-words text-bo-muted">{t("Khác: {{ghiChu}}", { ghiChu: d.ghiChu })}</span>
+              ) : d.lyDo && !(d.tinhTrang !== QC_DAT && d.lyDo === LY_DO_LOI) ? (
+                <span className="text-bo-muted">{t(nhanTheoMa(LY_DO_TRA, d.lyDo))}</span>
+              ) : null}
             </div>
           </li>
         ))}

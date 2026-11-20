@@ -33,10 +33,22 @@ function gioNgay(value) {
 /** Không cho ngắt dòng giữa cụm (khoảng trắng / gạch nối không ngắt): mã kệ "A-01-01" không bị bẻ đôi trong cột hẹp. */
 const lienKhoi = (text) => text.replace(/ /g, " ").replace(/-/g, "‑");
 
-/** Hiện trạng một dòng: "Đạt · A-01-01", "Đạt · chưa có kệ", "Lỗi · Rách vải". */
+/**
+ * Hiện trạng một dòng: "Đạt · A-01-01", "Đạt · chưa có kệ", "Lỗi · Rách vải". Lỗi khác có ghi rõ thì in phần ghi rõ
+ * (để ngắt dòng bình thường vì có thể dài).
+ */
 function hienTrang(dong) {
     if (dong.tinhTrang === "dat") return lienKhoi(joinParts(["Đạt", dong.ke ?? "chưa có kệ"]));
+    const ghiRo = textOrNull(dong.ghiChu);
+    if (dong.nhomLoi === "khac" && ghiRo) return `${lienKhoi("Lỗi ·")} ${ghiRo}`;
     return lienKhoi(joinParts(["Lỗi", NHOM_LOI[dong.nhomLoi] ?? dong.nhomLoi ?? "để riêng"]));
+}
+
+/** Lý do một dòng; hàng Đạt chọn Khác có ghi rõ thì in "Khác: <ghi rõ>". */
+function lyDo(dong) {
+    const ghiRo = textOrNull(dong.ghiChu);
+    if (dong.tinhTrang === "dat" && dong.lyDo === "khac" && ghiRo) return `Khác: ${ghiRo}`;
+    return LY_DO[dong.lyDo] ?? dash(dong.lyDo);
 }
 
 export function toPosReturnPrintModel(phieu) {
@@ -48,7 +60,7 @@ export function toPosReturnPrintModel(phieu) {
         color: textOrNull(dong.mauSac),
         size: textOrNull(dong.kichCo),
         condition: hienTrang(dong),
-        reason: LY_DO[dong.lyDo] ?? dash(dong.lyDo),
+        reason: lyDo(dong),
         quantity: formatPrintNumber(dong.soLuong),
         unitPrice: formatPrintMoney(dong.donGiaHoan),
         amount: formatPrintMoney(dong.thanhTienHoan),
