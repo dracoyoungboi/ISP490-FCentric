@@ -831,6 +831,8 @@
   "Trả {{sku}}": "Return {{sku}}",
   "Trả": "Return",
   "Chọn kệ cất": "Choose shelf",
+  "còn {{con}} chỗ": "{{con}} left",
+  "Kệ {{ma}} chỉ còn chỗ cho {{con}} sản phẩm. Chọn kệ khác.": "{{ma}} only fits {{con}} more. Pick another shelf.",
   "Về bán hàng": "Back to sales",
   "Đã tải lại hóa đơn để kiểm tra lần gửi trước. Xem số Đã trả của từng món rồi làm lại nếu cần.": "Reloaded the receipt to check the previous attempt. Check the Returned count on each item, then try again if needed.",
   "Không tìm thấy phiếu trả hàng": "Return slip not found",
