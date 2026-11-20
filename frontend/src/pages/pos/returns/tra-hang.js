@@ -35,6 +35,42 @@ export const LY_DO_DUYET = [
   'Sự cố vận chuyển / đổi size quà tặng',
 ];
 
+/*
+ * Chính sách trả hàng: một chỗ khai báo cho cả khung tóm tắt ở chân Phiếu trả, hộp "Xem đầy đủ" và gợi ý dưới công tắc
+ * Đạt / Lỗi. Đổi luật thì sửa cả ba khối dưới đây cho khớp nhau (tóm tắt là câu ngắn của bản đầy đủ).
+ * Máy đã tự chặn hạn 03 ngày, mã duyệt quá hạn và hóa đơn gốc; điều duy nhất thu ngân phải tự nhìn là tình trạng hàng,
+ * nên câu đó có ở cả tóm tắt lẫn gợi ý lúc chấm Đạt / Lỗi.
+ */
+
+/** Bốn ý ở khung tóm tắt: [khóa biểu tượng, câu]. Biểu tượng chọn ở màn (han, tem, duyet, hoan). */
+export const CHINH_SACH_TOM_TAT = [
+  ['han', 'Nhận trả trong 03 ngày kể từ lúc thanh toán, ở mọi cửa hàng.'],
+  ['tem', 'Hàng còn nguyên tem mác, chưa sử dụng, không ám mùi, không bẩn.'],
+  ['duyet', 'Quá hạn: cần quản lý cửa hàng duyệt bằng mã.'],
+  ['hoan', 'Hoàn theo giá khách thực trả, tiền mặt hoặc chuyển khoản.'],
+];
+
+/** Bản đầy đủ trong hộp "Xem đầy đủ": [tiêu đề nhóm, các ý]. */
+export const CHINH_SACH_DAY_DU = [
+  ['Điều kiện nhận trả', [
+    'Trong vòng 03 ngày kể từ lúc thanh toán (in trên hóa đơn gốc). Quá hạn cần quản lý cửa hàng duyệt bằng mã.',
+    'Hàng còn nguyên tem mác, chưa sử dụng, chưa giặt ủi, không ám mùi, không dính bẩn.',
+    'Tra được hóa đơn gốc đã thanh toán trên hệ thống.',
+  ]],
+  ['Khi nhận trả', [
+    'Trả được ở mọi cửa hàng: hàng nhập vào kho cửa hàng nhận trả, doanh thu giảm ở cửa hàng đã bán.',
+    'Hoàn theo giá khách thực trả trên từng sản phẩm, bằng tiền mặt hoặc chuyển khoản.',
+    'Hàng Đạt cất lên kệ và mở bán lại ngay; hàng Lỗi để riêng, không cộng tồn.',
+    'In biên bản 02 liên: khách giữ một liên, cửa hàng giữ một liên.',
+  ]],
+];
+
+/** Gợi ý dưới công tắc Đạt / Lỗi của từng món: [nhãn in đậm, phần còn lại]. */
+export const GOI_Y_QC = {
+  [QC_DAT]: ['Đạt:', 'còn tem mác, chưa sử dụng, không ám mùi, không bẩn.'],
+  [QC_LOI]: ['Lỗi:', 'để riêng, không cộng tồn. Chọn nhóm lỗi bên dưới.'],
+};
+
 export const nhanTheoMa = (ds, ma) => ds.find(([m]) => m === ma)?.[1] ?? ma;
 
 /** Trạng thái chọn ban đầu của từng dòng đơn gốc: chưa chọn, SL 1, QC Đạt (mặc định BA), kệ gợi ý. */

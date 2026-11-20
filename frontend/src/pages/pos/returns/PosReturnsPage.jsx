@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Banknote, Check, Clock3, Minus, PackageOpen, Plus, Printer, Search, ShieldCheck, Undo2, X } from 'lucide-react';
+import { AlertTriangle, Banknote, Check, Clock3, Minus, PackageOpen, Plus, Printer, Search, ShieldCheck, Tag, Undo2, X } from 'lucide-react';
 import { toast } from '@/lib/thongBaoNhanh';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { formatDateTime } from '@/utils/formatters';
@@ -13,6 +13,7 @@ import PosTopBar from '../components/PosTopBar';
 import PosWarehousePicker from '../components/PosWarehousePicker';
 import PosModal from '../components/PosModal';
 import PosModeTabs from '../components/PosModeTabs';
+import BangPhimTat from '../components/BangPhimTat';
 import PrintTemplateDocument from '@/components/print/PrintTemplateDocument';
 import { getPaperSheetClasses, getPaperSheetWidthPx } from '@/components/print/paperStyles';
 import { toPosReturnPrintModel } from '@/components/print/adapters/posReturnPrintAdapter';
@@ -27,6 +28,9 @@ import KhungPhieuDaTra, { HopPhieuDaTra } from './ChiTietPhieuTra';
 import TheDanhSach, { THE_HOA_DON, THE_PHIEU } from './TheDanhSach';
 import { nhanLuc } from './nhan-thoi-gian';
 import {
+  CHINH_SACH_DAY_DU,
+  CHINH_SACH_TOM_TAT,
+  GOI_Y_QC,
   HOAN_CHUYEN_KHOAN,
   HOAN_TIEN_MAT,
   LY_DO_TRA,
@@ -56,6 +60,25 @@ const PHUONG_THUC_GOC = {
 };
 
 const secondaryButton = 'inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-bo-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground transition hover:bg-bo-surface-subtle disabled:cursor-not-allowed disabled:opacity-60';
+
+/*
+ * Bảng phím tắt của màn trả hàng (F1 hoặc nút trợ giúp trên thanh trên, như màn bán). Chỉ liệt kê phím màn này có;
+ * thêm/đổi phím ở onKey bên dưới hoặc ở PosModeTabs thì sửa cả bảng này.
+ */
+const PHIM_TAT_TRA = [
+  {
+    icon: Undo2,
+    title: t("Trả hàng"),
+    rows: [
+      { keys: [['F3']], label: t("Tìm hóa đơn gốc"), hint: t("Theo mã hóa đơn, mã phiếu trả hoặc số điện thoại khách.") },
+      { keys: [['F9']], label: t("Hoàn tiền") },
+      { keys: [['F7']], label: t("Chuyển sang bán hàng"), hint: t("Không chạy khi đang mở một hóa đơn để trả.") },
+    ],
+  },
+];
+
+/* Biểu tượng của từng ý trong khung tóm tắt chính sách (khóa khai báo ở CHINH_SACH_TOM_TAT) */
+const BIEU_TUONG_CHINH_SACH = { han: Clock3, tem: Tag, duyet: ShieldCheck, hoan: Banknote };
 
 function readStoredKho(warehouses) {
   let stored = null;
@@ -342,10 +365,17 @@ export default function PosReturnsPage() {
     }
   };
 
-  // Phím tắt như màn bán: F3 về ô tìm hóa đơn, F9 hoàn tiền
+  // Phím tắt như màn bán: F1 bảng phím tắt, F3 về ô tìm hóa đơn, F9 hoàn tiền
+  const moPhimTat = () => {
+    if (!modal && !submitting) setModal('phimTat');
+  };
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'F3') {
+      if (e.key === 'F1') {
+        // Luôn chặn: F1 mặc định của trình duyệt mở trang trợ giúp
+        e.preventDefault();
+        moPhimTat();
+      } else if (e.key === 'F3') {
         e.preventDefault();
         searchRef.current?.focus();
         searchRef.current?.select();
@@ -359,7 +389,7 @@ export default function PosReturnsPage() {
   });
 
   const renderTopBar = (picker = true) => (
-    <PosTopBar helpLabel={t("Chính sách trả hàng")} onHelp={() => setModal('chinhSach')}>
+    <PosTopBar onHelp={moPhimTat}>
       <PosModeTabs hienTai="tra" khoa={submitting} lyDoKhoa={t("Đang xử lý trả hàng nên chưa đổi được kho.")} tatPhimTat={Boolean(modal) || Boolean(don && !ketQua)} />
       {picker && warehouses?.length ? (
         <PosWarehousePicker
@@ -652,6 +682,10 @@ export default function PosReturnsPage() {
 
       {modal === 'chinhSach' ? <ChinhSachModal onClose={() => setModal(null)} /> : null}
 
+      {modal === 'phimTat' ? (
+        <BangPhimTat description={t("Trả hàng nhanh bằng bàn phím, không cần chuột.")} groups={PHIM_TAT_TRA} onClose={() => setModal(null)} />
+      ) : null}
+
       {modal === 'phieuDaTra' && phieuNhanh ? (
         <HopPhieuDaTra bayGio={bayGio} id={phieuNhanh} onDong={() => { setModal(null); setPhieuNhanh(null); }} onIn={(id) => inBienBan(id)} />
       ) : null}
@@ -678,16 +712,14 @@ function TrangThai({ tone, children }) {
 
 /**
  * Bốn ý chính của chính sách trả hàng, làm chân khung Phiếu trả khi chưa chọn hóa đơn
- * (cùng chỗ, cùng vạch kẻ với khối tổng tiền sau khi chọn); bản đầy đủ ở nút trợ giúp trên thanh trên.
+ * (cùng chỗ, cùng vạch kẻ với khối tổng tiền sau khi chọn). Đây là chỗ duy nhất nói về chính sách trên màn;
+ * "Xem đầy đủ" mở bản đầy đủ. Nút trợ giúp trên thanh trên là bảng phím tắt như màn bán.
  */
 function TomTatChinhSach({ onXemDayDu }) {
-  const lop = 'mt-0.5 size-[15px] shrink-0 text-bo-muted';
-  const y = [
-    [<Clock3 aria-hidden="true" className={lop} key="i" />, t("Nhận trả trong 03 ngày kể từ lúc thanh toán, ở mọi cửa hàng.")],
-    [<ShieldCheck aria-hidden="true" className={lop} key="i" />, t("Quá hạn: cần quản lý cửa hàng duyệt bằng mã.")],
-    [<Check aria-hidden="true" className={lop} key="i" />, t("Kiểm từng món: hàng Đạt nhập lại kho, hàng Lỗi để riêng.")],
-    [<Banknote aria-hidden="true" className={lop} key="i" />, t("Hoàn tiền mặt hoặc chuyển khoản, in biên bản 02 liên.")],
-  ];
+  const y = CHINH_SACH_TOM_TAT.map(([ma, cau]) => {
+    const BieuTuong = BIEU_TUONG_CHINH_SACH[ma];
+    return [<BieuTuong aria-hidden="true" className="mt-0.5 size-[15px] shrink-0 text-bo-muted" key="i" />, t(cau)];
+  });
   return (
     <div className="shrink-0 space-y-2.5 border-t border-bo-border px-4 pb-4 pt-3">
       <div className="flex items-center justify-between">
@@ -916,6 +948,7 @@ function MonTra({ d, c, ke, khoCoKe, loi, daBamXacNhan, onCapNhat }) {
             : t("Nhập số lượng từ 1 đến {{n}}.", { n: toiDa })}
         </p>
       ) : null}
+      <GoiYKiemHang laLoi={laLoi} />
       <div className={`grid gap-2 ${laLoi || khoCoKe ? 'grid-cols-2' : 'grid-cols-1'}`}>
         {laLoi
           ? chonO('nhomLoi', c.nhomLoi, NHOM_LOI, t("Chọn nhóm lỗi"))
@@ -923,6 +956,21 @@ function MonTra({ d, c, ke, khoCoKe, loi, daBamXacNhan, onCapNhat }) {
         {chonO('lyDo', c.lyDo, LY_DO_TRA, t("Chọn lý do"))}
       </div>
     </li>
+  );
+}
+
+/**
+ * Một dòng nhắc điều kiện hàng ngay dưới công tắc Đạt / Lỗi: đây là luật duy nhất máy không tự kiểm được, nên nhắc
+ * đúng lúc thu ngân chấm (khung tóm tắt chính sách đã ẩn khi mở hóa đơn). Chữ đổi theo lựa chọn.
+ */
+function GoiYKiemHang({ laLoi }) {
+  const [nhan, cau] = GOI_Y_QC[laLoi ? QC_LOI : QC_DAT];
+  const BieuTuong = laLoi ? AlertTriangle : Tag;
+  return (
+    <p className="flex items-start gap-1.5 rounded-md bg-bo-surface-subtle px-2 py-1.5 text-[11px] leading-4 text-bo-muted">
+      <BieuTuong aria-hidden="true" className="mt-px shrink-0" size={12} />
+      <span><strong className={`font-semibold ${laLoi ? 'text-bo-danger' : 'text-bo-success'}`}>{t(nhan)}</strong> {t(cau)}</span>
+    </p>
   );
 }
 
@@ -1003,21 +1051,21 @@ function HoanTat({ ketQua, onIn, onLamMoi, onVeBanHang }) {
   );
 }
 
+/** Bản đầy đủ của chính sách (mở từ "Xem đầy đủ" ở khung tóm tắt), chia hai nhóm như khai báo ở CHINH_SACH_DAY_DU. */
 function ChinhSachModal({ onClose }) {
-  const muc = [
-    t("Trong vòng 03 ngày kể từ lúc thanh toán (in trên hóa đơn gốc). Quá hạn cần quản lý cửa hàng duyệt."),
-    t("Sản phẩm còn nguyên tem mác, chưa qua sử dụng, chưa giặt ủi, không ám mùi, không dính bẩn."),
-    t("Bắt buộc tra được hóa đơn gốc đã thanh toán trên hệ thống."),
-    t("Trả được ở mọi cửa hàng: hàng nhập vào kho cửa hàng nhận trả, doanh thu giảm ở cửa hàng đã bán."),
-    t("Hoàn theo giá khách thực trả trên từng sản phẩm, bằng tiền mặt hoặc chuyển khoản."),
-    t("Hàng Đạt cất lên kệ và mở bán lại ngay; hàng Lỗi để riêng, không cộng tồn."),
-  ];
   return (
     <PosModal onClose={onClose} size="sm" title={t("Chính sách trả hàng")}
       footer={<div className="flex justify-end"><button className={secondaryButton} onClick={onClose} type="button">{t("Đã hiểu")}</button></div>}>
-      <ul className="list-disc space-y-2 pl-5 text-sm text-bo-foreground">
-        {muc.map((m) => <li key={m}>{m}</li>)}
-      </ul>
+      <div className="space-y-4">
+        {CHINH_SACH_DAY_DU.map(([tieuDe, ds]) => (
+          <section key={tieuDe}>
+            <h3 className="text-xs font-semibold text-bo-muted">{t(tieuDe)}</h3>
+            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-bo-foreground">
+              {ds.map((m) => <li key={m}>{t(m)}</li>)}
+            </ul>
+          </section>
+        ))}
+      </div>
     </PosModal>
   );
 }
