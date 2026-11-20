@@ -68,6 +68,7 @@ import {
     HopXuLyChenhLech,
 } from "./HopThoaiChuyenKho";
 import { t } from "@/i18n";
+import { moTrangIn } from "@/lib/moTrangIn";
 
 const B = ({ children }) => <b className="font-semibold text-bo-foreground">{children}</b>;
 const LienKet = ({ to, onClick, children }) => (
@@ -337,7 +338,7 @@ function ManPhieuChuyenKho({ id }) {
     const bb = ct.bienBan;
     const phieuNhapDich = (ct.phieuNhap ?? []).filter((pn) => !pn.laHoanTra);
     const phieuNhapHoanTra = (ct.phieuNhap ?? []).filter((pn) => pn.laHoanTra);
-    const inTai = (loai) => () => navigate(`/transfer-tickets/${id}/print/${loai}`);
+    const inTai = (loai) => () => moTrangIn(`/transfer-tickets/${id}/print/${loai}`, navigate);
 
     // ── Nút theo trạng thái (mỗi trạng thái nhiều nhất một nút chính) ──
     const nutPhu = [];

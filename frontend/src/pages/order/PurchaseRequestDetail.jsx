@@ -44,6 +44,7 @@ import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { khoTrongToken } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
+import { moTrangIn } from "@/lib/moTrangIn";
 
 const TEN_CHUNG_TU = t("yêu cầu nhập hàng");
 const LY_DO_RONG = cauChungTuRong(TEN_CHUNG_TU, { dauCham: false });
@@ -285,7 +286,7 @@ function ChiTietYeuCauNhapHang({ id }) {
                         ]}
                         onQuayLai={quayLai}
                         nhanQuayLai={t("Về danh sách yêu cầu nhập hàng")}
-                        nutPhu={{ nhan: t("In yêu cầu"), icon: Printer, onClick: () => navigate(`/purchase-requests/${id}/print`) }}
+                        nutPhu={{ nhan: t("In yêu cầu"), icon: Printer, onClick: () => moTrangIn(`/purchase-requests/${id}/print`, navigate) }}
                         saoChepMa={{ giaTri: yc.soYeuCauMuaHang, nhan: t("Sao chép mã yêu cầu") }}
                         menu={
                             coYeuCauBaoGia && xemYeuCauBaoGia

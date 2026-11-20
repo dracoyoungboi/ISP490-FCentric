@@ -62,6 +62,7 @@ import { getMineKhoList } from "@/services/khoService";
 import { laKhoTong } from "@/utils/kho";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
+import { moTrangIn } from "@/lib/moTrangIn";
 
 const TEN_CHUNG_TU = t("đơn bán hàng");
 const TONG_THEO = Object.freeze({ soLuong: "soLuong", thanhTien: "thanhTien" });
@@ -280,9 +281,10 @@ function ChiTietDonBanHang({ id }) {
     });
 
   const inVanDonSan = async () => {
-    // Shopee: mở thẳng giao diện in A6 nội bộ (tự nhúng vận đơn chuẩn sàn bên trong) thay vì bật tab popup mới
+    // Shopee: giao diện in A6 nội bộ (tự nhúng vận đơn chuẩn sàn bên trong) ở thẻ mới, như mọi trang in của chứng từ;
+    // sàn khác: tệp PDF của sàn ở thẻ mới
     if (laShopee) {
-      navigate(`/sales-orders/${id}/print-packing-slip`);
+      moTrangIn(`/sales-orders/${id}/print-packing-slip`, navigate);
       return;
     }
     try {
@@ -296,9 +298,9 @@ function ChiTietDonBanHang({ id }) {
     } catch (err) {
       toast.error(t("Không thể tải tem vận đơn từ sàn: {{error}}", { error: getApiErrorMessage(err, t("Lỗi kết nối")) }));
       if (v.pxMo?.id) {
-        navigate(`/goods-issues/${v.pxMo.id}/print-packing-slip`);
+        moTrangIn(`/goods-issues/${v.pxMo.id}/print-packing-slip`, navigate);
       } else {
-        navigate(`/sales-orders/${id}/print-packing-slip`);
+        moTrangIn(`/sales-orders/${id}/print-packing-slip`, navigate);
       }
     } finally {
       setDangTaiVanDon(false);
@@ -447,7 +449,7 @@ function ChiTietDonBanHang({ id }) {
                   nhan: t("In hóa đơn"),
                   icon: Printer,
                   // Đơn bán tại quầy in lại bằng mẫu khổ nhiệt như lúc thanh toán
-                  onClick: () => navigate(`/sales-orders/${id}/invoice${laPos ? "?mau=tai-quay" : ""}`),
+                  onClick: () => moTrangIn(`/sales-orders/${id}/invoice${laPos ? "?mau=tai-quay" : ""}`, navigate),
                 }
                 : null
             }

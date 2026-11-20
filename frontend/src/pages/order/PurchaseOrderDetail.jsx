@@ -47,6 +47,7 @@ import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
 import { VAI_TRO_XEM_PHIEU_NHAP } from "@/constants/vaiTroTheoNghiepVu";
+import { moTrangIn } from "@/lib/moTrangIn";
 
 // Ai được tạo phiếu nhập kho từ đơn mua (giữ như trước): quản trị viên, quản lý kho, nhân viên kho.
 const VAI_TRO_TAO_PHIEU_NHAP = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_KHO];
@@ -320,7 +321,7 @@ export default function PurchaseOrderDetail() {
                     taoPhieu={taoPhieu}
                     ketThuc={ketThuc}
                     onQuayLai={quayLai}
-                    onIn={() => navigate(`/purchase-orders/${don.id}/print`)}
+                    onIn={() => moTrangIn(`/purchase-orders/${don.id}/print`, navigate)}
                     onTaoPhieu={() => navigate(phieuNhapCanMo ? `/goods-receipts/${phieuNhapCanMo.id}` : `/goods-receipts/create?poId=${don.id}`)}
                     onMoYeuCau={() => navigate(`/purchase-requests/${don.yeuCauMuaHang?.id}`)}
                     onKetThuc={moHop}
