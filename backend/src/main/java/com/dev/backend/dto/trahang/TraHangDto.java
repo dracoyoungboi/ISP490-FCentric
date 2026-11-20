@@ -31,7 +31,8 @@ public final class TraHangDto {
 
     /**
      * Một dòng của đơn gốc. donGiaThucTra = (thành tiền − giảm giá dòng) / số lượng mua, làm tròn đồng (GBR-RET-05).
-     * keGoiYId: kệ ở cửa hàng nhận đang chứa mã này nhiều nhất (gợi ý chọn sẵn), null khi không có.
+     * keGoiYId: kệ chọn sẵn ở cửa hàng nhận, chỉ kệ còn chỗ: kệ đang chứa mã này nhiều nhất, không có thì kệ chính
+     * của lô sẽ nhận hàng trả; null khi không có kệ nào hợp.
      * tienConHoan: tiền khách đã trả cho dòng trừ phần đã hoàn — trả hết số còn lại thì hoàn đúng số này (khớp máy chủ).
      */
     public record Dong(Integer chiTietId, Integer bienTheId, String maSku, String tenSanPham, String mauSac,
@@ -40,7 +41,11 @@ public final class TraHangDto {
                        BigDecimal tienConHoan) {
     }
 
-    public record Ke(Integer id, String ma) {
+    /**
+     * Kệ chọn được để cất hàng Đạt. conCho: số còn xếp thêm được theo sức chứa (cùng cách tính với chốt chặn lúc xếp
+     * kệ), null khi kệ không đặt sức chứa.
+     */
+    public record Ke(Integer id, String ma, Integer conCho) {
     }
 
     /** Duyệt quá hạn còn hiệu lực của thu ngân đang đăng nhập cho đơn này. */
