@@ -1,6 +1,7 @@
 package com.dev.backend.services.impl.entities;
 
 import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.services.impl.utils.NhatKyNghiepVu;
 
@@ -11,15 +12,18 @@ import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.entities.KhoDto;
 import com.dev.backend.entities.Kho;
 import com.dev.backend.entities.NguoiDung;
+import com.dev.backend.entities.PhanQuyenNguoiDungKho;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.mapper.KhoMapper;
 import com.dev.backend.repository.KhoRepository;
 import com.dev.backend.repository.KhoTomTatRepository;
+import com.dev.backend.repository.PhanQuyenNguoiDungKhoRepository;
 import com.dev.backend.services.impl.BaseServiceImpl;
 import com.dev.backend.services.impl.multitable.TongQuanAdminServiceImpl;
 import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import com.dev.backend.i18n.ThongDiep;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -29,6 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -64,6 +70,8 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
     private KhoMapper khoMapper;
     @Autowired
     private KhoTomTatRepository khoTomTatRepository;
+    @Autowired
+    private PhanQuyenNguoiDungKhoRepository phanQuyenNguoiDungKhoRepository;
 
     /** Ngưỡng sắp hết mặc định: cấu hình DEFAULT_MIN_STOCK_ALERT, chưa đặt thì dùng mặc định của Tổng quan. */
     private static final String CH_NGUONG_SAP_HET = "DEFAULT_MIN_STOCK_ALERT";
@@ -165,10 +173,9 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
     @Transactional
     public ResponseEntity<ResponseData<KhoDto>> create(KhoCreating creating) {
 
-        Optional<NguoiDung> findingQuanLy = nguoiDungService.getOne(creating.getQuanLyId());
-
-        if (findingQuanLy.isEmpty()) {
-            throw new CommonException(ThongDiep.of("sanPhamMuaHang.nguoiDungKhongTimThay", creating.getQuanLyId()));
+        // Người quản lý chính phải đang làm việc tại kho (Kho.quanLy), mà kho mới chưa ai được phân quyền
+        if (creating.getQuanLyId() != null) {
+            throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoMoiChuaCoQuanLy"));
         }
 
         Optional<Kho> findingKho = khoRepository.findByMaKho(creating.getMaKho());
@@ -183,7 +190,6 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
         kho.setTenKho(creating.getTenKho());
         kho.setMaKho(creating.getMaKho());
         kho.setDiaChi(creating.getDiaChi());
-        kho.setQuanLy(findingQuanLy.get());
         kho.setTrangThai(creating.getTrangThai());
         kho = create(kho);
         if (khoaKiemKeGuard != null) {
@@ -204,10 +210,6 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
     @Transactional
     public ResponseEntity<ResponseData<KhoDto>> update(KhoUpdating updating) {
 
-        Optional<NguoiDung> findingQuanLy = nguoiDungService.getOne(updating.getQuanLyId());
-        if (findingQuanLy.isEmpty()) {
-            throw new CommonException(ThongDiep.of("sanPhamMuaHang.nguoiDungKhongTimThay", updating.getQuanLyId()));
-        }
         Optional<Kho> findingKho = khoRepository.findByMaKho(updating.getMaKho());
         if (findingKho.isPresent() && !findingKho.get().getId().equals(updating.getId())) {
             throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoMaDaTonTai"));
@@ -224,7 +226,7 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
         }
         String loaiKho = chuanHoaLoaiKho(updating.getLoaiKho(), kho.getLoaiKho() != null ? kho.getLoaiKho() : KHO_BAN_HANG);
         // Mã KHO_TRANSIT được dùng cố định trong nhiều câu SQL; đổi mã hay loại thì kho ảo mất vai trò (và lách được
-        // quy tắc "luôn hoạt động" của kho ảo), nên kho ảo chỉ sửa được tên, địa chỉ, người quản lý.
+        // quy tắc "luôn hoạt động" của kho ảo), nên kho ảo chỉ sửa được tên, địa chỉ (không có người quản lý).
         if (laKhoAo(kho) && (!MA_KHO_AO.equalsIgnoreCase(updating.getMaKho())
                 || !Objects.equals(loaiKho, kho.getLoaiKho() != null ? kho.getLoaiKho() : KHO_BAN_HANG))) {
             throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoAoKhongDoiMaLoai"));
@@ -237,13 +239,30 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
             khoaKiemKeGuard.giuKho(kho.getId());
             khoaKiemKeGuard.kiemTraKho(kho.getId(), "đổi loại kho");
         }
-        Map<String, Object> truoc = anhKho(kho);
+        Map<String, Object> truoc = new LinkedHashMap<>(anhKho(kho));
+        // Form chỉ đổi người quản lý khi ô đó đổi so với lúc mở form (quanLyIdBanDau); form mở từ trước mà không đụng ô
+        // thì giữ người hiện tại, không lặng lẽ đặt lại người cũ (như trangThai ở trên).
+        boolean doiQuanLy = false;
+        if (!Objects.equals(updating.getQuanLyId(), updating.getQuanLyIdBanDau())) {
+            // Khóa kho rồi đọc người quản lý chính bản mới nhất: hai quản trị viên đổi cùng lúc thì người sau thấy lựa chọn
+            // của người trước và nhận 409, không lặng lẽ đè (ảnh lúc nạp kho có thể đã cũ)
+            entityManager.lock(kho, LockModeType.PESSIMISTIC_WRITE);
+            NguoiDung hienTai = quanLyChinhMoiNhat(kho.getId());
+            Integer quanLyHienTai = hienTai == null ? null : hienTai.getId();
+            truoc.put("quanLy", hienTai == null ? null : hienTai.getHoTen());
+            doiQuanLy = !Objects.equals(updating.getQuanLyId(), quanLyHienTai);
+            if (doiQuanLy && !Objects.equals(updating.getQuanLyIdBanDau(), quanLyHienTai)) {
+                throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("sanPhamMuaHang.quanLyVuaDuocDoi", kho.getTenKho()));
+            }
+        }
         kho.setLoaiKho(loaiKho);
         kho.setMaKho(updating.getMaKho());
         kho.setTenKho(updating.getTenKho());
         kho.setDiaChi(updating.getDiaChi());
-        kho.setQuanLy(findingQuanLy.get());
         kho = update(updating.getId(), kho);
+        if (doiQuanLy) {
+            datQuanLyChinh(kho, updating.getQuanLyId());
+        }
         ghiNhatKy(NhatKyNghiepVu.dong(ITable.kho, kho.getId(), IHanhDong.sua_kho)
                 .ma(kho.getMaKho()).kho(kho.getId())
                 .thayDoi(truoc, anhKho(kho)));
@@ -255,6 +274,57 @@ public class KhoService extends BaseServiceImpl<Kho, Integer> {
                         .message("Success")
                         .build()
         );
+    }
+
+    /**
+     * Đặt người quản lý chính (null = bỏ trống): gắn dấu la_quan_ly_kho cho dòng phân quyền của người đó TẠI KHO NÀY, bỏ dấu
+     * mọi dòng khác của kho (kể cả dòng đã thu hồi / hết hạn, để dấu cũ không sống lại khi người đó được phân lại).
+     * Người được chọn phải là quản lý kho đang hoạt động, có phân quyền hiệu lực tại kho; kho ảo không có người quản lý.
+     * Khóa dòng kho để hai quản trị viên đổi cùng lúc không để lại hai dấu. Xong thì nạp lại kho (Kho.quanLy tính lúc đọc).
+     */
+    private void datQuanLyChinh(Kho kho, Integer nguoiDungId) {
+        PhanQuyenNguoiDungKho pq = null;
+        if (nguoiDungId != null) {
+            if (laKhoAo(kho)) {
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.khoAoKhongCoQuanLy"));
+            }
+            NguoiDung nguoiDung = nguoiDungService.getOne(nguoiDungId)
+                    .orElseThrow(() -> new CommonException(ThongDiep.of("sanPhamMuaHang.nguoiDungKhongTimThay", nguoiDungId)));
+            if (!IRoleType.quan_ly_kho.equals(nguoiDung.getVaiTro())) {
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.quanLyKhongPhaiQuanLyKho", nguoiDung.getHoTen()));
+            }
+            if (!Integer.valueOf(1).equals(nguoiDung.getTrangThai())) {
+                throw new CommonException(ThongDiep.of("sanPhamMuaHang.quanLyBiKhoa", nguoiDung.getHoTen()));
+            }
+            pq = phanQuyenNguoiDungKhoRepository.findHieuLucTai(nguoiDungId, Instant.now()).stream()
+                    .filter(p -> p.getKho() != null && kho.getId().equals(p.getKho().getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new CommonException(ThongDiep.of("sanPhamMuaHang.quanLyChuaLamTaiKho",
+                            nguoiDung.getHoTen(), kho.getTenKho())));
+        }
+        entityManager.flush();
+        entityManager.lock(kho, LockModeType.PESSIMISTIC_WRITE);
+        phanQuyenNguoiDungKhoRepository.boDauQuanLyChinhCuaKho(kho.getId());
+        // Gắn dấu bằng câu UPDATE, không qua thực thể pq đang nạp: thực thể còn giữ giá trị dấu cũ, đặt lại cùng giá trị thì
+        // Hibernate không ghi và dấu vừa bị câu trên xóa sẽ mất.
+        if (pq != null) {
+            phanQuyenNguoiDungKhoRepository.datDauQuanLyChinh(pq.getId());
+        }
+        entityManager.refresh(kho);
+    }
+
+    /**
+     * Người quản lý chính hiện tại đọc bản mới nhất (gọi sau khi khóa dòng kho), cùng luật Kho.SQL_QUAN_LY_CHINH:
+     * dòng mang dấu còn hiệu lực, tài khoản hoạt động, vai trò quản lý kho; nhiều dòng thì lấy dòng cấp trước.
+     */
+    private NguoiDung quanLyChinhMoiNhat(Integer khoId) {
+        for (Object[] dong : phanQuyenNguoiDungKhoRepository.dauQuanLyChinhMoiNhat(khoId, Instant.now())) {
+            NguoiDung nd = nguoiDungService.getOne(((Number) dong[1]).intValue()).orElse(null);
+            if (nd != null && Integer.valueOf(1).equals(nd.getTrangThai()) && IRoleType.quan_ly_kho.equals(nd.getVaiTro())) {
+                return nd;
+            }
+        }
+        return null;
     }
 
     /** Kho ảo giữ hàng đang chuyển giữa các kho, ngừng nó thì phiếu chuyển đang đi không nhận được. */

@@ -150,8 +150,12 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
             firstTimeInWorkSpace = false;
         }
 
-        // Cập nhật các thông tin cơ bản về vai trò trong kho
-        phanQuyenNguoiDungKho.setLaQuanLyKho(pqndkCreating.getLaQuanLyKho());
+        // Dấu "người quản lý chính" (la_quan_ly_kho, xem Kho.quanLy) không nhận từ luồng cũ này: chỉ đổi ở màn Kho
+        // (KhoService) và luồng lưu phân quyền. Dòng phân lại sau khi đã thu hồi thì bỏ dấu cũ.
+        if (firstTimeInWorkSpace || !Integer.valueOf(1).equals(phanQuyenNguoiDungKho.getTrangThai())
+                || phanQuyenNguoiDungKho.getLaQuanLyKho() == null) {
+            phanQuyenNguoiDungKho.setLaQuanLyKho(0);
+        }
         // 0: không hoạt động 1: hoạt động
         phanQuyenNguoiDungKho.setTrangThai(1);
         phanQuyenNguoiDungKho.setNgayBatDau(pqndkCreating.getNgayBatDau());

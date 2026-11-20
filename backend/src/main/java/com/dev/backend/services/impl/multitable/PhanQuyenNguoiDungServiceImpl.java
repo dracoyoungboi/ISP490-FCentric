@@ -38,6 +38,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -217,7 +218,8 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
                 throw new CommonException(ThongDiep.of("khoVanHanh.chonKhoPhuTrachTruocKhiCapQuyen"));
             }
         } else {
-            pqSau = datKhoVaQuyen(nguoiDung, request, quyenMoi, dangCo, nguoiThucHien, vaiTroMoi, bayGio);
+            pqSau = datKhoVaQuyen(nguoiDung, request, quyenMoi, dangCo, nguoiThucHien, vaiTroMoi, bayGio,
+                    !IRoleType.quan_ly_kho.equals(vaiTroCu));
         }
 
         AnhChup sau = new AnhChup(vaiTroMoi,
@@ -239,9 +241,11 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         }
     }
 
+    /** {@code moiLamQuanLyKho}: trước lần lưu này người dùng chưa mang vai trò quản lý kho. */
     private PhanQuyenNguoiDungKho datKhoVaQuyen(NguoiDung nguoiDung, LuuPhanQuyenRequest request,
                                                Map<Integer, QuyenHan> quyenMoi, List<PhanQuyenNguoiDungKho> dangCo,
-                                               NguoiDung nguoiThucHien, String vaiTroMoi, Instant bayGio) {
+                                               NguoiDung nguoiThucHien, String vaiTroMoi, Instant bayGio,
+                                               boolean moiLamQuanLyKho) {
         Kho kho = khoRepository.findById(request.getKhoId())
                 .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.khoKhongTimThay")));
         PhanQuyenNguoiDungKho pq = dangCo.stream()
@@ -258,6 +262,11 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
                 : request.getNgayKetThuc().truncatedTo(ChronoUnit.SECONDS);
         if (ngayKetThuc != null && !ngayKetThuc.isAfter(bayGio)) {
             throw new CommonException(ThongDiep.of("khoVanHanh.ngayHetHieuLucPhaiSau"));
+        }
+        // Quản lý kho có thể được tự đặt làm người quản lý chính: khóa kho TRƯỚC mọi lần ghi phân quyền, cùng thứ tự với
+        // KhoService (kho → phân quyền), để hai luồng chạy cùng lúc không khóa chéo nhau
+        if (IRoleType.quan_ly_kho.equals(vaiTroMoi)) {
+            khoaKho(kho);
         }
 
         // Tối đa một kho đang hiệu lực: đổi kho thì thu hồi kho cũ trong cùng lần lưu
@@ -278,12 +287,24 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
             pq.setNgayBatDau(bayGio.minusSeconds(LUI_NGAY_BAT_DAU_GIAY));
             pq.setNguoiCapQuyen(nguoiThucHien);
         }
+        // Dấu "người quản lý chính" (la_quan_ly_kho, xem Kho.quanLy): phân mới / phân lại thì bỏ dấu cũ của dòng (không để dấu
+        // từ lần làm việc trước sống lại), không còn là quản lý kho thì bỏ; lưu lại cùng kho thì giữ nguyên.
+        boolean laQuanLyKho = IRoleType.quan_ly_kho.equals(vaiTroMoi);
+        boolean dangLaQuanLyChinh = laQuanLyChinh(kho, nguoiDung);
         pq.setTrangThai(1);
-        pq.setLaQuanLyKho(IRoleType.quan_ly_kho.equals(vaiTroMoi) ? 1 : 0);
+        if (kichHoatMoi || !laQuanLyKho || pq.getLaQuanLyKho() == null) {
+            pq.setLaQuanLyKho(0);
+        }
         pq.setNgayKetThuc(ngayKetThuc);
         pq = phanQuyenNguoiDungKhoRepository.save(pq);
-        if (!IRoleType.quan_ly_kho.equals(vaiTroMoi)) {
-            boQuanLyKho(kho, nguoiDung);
+        if (!laQuanLyKho && dangLaQuanLyChinh) {
+            ghiNhatKyQuanLyChinh(kho, nguoiDung.getHoTen(), null,
+                    "Bỏ người quản lý kho do đổi phân quyền của " + nguoiDung.getHoTen());
+        }
+        // Quản lý kho vừa vào kho (hoặc vừa thành quản lý kho) mà kho chưa có người quản lý chính thì người này đứng tên.
+        // Không tự đẩy người khác lên khi người quản lý chính rời đi: quản trị viên chọn lại ở màn Kho.
+        if (laQuanLyKho && (kichHoatMoi || moiLamQuanLyKho)) {
+            ganQuanLyChinhNeuKhoTrong(pq, kho, nguoiDung, bayGio);
         }
 
         datTapQuyen(pq, quyenMoi, nguoiThucHien, bayGio, kichHoatMoi);
@@ -324,12 +345,17 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
 
     /** Thu hồi (không xóa) phân quyền kho và các quyền đang bật, để còn tra lại ai đã cấp gì. */
     private void thuHoiPhanQuyenKho(PhanQuyenNguoiDungKho pq, Instant bayGio) {
+        boolean dangLaQuanLyChinh = laQuanLyChinh(pq.getKho(), pq.getNguoiDung());
         pq.setTrangThai(0);
+        pq.setLaQuanLyKho(0);
         if (pq.getNgayKetThuc() == null || pq.getNgayKetThuc().isAfter(bayGio)) {
             pq.setNgayKetThuc(bayGio);
         }
         phanQuyenNguoiDungKhoRepository.save(pq);
-        boQuanLyKho(pq.getKho(), pq.getNguoiDung());
+        if (dangLaQuanLyChinh) {
+            String ten = pq.getNguoiDung().getHoTen();
+            ghiNhatKyQuanLyChinh(pq.getKho(), ten, null, "Bỏ người quản lý kho do đổi phân quyền của " + ten);
+        }
         for (ChiTietQuyenKho ct : chiTietQuyenKhoRepository.findByPhanQuyenNguoiDungKhoId(pq.getId())) {
             if (Integer.valueOf(1).equals(ct.getTrangThai())) {
                 ct.setTrangThai(0);
@@ -338,25 +364,49 @@ public class PhanQuyenNguoiDungServiceImpl implements PhanQuyenNguoiDungService 
         }
     }
 
+    /** Người dùng đang là người quản lý chính của kho (Kho.quanLy, tính lúc nạp kho trong phiên này). */
+    private static boolean laQuanLyChinh(Kho kho, NguoiDung nguoiDung) {
+        return kho != null && nguoiDung != null && kho.getQuanLy() != null
+                && Objects.equals(kho.getQuanLy().getId(), nguoiDung.getId());
+    }
+
     /**
-     * Người dùng không còn quản lý kho này (chuyển kho, thu hồi, đổi vai trò) thì bỏ khỏi kho.quan_ly_id:
-     * cột này cho quyền duyệt yêu cầu mua hàng của kho (YeuCauMuaHangService.coQuyenDuyetKho).
+     * Kho chưa có người quản lý chính (không ai khác mang dấu còn hiệu lực) thì gắn dấu cho dòng phân quyền {@code pq}.
+     * Khóa dòng kho để không đua với quản trị viên đang đổi người quản lý ở màn Kho (KhoService.datQuanLyChinh).
      */
-    private void boQuanLyKho(Kho kho, NguoiDung nguoiDung) {
-        if (kho == null || nguoiDung == null || kho.getQuanLy() == null) return;
-        if (Objects.equals(kho.getQuanLy().getId(), nguoiDung.getId())) {
-            String quanLyCu = kho.getQuanLy().getHoTen();
-            kho.setQuanLy(null);
-            khoRepository.save(kho);
-            // Lịch sử kho: cùng khóa "quanLy" (họ tên) như KhoService khi sửa kho
-            if (nhatKyNghiepVu != null) {
-                nhatKyNghiepVu.ghi(NhatKyNghiepVu.dong(ITable.kho, kho.getId(), IHanhDong.sua_kho)
-                        .ma(kho.getMaKho())
-                        .kho(kho.getId())
-                        .thayDoi(NhatKyNghiepVu.anh("quanLy", quanLyCu), NhatKyNghiepVu.anh("quanLy", null))
-                        .ghiChu("Bỏ người quản lý kho do đổi phân quyền của " + nguoiDung.getHoTen()));
-            }
+    private void ganQuanLyChinhNeuKhoTrong(PhanQuyenNguoiDungKho pq, Kho kho, NguoiDung nguoiDung, Instant bayGio) {
+        if (MA_KHO_AO.equals(kho.getMaKho())) return;
+        khoaKho(kho);
+        // Đọc bản mới nhất (sau khi khóa kho): thấy cả người quản lý quản trị viên khác vừa chọn ở màn Kho
+        boolean daCoNguoiKhac = phanQuyenNguoiDungKhoRepository.dauQuanLyChinhMoiNhat(kho.getId(), bayGio).stream()
+                .filter(dong -> ((Number) dong[0]).intValue() != pq.getId())
+                .map(dong -> nguoiDungRepository.findById(((Number) dong[1]).intValue()).orElse(null))
+                .anyMatch(n -> n != null && Integer.valueOf(1).equals(n.getTrangThai())
+                        && IRoleType.quan_ly_kho.equals(n.getVaiTro()));
+        if (daCoNguoiKhac) return;
+        // Câu UPDATE thẳng xóa cả dấu cũ trên dòng đã thu hồi / hết hạn của kho, rồi gắn dấu cho dòng này
+        phanQuyenNguoiDungKhoRepository.boDauQuanLyChinhCuaKho(kho.getId());
+        phanQuyenNguoiDungKhoRepository.datDauQuanLyChinh(pq.getId());
+        pq.setLaQuanLyKho(1);
+        ghiNhatKyQuanLyChinh(kho, null, nguoiDung.getHoTen(),
+                "Tự đặt người quản lý kho khi phân quyền cho " + nguoiDung.getHoTen());
+    }
+
+    /** Khóa dòng kho (null khi unit test dựng tay không có JPA): cùng mutex với KhoService khi đổi người quản lý chính. */
+    private void khoaKho(Kho kho) {
+        if (entityManager != null) {
+            entityManager.lock(kho, LockModeType.PESSIMISTIC_WRITE);
         }
+    }
+
+    /** Lịch sử kho khi người quản lý chính đổi theo phân quyền: cùng khóa "quanLy" (họ tên) như KhoService khi sửa kho. */
+    private void ghiNhatKyQuanLyChinh(Kho kho, String quanLyCu, String quanLyMoi, String ghiChu) {
+        if (kho == null || nhatKyNghiepVu == null) return;
+        nhatKyNghiepVu.ghi(NhatKyNghiepVu.dong(ITable.kho, kho.getId(), IHanhDong.sua_kho)
+                .ma(kho.getMaKho())
+                .kho(kho.getId())
+                .thayDoi(NhatKyNghiepVu.anh("quanLy", quanLyCu), NhatKyNghiepVu.anh("quanLy", quanLyMoi))
+                .ghiChu(ghiChu));
     }
 
     private static PhanQuyenNguoiDungKho chonPhanQuyenChinh(List<PhanQuyenNguoiDungKho> dangCo, Integer khoId) {

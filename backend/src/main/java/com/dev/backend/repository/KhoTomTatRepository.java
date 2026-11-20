@@ -1,5 +1,6 @@
 package com.dev.backend.repository;
 
+import com.dev.backend.entities.Kho;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -60,7 +61,7 @@ public class KhoTomTatRepository {
     /**
      * Người được phân quyền ở kho: quyền đang bật, đã tới ngày bắt đầu và chưa hết hạn (cùng điều kiện với
      * PhanQuyenNguoiDungKhoRepository.findActiveKhoInfoByNguoiDungId), tài khoản đang hoạt động,
-     * không tính người quản lý chính ghi trên kho.
+     * không tính người quản lý chính của kho (Kho.quanLy, cùng câu con).
      */
     static final String SQL_SO_NGUOI_PHAN_QUYEN = """
             SELECT COUNT(DISTINCT pq.nguoi_dung_id)
@@ -72,8 +73,8 @@ public class KhoTomTatRepository {
               AND (pq.ngay_bat_dau IS NULL OR pq.ngay_bat_dau <= CURRENT_TIMESTAMP)
               AND (pq.ngay_ket_thuc IS NULL OR pq.ngay_ket_thuc > CURRENT_TIMESTAMP)
               AND nd.trang_thai = 1
-              AND (k.quan_ly_id IS NULL OR pq.nguoi_dung_id <> k.quan_ly_id)
-            """;
+              AND pq.nguoi_dung_id <> COALESCE(%s, 0)
+            """.formatted(Kho.sqlQuanLyChinh("k.id"));
 
     private final NamedParameterJdbcTemplate jdbc;
 

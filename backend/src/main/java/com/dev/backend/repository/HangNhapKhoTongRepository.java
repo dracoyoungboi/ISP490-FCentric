@@ -1,6 +1,7 @@
 package com.dev.backend.repository;
 
 import com.dev.backend.dto.response.HangNhapKhoTongResponse.KhoTong;
+import com.dev.backend.entities.Kho;
 import com.dev.backend.utils.PublicAssetUrl;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -30,13 +31,14 @@ public class HangNhapKhoTongRepository {
                            String tenSanPham, String nhomHang, String tenMau, String maMauHex, String tenSize,
                            String tenChatLieu, String anh, long khaDung, boolean daTungNhap, int nguong) {}
 
+    /** quan_ly: họ tên người quản lý chính (Kho.quanLy, cùng câu con). */
     static final String SQL_KHO_TONG = """
             SELECT k.id, k.ma_kho, k.ten_kho, k.dia_chi, nd.ho_ten AS quan_ly
             FROM kho k
-            LEFT JOIN nguoi_dung nd ON nd.id = k.quan_ly_id
+            LEFT JOIN nguoi_dung nd ON nd.id = %s
             WHERE k.loai_kho = 'kho_tong' AND k.trang_thai = 1 AND k.ma_kho <> 'KHO_TRANSIT'
             ORDER BY k.id
-            """;
+            """.formatted(Kho.sqlQuanLyChinh("k.id"));
 
     /** Kho tổng đang hoạt động (nơi duy nhất nhận hàng từ nhà cung cấp), id tăng dần. */
     public List<KhoTong> khoTongHoatDong() {
