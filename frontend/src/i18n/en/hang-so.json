@@ -22,6 +22,8 @@
   "Hoàn trả hàng, hoặc Đánh dấu đã xử lý sau khi xử lý tay.": "Return the goods, or Mark as resolved after handling it manually.",
   "Trạng thái trên sàn không khớp với kho.": "The marketplace status does not match the warehouse.",
   "Kiểm tra rồi Đánh dấu đã xử lý.": "Check it, then Mark as resolved.",
+  "Đơn đang chờ Shopee xác nhận thanh toán hoặc kiểm duyệt COD, hiện chỉ xem.": "Order is awaiting Shopee payment or COD confirmation and is view-only.",
+  "Chờ Shopee chuyển Chờ lấy hàng (Chưa xử lý) rồi gửi sang kho.": "Wait for Shopee to move it to Ready to ship before sending to warehouse.",
   "SKU chưa liên kết. Mở Liên kết sản phẩm để ghép SKU.": "SKU is not linked. Open Product mapping to match the SKU.",
   "Vượt giới hạn gọi API, hệ thống sẽ tự thử lại.": "API rate limit exceeded. The system will retry automatically.",
   "Token không hợp lệ. Kiểm tra khóa hoặc làm mới token.": "Invalid token. Check the key or refresh the token.",

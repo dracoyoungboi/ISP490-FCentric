@@ -983,5 +983,6 @@
   "Shopify gợi ý xuất từ {{tenKho}}{{phuongThuc}}.": "Shopify suggests issuing from {{tenKho}}{{phuongThuc}}.",
   " · Khách chọn nhận tại cửa hàng": " · Customer chose store pickup",
   "Đơn Shopify đang tách từ nhiều điểm giao nhận trên sàn. Khi điều tiết về một kho, hệ thống tự chuyển vị trí xử lý trên Shopify.": "This Shopify order spans multiple fulfillment locations. Dispatching it to one warehouse updates the assigned location on Shopify.",
+  "Đơn {{tenKenh}} đang ở trạng thái Chờ xác nhận nên chỉ xem được. Hệ thống sẽ mở Gửi sang kho khi sàn chuyển Chờ lấy hàng (Chưa xử lý).": "The {{tenKenh}} order is pending confirmation and is view-only. Send to warehouse unlocks once the marketplace moves it to Ready to ship.",
   "Đơn bán hàng được tạo khi bán tại quầy hoặc nhận từ sàn.": "Sales orders are created at the point of sale or come in from marketplaces."
 }
