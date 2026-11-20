@@ -130,12 +130,16 @@ export const canGhiRo = (c) => (c.tinhTrang === QC_LOI ? c.nhomLoi : c.lyDo) ===
 
 /**
  * Lỗi theo dòng (chỉ dòng đang chọn): { [chiTietId]: { soLuong?, ke?, lyDo?, nhomLoi?, ghiChu? } } với mã lỗi:
- * soLuong: 'thieu' | 'vuot' (MSG-RET-03); ke, lyDo, nhomLoi, ghiChu: 'thieu'.
+ * soLuong: 'thieu' | 'vuot' (MSG-RET-03); ke: 'thieu' | 'het-cho'; lyDo, nhomLoi, ghiChu: 'thieu'.
  * Hàng Đạt cần kệ (kho có kệ) và lý do; hàng Lỗi chỉ cần nhóm lỗi. Chọn Khác thì phải ghi rõ.
+ * 'het-cho': tổng hàng Đạt các món đang xếp vào cùng một kệ vượt số kệ còn chứa được ({@code ke[].conCho}, cùng chốt
+ * chặn máy chủ) — báo ngay để thu ngân đổi kệ, không đợi máy chủ từ chối lúc xác nhận.
  */
-export function loiTheoDong(dongGoc = [], chon = [], khoCoKe = false) {
+export function loiTheoDong(dongGoc = [], chon = [], khoCoKe = false, ke = []) {
   const theoId = new Map(dongGoc.map((d) => [d.chiTietId, d]));
   const loi = {};
+  const canTheoKe = canXepTheoKe(chon);
+  const conChoTheoKe = new Map(ke.map((k) => [k.id, k.conCho]));
   for (const c of chon) {
     if (!c.chon) continue;
     const d = theoId.get(c.chiTietId);
@@ -144,12 +148,27 @@ export function loiTheoDong(dongGoc = [], chon = [], khoCoKe = false) {
     if (!Number.isInteger(raw) || raw < 1) e.soLuong = 'thieu';
     else if (raw > conTra(d)) e.soLuong = 'vuot';
     if (c.tinhTrang === QC_DAT && khoCoKe && !c.viTriKhoId) e.ke = 'thieu';
+    else if (c.tinhTrang === QC_DAT && c.viTriKhoId) {
+      const conCho = conChoTheoKe.get(c.viTriKhoId);
+      if (conCho != null && (canTheoKe.get(c.viTriKhoId) ?? 0) > conCho) e.ke = 'het-cho';
+    }
     if (c.tinhTrang === QC_DAT && !c.lyDo) e.lyDo = 'thieu';
     if (c.tinhTrang === QC_LOI && !c.nhomLoi) e.nhomLoi = 'thieu';
     if (canGhiRo(c) && !c.ghiChu?.trim()) e.ghiChu = 'thieu';
     if (Object.keys(e).length) loi[c.chiTietId] = e;
   }
   return loi;
+}
+
+/** Tổng số hàng Đạt các món đang chọn xếp vào từng kệ: Map viTriKhoId → số. */
+export function canXepTheoKe(chon = []) {
+  const m = new Map();
+  for (const c of chon) {
+    const sl = Number(c.soLuong);
+    if (!c.chon || c.tinhTrang !== QC_DAT || !c.viTriKhoId || !Number.isInteger(sl) || sl < 1) continue;
+    m.set(c.viTriKhoId, (m.get(c.viTriKhoId) ?? 0) + sl);
+  }
+  return m;
 }
 
 /** Thông tin chuyển khoản hoàn tiền còn thiếu / sai: mảng tên ô. */

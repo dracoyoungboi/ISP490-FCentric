@@ -259,7 +259,7 @@ export default function PosReturnsPage() {
 
   const dongGoc = useMemo(() => don?.dong ?? [], [don]);
   const tong = useMemo(() => tongKet(dongGoc, chon), [dongGoc, chon]);
-  const loiDong = useMemo(() => loiTheoDong(dongGoc, chon, don?.khoCoKe), [dongGoc, chon, don]);
+  const loiDong = useMemo(() => loiTheoDong(dongGoc, chon, don?.khoCoKe, don?.ke), [dongGoc, chon, don]);
   const loiCk = phuongThuc === HOAN_CHUYEN_KHOAN ? loiChuyenKhoan(ck) : [];
   const duyetConHan = Boolean(don?.duyet) && new Date(don.duyet.hetHieuLucLuc).getTime() > bayGio;
   const duyetDu = !don?.quaHan || duyetConHan || Boolean(tuDuyet);
@@ -882,13 +882,22 @@ function DongHoaDon({ d, dangChon, onChon }) {
 }
 
 /** Một món trên phiếu trả: số lượng, hiện trạng QC, kệ cất / nhóm lỗi, lý do (đặc tả BA V.2). */
-function MonTra({ d, c, ke, khoCoKe, loi, daBamXacNhan, onCapNhat }) {
+function MonTra({ d, c, ke = [], khoCoKe, loi, daBamXacNhan, onCapNhat }) {
   if (!c) return null;
   const toiDa = conTra(d);
   const sl = Number(c.soLuong) || 0;
   const laLoi = c.tinhTrang === QC_LOI;
-  const hien = (k) => loi?.[k] && (k === 'soLuong' ? (loi.soLuong === 'vuot' || daBamXacNhan) : daBamXacNhan);
+  // Vượt số mua và kệ hết chỗ báo ngay; thiếu ô chỉ báo sau khi bấm Xác nhận
+  const hien = (k) => loi?.[k] && (loi[k] === 'vuot' || loi[k] === 'het-cho' || daBamXacNhan);
   const id = `mon-tra-${d.chiTietId}`;
+  const keDangChon = ke.find((k) => k.id === c.viTriKhoId);
+  // Kệ đặt sức chứa: hiện số còn chứa được, làm mờ kệ không đủ chỗ cho số đang trả của món này
+  const dsKe = ke.map((k) => [
+    k.id,
+    // Số đứng trước chữ "chỗ": ô hẹp trên điện thoại cắt đuôi nhãn vẫn còn thấy số
+    k.conCho == null ? k.ma : `${k.ma} · ${t("còn {{con}} chỗ", { con: k.conCho })}`,
+    k.conCho != null && k.conCho < Math.max(1, sl) && k.id !== c.viTriKhoId,
+  ]);
   const chonO = (ma, gt, ds, ph, dich = true) => (
     <select
       aria-label={ph}
@@ -898,7 +907,7 @@ function MonTra({ d, c, ke, khoCoKe, loi, daBamXacNhan, onCapNhat }) {
       value={gt ?? ''}
     >
       <option value="">{ph}</option>
-      {ds.map(([v, nhan]) => <option key={v} value={v}>{dich ? t(nhan) : nhan}</option>)}
+      {ds.map(([v, nhan, tat]) => <option disabled={Boolean(tat)} key={v} value={v}>{dich ? t(nhan) : nhan}</option>)}
     </select>
   );
   return (
@@ -954,11 +963,16 @@ function MonTra({ d, c, ke, khoCoKe, loi, daBamXacNhan, onCapNhat }) {
       <div className={`grid gap-2 ${!laLoi && khoCoKe ? 'grid-cols-2' : 'grid-cols-1'}`}>
         {laLoi ? chonO('nhomLoi', c.nhomLoi, NHOM_LOI, t("Chọn lỗi")) : (
           <>
-            {khoCoKe ? chonO('ke', c.viTriKhoId, ke.map((k) => [k.id, k.ma]), t("Chọn kệ cất"), false) : null}
+            {khoCoKe ? chonO('ke', c.viTriKhoId, dsKe, t("Chọn kệ cất"), false) : null}
             {chonO('lyDo', c.lyDo, LY_DO_TRA_DAT, t("Chọn lý do"))}
           </>
         )}
       </div>
+      {!laLoi && loi?.ke === 'het-cho' && keDangChon ? (
+        <p className="text-xs text-bo-danger" role="alert">
+          {t("Kệ {{ma}} chỉ còn chỗ cho {{con}} sản phẩm. Chọn kệ khác.", { ma: keDangChon.ma, con: keDangChon.conCho })}
+        </p>
+      ) : null}
       {canGhiRo(c) ? (
         <label className="block min-w-0 text-[11px] text-bo-muted" htmlFor={`${id}-ghiChu`}>
           {laLoi ? t("Ghi rõ lỗi") : t("Ghi rõ lý do")}
