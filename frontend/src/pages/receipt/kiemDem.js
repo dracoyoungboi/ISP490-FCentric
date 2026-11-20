@@ -2,8 +2,10 @@
  * Logic thuần của màn Kiểm đếm & khóa lô (PA2, chốt 19/10/2026). Không phụ thuộc React để kiểm bằng `node --test`.
  *
  * "Phiên" là lô đang kiểm của một biến thể, lưu tạm trong trình duyệt tới khi khóa lô:
- *   { log: [Lượt], cur, dem, keId, maLo, nsx }
+ *   { log: [Lượt], cur, dem, dsKe, maLo, nsx }
  *   Lượt = { id, gio, ma, nguon, sl, kq: "cho" | "dat" | "loi", loi, lyDo, huy }
+ *   - dsKe: kệ cho hàng đạt theo thứ tự quét [{ id, sl }]; kệ đầu là kệ chính. `sl` null = máy tự chia (lấp từng kệ
+ *     theo chỗ trống), số = người kiểm gõ tay. Một lô xếp được vào nhiều kệ (chốt 20/11/2026, PA A).
  *   - kq "cho": chế độ "Quét thẻ cho từng cái", đang chờ quét ĐẠT / KHÔNG ĐẠT.
  *   - kq "loi": `loi` cái không đạt (1..sl), phần còn lại của lượt là đạt; `lyDo` bắt buộc trước lượt kế tiếp.
  *   - maLo null: dùng mã gợi ý.
@@ -51,7 +53,16 @@ export function docTheLenh(hoa, soLyDo) {
   return { loai: "KHONG_RO" };
 }
 
-export const phienMoi = (nsx = "") => ({ log: [], cur: null, dem: 1, keId: null, maLo: null, nsx });
+export const phienMoi = (nsx = "") => ({ log: [], cur: null, dem: 1, dsKe: [], maLo: null, nsx });
+
+/** Danh sách kệ đọc lại từ trình duyệt: bỏ dòng hỏng, kệ trùng. Bản tạm cũ (trước 20/11) chỉ có `keId`. */
+function chuanHoaDsKe(raw) {
+  if (!Array.isArray(raw.dsKe)) return Number.isInteger(raw.keId) ? [{ id: raw.keId, sl: null }] : [];
+  const daCo = new Set();
+  return raw.dsKe
+    .filter((d) => d && Number.isInteger(d.id) && !daCo.has(d.id) && daCo.add(d.id))
+    .map((d) => ({ id: d.id, sl: Number.isInteger(d.sl) && d.sl >= 0 ? d.sl : null }));
+}
 
 /** Phiên đọc lại từ trình duyệt: bỏ dữ liệu hỏng thay vì làm vỡ màn. */
 export function chuanHoaPhien(raw, nsxMacDinh = "") {
@@ -74,7 +85,7 @@ export function chuanHoaPhien(raw, nsxMacDinh = "") {
     log,
     cur: log.some((e) => e.id === raw.cur && !e.huy) ? raw.cur : null,
     dem,
-    keId: Number.isInteger(raw.keId) ? raw.keId : null,
+    dsKe: chuanHoaDsKe(raw),
     maLo: typeof raw.maLo === "string" ? raw.maLo : null,
     nsx: typeof raw.nsx === "string" ? raw.nsx : nsxMacDinh,
     khoaChuaRo: lanKhoaHopLe(raw.khoaChuaRo) ? raw.khoaChuaRo : null,
@@ -87,22 +98,27 @@ const lanKhoaHopLe = (l) =>
   Number.isInteger(l.dat) &&
   Number.isInteger(l.loi) &&
   (l.keId === null || Number.isInteger(l.keId)) &&
+  (l.phanKe == null || (Array.isArray(l.phanKe) && l.phanKe.every((k) => k && Number.isInteger(k.id) && Number.isInteger(k.sl)))) &&
   typeof l.nsx === "string" &&
   Number.isInteger(l.dem);
 
 /**
- * Lô trên máy chủ có đúng là lần khóa `lan` ({ maLo, dat, loi, keId, nsx }) không: trùng mã (không phân biệt hoa
- * thường), số đạt, số lỗi, kệ và ngày sản xuất. Dùng khi lần khóa trước không rõ kết quả (mất phản hồi) để không
- * khóa lại thành lô trùng.
+ * Lô trên máy chủ có đúng là lần khóa `lan` ({ maLo, dat, loi, keId, phanKe, nsx }) không: trùng mã (không phân biệt
+ * hoa thường), số đạt, số lỗi, kệ (kệ chính và từng phần khi lô xếp nhiều kệ) và ngày sản xuất. Dùng khi lần khóa trước
+ * không rõ kết quả (mất phản hồi) để không khóa lại thành lô trùng.
  */
 export function khopLanKhoa(lo, lan) {
   if (!lo || !lan) return false;
   const hoa = (v) => String(v ?? "").trim().toUpperCase();
+  // Máy chủ chỉ trả phanKe cho lô từ hai kệ trở lên; lần khóa một kệ không có phanKe
+  const keLo = (lo.phanKe ?? []).map((k) => `${k.viTriKhoId}:${Number(k.soLuong)}`).join(",");
+  const keLan = (lan.phanKe ?? []).map((k) => `${k.id}:${k.sl}`).join(",");
   return (
     hoa(lo.maLo) === hoa(lan.maLo) &&
     Number(lo.soLuongNhap || 0) === lan.dat &&
     Number(lo.soLuongLoi || 0) === lan.loi &&
     (lo.viTriKhoId ?? null) === (lan.keId ?? null) &&
+    keLo === keLan &&
     String(lo.ngaySanXuat ?? "").slice(0, 10) === lan.nsx
   );
 }
@@ -334,6 +350,39 @@ export function cauKeKhongDuoc(ke, kt) {
 }
 
 /**
+ * Chia hàng đạt của lô vào các kệ đã chọn, theo thứ tự quét. Kệ gõ tay số giữ đúng số đó; kệ tự chia lấp dần phần còn
+ * lại, tối đa bằng chỗ trống của kệ (kệ không giới hạn nhận hết phần còn lại). Kệ không còn trong danh sách kệ của
+ * kho thì bỏ qua.
+ * Trả { phan: [{ ke, sl, tuChia }], chuaXep, xepThua }: `chuaXep` hàng đạt chưa có kệ, `xepThua` số gõ tay vượt số đạt.
+ */
+export function chiaKe(dsKe, datLo, viTris = []) {
+  const ds = (dsKe ?? []).map((d) => ({ d, ke: viTris.find((v) => v.id === d.id) ?? null })).filter((x) => x.ke);
+  let conLai = datLo - ds.reduce((s, x) => s + (x.d.sl ?? 0), 0);
+  const phan = ds.map(({ d, ke }) => {
+    if (d.sl != null) return { ke, sl: d.sl, tuChia: false };
+    const con = conTrongKe(ke);
+    const sl = Math.max(0, con === null ? conLai : Math.min(con, conLai));
+    conLai -= sl;
+    return { ke, sl, tuChia: true };
+  });
+  return { phan, chuaXep: Math.max(0, conLai), xepThua: Math.max(0, -conLai) };
+}
+
+/**
+ * Quét / chọn một kệ cho hàng đạt của lô đang kiểm. Trả { phien, loai }:
+ * - "da-co": kệ đã có trong danh sách, không đổi gì.
+ * - "doi": hàng đạt đã có đủ kệ (hoặc lô chưa có hàng đạt) → quét kệ khác là đổi sang kệ đó, như trước khi có nhiều kệ.
+ * - "them": còn hàng đạt chưa có kệ → thêm kệ vào cuối danh sách để nhận phần còn lại.
+ */
+export function themKeVaoLo(phien, keId, { datLo, viTris = [] }) {
+  const dsKe = phien.dsKe ?? [];
+  if (dsKe.some((d) => d.id === keId)) return { phien, loai: "da-co" };
+  const { chuaXep } = chiaKe(dsKe, datLo, viTris);
+  if (dsKe.length && chuaXep === 0) return { phien: { ...phien, dsKe: [{ id: keId, sl: null }] }, loai: "doi" };
+  return { phien: { ...phien, dsKe: [...dsKe, { id: keId, sl: null }] }, loai: "them" };
+}
+
+/**
  * Mã lô gợi ý <tiền tố>-<số phiếu>-NN (tiền tố trong Cấu hình › Nhập kho, mặc định LO), không trùng mã lô đã khóa
  * của biến thể (số phiếu đã duy nhất nên mã lô không trùng phiếu khác).
  */
@@ -352,20 +401,29 @@ export function goiYMaLo(soPhieu, maLoDaCo = [], tienTo = TIEN_TO_MA_LO_MAC_DINH
 /**
  * Điều kiện khóa lô. `coKe`: kho có kệ đang hoạt động (không có thì hàng đạt chưa gắn kệ vẫn khóa được).
  * `keDangTai`: danh sách kệ chưa tải xong — chưa biết kho có kệ hay không nên chưa cho khóa lô có hàng đạt.
- * Trả { maLo, ke, thieu: [...], loi: [...], ok }.
+ * Trả { maLo, ke, phan, phanGui, chuaXep, cauChuaXep, thieu: [...], loi: [...], ok }: `ke` kệ chính, `phan` mọi kệ đã
+ * chọn kèm số chia (để hiện), `phanGui` các kệ nhận hàng (số > 0) để gửi máy chủ, `cauChuaXep` câu báo còn hàng đạt
+ * chưa có kệ (cũng nằm trong `loi`).
  */
 export function dieuKienKhoaLo(phien, { t: tg, viTris = [], coKe, keDangTai = false, maLoGoiY, maLoDaCo = [], homNay }) {
   const maLo = String(phien.maLo ?? maLoGoiY ?? "").trim();
   // Kho không còn kệ đang hoạt động: kệ chọn từ trước (nay bảo trì) không gửi được và không chọn kệ khác được → bỏ qua
-  const keChon = viTris.find((v) => v.id === phien.keId) ?? null;
-  const ke = keChon && (coKe || keDungDuoc(keChon, 0).duoc) ? keChon : null;
+  const dsKe = (phien.dsKe ?? []).filter((d) => {
+    const v = viTris.find((x) => x.id === d.id);
+    return v && (coKe || keDungDuoc(v, 0).duoc);
+  });
+  const { phan, chuaXep, xepThua } = chiaKe(dsKe, tg.datLo, viTris);
+  const phanGui = phan.filter((x) => x.sl > 0);
+  const ke = phanGui[0]?.ke ?? phan[0]?.ke ?? null;
   const thieu = [];
   const loi = [];
+  // Câu "còn … chưa có kệ" riêng ra để hộp Khóa lô hiện ngay dưới bảng kệ, không lặp ở dòng lỗi chung
+  let cauChuaXep = null;
   // Mọi lượt trong lô (không chỉ lượt hiện tại) phải có quyết định: phiên đọc lại có thể còn lượt chờ cũ
   const cho = phien.log.find(thieuQuyetDinh);
   if (tg.trongLo === 0) thieu.push(t("sản phẩm"));
   if (tg.datLo > 0 && keDangTai) loi.push(t("Đang tải danh sách kệ, chờ một chút rồi khóa."));
-  if (tg.datLo > 0 && coKe && !keDangTai && !ke) thieu.push(t("kệ cho hàng đạt"));
+  if (tg.datLo > 0 && coKe && !keDangTai && !phan.length) thieu.push(t("kệ cho hàng đạt"));
   if (!maLo) thieu.push(t("mã lô"));
   if (!phien.nsx) thieu.push(t("ngày sản xuất"));
   if (cho) {
@@ -384,15 +442,23 @@ export function dieuKienKhoaLo(phien, { t: tg, viTris = [], coKe, keDangTai = fa
         t("Hoàn tác bớt {{soThua}} rồi khóa, sản phẩm thừa để riêng.", { soThua: tg.daKhoa + tg.trongLo - tg.can }),
     );
   }
-  if (ke && tg.datLo > 0) {
-    const kt = keDungDuoc(ke, tg.datLo);
-    if (!kt.duoc) {
-      const con = conTrongKe(ke);
-      loi.push(
-        kt.ma === KE_KHONG_DUOC.BAO_TRI
-          ? t("Kệ {{maViTri}} đang bảo trì, hãy chọn kệ khác.", { maViTri: ke.maViTri })
-          : t("Kệ {{maViTri}} chỉ còn trống {{con}}, lô đang có {{datLo}} đạt. Chọn kệ khác.", { maViTri: ke.maViTri, con: con ?? 0, datLo: tg.datLo }),
-      );
+  if (phan.length && tg.datLo > 0) {
+    for (const x of phan) {
+      if (x.ke.trangThai && x.ke.trangThai !== "HOAT_DONG") {
+        loi.push(t("Kệ {{maViTri}} đang bảo trì, hãy chọn kệ khác.", { maViTri: x.ke.maViTri }));
+        continue;
+      }
+      const con = conTrongKe(x.ke);
+      // Kệ tự chia không bao giờ vượt chỗ trống; chỉ số gõ tay mới vượt được
+      if (con !== null && x.sl > con) {
+        loi.push(t("Kệ {{maViTri}} chỉ còn trống {{con}}, đang xếp {{sl}}. Giảm số ở kệ này rồi quét thêm kệ khác.", { maViTri: x.ke.maViTri, con, sl: x.sl }));
+      }
+    }
+    if (xepThua > 0) {
+      loi.push(t("Đã xếp {{xep}} vào kệ nhưng lô chỉ có {{datLo}} đạt. Giảm số ở bảng kệ.", { xep: tg.datLo + xepThua, datLo: tg.datLo }));
+    } else if (chuaXep > 0) {
+      cauChuaXep = t("Còn {{soCon}} đạt chưa có kệ, quét thêm kệ.", { soCon: chuaXep });
+      loi.push(cauChuaXep);
     }
   }
   if (maLo && maLo.length > 50) loi.push(t("Mã lô tối đa 50 ký tự."));
@@ -404,7 +470,7 @@ export function dieuKienKhoaLo(phien, { t: tg, viTris = [], coKe, keDangTai = fa
   }
   if (phien.nsx && homNay && phien.nsx > homNay) loi.push(t("Ngày sản xuất không được sau hôm nay."));
   if (phien.nsx && phien.nsx < NSX_SOM_NHAT) loi.push(t("Ngày sản xuất không hợp lệ, kiểm tra lại năm."));
-  return { maLo, ke, thieu, loi, ok: thieu.length === 0 && loi.length === 0 };
+  return { maLo, ke, phan, phanGui, chuaXep, cauChuaXep, thieu, loi, ok: thieu.length === 0 && loi.length === 0 };
 }
 
 /** "Tên sản phẩm · màu · kích cỡ" để phân biệt các biến thể cùng sản phẩm. */

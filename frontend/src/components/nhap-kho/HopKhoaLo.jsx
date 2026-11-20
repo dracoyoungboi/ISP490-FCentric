@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, Loader2, Lock, ScanLine } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Lock, ScanLine, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,8 @@ const DUOI_THE_LENH = new RegExp(`${TIEN_TO_THE_LENH}(KHOA-LO|HOAN-TAC|KHONG-DAT
 /**
  * Hộp Khóa lô (PA2). Ô quét trong hộp nhận mã kệ và thẻ KHÓA LÔ; thẻ HOÀN TÁC đóng hộp.
  * Kệ chỉ cần khi lô có hàng đạt; hàng không đạt để ở khu chờ trả nhà cung cấp, không lên kệ.
+ * Một lô xếp được vào nhiều kệ (bảng Kệ / Số đạt): quét kệ khi còn hàng đạt chưa có kệ thì thêm kệ, máy tự chia theo
+ * chỗ trống; người kiểm sửa tay được số của từng kệ. Đã đủ kệ mà quét kệ khác thì đổi sang kệ đó.
  *
  * Máy quét gõ như bàn phím: nếu con trỏ đang ở ô Mã lô / Ngày sản xuất / chọn kệ mà người kiểm bóp máy quét,
  * mã quét KHÔNG được ghi vào ô đó — hộp nhận ra lần quét (gõ rất nhanh + Enter), trả ô về giá trị cũ và xử lý mã
@@ -41,7 +43,7 @@ function NoiDung({
   khuVucs,
   coKe,
   keDangTai,
-  keId,
+  dsKe,
   nsx,
   maLo,
   homNay,
@@ -50,7 +52,8 @@ function NoiDung({
   loiQuet,
   nhacThieu,
   onQuet,
-  onChonKe,
+  onThemKe,
+  onDoiDsKe,
   onDoiMaLo,
   onDoiNsx,
   onKhoa,
@@ -60,6 +63,8 @@ function NoiDung({
   // Mã lô / ngày đang sửa trong hộp (null = chưa sửa, hiện giá trị của lô đang kiểm, kể cả mã lô gợi ý)
   const [maLoSua, setMaLoSua] = useState(null);
   const [nsxSua, setNsxSua] = useState(null);
+  // Số đang gõ ở ô số đạt của từng kệ (id kệ → chữ): ô xóa trống vẫn trống tới khi rời ô (trống = máy tự chia)
+  const [soKeSua, setSoKeSua] = useState({});
   // Đổi key để vẽ lại ô ngày sau khi khôi phục (ô ngày đang gõ dở không nhận lại giá trị từ React)
   const [lamMoiNgay, setLamMoiNgay] = useState(0);
   const oQuetRef = useRef(null);
@@ -70,7 +75,7 @@ function NoiDung({
   // Giá trị và hàm xử lý mới nhất, đọc lúc nhận ra lần quét / lúc ghi (không đọc trong lúc vẽ)
   const moiNhatRef = useRef({});
   useEffect(() => {
-    moiNhatRef.current = { keId, maLoSua, nsxSua, onChonKe, onDoiMaLo, onDoiNsx, onQuet };
+    moiNhatRef.current = { dsKe, maLoSua, nsxSua, onDoiDsKe, onDoiMaLo, onDoiNsx, onQuet };
   });
   // Đóng hộp bằng cách nào (Hủy, Esc, quét HOÀN TÁC) cũng giữ phần mã lô / ngày vừa sửa trong lô đang kiểm
   useEffect(() => {
@@ -110,14 +115,15 @@ function NoiDung({
     if (!boNhanRef.current) {
       boNhanRef.current = taoBoNhanQuetNhanh({
         layAnhChup: () => {
-          const { keId: ke, maLoSua: ma, nsxSua: ngay } = moiNhatRef.current;
-          return { keId: ke, maLoSua: ma, nsxSua: ngay };
+          const { dsKe: ds, maLoSua: ma, nsxSua: ngay } = moiNhatRef.current;
+          return { dsKe: ds ?? [], maLoSua: ma, nsxSua: ngay };
         },
         khoiPhuc: (anh) => {
           if (!anh) return;
           clearTimeout(henGhiRef.current);
           const m = moiNhatRef.current;
-          if ((anh.keId ?? null) !== (m.keId ?? null)) m.onChonKe(anh.keId ?? null);
+          if (JSON.stringify(anh.dsKe ?? []) !== JSON.stringify(m.dsKe ?? [])) m.onDoiDsKe(anh.dsKe ?? []);
+          setSoKeSua({});
           // Trả đúng trạng thái trước lần quét: ô chưa sửa thì vẫn theo mã lô gợi ý (không biến gợi ý thành mã cố định)
           m.maLoSua = anh.maLoSua;
           m.nsxSua = anh.nsxSua;
@@ -147,6 +153,25 @@ function NoiDung({
   const canKe = tg.datLo > 0 && coKe;
   const tenKhu = new Map(khuVucs.map((k) => [k.id, k.tenKhuVuc]));
   const loiChu = nhomLoi.map((l) => `${t(l.lyDo)} ${l.soLuong}`).join(", ");
+  const daChon = new Set((dsKe ?? []).map((d) => d.id));
+  // Gõ số đạt cho một kệ: trống = máy tự chia lại, số = giữ đúng số đó
+  const doiSoKe = (id, chu) => {
+    const sach = chu.replace(/\D/g, "").slice(0, 7);
+    setSoKeSua((cu) => ({ ...cu, [id]: sach }));
+    onDoiDsKe((dsKe ?? []).map((d) => (d.id === id ? { ...d, sl: sach === "" ? null : Number(sach) } : d)));
+  };
+  const boSoKeSua = (id) =>
+    setSoKeSua((cu) => {
+      const conLai = { ...cu };
+      delete conLai[id];
+      return conLai;
+    });
+  const boKe = (id) => {
+    boSoKeSua(id);
+    onDoiDsKe((dsKe ?? []).filter((d) => d.id !== id));
+    veOQuet();
+  };
+  const loiChung = dk.loi.filter((c) => c !== dk.cauChuaXep);
 
   return (
     <DialogContent
@@ -177,7 +202,7 @@ function NoiDung({
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5 *:shrink-0">
         <div className="flex flex-col gap-2">
           <span className="text-sm font-medium text-bo-foreground">
-            {canKe ? t("Quét mã kệ cho hàng đạt, rồi quét thẻ KHÓA LÔ") : t("Quét thẻ KHÓA LÔ")}
+            {canKe ? t("Quét các kệ cho hàng đạt, rồi quét thẻ KHÓA LÔ") : t("Quét thẻ KHÓA LÔ")}
           </span>
           <form onSubmit={guiMa} className="flex gap-2">
             <label className="relative min-w-0 flex-1">
@@ -199,7 +224,7 @@ function NoiDung({
           {canKe ? (
             <select
               aria-label={t("Chọn tay kệ")}
-              value={keId ?? ""}
+              value=""
               disabled={dangKhoa}
               onKeyDown={(e) => {
                 if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.key !== " ") {
@@ -217,7 +242,7 @@ function NoiDung({
                 }
               }}
               onChange={(e) => {
-                onChonKe(e.target.value ? Number(e.target.value) : null);
+                if (e.target.value) onThemKe(Number(e.target.value));
                 // Chọn bằng chuột: về ô quét. Chọn bằng phím mũi tên: con trỏ ở yên để chọn tiếp, Enter mới về ô quét
                 if (!tuBanPhim(phimKeRef)) veOQuet();
               }}
@@ -230,11 +255,12 @@ function NoiDung({
                 return (
                   <optgroup key={k.id} label={k.tenKhuVuc}>
                     {ds.map((v) => {
-                      const kt = keDungDuoc(v, tg.datLo);
+                      // Kệ còn chỗ đều chọn được (lô lớn hơn chỗ trống thì xếp thêm kệ khác); chỉ khóa kệ đầy / bảo trì
+                      const kt = keDungDuoc(v, 0);
                       const con = conTrongKe(v);
                       return (
-                        <option key={v.id} value={v.id} disabled={!kt.duoc && v.id !== keId}>
-                          {v.maViTri} · {kt.duoc ? (con === null ? t("không giới hạn") : t("còn trống {{con}}", { con: formatNumber(con) })) : kt.lyDo}
+                        <option key={v.id} value={v.id} disabled={!kt.duoc || daChon.has(v.id)}>
+                          {v.maViTri} · {daChon.has(v.id) ? t("đã chọn") : kt.duoc ? (con === null ? t("không giới hạn") : t("còn trống {{con}}", { con: formatNumber(con) })) : kt.lyDo}
                         </option>
                       );
                     })}
@@ -243,14 +269,69 @@ function NoiDung({
               })}
             </select>
           ) : null}
-          {canKe && dk.ke ? (
-            <p className="text-xs text-bo-muted">
-              {/* Mã kệ đã hiện ở ô chọn kệ: dòng này chỉ thêm khu và sức chứa */}
-              {tenKhu.get(dk.ke.khuVucId) ?? t("Chưa gắn khu")}
-              {conTrongKe(dk.ke) !== null
-                ? t(" · sức chứa {{sucChua}}, đang chứa {{dangChua}}{{phanChoNhap}}", { sucChua: formatNumber(dk.ke.sucChua), dangChua: formatNumber(Number(dk.ke.dangChua) || 0), phanChoNhap: Number(dk.ke.choNhap) > 0 ? t(", chờ nhập {{choNhap}}", { choNhap: formatNumber(dk.ke.choNhap) }) : "" })
-                : t(" · không giới hạn sức chứa")}
-            </p>
+          {canKe && dk.phan.length ? (
+            <div className="overflow-hidden rounded-md border border-bo-border">
+              <div className="grid grid-cols-[minmax(0,1fr)_88px_32px] items-center gap-2 border-b border-bo-border bg-bo-surface-subtle px-3 py-1.5 text-xs font-medium text-bo-muted">
+                <span>{t("Kệ")}</span>
+                <span className="text-right">{t("Số đạt")}</span>
+                <span />
+              </div>
+              <ul className="divide-y divide-bo-border">
+                {dk.phan.map((x) => {
+                  const con = conTrongKe(x.ke);
+                  return (
+                    <li key={x.ke.id} className="grid grid-cols-[minmax(0,1fr)_88px_32px] items-center gap-2 px-3 py-2">
+                      <span className="min-w-0">
+                        <span className="block truncate font-mono text-[13px] font-semibold text-bo-foreground">{x.ke.maViTri}</span>
+                        <span className="block truncate text-xs text-bo-muted">
+                          {tenKhu.get(x.ke.khuVucId) ?? t("Chưa gắn khu")}
+                          {" · "}
+                          {con === null ? t("không giới hạn") : t("còn trống {{con}}", { con: formatNumber(con) })}
+                        </span>
+                      </span>
+                      <input
+                        value={soKeSua[x.ke.id] ?? String(x.sl)}
+                        inputMode="numeric"
+                        autoComplete="off"
+                        disabled={dangKhoa}
+                        aria-label={t("Số đạt xếp vào kệ {{maViTri}}", { maViTri: x.ke.maViTri })}
+                        onChange={(e) => doiSoKe(x.ke.id, e.target.value)}
+                        onBlur={() => boSoKeSua(x.ke.id)}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter" || e.defaultPrevented) return;
+                          e.preventDefault();
+                          veOQuet();
+                        }}
+                        className={cn(O_NHAP, "h-8 px-2 text-right tabular-nums", x.sl === 0 && "text-bo-muted")}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={dangKhoa}
+                        aria-label={t("Bỏ kệ {{maViTri}}", { maViTri: x.ke.maViTri })}
+                        onClick={() => boKe(x.ke.id)}
+                        className="text-bo-muted hover:bg-bo-danger-soft hover:text-bo-danger"
+                      >
+                        <X className="size-4" />
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {tg.datLo > 0 && dk.cauChuaXep ? (
+                <p className="flex items-start gap-1.5 border-t border-amber-200 bg-amber-50 px-3 py-2 text-[13px] leading-5 text-amber-900">
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" /> {dk.cauChuaXep}
+                </p>
+              ) : tg.datLo > 0 && !loiChung.length ? (
+                <p className="flex items-center gap-1.5 border-t border-bo-border bg-bo-success-soft px-3 py-2 text-[13px] font-medium leading-5 text-bo-success">
+                  <CheckCircle2 className="size-4 shrink-0" />
+                  {dk.phanGui.length > 1
+                    ? t("Đã xếp đủ {{datLo}} đạt vào {{soKe}} kệ", { datLo: formatNumber(tg.datLo), soKe: dk.phanGui.length })
+                    : t("Đã xếp đủ {{datLo}} đạt vào kệ", { datLo: formatNumber(tg.datLo) })}
+                </p>
+              ) : null}
+            </div>
           ) : null}
           {loiQuet ? (
             <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-bo-danger-strong">
@@ -338,9 +419,9 @@ function NoiDung({
           </label>
         </div>
 
-        {dk.loi.length ? (
+        {loiChung.length ? (
           <p role="alert" className="flex items-start gap-1.5 text-[13px] leading-5 text-bo-danger-strong">
-            <AlertCircle className="mt-0.5 size-4 shrink-0" /> {dk.loi.join(" ")}
+            <AlertCircle className="mt-0.5 size-4 shrink-0" /> {loiChung.join(" ")}
           </p>
         ) : null}
       </div>
