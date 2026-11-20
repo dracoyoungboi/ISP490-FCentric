@@ -74,10 +74,11 @@ function buildPayload(filters) {
 ════════════════════════════════════════════════════════════════ */
 export default function WarehouseManagement() {
     const [warehouses, setWarehouses] = useState([]);
-    const [managers, setManagers] = useState([]);
+    // Quản lý kho chọn được của kho đang sửa: { khoId, ds (null = đang tải), loi }
+    const [ungVien, setUngVien] = useState({ khoId: null, ds: null, loi: false });
+    const ungVienReqRef = useRef(0);
     const [isLoading, setIsLoading] = useState(false);
     const [loadError, setLoadError] = useState(false);
-    const [isLoadingManagers, setIsLoadingManagers] = useState(false);
     const requestIdRef = useRef(0);
 
     const [searchInput, setSearchInput] = useState('');
@@ -164,19 +165,25 @@ export default function WarehouseManagement() {
         }
     }, [searchTerm, tab, pagination.pageNumber, pagination.pageSize]);
 
-    /* ── Fetch managers ── */
-    const fetchManagers = useCallback(async () => {
+    /* ── Người quản lý chọn được: quản lý kho đang làm việc tại chính kho đang sửa ──
+     * Kết quả gắn với id kho: mở kho khác trong lúc kho trước còn đang tải thì bỏ kết quả cũ (lần gọi sau thắng). */
+    const fetchManagers = useCallback(async (khoId) => {
+        const lan = ++ungVienReqRef.current;
+        setUngVien({ khoId, ds: null, loi: false });
         try {
-            setIsLoadingManagers(true);
-            const res = await khoService.getManagers();
-            if (res.data?.status === 200) {
-                setManagers((res.data.data.content || []).map(u => ({ id: u.id, name: u.hoTen })));
+            const res = await khoService.getUngVienQuanLy(khoId);
+            if (lan !== ungVienReqRef.current) return;
+            if (res.data?.status !== 200) throw new Error(res.data?.message);
+            const ds = (res.data.data || []).map(u => ({ id: u.id, name: u.hoTen || u.tenDangNhap }));
+            setUngVien({ khoId, ds, loi: false });
+            // Kho chưa có người đứng tên mà chỉ có một quản lý kho: người đó đứng tên khi lưu (form ghi rõ)
+            if (ds.length === 1) {
+                setFormData(prev => (!prev.quanLyId && !prev.quanLyIdBanDau ? { ...prev, quanLyId: String(ds[0].id) } : prev));
             }
         } catch (err) {
+            if (lan !== ungVienReqRef.current) return;
             console.error("Lỗi khi tải danh sách quản lý:", err);
-            toast.error(t("Không thể tải danh sách người quản lý"));
-        } finally {
-            setIsLoadingManagers(false);
+            setUngVien({ khoId, ds: [], loi: true });
         }
     }, []);
 
@@ -186,9 +193,17 @@ export default function WarehouseManagement() {
         queueMicrotask(() => fetchWarehouses());
     }, [fetchWarehouses]);
 
+    // Kho mới chưa ai làm việc, kho ảo không có người quản lý: không cần danh sách
+    const khoCanDanhSachQuanLy = showDialog && dialogMode === 'edit' && selectedWarehouse && !laKhoAo(selectedWarehouse)
+        ? selectedWarehouse.id : null;
     useEffect(() => {
-        if (showDialog) queueMicrotask(() => fetchManagers());
-    }, [showDialog, fetchManagers]);
+        if (khoCanDanhSachQuanLy) queueMicrotask(() => fetchManagers(khoCanDanhSachQuanLy));
+    }, [khoCanDanhSachQuanLy, fetchManagers]);
+    const ungVienCuaKho = khoCanDanhSachQuanLy != null && ungVien.khoId === khoCanDanhSachQuanLy ? ungVien : null;
+    const managers = ungVienCuaKho?.ds ?? [];
+    // Chưa có kết quả cho đúng kho đang mở (kể cả lần vẽ đầu trước khi effect chạy) là đang tải
+    const isLoadingManagers = khoCanDanhSachQuanLy != null && !ungVienCuaKho?.ds;
+    const loiManagers = Boolean(ungVienCuaKho?.loi);
 
     /* ── Số trên tab: cùng từ khóa đang tìm, chỉ thay trạng thái (R1) ── */
     const { counts: tabCounts, reload: reloadCounts } = useDemTheoTrangThai(
@@ -240,7 +255,6 @@ export default function WarehouseManagement() {
         if (!formData.tenKho) e.tenKho = t("Vui lòng nhập tên kho");
         else if (formData.tenKho.length < 5) e.tenKho = t("Tên kho phải có ít nhất 5 ký tự");
         if (!formData.diaChi) e.diaChi = t("Vui lòng nhập địa chỉ");
-        if (!formData.quanLyId) e.quanLyId = t("Vui lòng chọn người quản lý");
         if (formData.loaiKho === 'kho_tong' && Number(formData.trangThai) === 1) {
             const khoTongKhac = warehouses.find(w => w.loaiKho === 'kho_tong' && w.trangThai === 1 && !laKhoAo(w) && w.id !== selectedWarehouse?.id);
             if (khoTongKhac) e.loaiKho = t("Đã có Kho tổng đang hoạt động: {{tenKho}}. Hãy đổi kho đó thành Kho bán hàng trước.", { tenKho: khoTongKhac.tenKho });
@@ -257,8 +271,12 @@ export default function WarehouseManagement() {
         setSelectedWarehouse(wh);
         if (mode === 'create')
             setFormData({ maKho: '', tenKho: '', diaChi: '', quanLyId: '', trangThai: 1, loaiKho: 'cua_hang' });
-        else if (mode === 'edit' && wh)
-            setFormData({ maKho: wh.maKho, tenKho: wh.tenKho, diaChi: wh.diaChi, quanLyId: wh.quanLy?.id?.toString() || '', trangThai: wh.trangThai ?? 1, loaiKho: wh.loaiKho || 'cua_hang' });
+        else if (mode === 'edit' && wh) {
+            // quanLyIdBanDau: người quản lý lúc mở form, để máy chủ chỉ đổi khi ô này thật sự đổi
+            // quanLyTenBanDau: nhãn khi người đó không còn trong danh sách chọn được (danh sách kho đã cũ)
+            const quanLyId = wh.quanLy?.id?.toString() || '';
+            setFormData({ maKho: wh.maKho, tenKho: wh.tenKho, diaChi: wh.diaChi, quanLyId, quanLyIdBanDau: quanLyId, quanLyTenBanDau: wh.quanLy?.hoTen || wh.quanLy?.tenDangNhap || '', trangThai: wh.trangThai ?? 1, loaiKho: wh.loaiKho || 'cua_hang' });
+        }
         setErrors({});
         setShowDialog(true);
     };
@@ -268,10 +286,15 @@ export default function WarehouseManagement() {
     const handleSubmit = async () => {
         if (!validateForm()) return;
         try {
-            const data = { maKho: formData.maKho, tenKho: formData.tenKho, diaChi: formData.diaChi, quanLyId: Number(formData.quanLyId), trangThai: Number(formData.trangThai), loaiKho: formData.loaiKho };
+            const data = { maKho: formData.maKho, tenKho: formData.tenKho, diaChi: formData.diaChi, trangThai: Number(formData.trangThai), loaiKho: formData.loaiKho };
+            const soHoacNull = (v) => (v ? Number(v) : null);
             let res;
+            // Kho mới không gửi người quản lý: chưa ai làm việc tại kho
             if (dialogMode === 'create') res = await khoService.create(data);
-            else if (dialogMode === 'edit') res = await khoService.update({ id: selectedWarehouse.id, ...data });
+            else if (dialogMode === 'edit') res = await khoService.update({
+                id: selectedWarehouse.id, ...data,
+                quanLyId: soHoacNull(formData.quanLyId), quanLyIdBanDau: soHoacNull(formData.quanLyIdBanDau),
+            });
             if (res?.data?.status >= 400) { toast.error(res.data.message || t("Có lỗi xảy ra")); return; }
             toast.success(dialogMode === 'create' ? t("Thêm kho mới thành công.") : t("Cập nhật thông tin kho thành công."));
             setShowDialog(false); setErrors({}); fetchWarehouses(); reloadCounts();
@@ -280,6 +303,11 @@ export default function WarehouseManagement() {
             console.error('Error response:', err.response);
             console.error('Error response data:', err.response?.data);
             toast.error(getApiErrorMessage(err, t("Có lỗi xảy ra khi xử lý kho")));
+            // 409: người khác vừa đổi người quản lý; đóng form và tải lại danh sách để mở lại với dữ liệu mới
+            if (err.response?.status === 409) {
+                handleCloseDialog();
+                fetchWarehouses();
+            }
         }
     };
 
@@ -558,6 +586,8 @@ export default function WarehouseManagement() {
                 errors={errors}
                 managers={managers}
                 isLoadingManagers={isLoadingManagers}
+                loiManagers={loiManagers}
+                onTaiLaiManagers={() => khoCanDanhSachQuanLy && fetchManagers(khoCanDanhSachQuanLy)}
                 onSubmit={handleSubmit}
                 onClose={handleCloseDialog}
             />

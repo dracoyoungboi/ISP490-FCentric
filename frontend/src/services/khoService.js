@@ -10,7 +10,8 @@ export const khoService = {
   /**
    * Số liệu tóm tắt cho popup Chi tiết kho:
    * { khoId, soLuongTon, soLuongKhaDung, soLuongDangGiu, giaTriTon, soMaHang, soMaHetHang, soMaSapHet,
-   *   nguongSapHet, soNguoiPhanQuyen }. Quản lý kho chỉ xem được kho mình phụ trách (403).
+   *   nguongSapHet, soNguoiPhanQuyen, nhanVien: [{ id, hoTen, tenDangNhap, vaiTro, avatarUrl }] }.
+   * Quản lý kho chỉ xem được kho mình phụ trách (403).
    */
   tomTat: async (id) => {
     const res = await apiClient.get(`/api/v1/kho/${id}/tom-tat`, theoKho(id));
@@ -58,27 +59,8 @@ export const khoService = {
     });
     return res.data;
   },
-  getManagers: () => {
-    return apiClient.post("/api/v1/admin/filter", {
-      page: 0,
-      size: 100,
-      filters: [
-        {
-          fieldName: "vaiTro",
-          operation: "EQUALS",
-          value: "quan_ly_kho",
-          logicType: "AND",
-        },
-        {
-          fieldName: "trangThai",
-          operation: "EQUALS",
-          value: 1,
-          logicType: "AND",
-        },
-      ],
-      sorts: [{ fieldName: "hoTen", direction: "ASC" }],
-    });
-  },
+  // Quản lý kho chọn được làm người quản lý của kho: đang hoạt động và đang làm việc (có phân quyền) tại chính kho đó
+  getUngVienQuanLy: (khoId) => apiClient.get(`/api/v1/kho/${khoId}/ung-vien-quan-ly`),
 };
 
 // FIX: Thêm getKhoList dùng endpoint /filter với payload rỗng để lấy tất cả kho
