@@ -53,6 +53,9 @@ import { playScanBeep } from "@/utils/scanBeep";
 import { tinhCoMan } from "@/hooks/useCoMan";
 import { t } from "@/i18n";
 import { cauGocCuaLoi } from "@/i18n/cauGoc";
+import { moTrangIn } from "@/lib/moTrangIn";
+import useInTaiCho from "@/components/in-tai-cho/useInTaiCho";
+import { NGUON_IN_PHIEU_XUAT } from "@/components/in-tai-cho/nguonIn";
 
 // Phiếu xuất thuộc kho khác kho đang làm việc (DongGoiServiceImpl.kiemTraKho)
 const MAU_KHO_KHAC = /thuộc kho khác/i;
@@ -80,6 +83,8 @@ function ManDongGoi({ donId }) {
   const laQtv = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
   // Rời màn qua lớp chặn: đang quay / đang tải bằng chứng thì PackingProofSection hỏi trước (useHoiKhiRoiTrang)
   const veDon = useCallback(() => xinRoiTrang(() => navigate(`/sales-orders/${donId}`)), [navigate, donId]);
+  // In phiếu xuất ngay trên màn: không rời trang nên video bằng chứng đang quay không bị bỏ
+  const { inPhieu, dangIn, khungIn } = useInTaiCho();
 
   // ── Phiên đóng gói (tự chuyển nơi làm việc khi đơn thuộc kho khác) ──────────
   const taiPhien = useCallback(async () => {
@@ -423,9 +428,11 @@ function ManDongGoi({ donId }) {
             nhanQuayLai={t("Về đơn bán hàng")}
             menu={[
               pxId ? { ma: "moPx", nhan: t("Mở phiếu xuất {{px}}", { px }), icon: FileText, onSelect: moPx } : null,
-              pxId ? { ma: "inPx", nhan: t("In phiếu xuất"), icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print`)) } : null,
+              pxId
+                ? { ma: "inPx", nhan: dangIn ? t("Đang chuẩn bị bản in…") : t("In phiếu xuất"), icon: Printer, khoa: dangIn, onSelect: () => inPhieu(NGUON_IN_PHIEU_XUAT, pxId) }
+                : null,
               hoTroInVanDonSan
-                ? { ma: "inPackingSlip", nhan: t("In vận đơn / phiếu đóng gói sàn (A6)"), icon: Printer, onSelect: () => xinRoiTrang(() => navigate(`/goods-issues/${pxId}/print-packing-slip`)) }
+                ? { ma: "inPackingSlip", nhan: t("In vận đơn / phiếu đóng gói sàn (A6)"), icon: Printer, onSelect: () => moTrangIn(`/goods-issues/${pxId}/print-packing-slip`, navigate) }
                 : null,
             ].filter(Boolean)}
             nutChinh={nutChinh}
@@ -496,6 +503,7 @@ function ManDongGoi({ donId }) {
           {t("Đã quét {{da}}/{{can}} sản phẩm · {{chuBc}}", { count: Number(tienDo.can), da: soVN(tienDo.da), can: soVN(tienDo.can), chuBc })}
         </div>
       </HopXacNhanChungTu>
+      {khungIn}
     </PageContainer>
   );
 }
