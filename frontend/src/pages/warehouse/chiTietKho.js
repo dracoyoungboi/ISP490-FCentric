@@ -6,6 +6,7 @@ import { formatCurrency, formatCurrencyCompact, formatNumber } from "../../utils
 import { mucDay, toneMucDay } from "../../constants/nhapKho.js";
 // Kho giao dịch (đang hoạt động, không phải kho ảo): Báo cáo tồn kho và Vị trí kệ chỉ mở được loại kho này.
 import { laKhoAo, laKhoGiaoDich } from "../../utils/kho.js";
+import { ROLES } from "../../constants/backend/role.js";
 import { t } from "../../i18n/t.js";
 
 const so = (n) => formatNumber(Number(n) || 0);
@@ -164,10 +165,112 @@ export function taoOSo(kho, tomTat, ke) {
   return oSo;
 }
 
-/** Dòng "Người được phân quyền". */
-export function nhanPhanQuyen(soNguoi) {
-  const n = Number(soNguoi) || 0;
-  return n > 0 ? t("{{n}} người, ngoài quản lý kho", { count: n, n: so(n) }) : t("Chưa phân quyền thêm ai");
+/**
+ * Người quản lý chính và các quản lý kho khác cùng làm việc tại kho (KhoDto.quanLyKhac, chỉ API danh sách kho điền).
+ * `moTaKhac`: câu nêu tên các quản lý kho khác (rỗng khi không có ai).
+ */
+export function tomTatQuanLyKho(kho) {
+  const ten = (q) => q?.hoTen || q?.tenDangNhap || "";
+  const khac = (Array.isArray(kho?.quanLyKhac) ? kho.quanLyKhac : []).map(ten).filter(Boolean);
+  const chinh = kho?.quanLy ? ten(kho.quanLy) : "";
+  let moTaKhac = "";
+  if (khac.length) {
+    moTaKhac = chinh
+      ? t("Cùng quản lý: {{ds}}", { ds: khac.join(", ") })
+      : t("Quản lý kho tại kho: {{ds}}", { ds: khac.join(", ") });
+  }
+  return { chinh, khac, moTaKhac };
+}
+
+/** Số ảnh đại diện ở dòng "Nhân viên tại kho"; nhiều hơn thì ảnh cuối thành "+N". */
+export const SO_ANH_XEP = 5;
+/** Danh sách trong hộp nổi dài hơn số này thì có ô tìm theo tên / vai trò. */
+export const SO_CAN_O_TIM = 8;
+
+/** Ô "+N" ở cuối hàng ảnh: quá 99 thì ghi "99+" cho vừa ô tròn. */
+export function nhanConLai(n) {
+  return n > 99 ? "99+" : `+${n}`;
+}
+
+const boDau = (s) =>
+  String(s ?? "").normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+
+/** Lọc danh sách nhân viên theo tên hoặc vai trò, không phân biệt dấu và hoa thường. */
+export function locNhanVien(ds, tuKhoa) {
+  const k = boDau(tuKhoa).trim();
+  if (!k) return ds ?? [];
+  return (ds ?? []).filter((nv) => boDau(nv.ten).includes(k) || boDau(nv.vaiTro).includes(k));
+}
+
+// Mỗi vai trò một cụm đếm ngắn ở dòng tóm tắt (nhãn đầy đủ nằm trong danh sách)
+const CUM_VAI_TRO = {
+  quan_ly_kho: (n) => t("{{n}} quản lý kho", { count: n, n: so(n) }),
+  nhan_vien_kho: (n) => t("{{n}} nhân viên kho", { count: n, n: so(n) }),
+  nhan_vien_ban_hang: (n) => t("{{n}} bán hàng", { count: n, n: so(n) }),
+  nhan_vien_mua_hang: (n) => t("{{n}} mua hàng", { count: n, n: so(n) }),
+  quan_tri_vien: (n) => t("{{n}} quản trị viên", { count: n, n: so(n) }),
+};
+
+const nhanVaiTro = (ma) => {
+  const vaiTro = ROLES.find((r) => r.value === ma);
+  return vaiTro ? t(vaiTro.label) : "";
+};
+
+/**
+ * Dòng "Nhân viên tại kho": mọi người đang làm việc tại kho trừ người quản lý chính (máy chủ đã bỏ người đó,
+ * KhoTomTatResponse.nhanVien), gồm cả các quản lý kho cùng làm ở kho. Giữ thứ tự máy chủ trả
+ * (quản lý kho trước, rồi theo vai trò và họ tên).
+ */
+export function dsNhanVienKho(nhanVien) {
+  return (Array.isArray(nhanVien) ? nhanVien : [])
+    .filter(Boolean)
+    .map((nv) => ({
+      id: nv.id,
+      ten: nv.hoTen?.trim() || nv.tenDangNhap || "—",
+      maVaiTro: nv.vaiTro,
+      vaiTro: nhanVaiTro(nv.vaiTro),
+      avatarUrl: nv.avatarUrl || null,
+    }));
+}
+
+/**
+ * Dòng tóm tắt dưới hàng ảnh: đếm theo vai trò, giữ thứ tự danh sách ("1 nhân viên kho · 3 mua hàng").
+ * Vai trò lạ (máy chủ mới thêm) gộp vào "N người khác".
+ */
+export function tomTatVaiTro(ds) {
+  const dem = new Map();
+  let la = 0;
+  for (const nv of ds ?? []) {
+    if (CUM_VAI_TRO[nv.maVaiTro]) dem.set(nv.maVaiTro, (dem.get(nv.maVaiTro) ?? 0) + 1);
+    else la += 1;
+  }
+  const cum = [...dem].map(([ma, n]) => CUM_VAI_TRO[ma](n));
+  if (la > 0) cum.push(t("{{n}} người khác", { count: la, n: so(la) }));
+  return cum.join(" · ");
+}
+
+/**
+ * Số quản lý kho đang làm việc tại kho, tính cả người quản lý chính. Có danh sách nhân viên (dsNhanVienKho) thì đếm
+ * quản lý kho trong đó; không có (không xem được số liệu kho) thì dùng KhoDto.quanLyKhac của API danh sách kho.
+ */
+export function soQuanLyKho(kho, nhanVien) {
+  const khac = Array.isArray(nhanVien)
+    ? nhanVien.filter((nv) => nv?.maVaiTro === "quan_ly_kho").length
+    : (Array.isArray(kho?.quanLyKhac) ? kho.quanLyKhac.length : 0);
+  return (kho?.quanLy ? 1 : 0) + khac;
+}
+
+/**
+ * Nhãn ô người đứng tên kho (hộp Chi tiết kho, form Sửa kho): kho có từ 2 quản lý kho thì nói rõ "chính",
+ * một người thì giữ "Người quản lý" (không gợi ý có người phụ không tồn tại).
+ */
+export function nhanNguoiQuanLy(soQuanLy) {
+  return soQuanLy >= 2 ? t("Người quản lý chính") : t("Người quản lý");
+}
+
+/** Câu khi kho không còn ai khác: kho có người quản lý chính thì nói "khác". */
+export function cauKhongCoNhanVien(coQuanLy) {
+  return coQuanLy ? t("Chưa có nhân viên nào khác") : t("Chưa có nhân viên nào");
 }
 
 /** Câu hệ quả trong hộp Ngừng hoạt động. */

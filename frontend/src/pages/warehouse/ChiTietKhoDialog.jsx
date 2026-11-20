@@ -1,9 +1,10 @@
-import { createElement, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { AlertCircle, ChevronRight, CircleCheck, CirclePause, Ellipsis, History, Mail, Pencil, Phone, X } from "lucide-react";
+import { Fragment, createElement, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { AlertCircle, ChevronRight, CircleCheck, CirclePause, Ellipsis, History, Mail, Pencil, Phone, Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -21,7 +22,21 @@ import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatDate } from "@/utils/formatters";
 import { laKhoAo, laKhoHoatDong } from "@/utils/kho";
 import { laKhoLamViecHopLe, setKhoLamViecId } from "@/utils/khoLamViec";
-import { gopKhuVuc, nhanPhanQuyen, taoOSo, tomTatKe } from "./chiTietKho";
+import {
+    SO_ANH_XEP,
+    SO_CAN_O_TIM,
+    cauKhongCoNhanVien,
+    dsNhanVienKho,
+    gopKhuVuc,
+    locNhanVien,
+    nhanConLai,
+    nhanNguoiQuanLy,
+    soQuanLyKho,
+    taoOSo,
+    tomTatKe,
+    tomTatQuanLyKho,
+    tomTatVaiTro,
+} from "./chiTietKho";
 import { nhanLoaiKho } from "./loaiKho";
 import { t } from "@/i18n";
 
@@ -52,6 +67,122 @@ function DongBao({ children, onThuLai }) {
                 </Button>
             ) : null}
         </div>
+    );
+}
+
+/**
+ * Nội dung hộp nổi: đủ danh sách (ảnh, tên, vai trò), cao tối đa ~9 dòng rồi cuộn. Quá SO_CAN_O_TIM người thì có ô tìm
+ * theo tên / vai trò. Hộp đóng là bỏ luôn từ khóa (thành phần này gỡ khỏi trang khi đóng).
+ */
+function DanhSachNhanVien({ ds, coLienKet, onMoNguoi }) {
+    const [tuKhoa, setTuKhoa] = useState("");
+    const coOTim = ds.length > SO_CAN_O_TIM;
+    const hien = coOTim ? locNhanVien(ds, tuKhoa) : ds;
+    // Có ô tìm thì khung danh sách cao cố định: gõ tìm làm danh sách ngắn lại cũng không đổi cỡ hộp,
+    // nên hộp nổi không nhảy từ trên xuống dưới nút.
+    const khungDs = coOTim ? "h-72" : "max-h-72";
+    return (
+        <>
+            <p className="border-b border-slate-100 px-3 py-2 text-[13px] font-medium leading-5 text-bo-heading">
+                {t("Nhân viên tại kho")} <span className="text-bo-muted tabular-nums">· {ds.length}</span>
+            </p>
+            {coOTim ? (
+                <div className="relative border-b border-slate-100 px-3 py-2">
+                    <Search className="pointer-events-none absolute left-5 top-1/2 size-3.5 -translate-y-1/2 text-bo-muted" aria-hidden="true" />
+                    <input
+                        type="search"
+                        value={tuKhoa}
+                        onChange={(e) => setTuKhoa(e.target.value)}
+                        placeholder={t("Tìm theo tên hoặc vai trò")}
+                        aria-label={t("Tìm nhân viên tại kho")}
+                        className="h-8 w-full rounded-md border border-bo-border bg-white pl-7 pr-2 text-sm outline-none placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-2 focus-visible:ring-bo-primary/20"
+                    />
+                </div>
+            ) : null}
+            {hien.length ? (
+                <ul className={cn(khungDs, "overflow-y-auto overscroll-contain py-1")}>
+                    {hien.map((nv) => (
+                        <li key={nv.id} className="flex min-w-0 items-center gap-2 px-3 py-1.5 max-sm:py-0">
+                            <UserAvatar userId={nv.id} name={nv.ten} avatarUrl={nv.avatarUrl} size="xs" className="size-6" />
+                            {coLienKet ? (
+                                // Màn cảm ứng nâng liên kết lên cao 44px cho dễ bấm: flex + items-center để tên vẫn nằm giữa dòng
+                                <Link
+                                    to={`/users/${nv.id}`}
+                                    onClick={onMoNguoi}
+                                    title={nv.ten}
+                                    className="flex min-w-0 flex-1 items-center rounded-sm text-sm leading-5 text-bo-foreground hover:text-bo-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
+                                >
+                                    <span className="truncate">{nv.ten}</span>
+                                </Link>
+                            ) : (
+                                <span className="min-w-0 flex-1 truncate text-sm leading-5" title={nv.ten}>
+                                    {nv.ten}
+                                </span>
+                            )}
+                            {nv.vaiTro ? <span className="shrink-0 text-xs leading-5 text-bo-muted">{nv.vaiTro}</span> : null}
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className={cn(khungDs, "px-3 py-4 text-center text-[13px] leading-5 text-bo-muted")}>
+                    {t("Không có nhân viên nào khớp từ khóa")}
+                </p>
+            )}
+        </>
+    );
+}
+
+/**
+ * Dòng "Nhân viên tại kho" không cao thêm dù kho có bao nhiêu người: hàng ảnh nhỏ (quá SO_ANH_XEP người thì
+ * ảnh cuối thành "+N", quá 99 thì "99+") và câu đếm theo vai trò (tối đa 2 dòng: chỉ có 5 vai trò).
+ * Bấm vào mở hộp nổi có đủ danh sách.
+ * Hộp nổi để `modal`: hộp Chi tiết kho đang khóa cuộn trang, không có cờ này thì lăn chuột trong danh sách không cuộn.
+ * `coLienKet`: quản trị viên bấm tên để mở trang người dùng đó.
+ */
+function NhanVienTaiKho({ ds, coLienKet, onMoNguoi }) {
+    const thuGon = ds.length > SO_ANH_XEP;
+    const anh = thuGon ? ds.slice(0, SO_ANH_XEP - 1) : ds;
+    const conLai = ds.length - anh.length;
+    const tomTatVt = tomTatVaiTro(ds);
+    return (
+        <Popover modal>
+            <PopoverTrigger asChild>
+                <button
+                    type="button"
+                    aria-label={t("Xem danh sách nhân viên tại kho ({{n}} người)", { n: ds.length })}
+                    className="-mx-1.5 mt-0.5 block w-[calc(100%+0.75rem)] rounded-md px-1.5 py-1 text-left transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary"
+                >
+                    <span className="flex items-center gap-2">
+                        <span className="flex gap-1" aria-hidden="true">
+                            {anh.map((nv) => (
+                                <UserAvatar key={nv.id} userId={nv.id} name={nv.ten} avatarUrl={nv.avatarUrl} size="xs" className="size-7" />
+                            ))}
+                            {conLai > 0 ? (
+                                <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-slate-100 px-1 text-[11px] font-semibold text-slate-600 tabular-nums">
+                                    {nhanConLai(conLai)}
+                                </span>
+                            ) : null}
+                        </span>
+                        <span className="ml-auto inline-flex shrink-0 items-center gap-0.5 text-[13px] font-medium leading-5 text-bo-primary">
+                            {t("Xem danh sách")}
+                            <ChevronRight className="size-3.5" aria-hidden="true" />
+                        </span>
+                    </span>
+                    <span className="mt-1 line-clamp-2 text-[13px] leading-5 text-bo-muted" title={tomTatVt}>
+                        {/* Mỗi cụm "3 mua hàng" giữ liền một khối, xuống dòng chỉ ở dấu chấm giữa */}
+                        {tomTatVt.split(" · ").map((cum, i) => (
+                            <Fragment key={i}>
+                                {i > 0 ? " · " : null}
+                                <span className="whitespace-nowrap">{cum}</span>
+                            </Fragment>
+                        ))}
+                    </span>
+                </button>
+            </PopoverTrigger>
+            <PopoverContent side="top" align="end" sideOffset={6} className="w-80 max-w-[calc(100vw-32px)] border-bo-border bg-white p-0 shadow-lg">
+                <DanhSachNhanVien ds={ds} coLienKet={coLienKet} onMoNguoi={onMoNguoi} />
+            </PopoverContent>
+        </Popover>
     );
 }
 
@@ -213,6 +344,12 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
     const coTheMo = (o) => Boolean(o.den) && (o.den.loai !== "vi-tri-ke" || moVitriKe);
 
     const quanLy = kho.quanLy;
+    const nhanVien = tomTat && Array.isArray(tomTat.nhanVien) ? dsNhanVienKho(tomTat.nhanVien) : null;
+    // Quản lý kho khác cùng làm ở kho nằm trong khối Nhân viên tại kho. Chỉ khi khối đó không có
+    // (không có quyền xem số liệu kho, hoặc tải lỗi) mới nêu tên họ dưới người quản lý chính.
+    const { moTaKhac } = tomTatQuanLyKho(kho);
+    const hienMoTaKhac = Boolean(moTaKhac) && !tomTatQ.loading && !nhanVien;
+    const soQuanLy = soQuanLyKho(kho, nhanVien);
     const sdt = quanLy?.soDienThoai?.trim() || "";
     const email = quanLy?.email?.trim() || "";
 
@@ -463,7 +600,7 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt className="text-[13px] leading-5 text-bo-muted">{t("Người quản lý")}</dt>
+                                    <dt className="text-[13px] leading-5 text-bo-muted">{nhanNguoiQuanLy(soQuanLy)}</dt>
                                     <dd className="mt-1">
                                         {quanLy ? (
                                             <div className="flex min-w-0 items-start gap-2.5">
@@ -480,20 +617,37 @@ export default function ChiTietKhoDialog({ kho, open, onOpenChange, coTheQuanLy 
                                                 </div>
                                             </div>
                                         ) : (
-                                            <span className="text-sm text-bo-muted">{t("Chưa có người quản lý")}</span>
+                                            <span className="text-sm text-bo-muted">
+                                                {ao
+                                                    ? t("Kho hệ thống, không có người quản lý")
+                                                    : soQuanLy >= 2
+                                                      ? t("Chưa chọn người đứng tên")
+                                                      : t("Chưa có người quản lý")}
+                                            </span>
                                         )}
+                                        {hienMoTaKhac ? (
+                                            <p className="mt-1 text-[13px] leading-5 text-bo-muted">{moTaKhac}</p>
+                                        ) : null}
                                     </dd>
                                 </div>
                                 {!ao && !khongQuyenTomTat ? (
                                     <div>
-                                        <dt className="text-[13px] leading-5 text-bo-muted">{t("Người được phân quyền")}</dt>
+                                        <dt className="text-[13px] leading-5 text-bo-muted">
+                                            {t("Nhân viên tại kho")}
+                                            {nhanVien?.length ? <span className="tabular-nums"> · {nhanVien.length}</span> : null}
+                                        </dt>
                                         <dd className="mt-0.5 text-sm leading-5">
                                             {tomTatQ.loading ? (
-                                                <span className={cn(KHUNG_XAM, "mt-1 h-3.5 w-32")} />
-                                            ) : tomTat ? (
-                                                nhanPhanQuyen(tomTat.soNguoiPhanQuyen)
-                                            ) : (
+                                                <span className="mt-1 block space-y-2 py-1">
+                                                    <span className={cn(KHUNG_XAM, "h-7 w-36 rounded-full")} />
+                                                    <span className={cn(KHUNG_XAM, "h-4 w-48")} />
+                                                </span>
+                                            ) : !nhanVien ? (
                                                 "—"
+                                            ) : nhanVien.length ? (
+                                                <NhanVienTaiKho ds={nhanVien} coLienKet={coTheQuanLy} onMoNguoi={dong} />
+                                            ) : (
+                                                <span className="text-bo-muted">{cauKhongCoNhanVien(Boolean(quanLy))}</span>
                                             )}
                                         </dd>
                                     </div>
