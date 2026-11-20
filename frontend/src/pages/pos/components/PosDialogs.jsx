@@ -22,6 +22,7 @@ import {
 import MoneyInput from '@/components/shared/MoneyInput';
 import PayosLogo from '@/components/shared/PayosLogo';
 import PosModal from './PosModal';
+import BangPhimTat from './BangPhimTat';
 import { chuanHoaSoDienThoaiKhiNhap, loiSoDienThoai, loiTenKhachHang } from '@/components/khach-hang/quyTacKhachHang';
 import { chuanHoaHoTen } from '@/validations/hoTen';
 import { WALKIN_CUSTOMER_CODE, posService, toPosCustomer } from '@/services/posService';
@@ -36,7 +37,8 @@ const fieldClass = 'mt-1.5 min-h-10 w-full rounded-lg border border-bo-border bg
 /*
  * Bảng phím tắt (F1), chia nhóm theo CHỖ phím có tác dụng. Mỗi dòng: keys là các lựa chọn, mỗi lựa chọn là các phím
  * bấm cùng lúc ([['Shift', 'F10']] = Shift + F10; [['←'], ['→']] = ← hoặc →). Tên phím giữ nguyên như in trên bàn phím.
- * Thêm/đổi phím tắt ở PosSalesPage, PosInvoiceTabs, PosCartPanel hay PosModeTabs thì sửa cả bảng này.
+ * Thêm/đổi phím tắt ở PosSalesPage, PosInvoiceTabs, PosCartPanel hay PosModeTabs thì sửa cả bảng này
+ * (bảng của màn Trả hàng nằm ở returns/PosReturnsPage).
  */
 const SHORTCUT_GROUPS = [
   {
@@ -73,72 +75,8 @@ const SHORTCUT_GROUPS = [
   },
 ];
 
-/** Nắp phím: mỗi phím một nắp, viền đáy dày hơn cho giống phím thật. */
-function Kbd({ children, small = false }) {
-  return <kbd className={`inline-flex items-center justify-center rounded-[5px] border border-b-2 border-slate-200 border-b-slate-300 bg-white font-sans font-semibold leading-none text-slate-700 ${small ? 'h-5 min-w-5 px-1 text-[10px]' : 'h-6 min-w-6 px-1.5 text-[11px]'}`}>{children}</kbd>;
-}
-
-function ShortcutKeys({ keys, joiner }) {
-  return (
-    <span className="flex shrink-0 items-center gap-1">
-      {keys.map((combo, index) => (
-        <span className="flex items-center gap-1" key={combo.join('+')}>
-          {index > 0 && joiner ? <span aria-hidden="true" className="px-0.5 text-[11px] text-bo-muted">{joiner}</span> : null}
-          {combo.map((key, keyIndex) => (
-            <span className="flex items-center gap-1" key={key}>
-              {keyIndex > 0 ? <span aria-hidden="true" className="text-[11px] text-bo-muted">+</span> : null}
-              <Kbd>{key}</Kbd>
-            </span>
-          ))}
-        </span>
-      ))}
-    </span>
-  );
-}
-
-function ShortcutGroup({ group }) {
-  const Icon = group.icon;
-  return (
-    <section className="min-w-0">
-      <h3 className="flex items-center gap-1.5 text-xs font-semibold text-bo-muted"><Icon aria-hidden="true" size={14} strokeWidth={2} />{group.title}</h3>
-      <ul className="mt-1 divide-y divide-bo-border">
-        {group.rows.map((row) => (
-          <li className="flex items-center justify-between gap-4 py-2.5" key={row.label}>
-            <span className="min-w-0">
-              <span className="block text-sm text-bo-foreground">{row.label}</span>
-              {row.hint ? <span className="mt-0.5 block text-xs leading-5 text-bo-muted">{row.hint}</span> : null}
-            </span>
-            <ShortcutKeys joiner={row.joiner} keys={row.keys} />
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 function ShortcutsDialog({ onClose }) {
-  const [sales, ...contextual] = SHORTCUT_GROUPS;
-  return (
-    <PosModal
-      description={t("Bán nhanh bằng bàn phím, không cần chuột.")}
-      footer={(
-        <div className="flex items-center justify-between gap-3">
-          <p className="flex items-center gap-1.5 text-xs text-bo-muted">{t("Mở lại bảng này:")} <Kbd small>F1</Kbd></p>
-          <button className={secondaryButton} onClick={onClose} type="button">{t("Đóng")}</button>
-        </div>
-      )}
-      onClose={onClose}
-      size="lg"
-      title={t("Phím tắt")}
-    >
-      <div className="grid gap-x-8 gap-y-5 md:grid-cols-2">
-        <ShortcutGroup group={sales} />
-        <div className="grid content-start gap-5">
-          {contextual.map((group) => <ShortcutGroup group={group} key={group.title} />)}
-        </div>
-      </div>
-    </PosModal>
-  );
+  return <BangPhimTat description={t("Bán nhanh bằng bàn phím, không cần chuột.")} groups={SHORTCUT_GROUPS} onClose={onClose} />;
 }
 
 function FooterButtons({ onClose, onConfirm, confirmText = t("Xác nhận"), cancelText = t("Đóng"), disabled = false, destructive = false, busy = false, cancelAutoFocus = false }) {
