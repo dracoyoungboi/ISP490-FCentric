@@ -9,7 +9,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -113,10 +118,21 @@ public interface ChiTietPhieuNhapKhoRepository extends JpaRepository<ChiTietPhie
 """)
     long countBienTheChuaDuLo(@Param("phieuId") Integer phieuId);
 
+    // ── Hàng đạt "chờ nhập" trên kệ: lô đã khóa của phiếu Nháp, chưa vào tồn nhưng đã giữ chỗ trên kệ ──
+    // Lô một kệ: cả số đạt của lô nằm ở lo_hang.vi_tri_kho_id. Lô nhiều kệ: từng phần ở bảng lo_hang_ke_nhap
+    // (lo_hang.vi_tri_kho_id chỉ là kệ chính). Mỗi số gồm hai truy vấn, lô không có dòng lo_hang_ke_nhap và dòng của lô
+    // nhiều kệ; ba hàm mặc định bên dưới cộng hai phần cho nơi gọi.
+
     /**
-     * Hàng đạt của các lô đã khóa nhưng phiếu chưa nhập kho (lô TAM_KHOA của phiếu Nháp) đang chờ lên một kệ.
-     * Cộng với tồn thực tế trên kệ để không cho khóa lô vượt sức chứa. {@code boQuaLoId}: lô đang được sửa.
+     * Hàng đạt chờ nhập trên một kệ. Cộng với tồn thực tế trên kệ để không cho khóa lô vượt sức chứa.
+     * {@code boQuaLoId}: lô đang được sửa.
      */
+    default Long sumChoNhapTheoViTri(Integer viTriKhoId, Integer boQuaLoId) {
+        Long motKe = sumChoNhapMotKeTheoViTri(viTriKhoId, boQuaLoId);
+        Long nhieuKe = sumChoNhapNhieuKeTheoViTri(viTriKhoId, boQuaLoId);
+        return (motKe != null ? motKe : 0L) + (nhieuKe != null ? nhieuKe : 0L);
+    }
+
     @Query("""
         select coalesce(sum(l.soLuongNhap), 0)
         from ChiTietPhieuNhapKho ct
@@ -125,29 +141,99 @@ public interface ChiTietPhieuNhapKhoRepository extends JpaRepository<ChiTietPhie
           and l.trangThai = 'TAM_KHOA'
           and ct.phieuNhapKho.trangThai = 0
           and (:boQuaLoId is null or l.id <> :boQuaLoId)
+          and not exists (select 1 from LoHangKeNhap k where k.loHang.id = l.id)
     """)
-    Long sumChoNhapTheoViTri(@Param("viTriKhoId") Integer viTriKhoId, @Param("boQuaLoId") Integer boQuaLoId);
+    Long sumChoNhapMotKeTheoViTri(@Param("viTriKhoId") Integer viTriKhoId, @Param("boQuaLoId") Integer boQuaLoId);
+
+    @Query("""
+        select coalesce(sum(k.soLuong), 0)
+        from LoHangKeNhap k
+        join ChiTietPhieuNhapKho ct on ct.loHang.id = k.loHang.id
+        where k.viTriKho.id = :viTriKhoId
+          and k.loHang.trangThai = 'TAM_KHOA'
+          and ct.phieuNhapKho.trangThai = 0
+          and (:boQuaLoId is null or k.loHang.id <> :boQuaLoId)
+    """)
+    Long sumChoNhapNhieuKeTheoViTri(@Param("viTriKhoId") Integer viTriKhoId, @Param("boQuaLoId") Integer boQuaLoId);
 
     /**
-     * Lô đã khóa của các phiếu Nháp đang gắn một kệ, gom theo phiếu: mỗi dòng {soPhieuNhap, soLo, soLuongDat}.
-     * Đếm cả lô chỉ có hàng không đạt (số đạt 0) vì lô đó vẫn trỏ tới kệ.
+     * Lô đã khóa của các phiếu Nháp đang gắn một kệ, gom theo phiếu: mỗi dòng {soPhieuNhap, soLo, soLuongDat}, phiếu
+     * lập trước đứng trước. Đếm cả lô chỉ có hàng không đạt (số đạt 0) vì lô đó vẫn trỏ tới kệ. Lô nhiều kệ tính phần
+     * xếp vào kệ này.
      */
+    default List<Object[]> loChoNhapTheoViTri(Integer viTriKhoId) {
+        // Mỗi phần {soPhieuNhap, soLo, soLuong, idPhieuNhoNhat}: gộp theo phiếu rồi xếp theo id phiếu
+        Map<String, Object[]> theoPhieu = new LinkedHashMap<>();
+        for (List<Object[]> phan : Arrays.asList(loChoNhapMotKeTheoViTri(viTriKhoId), loChoNhapNhieuKeTheoViTri(viTriKhoId))) {
+            if (phan == null) continue;
+            for (Object[] d : phan) {
+                long soLo = ((Number) d[1]).longValue();
+                long soLuong = d[2] != null ? ((Number) d[2]).longValue() : 0L;
+                long idPhieu = ((Number) d[3]).longValue();
+                Object[] cu = theoPhieu.get(String.valueOf(d[0]));
+                if (cu == null) {
+                    theoPhieu.put(String.valueOf(d[0]), new Object[]{d[0], soLo, soLuong, idPhieu});
+                } else {
+                    cu[1] = (Long) cu[1] + soLo;
+                    cu[2] = (Long) cu[2] + soLuong;
+                    cu[3] = Math.min((Long) cu[3], idPhieu);
+                }
+            }
+        }
+        return theoPhieu.values().stream()
+                .sorted(Comparator.comparingLong(d -> (Long) d[3]))
+                .map(d -> new Object[]{d[0], d[1], d[2]})
+                .toList();
+    }
+
     @Query("""
-        select ct.phieuNhapKho.soPhieuNhap, count(l.id), coalesce(sum(l.soLuongNhap), 0)
+        select ct.phieuNhapKho.soPhieuNhap, count(l.id), coalesce(sum(l.soLuongNhap), 0), min(ct.phieuNhapKho.id)
         from ChiTietPhieuNhapKho ct
         join ct.loHang l
         where l.viTriKho.id = :viTriKhoId
           and l.trangThai = 'TAM_KHOA'
           and ct.phieuNhapKho.trangThai = 0
+          and not exists (select 1 from LoHangKeNhap k where k.loHang.id = l.id)
         group by ct.phieuNhapKho.soPhieuNhap
-        order by min(ct.phieuNhapKho.id)
     """)
-    List<Object[]> loChoNhapTheoViTri(@Param("viTriKhoId") Integer viTriKhoId);
+    List<Object[]> loChoNhapMotKeTheoViTri(@Param("viTriKhoId") Integer viTriKhoId);
+
+    @Query("""
+        select ct.phieuNhapKho.soPhieuNhap, count(k.id), coalesce(sum(k.soLuong), 0), min(ct.phieuNhapKho.id)
+        from LoHangKeNhap k
+        join ChiTietPhieuNhapKho ct on ct.loHang.id = k.loHang.id
+        where k.viTriKho.id = :viTriKhoId
+          and k.loHang.trangThai = 'TAM_KHOA'
+          and ct.phieuNhapKho.trangThai = 0
+        group by ct.phieuNhapKho.soPhieuNhap
+    """)
+    List<Object[]> loChoNhapNhieuKeTheoViTri(@Param("viTriKhoId") Integer viTriKhoId);
 
     /**
      * Như {@link #sumChoNhapTheoViTri} nhưng cho mọi kệ của một kho: mỗi dòng {viTriKhoId, soLuong, soLo}.
      * {@code soLo} đếm cả lô chỉ có hàng không đạt (số đạt 0) vẫn gắn kệ.
      */
+    default List<Object[]> sumChoNhapTheoKho(Integer khoId) {
+        Map<Integer, Object[]> theoKe = new LinkedHashMap<>();
+        for (List<Object[]> phan : Arrays.asList(sumChoNhapMotKeTheoKho(khoId), sumChoNhapNhieuKeTheoKho(khoId))) {
+            if (phan == null) continue;
+            for (Object[] d : phan) {
+                if (d[0] == null) continue;
+                Integer keId = ((Number) d[0]).intValue();
+                long soLuong = d[1] != null ? ((Number) d[1]).longValue() : 0L;
+                long soLo = d[2] != null ? ((Number) d[2]).longValue() : 0L;
+                Object[] cu = theoKe.get(keId);
+                if (cu == null) {
+                    theoKe.put(keId, new Object[]{keId, soLuong, soLo});
+                } else {
+                    cu[1] = (Long) cu[1] + soLuong;
+                    cu[2] = (Long) cu[2] + soLo;
+                }
+            }
+        }
+        return new ArrayList<>(theoKe.values());
+    }
+
     @Query("""
         select l.viTriKho.id, coalesce(sum(l.soLuongNhap), 0), count(l.id)
         from ChiTietPhieuNhapKho ct
@@ -155,9 +241,21 @@ public interface ChiTietPhieuNhapKhoRepository extends JpaRepository<ChiTietPhie
         where l.viTriKho.khuVucKho.kho.id = :khoId
           and l.trangThai = 'TAM_KHOA'
           and ct.phieuNhapKho.trangThai = 0
+          and not exists (select 1 from LoHangKeNhap k where k.loHang.id = l.id)
         group by l.viTriKho.id
     """)
-    List<Object[]> sumChoNhapTheoKho(@Param("khoId") Integer khoId);
+    List<Object[]> sumChoNhapMotKeTheoKho(@Param("khoId") Integer khoId);
+
+    @Query("""
+        select k.viTriKho.id, coalesce(sum(k.soLuong), 0), count(k.id)
+        from LoHangKeNhap k
+        join ChiTietPhieuNhapKho ct on ct.loHang.id = k.loHang.id
+        where k.viTriKho.khuVucKho.kho.id = :khoId
+          and k.loHang.trangThai = 'TAM_KHOA'
+          and ct.phieuNhapKho.trangThai = 0
+        group by k.viTriKho.id
+    """)
+    List<Object[]> sumChoNhapNhieuKeTheoKho(@Param("khoId") Integer khoId);
 
 
 }
