@@ -685,13 +685,17 @@ class KenhBanHangDongBoServiceTest {
 
     @Test
     void dsDiaDiem_danhDauVaXepDiaDiemMacDinhLenDau() throws Exception {
-        var ds = KenhBanHangDongBoServiceImpl.dsDiaDiem(locationsGianHang(), 93895196931L);
+        JsonNode coInactive = JSON.readTree("{\"locations\":["
+                + "{\"id\":93895229699,\"name\":\"My Custom Location\",\"active\":true,\"legacy\":false},"
+                + "{\"id\":93895196931,\"name\":\"Shop location\",\"active\":true,\"legacy\":false},"
+                + "{\"id\":93895262467,\"name\":\"Snow City Warehouse\",\"active\":true,\"legacy\":true},"
+                + "{\"id\":93895299999,\"name\":\"Closed Branch\",\"active\":false,\"legacy\":false}]}");
+        var ds = KenhBanHangDongBoServiceImpl.dsDiaDiem(coInactive, 93895196931L);
 
-        assertEquals(List.of("Shop location", "My Custom Location", "Snow City Warehouse"),
+        assertEquals(List.of("Shop location", "My Custom Location"),
                 ds.stream().map(com.dev.backend.dto.response.customize.ShopifyLocationDto::getTenKhoSan).toList());
-        assertEquals(List.of(true, false, false),
+        assertEquals(List.of(true, false),
                 ds.stream().map(com.dev.backend.dto.response.customize.ShopifyLocationDto::isMacDinh).toList());
-        assertEquals("legacy", ds.get(2).getLoai());
     }
 
     @Test

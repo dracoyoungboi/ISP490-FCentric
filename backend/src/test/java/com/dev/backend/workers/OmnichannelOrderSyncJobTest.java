@@ -620,6 +620,81 @@ class OmnichannelOrderSyncJobTest {
         assertFalse(saved.getGhiChu().contains(OmnichannelOrderSyncJob.TAG_SHOPEE_CHO_XAC_NHAN),
                 "Phải gỡ [SHOPEE_CHO_XAC_NHAN] khi Shopee chuyển READY_TO_SHIP");
         assertTrue(saved.getGhiChu().contains("SPXVN05999888"));
+        assertEquals("chua_thanh_toan", saved.getTrangThaiThanhToan());
         verify(thongBao, times(1)).donSanMoi(kenh);
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("Shopee Ví điện tử UNPAID: phải lưu chua_thanh_toan (không cầm đèn chạy trước ô tô), lên READY_TO_SHIP mới đổi da_thanh_toan")
+    void processSingleShopeeOrder_viDienTuUnpaid_chuaThanhToanDenKhiReadyToShipMoiDaThanhToan() {
+        var kenh = KenhBanHang.builder().id(8).maKenh("SHOPEE_OFFICIAL").tenKenh("Shopee").build();
+        var khoTong = com.dev.backend.entities.Kho.builder()
+                .id(1).maKho("KHO_TONG").tenKho("Kho Tổng").loaiKho("kho_tong").trangThai(1).build();
+        when(khoRepository.findByTrangThai(1)).thenReturn(List.of(khoTong));
+        when(khachHangRepository.findFirstBySoDienThoai("0902223344"))
+                .thenReturn(Optional.of(KhachHang.builder().id(11).tenKhachHang("Khách Shopee").build()));
+        when(donBanHangRepository.findBySoDonHang("SHP-261121EW")).thenReturn(Optional.empty());
+
+        var addr = new com.dev.backend.dto.response.customize.ShopeeOrderDto.ShopeeRecipientAddressDto();
+        addr.setName("Trần Ví");
+        addr.setPhone("0902223344");
+        addr.setFullAddress("TP.HCM");
+
+        var unpaidWalletDto = new com.dev.backend.dto.response.customize.ShopeeOrderDto();
+        unpaidWalletDto.setOrderSn("261121EW");
+        unpaidWalletDto.setOrderStatus("UNPAID");
+        unpaidWalletDto.setPaymentMethod("ShopeePay");
+        unpaidWalletDto.setTotalAmount(420000.0);
+        unpaidWalletDto.setRecipientAddress(addr);
+
+        assertTrue(job.processSingleShopeeOrder(unpaidWalletDto, kenh));
+
+        ArgumentCaptor<DonBanHang> savedCap = ArgumentCaptor.forClass(DonBanHang.class);
+        verify(donBanHangRepository).save(savedCap.capture());
+        DonBanHang saved = savedCap.getValue();
+        assertEquals("chua_thanh_toan", saved.getTrangThaiThanhToan(),
+                "Đơn ví điện tử UNPAID chưa thanh toán trên sàn thì phải ở chua_thanh_toan");
+        assertTrue(saved.getGhiChu().contains(OmnichannelOrderSyncJob.TAG_SHOPEE_CHO_XAC_NHAN));
+
+        saved.setId(506);
+        when(donBanHangRepository.findBySoDonHang("SHP-261121EW")).thenReturn(Optional.of(saved));
+
+        var paidDto = new com.dev.backend.dto.response.customize.ShopeeOrderDto();
+        paidDto.setOrderSn("261121EW");
+        paidDto.setOrderStatus("READY_TO_SHIP");
+        paidDto.setPaymentMethod("ShopeePay");
+        paidDto.setTrackingNumber("SPXVN05999999");
+
+        job.processSingleShopeeOrder(paidDto, kenh);
+        assertEquals("da_thanh_toan", saved.getTrangThaiThanhToan());
+        assertFalse(saved.getGhiChu().contains(OmnichannelOrderSyncJob.TAG_SHOPEE_CHO_XAC_NHAN));
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("Shopee Cash on Delivery (chữ thường có dấu cách) & heal UNPAID: giữ chua_thanh_toan tới khi COMPLETED")
+    void processSingleShopeeOrder_cashOnDeliveryVaHieuChinhUnpaid() {
+        var kenh = KenhBanHang.builder().id(8).maKenh("SHOPEE").tenKenh("Shopee").build();
+        var existingWrong = DonBanHang.builder()
+                .id(507).soDonHang("SHP-261121COD2").maDonHangKenh("261121COD2")
+                .trangThai(0).trangThaiThanhToan("da_thanh_toan").ghiChu("Cũ").build();
+        when(donBanHangRepository.findBySoDonHang("SHP-261121COD2")).thenReturn(Optional.of(existingWrong));
+
+        var codReady = new com.dev.backend.dto.response.customize.ShopeeOrderDto();
+        codReady.setOrderSn("261121COD2");
+        codReady.setOrderStatus("READY_TO_SHIP");
+        codReady.setPaymentMethod("Cash on Delivery");
+        job.processSingleShopeeOrder(codReady, kenh);
+
+        assertEquals("chua_thanh_toan", existingWrong.getTrangThaiThanhToan(),
+                "Cash on Delivery khi mới READY_TO_SHIP phải hiệu chỉnh/giữ ở chua_thanh_toan");
+
+        var codDone = new com.dev.backend.dto.response.customize.ShopeeOrderDto();
+        codDone.setOrderSn("261121COD2");
+        codDone.setOrderStatus("COMPLETED");
+        codDone.setPaymentMethod("Cash on Delivery");
+        job.processSingleShopeeOrder(codDone, kenh);
+
+        assertEquals("da_thanh_toan", existingWrong.getTrangThaiThanhToan(),
+                "Cash on Delivery sau khi COMPLETED mới đổi sang da_thanh_toan");
     }
 }
