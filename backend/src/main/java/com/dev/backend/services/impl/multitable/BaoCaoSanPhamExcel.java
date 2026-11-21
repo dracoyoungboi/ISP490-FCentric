@@ -19,7 +19,8 @@ import java.util.function.Function;
  * Tệp Excel của Báo cáo sản phẩm theo khuôn chung (KhuonExcelBaoCao), như tệp Báo cáo doanh thu:
  * - Đầu trang: tên đơn vị, địa chỉ, mã số thuế; tên báo cáo; kỳ báo cáo, kỳ so sánh; phạm vi (kho, kênh); đơn vị tính.
  * - Số là ô số thật, #,##0, số âm trong ngoặc, 0 hiện "-"; tỷ lệ dạng %. Cột tính (lợi nhuận, biên lãi, tỷ trọng, tỷ lệ
- *   hoàn, tăng / giảm, đủ bán) và dòng Cộng là công thức, đã tính sẵn giá trị để xem trước không cần mở Excel.
+ *   hoàn, tăng / giảm) và dòng Cộng là công thức, đã tính sẵn giá trị để xem trước không cần mở Excel. Đủ bán từng dòng
+ *   là số máy chủ tính (số bán mọi kênh, số ngày bán), như màn hình.
  * - Bảng: tiêu đề cột in đậm có nền, kẻ khung mảnh; cố định dòng tiêu đề và cột tên; lọc ở các bảng chi tiết.
  * - In: A4, vừa chiều ngang một trang, lặp dòng tiêu đề bảng mỗi trang, chân trang "Trang x/y".
  * - Bốn trang: Tổng hợp (kèm chữ ký), Theo sản phẩm, Theo mã SKU, Theo ngày.
@@ -185,10 +186,12 @@ public final class BaoCaoSanPhamExcel extends KhuonExcelBaoCao {
         String[] ghi = {
                 "Ghi chú:",
                 "- Chỉ tính đơn bán đã xuất kho toàn bộ hoặc hoàn thành, theo ngày giao hàng; đơn bị hoàn trả chỉ tính vào mục 8.",
+                "- Hàng khách trả tại quầy trừ khỏi số lượng bán, doanh thu hàng, giá vốn (phần hàng Đạt nhập lại kho) ở kỳ chứa ngày trả và tính vào mục 8.",
                 "- Doanh thu hàng = thành tiền trên dòng đơn trừ giảm giá dòng, đã gồm thuế GTGT, chưa gồm phí vận chuyển.",
                 "  Doanh thu hàng thường bằng doanh thu của Báo cáo doanh thu trừ phí vận chuyển; đơn sàn có tổng tiền hàng khác tổng các dòng thì lệch đúng phần chênh đó.",
                 "- Giá vốn tính theo lô đã xuất trên phiếu xuất kho hoàn tất của các đơn trên.",
-                "- Khả dụng, đang về, giá trị tồn là số tại thời điểm lập báo cáo, không theo kỳ. Đủ bán = khả dụng / (số lượng bán / số ngày của kỳ).",
+                "- Khả dụng, đang về, giá trị tồn là số tại thời điểm lập báo cáo, không theo kỳ. Khả dụng đã trừ hàng đang giữ cho đơn chưa xuất và phiếu chuyển kho.",
+                "- Đủ bán = khả dụng / (số lượng bán mọi kênh / số ngày bán). Số ngày bán là số ngày của kỳ; hàng về kho lần đầu giữa kỳ thì tính từ ngày hàng về.",
                 "- Kỳ trước là khoảng ngày liền trước kỳ báo cáo, cùng số ngày.",
         };
         for (String g : ghi) o(s, r++, 0, g, k(g.equals("Ghi chú:") ? "ghiChuDam" : "ghiChu"));
@@ -321,7 +324,9 @@ public final class BaoCaoSanPhamExcel extends KhuonExcelBaoCao {
             so(row, 19, p.getKhaDung(), k("so"));
             so(row, 20, p.getDangVe(), k("so"));
             so(row, 21, p.getGiaTriTon(), k("tien"));
-            f(row, 22, "IF(" + ref(r, 7) + "=0,\"\"," + ref(r, 19) + "/(" + ref(r, 7) + "/" + bc.getSoNgay() + "))", k("ngayBan"));
+            // Đủ bán lấy số máy chủ đã tính (số bán mọi kênh, số ngày bán) như màn hình và cột Tình trạng, không tự chia lại
+            // theo cột số bán (đang lọc kênh thì cột đó chỉ là số của kênh)
+            soHoacTrong(row, 22, p.getDuBanNgay(), k("ngayBan"));
             o(row, 23, p.getNhomAbc() == null ? "" : p.getNhomAbc(), k("stt"));
             String tt = TINH_TRANG.getOrDefault(p.getTinhTrang(), "");
             o(row, 24, tt, k("BAN_CHAY_SAP_HET".equals(p.getTinhTrang()) ? "chuDo" : "chuXuong"));
@@ -343,7 +348,8 @@ public final class BaoCaoSanPhamExcel extends KhuonExcelBaoCao {
         r += 2;
         o(s, r++, 2, "Ghi chú: Dòng Cộng tự tính lại khi lọc. Số đơn ở dòng Cộng là số đơn khác nhau của cả kỳ (đơn có nhiều sản phẩm chỉ đếm một lần).", k("ghiChu"));
         o(s, r++, 2, "Hạng xếp theo số lượng bán; bằng nhau thì xếp theo doanh thu. Nhóm ABC theo doanh thu cộng dồn: A tới 80%, B tới 95%, C phần còn lại.", k("ghiChu"));
-        o(s, r++, 2, "Đủ bán = khả dụng hiện tại / (số lượng bán / " + bc.getSoNgay() + " ngày); ở dòng Cộng chỉ tính sản phẩm có bán. Sắp hết hàng: dưới "
+        o(s, r++, 2, "Đủ bán = khả dụng hiện tại / (số lượng bán mọi kênh / số ngày bán: " + bc.getSoNgay() + " ngày, hàng mới về giữa kỳ thì từ ngày về);"
+                + " dòng Cộng = khả dụng các dòng có bán / (cột số lượng bán / " + bc.getSoNgay() + " ngày). Sắp hết hàng: dưới "
                 + BaoCaoSanPhamService.SAP_HET_DUOI_NGAY + " ngày; dư hàng: trên " + BaoCaoSanPhamService.DU_HANG_TREN_NGAY + " ngày.", k("ghiChu"));
         o(s, r, 2, lapLuc(tin), k("ghiChu"));
 
@@ -385,7 +391,7 @@ public final class BaoCaoSanPhamExcel extends KhuonExcelBaoCao {
                 so(row, 12, b.getSoLuongHoan(), k("so"));
                 so(row, 13, b.getKhaDung(), k("so"));
                 so(row, 14, b.getDangVe(), k("so"));
-                f(row, 15, "IF(" + ref(r, 7) + "=0,\"\"," + ref(r, 13) + "/(" + ref(r, 7) + "/" + bc.getSoNgay() + "))", k("ngayBan"));
+                soHoacTrong(row, 15, b.getDuBanNgay(), k("ngayBan"));
                 r++;
             }
         }
@@ -450,5 +456,11 @@ public final class BaoCaoSanPhamExcel extends KhuonExcelBaoCao {
 
     private static BigDecimal cong(List<BaoCaoSanPhamDTO.SanPham> ds, Function<BaoCaoSanPhamDTO.SanPham, BigDecimal> f) {
         return ds.stream().map(f).map(x -> x == null ? BigDecimal.ZERO : x).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Ô số; không có số (vd. đủ bán của mã không bán) thì để trống, không ghi 0 (0 hiện "-" như số thật). */
+    private static void soHoacTrong(Row row, int c, BigDecimal v, CellStyle st) {
+        if (v == null) o(row, c, "", st);
+        else so(row, c, v, st);
     }
 }
