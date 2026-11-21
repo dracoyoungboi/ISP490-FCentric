@@ -48,6 +48,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -95,6 +96,36 @@ public class OmnichannelOrderSyncJob {
                 .replaceAll("\\s{2,}", " ")
                 .trim();
         return cleaned.isEmpty() ? null : cleaned;
+    }
+
+    /** Nhận diện mọi biến thể phương thức COD của Shopee OpenAPI (CASH_ON_DELIVERY, Cash on Delivery, COD). */
+    public static boolean laPhuongThucCodShopee(String paymentMethod) {
+        if (paymentMethod == null || paymentMethod.isBlank()) {
+            return false;
+        }
+        String norm = paymentMethod.trim().toLowerCase(Locale.ROOT);
+        return norm.equals("cash_on_delivery")
+                || norm.equals("cash on delivery")
+                || norm.contains("cod")
+                || norm.contains("cash_on_delivery")
+                || norm.contains("cash on delivery");
+    }
+
+    /**
+     * Trạng thái thanh toán chuẩn hóa theo vòng đời Shopee:
+     * - UNPAID: luôn chưa thanh toán (kể cả ví điện tử/chuyển khoản đang chờ khách quét thanh toán).
+     * - COD (không phải COMPLETED): giữ chưa thanh toán tới khi hoàn tất đối soát giao hàng (COMPLETED).
+     * - Ví điện tử / online payment từ READY_TO_SHIP trở đi: đã thanh toán.
+     */
+    public static String xacDinhTrangThaiThanhToanShopee(String shopeeStatus, String paymentMethod) {
+        String st = shopeeStatus != null ? shopeeStatus.trim().toUpperCase(Locale.ROOT) : "";
+        if ("UNPAID".equals(st)) {
+            return "chua_thanh_toan";
+        }
+        if (laPhuongThucCodShopee(paymentMethod) && !"COMPLETED".equals(st)) {
+            return "chua_thanh_toan";
+        }
+        return "da_thanh_toan";
     }
 
     public static boolean isShopify(String maKenh) {
@@ -2000,14 +2031,20 @@ public class OmnichannelOrderSyncJob {
                     }
                 }
 
-                // 1. Đồng bộ trạng thái thanh toán nếu sàn đổi sang đã thanh toán
-                boolean daThanhToan = !"UNPAID".equalsIgnoreCase(shopeeStatus)
-                        && (order.getPaymentMethod() == null || !order.getPaymentMethod().toLowerCase().contains("cod") || "COMPLETED".equalsIgnoreCase(shopeeStatus));
-                if (daThanhToan && !"da_thanh_toan".equals(existing.getTrangThaiThanhToan())) {
+                // 1. Đồng bộ & hiệu chỉnh trạng thái thanh toán theo đúng UNPAID / COD / Ví điện tử
+                String ttThanhToanDung = xacDinhTrangThaiThanhToanShopee(shopeeStatus, order.getPaymentMethod());
+                if ("da_thanh_toan".equals(ttThanhToanDung) && !"da_thanh_toan".equals(existing.getTrangThaiThanhToan())) {
                     existing.setTrangThaiThanhToan("da_thanh_toan");
                     existing.setNgayCapNhat(Instant.now());
                     donBanHangRepository.save(existing);
                     log.info("[JOB-01] Đơn {} trên Shopee đã thanh toán -> Cập nhật trạng thái thanh toán = da_thanh_toan", soDonHang);
+                } else if ("chua_thanh_toan".equals(ttThanhToanDung)
+                        && "da_thanh_toan".equals(existing.getTrangThaiThanhToan())
+                        && !Integer.valueOf(ITrangThaiDonBanHang.HOAN_THANH).equals(existing.getTrangThai())) {
+                    existing.setTrangThaiThanhToan("chua_thanh_toan");
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                    log.info("[JOB-01] Hiệu chỉnh đơn Shopee {} ({}/{}) về chua_thanh_toan", soDonHang, shopeeStatus, order.getPaymentMethod());
                 }
 
                 // 2. Đồng bộ trạng thái giao hàng / hoàn thành theo sàn Shopee
@@ -2059,7 +2096,7 @@ public class OmnichannelOrderSyncJob {
             ngayDat = ctVal > 1_000_000_000_000L ? Instant.ofEpochMilli(ctVal) : Instant.ofEpochSecond(ctVal);
         }
         int trangThai = mapShopeeOrderStatus(order.getOrderStatus());
-        String ttThanhToan = "CASH_ON_DELIVERY".equalsIgnoreCase(order.getPaymentMethod()) ? "chua_thanh_toan" : "da_thanh_toan";
+        String ttThanhToan = xacDinhTrangThaiThanhToanShopee(shopeeStatus, order.getPaymentMethod());
 
         boolean coYeuCauHuy = order.getCancelReason() != null && !order.getCancelReason().isBlank();
         String ghiChu = coYeuCauHuy
