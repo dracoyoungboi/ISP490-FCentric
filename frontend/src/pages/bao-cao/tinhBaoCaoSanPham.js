@@ -8,8 +8,9 @@ export const N = (v) => Number(v) || 0;
 export const NHOM = [
   { value: "tat-ca", label: t("Tất cả") },
   { value: "co-ban", label: t("Có bán") },
-  // Sắp hết hàng gồm cả mã đang bán mà đã hết sạch (cần nhập gấp nhất)
-  { value: "sap-het", label: t("Sắp hết hàng"), tone: "danger", loc: (p) => p.tinhTrang === "BAN_CHAY_SAP_HET" || (p.tinhTrang === "HET_HANG" && N(p.soLuong) > 0) },
+  // Sắp hết hàng gồm cả mã đang bán mà đã hết sạch (cần nhập gấp nhất). "Đang bán" xét số bán mọi kênh như máy chủ
+  // (duBanNgay có số khi mọi kênh có bán, kể cả khả dụng 0), không xét cột số bán đang lọc theo kênh
+  { value: "sap-het", label: t("Sắp hết hàng"), tone: "danger", loc: (p) => p.tinhTrang === "BAN_CHAY_SAP_HET" || (p.tinhTrang === "HET_HANG" && p.duBanNgay != null) },
   { value: "du-hang", label: t("Dư hàng"), tone: "warning", tinhTrang: "DU_HANG" },
   { value: "khong-ban", label: t("Không bán"), tinhTrang: "KHONG_BAN" },
 ];
@@ -46,14 +47,16 @@ export function timKiem(ds, tuKhoa) {
 
 /**
  * Xếp theo cột: sl (số lượng), dt (doanh thu), ln (lợi nhuận gộp). Giảm dần; bằng nhau thì doanh thu, rồi mã.
- * Sản phẩm không bán xếp sau, giá trị tồn lớn trước (như máy chủ).
+ * Sản phẩm không bán xếp sau, giá trị tồn lớn trước (như máy chủ); người không xem được giá trị tồn (nhân viên bán hàng,
+ * máy chủ gửi null) thì khả dụng lớn trước.
  */
 export function xep(ds, theo = "sl") {
   const k = { sl: "soLuong", dt: "doanhThu", ln: "loiNhuan" }[theo] ?? "soLuong";
+  const tonLon = (p) => (p.giaTriTon == null ? N(p.khaDung) : N(p.giaTriTon));
   return [...ds].sort((a, b) => {
     const coA = N(a.soLuong) > 0, coB = N(b.soLuong) > 0;
     if (coA !== coB) return coA ? -1 : 1;
-    if (!coA) return N(b.giaTriTon) - N(a.giaTriTon) || String(a.maSanPham).localeCompare(String(b.maSanPham));
+    if (!coA) return tonLon(b) - tonLon(a) || String(a.maSanPham).localeCompare(String(b.maSanPham));
     return N(b[k]) - N(a[k]) || N(b.doanhThu) - N(a.doanhThu) || String(a.maSanPham).localeCompare(String(b.maSanPham));
   });
 }
