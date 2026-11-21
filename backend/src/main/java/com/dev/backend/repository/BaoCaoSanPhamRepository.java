@@ -23,6 +23,7 @@ import java.util.Set;
  * khớp nhau:
  * - Chỉ đơn bán (loai_chung_tu = 'don_ban_hang'), trạng thái 3 (đã xuất toàn bộ) và 5 (hoàn thành);
  *   đơn 6 (bị hoàn trả) chỉ đếm vào số hoàn. Ngày tính là ngay_giao_hang, khoảng [tu, den + 1 ngày).
+ * - Hàng khách trả tại quầy (phieu_tra_hang) trừ khỏi số bán, doanh thu, giá vốn ở kỳ chứa ngày trả (traQuayTheoBienThe).
  * - Doanh thu hàng của dòng = thành tiền − giảm giá dòng (đơn Shopify), gồm thuế GTGT, không gồm phí vận chuyển.
  * - Giá vốn chỉ cộng dòng phiếu xuất hoàn tất CÓ LÔ (dòng gốc không lô của phiếu qua nhặt hàng là số cần xuất).
  * - Khả dụng: tồn khả dụng các lô ở kho đang hoạt động, bỏ Kho Trung Chuyển (như thẻ Bán chạy ở Tổng quan).
@@ -75,6 +76,11 @@ public class BaoCaoSanPhamRepository {
     public record KenhDong(int id, String ten) {
     }
 
+    /** Hàng trả tại quầy của một biến thể trong một ngày, theo kênh của đơn gốc: số trả, tiền hoàn, giá vốn phần Đạt. */
+    public record TraQuay(int bienTheId, int sanPhamId, LocalDate ngay, String tenKenh,
+                          BigDecimal soLuong, BigDecimal tienHoan, BigDecimal giaVonDat) {
+    }
+
     /** Ngày tính của đơn đã ghi nhận doanh thu: ngày giao hàng (như Báo cáo doanh thu). */
     private static final String NGAY_GIAO = "dbh.ngay_giao_hang";
     /** Ngày tính của đơn bị hoàn trả: ngày giao, chưa có (hoàn khi mới xuất một phần) thì ngày phiếu xuất hoàn tất cuối. */
@@ -82,16 +88,11 @@ public class BaoCaoSanPhamRepository {
             + " WHERE p2.don_ban_hang_id = dbh.id AND p2.trang_thai = 3))";
 
     /**
-     * Điều kiện chung của đơn: loại, kho, kênh, khoảng ngày ({NGAY}). :trangThai là danh sách trạng thái cần lấy.
-     * Kênh POS: đơn từ quầy không gắn kênh khác (kênh sàn được ưu tiên như bảng theo kênh ở Tổng quan), hoặc gắn bản
-     * ghi kênh mã POS.
+     * Điều kiện kênh của đơn dbh. Kênh POS: đơn từ quầy không gắn kênh khác (kênh sàn được ưu tiên như bảng theo kênh ở
+     * Tổng quan), hoặc gắn bản ghi kênh mã POS.
      */
-    private static final String DIEU_KIEN_DON_MAU = """
-              dbh.loai_chung_tu = 'don_ban_hang'
-              AND dbh.trang_thai IN (:trangThai)
-              AND {NGAY} >= :tu AND {NGAY} < :den
-              AND (:tatCa = 1 OR dbh.kho_xuat_id IN (:khoIds))
-              AND (:kenh IS NULL
+    private static final String DIEU_KIEN_KENH = """
+              (:kenh IS NULL
                    OR (:kenh = 'POS' AND ((dbh.kenh_ban_id IS NULL
                             AND EXISTS (SELECT 1 FROM pos_checkout_request r WHERE r.don_ban_hang_id = dbh.id))
                         OR dbh.kenh_ban_id IN (SELECT kp.id FROM kenh_ban_hang kp WHERE kp.ma_kenh = 'POS')))
@@ -99,6 +100,22 @@ public class BaoCaoSanPhamRepository {
                        AND NOT EXISTS (SELECT 1 FROM pos_checkout_request r WHERE r.don_ban_hang_id = dbh.id))
                    OR (:kenhId IS NOT NULL AND dbh.kenh_ban_id = :kenhId))
             """;
+
+    /** Tên kênh của đơn dbh (kb = kenh_ban_hang của đơn) cho bảng tỷ trọng kênh, cùng cách chia với DIEU_KIEN_KENH. */
+    private static final String TEN_KENH = """
+            CASE WHEN kb.id IS NOT NULL AND kb.ma_kenh <> 'POS' THEN kb.ten_kenh
+                 WHEN kb.ma_kenh = 'POS'
+                   OR EXISTS (SELECT 1 FROM pos_checkout_request r WHERE r.don_ban_hang_id = dbh.id) THEN 'Bán tại quầy'
+                 ELSE 'Đơn bán trực tiếp' END""";
+
+    /** Điều kiện chung của đơn: loại, kho, kênh, khoảng ngày ({NGAY}). :trangThai là danh sách trạng thái cần lấy. */
+    private static final String DIEU_KIEN_DON_MAU = """
+              dbh.loai_chung_tu = 'don_ban_hang'
+              AND dbh.trang_thai IN (:trangThai)
+              AND {NGAY} >= :tu AND {NGAY} < :den
+              AND (:tatCa = 1 OR dbh.kho_xuat_id IN (:khoIds))
+              AND
+            """ + DIEU_KIEN_KENH;
     private static final String DIEU_KIEN_DON = DIEU_KIEN_DON_MAU.replace("{NGAY}", NGAY_GIAO);
     private static final String DIEU_KIEN_HOAN = DIEU_KIEN_DON_MAU.replace("{NGAY}", NGAY_HOAN);
 
@@ -165,6 +182,44 @@ public class BaoCaoSanPhamRepository {
                 (rs, i) -> new GiaVonBienThe(rs.getInt("bt_id"), bd(rs, "gia_von")));
     }
 
+    // Tên kênh có truy vấn con: tính theo từng dòng trong bảng dẫn xuất rồi mới gom (only_full_group_by không nhận
+    // GROUP BY theo bí danh của biểu thức có truy vấn con), như SQL_BAN_KENH
+    private static final String SQL_TRA_QUAY = """
+            SELECT x.bt_id, x.sp_id, x.ngay, x.ten_kenh,
+                   SUM(x.so_luong) AS so_luong, SUM(x.tien_hoan) AS tien_hoan, SUM(x.gia_von_dat) AS gia_von_dat
+            FROM (
+                SELECT c.bien_the_san_pham_id AS bt_id, bt.san_pham_id AS sp_id, DATE(pth.ngay_tao) AS ngay,
+                       c.so_luong             AS so_luong,
+                       c.thanh_tien_hoan      AS tien_hoan,
+                       CASE WHEN c.tinh_trang = 'dat' THEN COALESCE((
+                               SELECT SUM(l.so_luong * l.gia_von) FROM chi_tiet_phieu_tra_hang_lo l
+                               WHERE l.chi_tiet_phieu_tra_hang_id = c.id), 0) ELSE 0 END AS gia_von_dat,
+                       {TEN_KENH} AS ten_kenh
+                FROM phieu_tra_hang pth
+                JOIN chi_tiet_phieu_tra_hang c ON c.phieu_tra_hang_id = pth.id
+                JOIN bien_the_san_pham bt      ON bt.id = c.bien_the_san_pham_id
+                JOIN don_ban_hang dbh          ON dbh.id = pth.don_ban_hang_id
+                LEFT JOIN kenh_ban_hang kb     ON kb.id = dbh.kenh_ban_id
+                WHERE pth.ngay_tao >= :tu AND pth.ngay_tao < :den
+                  AND (:tatCa = 1 OR pth.kho_ban_id IN (:khoIds))
+                  AND
+            """.replace("{TEN_KENH}", TEN_KENH) + DIEU_KIEN_KENH + """
+            ) x
+            GROUP BY x.bt_id, x.sp_id, x.ngay, x.ten_kenh
+            """;
+
+    /**
+     * Hàng khách trả tại quầy theo ngày lập phiếu trả trong [tu, den], tính cho cửa hàng BÁN (kho_ban_id) và theo kênh
+     * của đơn gốc — như Báo cáo doanh thu (GBR-RET-06): giảm số bán, doanh thu hàng (tiền hoàn từng dòng) và giá vốn phần
+     * hàng Đạt (quay lại kho); hàng Lỗi vẫn giữ giá vốn (tổn thất). Đơn gốc không đổi trạng thái khi trả nên các câu bán ở
+     * trên vẫn đếm đủ, phải trừ bằng số này.
+     */
+    public List<TraQuay> traQuayTheoBienThe(PhamVi pv, LocalDate tu, LocalDate den) {
+        return jdbc.query(SQL_TRA_QUAY, thamSo(pv, tu, den, List.of()), (rs, i) -> new TraQuay(
+                rs.getInt("bt_id"), rs.getInt("sp_id"), rs.getDate("ngay").toLocalDate(), rs.getString("ten_kenh"),
+                bd(rs, "so_luong"), bd(rs, "tien_hoan"), bd(rs, "gia_von_dat")));
+    }
+
     private static final String SQL_SO_DON = """
             SELECT bt.san_pham_id AS sp_id, COUNT(DISTINCT dbh.id) AS so_don
             FROM don_ban_hang dbh
@@ -208,17 +263,14 @@ public class BaoCaoSanPhamRepository {
             SELECT x.sp_id, x.ten_kenh, SUM(x.so_luong) AS so_luong, SUM(x.doanh_thu) AS doanh_thu
             FROM (
                 SELECT bt.san_pham_id AS sp_id,
-                       CASE WHEN kb.id IS NOT NULL AND kb.ma_kenh <> 'POS' THEN kb.ten_kenh
-                            WHEN kb.ma_kenh = 'POS'
-                              OR EXISTS (SELECT 1 FROM pos_checkout_request r WHERE r.don_ban_hang_id = dbh.id) THEN 'Bán tại quầy'
-                            ELSE 'Đơn bán trực tiếp' END                                         AS ten_kenh,
                        ct.so_luong_dat                                                             AS so_luong,
-                       COALESCE(ct.thanh_tien, ct.so_luong_dat * ct.don_gia) - COALESCE(ct.tien_giam_gia, 0) AS doanh_thu
+                       COALESCE(ct.thanh_tien, ct.so_luong_dat * ct.don_gia) - COALESCE(ct.tien_giam_gia, 0) AS doanh_thu,
+                       {TEN_KENH} AS ten_kenh
                 FROM don_ban_hang dbh
                 JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = dbh.id
                 JOIN bien_the_san_pham bt     ON bt.id = ct.bien_the_san_pham_id
                 LEFT JOIN kenh_ban_hang kb    ON kb.id = dbh.kenh_ban_id
-                WHERE """ + DIEU_KIEN_DON + """
+                WHERE """.replace("{TEN_KENH}", TEN_KENH) + DIEU_KIEN_DON + """
             ) x
             GROUP BY x.sp_id, x.ten_kenh
             """;

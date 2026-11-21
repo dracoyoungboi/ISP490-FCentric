@@ -12,8 +12,9 @@ import java.util.List;
 /**
  * Báo cáo sản phẩm (màn /reports/products và tệp Excel dùng chung). Số bán tính như Báo cáo doanh thu: đơn bán đã xuất
  * toàn bộ / hoàn thành, theo ngày giao hàng; doanh thu hàng = thành tiền dòng − giảm giá dòng (gồm thuế GTGT, không gồm
- * phí vận chuyển); giá vốn theo lô đã xuất. Hoàn = số lượng trên đơn bị hoàn trả có ngày giao trong kỳ. Khả dụng và đang
- * về là số hiện tại, không theo kỳ. Kỳ trước = khoảng ngày liền trước, cùng số ngày.
+ * phí vận chuyển); giá vốn theo lô đã xuất. Hàng khách trả tại quầy trừ khỏi số bán, doanh thu, giá vốn (phần hàng Đạt)
+ * ở kỳ chứa ngày trả. Hoàn = số lượng trên đơn bị hoàn trả có ngày giao trong kỳ + số trả tại quầy trong kỳ. Khả dụng
+ * và đang về là số hiện tại, không theo kỳ. Kỳ trước = khoảng ngày liền trước, cùng số ngày.
  */
 @Data
 @Builder

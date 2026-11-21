@@ -27,6 +27,8 @@ import com.dev.backend.i18n.ThongDiep;
  * kho chỉ các kho mình phụ trách (DoanhThuReportService.phamVi).
  * Quy ước:
  * - Kỳ: [tuNgay, denNgay], tối đa 1 năm, cắt tới hôm nay. Kỳ trước = khoảng liền trước, cùng số ngày.
+ * - Số bán, doanh thu, giá vốn đã trừ hàng khách trả tại quầy ở kỳ chứa ngày trả (như Báo cáo doanh thu); số trả tại quầy
+ *   cộng vào số hoàn. Kỳ chỉ có hàng trả (hàng bán ở kỳ trước) thì số bán có thể âm.
  * - Hạng: theo số lượng bán (bằng nhau thì doanh thu, rồi mã sản phẩm). Nhóm A/B/C theo doanh thu cộng dồn: A tới 80%,
  *   B tới 95%, C phần còn lại.
  * - Đủ bán (ngày) = khả dụng / (số bán / số ngày của kỳ).
@@ -47,6 +49,15 @@ public class BaoCaoSanPhamService {
 
     /** Ngày đầu, ngày cuối (đã cắt tới hôm nay), kỳ trước và số ngày của kỳ. */
     record Ky(LocalDate tu, LocalDate den, LocalDate tuTruoc, LocalDate denTruoc, int soNgay) {
+    }
+
+    /** Hàng trả tại quầy cộng dồn: số lượng, tiền hoàn, giá vốn phần hàng Đạt. */
+    record Tra(BigDecimal soLuong, BigDecimal tien, BigDecimal giaVon) {
+        static final Tra KHONG = new Tra(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+
+        Tra cong(BaoCaoSanPhamRepository.TraQuay x) {
+            return new Tra(soLuong.add(x.soLuong()), tien.add(x.tienHoan()), giaVon.add(x.giaVonDat()));
+        }
     }
 
     static Ky ky(LocalDate tuNgay, LocalDate denNgay, LocalDate homNay) {
@@ -82,10 +93,16 @@ public class BaoCaoSanPhamService {
                 .collect(Collectors.toMap(BaoCaoSanPhamRepository.GiaVonBienThe::bienTheId, BaoCaoSanPhamRepository.GiaVonBienThe::giaVon, BigDecimal::add));
         BigDecimal tongHoanTruoc = repo.hoanTheoBienThe(pv, k.tuTruoc(), k.denTruoc()).stream()
                 .map(BaoCaoSanPhamRepository.GiaVonBienThe::giaVon).reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Hàng khách trả tại quầy: đơn gốc vẫn ở trạng thái hoàn thành nên phải trừ riêng, ở kỳ chứa ngày trả
+        List<BaoCaoSanPhamRepository.TraQuay> dsTra = repo.traQuayTheoBienThe(pv, k.tu(), k.den());
+        Map<Integer, Tra> traBt = gopTra(dsTra);
+        Map<Integer, Tra> traTruocBt = gopTra(repo.traQuayTheoBienThe(pv, k.tuTruoc(), k.denTruoc()));
+        tongHoanTruoc = tongHoanTruoc.add(traTruocBt.values().stream().map(Tra::soLuong).reduce(BigDecimal.ZERO, BigDecimal::add));
         // Đủ bán và tình trạng là chuyện tồn kho chung mọi kênh: đang lọc một kênh thì vẫn tính trên số bán của mọi kênh
         PhamVi pvMoiKenh = new PhamVi(pv.tatCaKho(), pv.khoIds(), null);
         Map<Integer, BaoCaoSanPhamRepository.BanBienThe> banMoiKenh = pv.kenh() == null ? ban
                 : theo(repo.banTheoBienThe(pvMoiKenh, k.tu(), k.den()), BaoCaoSanPhamRepository.BanBienThe::bienTheId);
+        Map<Integer, Tra> traMoiKenhBt = pv.kenh() == null ? traBt : gopTra(repo.traQuayTheoBienThe(pvMoiKenh, k.tu(), k.den()));
         Map<Integer, String> anh = repo.anhTheoSanPham();
         Map<Integer, BigDecimal> gv = repo.giaVonTheoBienThe(pv, k.tu(), k.den()).stream()
                 .collect(Collectors.toMap(BaoCaoSanPhamRepository.GiaVonBienThe::bienTheId, BaoCaoSanPhamRepository.GiaVonBienThe::giaVon, BigDecimal::add));
@@ -103,6 +120,8 @@ public class BaoCaoSanPhamService {
         List<BaoCaoSanPhamRepository.BanNgay> dsNgay = repo.banTheoNgay(pv, k.tu(), k.den());
         Map<Integer, List<BaoCaoSanPhamRepository.BanNgay>> ngay = dsNgay.stream()
                 .collect(Collectors.groupingBy(BaoCaoSanPhamRepository.BanNgay::sanPhamId));
+        Map<Integer, List<BaoCaoSanPhamRepository.TraQuay>> traSp = dsTra.stream()
+                .collect(Collectors.groupingBy(BaoCaoSanPhamRepository.TraQuay::sanPhamId));
         Map<Integer, List<BaoCaoSanPhamRepository.BanKenh>> kenhSp = repo.banTheoKenh(pv, k.tu(), k.den()).stream()
                 .collect(Collectors.groupingBy(BaoCaoSanPhamRepository.BanKenh::sanPhamId));
 
@@ -117,53 +136,60 @@ public class BaoCaoSanPhamService {
             BaoCaoSanPhamRepository.BienTheDong dau = dsBt.get(0);
             List<BaoCaoSanPhamDTO.BienThe> bts = new ArrayList<>();
             BigDecimal sl = BigDecimal.ZERO, slT = BigDecimal.ZERO, dt = BigDecimal.ZERO, dtT = BigDecimal.ZERO, g = BigDecimal.ZERO,
-                    hoan = BigDecimal.ZERO, kd = BigDecimal.ZERO, ve = BigDecimal.ZERO, giaTri = BigDecimal.ZERO, slMoiKenh = BigDecimal.ZERO;
+                    gT = BigDecimal.ZERO, hoan = BigDecimal.ZERO, kd = BigDecimal.ZERO, ve = BigDecimal.ZERO, giaTri = BigDecimal.ZERO,
+                    slMoiKenh = BigDecimal.ZERO;
             for (BaoCaoSanPhamRepository.BienTheDong b : dsBt) {
-                var x = ban.get(b.bienTheId());
-                var xt = banTruoc.get(b.bienTheId());
-                var t = ton.get(b.bienTheId());
-                BigDecimal bSl = x == null ? BigDecimal.ZERO : x.soLuong();
-                BigDecimal bDt = x == null ? BigDecimal.ZERO : x.doanhThu();
-                BigDecimal bHoan = hoanBt.getOrDefault(b.bienTheId(), BigDecimal.ZERO);
-                var xm = banMoiKenh.get(b.bienTheId());
-                if (xm != null) slMoiKenh = slMoiKenh.add(xm.soLuong());
-                BigDecimal bGv = gv.getOrDefault(b.bienTheId(), BigDecimal.ZERO);
+                int id = b.bienTheId();
+                var x = ban.get(id);
+                var xt = banTruoc.get(id);
+                var xm = banMoiKenh.get(id);
+                var t = ton.get(id);
+                Tra tr = traBt.getOrDefault(id, Tra.KHONG);
+                Tra trT = traTruocBt.getOrDefault(id, Tra.KHONG);
+                BigDecimal bSl = (x == null ? BigDecimal.ZERO : x.soLuong()).subtract(tr.soLuong());
+                BigDecimal bDt = (x == null ? BigDecimal.ZERO : x.doanhThu()).subtract(tr.tien());
+                BigDecimal bHoan = hoanBt.getOrDefault(id, BigDecimal.ZERO).add(tr.soLuong());
+                BigDecimal bSlMoiKenh = (xm == null ? BigDecimal.ZERO : xm.soLuong())
+                        .subtract(traMoiKenhBt.getOrDefault(id, Tra.KHONG).soLuong());
+                BigDecimal bGv = gv.getOrDefault(id, BigDecimal.ZERO).subtract(tr.giaVon());
                 BigDecimal bKd = t == null ? BigDecimal.ZERO : t.khaDung().max(BigDecimal.ZERO);
-                BigDecimal bVe = dangVe.getOrDefault(b.bienTheId(), BigDecimal.ZERO);
+                BigDecimal bVe = dangVe.getOrDefault(id, BigDecimal.ZERO);
                 sl = sl.add(bSl);
                 dt = dt.add(bDt);
                 hoan = hoan.add(bHoan);
                 g = g.add(bGv);
                 kd = kd.add(bKd);
                 ve = ve.add(bVe);
+                slMoiKenh = slMoiKenh.add(bSlMoiKenh);
                 giaTri = giaTri.add(t == null ? BigDecimal.ZERO : t.giaTri().max(BigDecimal.ZERO));
-                if (xt != null) {
-                    slT = slT.add(xt.soLuong());
-                    dtT = dtT.add(xt.doanhThu());
-                }
-                tongGvTruoc = tongGvTruoc.add(gvTruoc.getOrDefault(b.bienTheId(), BigDecimal.ZERO));
+                slT = slT.add(xt == null ? BigDecimal.ZERO : xt.soLuong()).subtract(trT.soLuong());
+                dtT = dtT.add(xt == null ? BigDecimal.ZERO : xt.doanhThu()).subtract(trT.tien());
+                gT = gT.add(gvTruoc.getOrDefault(id, BigDecimal.ZERO)).subtract(trT.giaVon());
                 // Biến thể đã ngừng mà không còn hàng, không phát sinh: bỏ khỏi ma trận cho gọn
                 boolean coPhatSinh = bSl.signum() != 0 || bHoan.signum() != 0 || bKd.signum() != 0 || bVe.signum() != 0;
                 if (coPhatSinh || !Integer.valueOf(0).equals(b.trangThaiBienThe())) {
                     bts.add(BaoCaoSanPhamDTO.BienThe.builder()
-                            .id(b.bienTheId()).maSku(b.maSku()).mau(b.tenMau()).maMauHex(b.maMauHex()).size(b.tenSize())
+                            .id(id).maSku(b.maSku()).mau(b.tenMau()).maMauHex(b.maMauHex()).size(b.tenSize())
                             .thuTuSize(b.thuTuSize()).giaBan(b.giaBan()).soLuong(bSl).doanhThu(bDt).giaVon(bGv)
                             .soLuongHoan(bHoan).khaDung(bKd).dangVe(bVe).build());
                 }
             }
-            boolean coBan = sl.signum() > 0 || slT.signum() > 0 || hoan.signum() > 0;
+            // Số bán đã trừ hàng trả có thể âm: "phát sinh" là khác 0
+            boolean coBan = sl.signum() != 0 || slT.signum() != 0 || hoan.signum() != 0;
             // Ngừng hoạt động (2) mà không phát sinh trong hai kỳ thì không hiện
             if (Integer.valueOf(2).equals(dau.trangThai()) && !coBan) continue;
+            tongGvTruoc = tongGvTruoc.add(gT);
             int spId = dau.sanPhamId();
+            List<BaoCaoSanPhamRepository.BanNgay> ngaySp = ngay.getOrDefault(spId, List.of());
+            List<BaoCaoSanPhamRepository.TraQuay> traCuaSp = traSp.getOrDefault(spId, List.of());
             List<BigDecimal> chuoi = new ArrayList<>();
             if (sl.signum() > 0) {
                 Map<LocalDate, BigDecimal> m = new HashMap<>();
-                ngay.getOrDefault(spId, List.of()).forEach(n -> m.merge(n.ngay(), n.soLuong(), BigDecimal::add));
+                ngaySp.forEach(n -> m.merge(n.ngay(), n.soLuong(), BigDecimal::add));
+                traCuaSp.forEach(n -> m.merge(n.ngay(), n.soLuong().negate(), BigDecimal::add));
                 for (LocalDate d = k.tu(); !d.isAfter(k.den()); d = d.plusDays(1)) chuoi.add(m.getOrDefault(d, BigDecimal.ZERO));
             }
-            List<BaoCaoSanPhamDTO.TyTrong> kenhDs = kenhSp.getOrDefault(spId, List.of()).stream()
-                    .map(x -> BaoCaoSanPhamDTO.TyTrong.builder().ten(x.tenKenh()).soLuong(x.soLuong()).doanhThu(x.doanhThu()).build())
-                    .sorted(Comparator.comparing(BaoCaoSanPhamDTO.TyTrong::getSoLuong).reversed()).toList();
+            List<BaoCaoSanPhamDTO.TyTrong> kenhDs = tyTrongKenh(kenhSp.getOrDefault(spId, List.of()), traCuaSp);
             BigDecimal duBan = slMoiKenh.signum() > 0 ? kd.multiply(soNgay).divide(slMoiKenh, 1, RoundingMode.HALF_UP) : null;
             LocalDate nd = nhapDau.get(spId);
             ds.add(BaoCaoSanPhamDTO.SanPham.builder()
@@ -189,6 +215,11 @@ public class BaoCaoSanPhamService {
             a[0] = a[0].add(n.soLuong());
             a[1] = a[1].add(n.doanhThu());
         });
+        dsTra.forEach(n -> {
+            BigDecimal[] a = moiNgay.computeIfAbsent(n.ngay(), d -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            a[0] = a[0].subtract(n.soLuong());
+            a[1] = a[1].subtract(n.tienHoan());
+        });
         List<BaoCaoSanPhamDTO.Ngay> theoNgay = new ArrayList<>();
         for (LocalDate d = k.tu(); !d.isAfter(k.den()); d = d.plusDays(1)) {
             BigDecimal[] a = moiNgay.get(d);
@@ -204,6 +235,34 @@ public class BaoCaoSanPhamService {
                 .coGiaVon(true).build();
         if (!DoanhThuReportService.xemGiaVon()) anGiaVon(kq);
         return kq;
+    }
+
+    /** Cộng hàng trả tại quầy theo biến thể. */
+    static Map<Integer, Tra> gopTra(List<BaoCaoSanPhamRepository.TraQuay> ds) {
+        Map<Integer, Tra> m = new HashMap<>();
+        ds.forEach(x -> m.put(x.bienTheId(), m.getOrDefault(x.bienTheId(), Tra.KHONG).cong(x)));
+        return m;
+    }
+
+    /**
+     * Tỷ trọng theo kênh của một sản phẩm: số bán từng kênh trừ hàng trả tại quầy của kênh đó (theo kênh đơn gốc). Kênh
+     * còn số bán ≤ 0 (chỉ có hàng trả trong kỳ) thì bỏ, kẻo thanh tỷ trọng âm. Nhiều trước.
+     */
+    static List<BaoCaoSanPhamDTO.TyTrong> tyTrongKenh(List<BaoCaoSanPhamRepository.BanKenh> ban, List<BaoCaoSanPhamRepository.TraQuay> tra) {
+        Map<String, BigDecimal[]> m = new LinkedHashMap<>();
+        ban.forEach(x -> {
+            BigDecimal[] a = m.computeIfAbsent(x.tenKenh(), s -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            a[0] = a[0].add(x.soLuong());
+            a[1] = a[1].add(x.doanhThu());
+        });
+        tra.forEach(x -> {
+            BigDecimal[] a = m.computeIfAbsent(x.tenKenh(), s -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            a[0] = a[0].subtract(x.soLuong());
+            a[1] = a[1].subtract(x.tienHoan());
+        });
+        return m.entrySet().stream().filter(e -> e.getValue()[0].signum() > 0)
+                .map(e -> BaoCaoSanPhamDTO.TyTrong.builder().ten(e.getKey()).soLuong(e.getValue()[0]).doanhThu(e.getValue()[1]).build())
+                .sorted(Comparator.comparing(BaoCaoSanPhamDTO.TyTrong::getSoLuong).reversed()).toList();
     }
 
     /** Nhân viên bán hàng: bỏ giá vốn, lợi nhuận gộp, giá trị tồn khỏi báo cáo (máy chủ không gửi). */
