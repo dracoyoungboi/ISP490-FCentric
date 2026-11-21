@@ -26,7 +26,8 @@ import java.util.Set;
  * - Hàng khách trả tại quầy (phieu_tra_hang) trừ khỏi số bán, doanh thu, giá vốn ở kỳ chứa ngày trả (traQuayTheoBienThe).
  * - Doanh thu hàng của dòng = thành tiền − giảm giá dòng (đơn Shopify), gồm thuế GTGT, không gồm phí vận chuyển.
  * - Giá vốn chỉ cộng dòng phiếu xuất hoàn tất CÓ LÔ (dòng gốc không lô của phiếu qua nhặt hàng là số cần xuất).
- * - Khả dụng: tồn khả dụng các lô ở kho đang hoạt động, bỏ Kho Trung Chuyển (như thẻ Bán chạy ở Tổng quan).
+ * - Khả dụng: tồn khả dụng các lô ở kho đang hoạt động, bỏ Kho Trung Chuyển, trừ hàng đang giữ cho đơn bán chưa xuất và
+ *   phiếu chuyển kho (giuHangTheoBienThe) — như tồn đẩy lên sàn.
  * - Đang về: số chờ nhận của đơn mua đã chấp nhận (3) / đã nhận (5) còn thiếu (như cột Incoming của Báo cáo tồn kho).
  * Phạm vi kho: tatCa = 1 thì mọi kho, không thì chỉ các kho trong :khoIds. Kênh: null mọi kênh, POS (đơn từ quầy),
  * TRUC_TIEP (không kênh, không từ quầy), hoặc id kênh bán.
@@ -79,6 +80,9 @@ public class BaoCaoSanPhamRepository {
     /** Hàng trả tại quầy của một biến thể trong một ngày, theo kênh của đơn gốc: số trả, tiền hoàn, giá vốn phần Đạt. */
     public record TraQuay(int bienTheId, int sanPhamId, LocalDate ngay, String tenKenh,
                           BigDecimal soLuong, BigDecimal tienHoan, BigDecimal giaVonDat) {
+    }
+
+    public record GiuBienThe(int bienTheId, BigDecimal soLuong) {
     }
 
     /** Ngày tính của đơn đã ghi nhận doanh thu: ngày giao hàng (như Báo cáo doanh thu). */
@@ -218,6 +222,58 @@ public class BaoCaoSanPhamRepository {
         return jdbc.query(SQL_TRA_QUAY, thamSo(pv, tu, den, List.of()), (rs, i) -> new TraQuay(
                 rs.getInt("bt_id"), rs.getInt("sp_id"), rs.getDate("ngay").toLocalDate(), rs.getString("ten_kenh"),
                 bd(rs, "so_luong"), bd(rs, "tien_hoan"), bd(rs, "gia_von_dat")));
+    }
+
+    /**
+     * Hàng đang giữ ở các kho bán được trong phạm vi, theo biến thể — cùng cách với tồn đẩy lên sàn
+     * (TonKhoTongHopRepository.sumTongFreeToUseToanChuoi + giuChoChuyenKhoToanChuoi):
+     * - lượng chờ xuất (đặt − đã xuất thật) của đơn bán đang giữ hàng (:giuHang), theo kho xuất của đơn;
+     * - hàng phiếu chuyển kho Chờ duyệt / Đã duyệt giữ chỗ ở kho xuất, trừ phần đã chọn lô trên phiếu xuất con còn nháp
+     *   (phần đó đã nằm trong so_luong_da_dat, tức đã trừ trong so_luong_kha_dung).
+     * Phần phiếu nhặt / phiếu xuất bán giữ không cộng thêm: nó nằm trong lượng chờ xuất của đơn.
+     * Các dòng (bt_id, so_luong) chưa gom; tham số :giuHang, :tatCa, :khoIds. Thẻ Bán chạy ở Tổng quan dùng chung
+     * (TongQuanAdminRepository.khaDungTheoSanPham) để khả dụng ở thẻ khớp báo cáo.
+     */
+    static final String GIU_HANG_DONG = """
+                SELECT ct.bien_the_san_pham_id AS bt_id, ct.so_luong_dat AS so_luong
+                FROM chi_tiet_don_ban_hang ct
+                JOIN don_ban_hang d ON d.id = ct.don_ban_hang_id
+                JOIN kho k          ON k.id = d.kho_xuat_id AND k.trang_thai = 1 AND k.ma_kho <> 'KHO_TRANSIT'
+                WHERE d.loai_chung_tu = 'don_ban_hang' AND d.trang_thai IN (:giuHang)
+                  AND (:tatCa = 1 OR d.kho_xuat_id IN (:khoIds))
+                UNION ALL
+                SELECT ctpx.bien_the_san_pham_id, -ctpx.so_luong_xuat
+                FROM chi_tiet_phieu_xuat_kho ctpx
+                JOIN phieu_xuat_kho px ON px.id = ctpx.phieu_xuat_kho_id AND px.trang_thai = 3
+                JOIN don_ban_hang d    ON d.id = px.don_ban_hang_id
+                JOIN kho k             ON k.id = d.kho_xuat_id AND k.trang_thai = 1 AND k.ma_kho <> 'KHO_TRANSIT'
+                WHERE ctpx.lo_hang_id IS NOT NULL
+                  AND d.loai_chung_tu = 'don_ban_hang' AND d.trang_thai IN (:giuHang)
+                  AND (:tatCa = 1 OR d.kho_xuat_id IN (:khoIds))
+                UNION ALL
+                SELECT ct.bien_the_san_pham_id,
+                       GREATEST(ct.so_luong_chuyen - COALESCE((
+                           SELECT SUM(c.so_luong_xuat)
+                           FROM phieu_xuat_kho px
+                           JOIN chi_tiet_phieu_xuat_kho c ON c.phieu_xuat_kho_id = px.id AND c.lo_hang_id IS NOT NULL
+                           WHERE px.phieu_chuyen_kho_id = p.id AND px.loai_xuat = 'chuyen_kho' AND px.trang_thai = 0
+                             AND c.bien_the_san_pham_id = ct.bien_the_san_pham_id), 0), 0)
+                FROM chi_tiet_phieu_chuyen_kho ct
+                JOIN phieu_chuyen_kho p ON p.id = ct.phieu_chuyen_kho_id
+                JOIN kho k              ON k.id = p.kho_xuat_id AND k.trang_thai = 1 AND k.ma_kho <> 'KHO_TRANSIT'
+                WHERE p.trang_thai IN ('CHO_DUYET', 'DA_DUYET')
+                  AND (:tatCa = 1 OR p.kho_xuat_id IN (:khoIds))
+            """;
+
+    private static final String SQL_GIU_HANG = "SELECT x.bt_id, SUM(x.so_luong) AS so_luong FROM (\n" + GIU_HANG_DONG
+            + ") x\nGROUP BY x.bt_id";
+
+    public List<GiuBienThe> giuHangTheoBienThe(PhamVi pv, List<Integer> trangThaiGiuHang) {
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("giuHang", trangThaiGiuHang)
+                .addValue("tatCa", pv.tatCaKho() ? 1 : 0)
+                .addValue("khoIds", pv.khoIds().isEmpty() ? List.of(-1) : pv.khoIds());
+        return jdbc.query(SQL_GIU_HANG, p, (rs, i) -> new GiuBienThe(rs.getInt("bt_id"), bd(rs, "so_luong")));
     }
 
     private static final String SQL_SO_DON = """
