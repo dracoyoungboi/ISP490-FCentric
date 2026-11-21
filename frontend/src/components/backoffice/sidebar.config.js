@@ -36,7 +36,6 @@ import {
   TAT_CA_VAI_TRO,
   VAI_TRO_BAN_TAI_QUAY,
   VAI_TRO_BAO_CAO_DOANH_THU,
-  VAI_TRO_BAO_CAO_KHACH_HANG,
   VAI_TRO_BAO_CAO_NHAP_XUAT,
   VAI_TRO_BAO_CAO_SAN_PHAM,
   VAI_TRO_CHUYEN_KE,
@@ -310,11 +309,6 @@ export const SIDEBAR_MENU = [
         label: t("Báo cáo nhập xuất"),
         to: "/reports/stock-movements",
         roles: VAI_TRO_BAO_CAO_NHAP_XUAT,
-      },
-      {
-        label: t("Báo cáo khách hàng"),
-        to: "/reports/customers",
-        roles: VAI_TRO_BAO_CAO_KHACH_HANG,
       },
       {
         // Xuất sang AMIS Kế toán doanh nghiệp: KeToanController chỉ cho quản trị viên

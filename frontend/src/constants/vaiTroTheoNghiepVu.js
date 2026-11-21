@@ -82,8 +82,6 @@ export const VAI_TRO_BAO_CAO_DOANH_THU = Object.freeze([QTV, NVBH]);
 export const VAI_TRO_BAO_CAO_SAN_PHAM = Object.freeze([QTV, NVBH]);
 /** UC 11.5 Báo cáo nhập xuất (kho mình). */
 export const VAI_TRO_BAO_CAO_NHAP_XUAT = Object.freeze([QTV, QLK, NVK]);
-/** Báo cáo khách hàng: theo quyền dữ liệu khách hàng. */
-export const VAI_TRO_BAO_CAO_KHACH_HANG = Object.freeze([QTV, NVBH]);
 /** "MISA Accounting Export": tạm chỉ quản trị viên (quản lý kho cần lọc lô xuất theo kho, làm đợt sau). */
 export const VAI_TRO_XUAT_KE_TOAN = Object.freeze([QTV]);
 

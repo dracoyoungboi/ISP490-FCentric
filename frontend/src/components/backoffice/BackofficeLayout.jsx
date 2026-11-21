@@ -260,11 +260,6 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             title: t("Báo cáo sản phẩm"),
         },
         {
-            key: "BAO_CAO_KHACH_HANG",
-            match: (path) => path === "/reports/customers",
-            title: t("Báo cáo khách hàng"),
-        },
-        {
             key: "BAO_CAO_NHAP_XUAT",
             match: (path) => path === "/reports/stock-movements",
             title: t("Báo cáo nhập xuất"),

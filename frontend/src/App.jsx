@@ -11,7 +11,6 @@ import RequireRole from "./components/auth/RequireRole";
 import {
   VAI_TRO_BAN_TAI_QUAY,
   VAI_TRO_BAO_CAO_DOANH_THU,
-  VAI_TRO_BAO_CAO_KHACH_HANG,
   VAI_TRO_BAO_CAO_NHAP_XUAT,
   VAI_TRO_BAO_CAO_SAN_PHAM,
   VAI_TRO_CHUYEN_KE,
@@ -103,7 +102,6 @@ const BaoCaoDoanhThu = taiTrang(() => import("./pages/bao-cao/BaoCaoDoanhThu"));
 const XuatDuLieuKeToan = taiTrang(() => import("./pages/bao-cao/XuatDuLieuKeToan"));
 const TaoLoKeToan = taiTrang(() => import("./pages/bao-cao/TaoLoKeToan"));
 const ChiTietLoKeToan = taiTrang(() => import("./pages/bao-cao/ChiTietLoKeToan"));
-const KhachHangReport = taiTrang(() => import("./pages/bao-cao/KhachHangReport"));
 const NhatKyNhapXuat = taiTrang(() => import("./pages/bao-cao/NhatKyNhapXuat"));
 const BaoCaoSanPham = taiTrang(() => import("./pages/bao-cao/BaoCaoSanPham"));
 const PhieuNhapKhoPrint = taiTrang(() => import("./pages/receipt/PhieuNhapKhoPrint"));
@@ -411,16 +409,13 @@ const CAY_DUONG_DAN = (
         <Route path="/warehouse/bin-moves/history" element={<BinMoveHistory />} />
       </Route>
 
-      {/* Báo cáo (UC 11.3–11.5): doanh thu, sản phẩm bán chạy, khách hàng cho quản trị viên và nhân viên bán hàng (cửa
-          hàng mình, máy chủ không gửi giá vốn / lợi nhuận); nhập xuất cho quản trị viên, quản lý kho, nhân viên kho */}
+      {/* Báo cáo (UC 11.3–11.5): doanh thu, sản phẩm bán chạy cho quản trị viên và nhân viên bán hàng (cửa hàng mình,
+          máy chủ không gửi giá vốn / lợi nhuận); nhập xuất cho quản trị viên, quản lý kho, nhân viên kho */}
       <Route element={<RequireRole roles={VAI_TRO_BAO_CAO_DOANH_THU} />}>
         <Route path="/reports/revenue" element={<BaoCaoDoanhThu />} />
       </Route>
       <Route element={<RequireRole roles={VAI_TRO_BAO_CAO_SAN_PHAM} />}>
         <Route path="/reports/products" element={<BaoCaoSanPham />} />
-      </Route>
-      <Route element={<RequireRole roles={VAI_TRO_BAO_CAO_KHACH_HANG} />}>
-        <Route path="/reports/customers" element={<KhachHangReport />} />
       </Route>
       <Route element={<RequireRole roles={VAI_TRO_BAO_CAO_NHAP_XUAT} />}>
         <Route path="/reports/stock-movements" element={<NhatKyNhapXuat />} />
@@ -434,7 +429,10 @@ const CAY_DUONG_DAN = (
       <Route path="/reports/inventory" element={<TonKhoTongQuan />} />
       {/* Legacy: URL tiếng Việt cũ chuyển hướng sang URL mới */}
       <Route path="/bao-cao/doanh-thu" element={<Navigate to="/reports/revenue" replace />} />
-      <Route path="/bao-cao/khach-hang" element={<Navigate to="/reports/customers" replace />} />
+      {/* Báo cáo khách hàng đã bỏ (hệ thống không có chương trình khách thân thiết): đường dẫn cũ sang báo cáo doanh thu,
+          cùng người xem là quản trị viên và nhân viên bán hàng */}
+      <Route path="/reports/customers" element={<Navigate to="/reports/revenue" replace />} />
+      <Route path="/bao-cao/khach-hang" element={<Navigate to="/reports/revenue" replace />} />
       <Route path="/bao-cao/xuat-nhap" element={<Navigate to="/reports/stock-movements" replace />} />
       <Route path="/bao-cao/ton-kho" element={<Navigate to="/reports/inventory" replace />} />
 

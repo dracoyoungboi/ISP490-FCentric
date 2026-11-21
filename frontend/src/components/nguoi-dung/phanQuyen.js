@@ -183,7 +183,7 @@ export const MAN_DUNG_QUYEN = {
   xem_bao_cao_ton_kho: ["/reports/inventory"],
   xem_bao_cao_nhap_xuat: ["/reports/stock-movements"],
   xem_bao_cao_doanh_thu: ["/reports/revenue", "/reports/products"],
-  xuat_bao_cao: ["/reports/inventory", "/reports/revenue", "/reports/products", "/reports/stock-movements", "/reports/customers"],
+  xuat_bao_cao: ["/reports/inventory", "/reports/revenue", "/reports/products", "/reports/stock-movements"],
   quan_ly_nhan_vien_kho: ["/warehouse"],
   cap_quyen_nhan_vien: ["/warehouse"],
   quan_ly_san_pham: ["/products"],
