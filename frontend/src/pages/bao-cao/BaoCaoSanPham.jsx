@@ -54,6 +54,8 @@ const tenDanhMuc = (p) => (p.danhMuc === "Chưa phân loại" ? t("Chưa phân l
 const tenThuongHieu = (p) => (p.thuongHieu === "Chưa gắn" ? t("Chưa gắn", { context: "thuong_hieu" }) : p.thuongHieu);
 
 function SoVoi({ nay, truoc }) {
+  // Số bán âm: kỳ chỉ có hàng khách trả (hàng bán ở kỳ trước), "giảm 133%" không có nghĩa — nói rõ lý do số âm
+  if (N(nay) < 0) return <span className="text-bo-muted">{t("chỉ có hàng trả")}</span>;
   const tt = tyLeTang(nay, truoc);
   if (tt == null) return N(nay) ? <span className="text-bo-muted">{t("mới bán")}</span> : null;
   const tang = tt >= 0;
@@ -65,14 +67,18 @@ function SoVoi({ nay, truoc }) {
   );
 }
 
-/** Đủ bán bao nhiêu ngày: dưới 7 đỏ, dưới 14 cam; hết hàng mà có bán thì "đã hết". */
+/**
+ * Đủ bán bao nhiêu ngày: dưới 7 đỏ, dưới 14 cam; hết hàng mà có bán thì "đã hết". So ngưỡng trên số máy chủ gửi (cùng
+ * phép so của nhãn tình trạng), số hiện ra làm tròn xuống: 13,7 ngày là "13 ngày" màu cam, khớp nhãn Sắp hết hàng.
+ */
 function DuBan({ p }) {
   if (p.duBanNgay == null) return <span className="text-bo-muted">{N(p.khaDung) ? t("không bán") : "—"}</span>;
   if (!N(p.khaDung)) return <span className="font-semibold text-bo-danger">{t("đã hết")}</span>;
-  const n = Math.round(N(p.duBanNgay));
+  const d = N(p.duBanNgay);
+  const n = Math.floor(d);
   return (
-    <span className={cn(n < 7 ? "font-semibold text-bo-danger" : n < SAP_HET ? "font-semibold text-bo-warning" : "text-slate-700")}>
-      {n > 365 ? t("hơn 1 năm") : t("{{n}} ngày", { n: formatNumber(n) })}
+    <span className={cn("whitespace-nowrap", d < 7 ? "font-semibold text-bo-danger" : d < SAP_HET ? "font-semibold text-bo-warning" : "text-slate-700")}>
+      {d < 1 ? t("dưới 1 ngày") : n > 365 ? t("hơn 1 năm") : t("{{n}} ngày", { n: formatNumber(n) })}
     </span>
   );
 }
@@ -110,17 +116,22 @@ function Anh({ p, co = "size-12" }) {
   );
 }
 
-/** Đường bán theo ngày trong ô bảng. */
+/**
+ * Đường bán theo ngày trong ô bảng. Kỳ một ngày: vẽ đường ngang. Ngày có hàng trả tại quầy nhiều hơn hàng bán thì số
+ * âm: trục kéo xuống dưới 0, vùng tô tính từ mức 0.
+ */
 function DuongNho({ arr }) {
   const w = 96, h = 28;
-  const ds = (arr ?? []).map(N);
-  if (ds.length < 2) return null;
-  const max = Math.max(1, ...ds);
+  let ds = (arr ?? []).map(N);
+  if (!ds.length) return null;
+  if (ds.length === 1) ds = [ds[0], ds[0]];
+  const max = Math.max(1, ...ds), min = Math.min(0, ...ds);
+  const y = (v) => (h - 3 - ((v - min) / (max - min)) * (h - 6)).toFixed(1);
   const dx = w / (ds.length - 1);
-  const d = ds.map((v, i) => `${i ? "L" : "M"}${(i * dx).toFixed(1)} ${(h - 3 - (v / max) * (h - 6)).toFixed(1)}`).join(" ");
+  const d = ds.map((v, i) => `${i ? "L" : "M"}${(i * dx).toFixed(1)} ${y(v)}`).join(" ");
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="block" aria-hidden="true">
-      <path d={`${d} L${w} ${h} L0 ${h} Z`} fill={MAU2.nenVung} />
+      <path d={`${d} L${w} ${y(0)} L0 ${y(0)} Z`} fill={MAU2.nenVung} />
       <path d={d} fill="none" stroke={MAU2.chinh} strokeWidth="1.5" />
     </svg>
   );
@@ -253,7 +264,8 @@ function BieuDoNgay({ p, tuNgay }) {
             contentStyle={{ borderRadius: 8, borderColor: "#e1e6ec", fontSize: 12 }} />
           {/* Lớp nền chỉ để tô vùng: không vào ô gợi ý, không chấm khi rê chuột (đường Line đã có) */}
           <Area dataKey="sl" type="linear" stroke="none" fill={MAU2.nenVung} tooltipType="none" activeDot={false} isAnimationActive={false} />
-          <Line dataKey="sl" type="linear" stroke={MAU2.chinh} strokeWidth={2} dot={false} isAnimationActive={false} />
+          {/* Kỳ một ngày chỉ có một điểm: không có đoạn nào để vẽ, hiện chấm cho thấy số */}
+          <Line dataKey="sl" type="linear" stroke={MAU2.chinh} strokeWidth={2} dot={rows.length === 1 ? { r: 4, fill: MAU2.chinh } : false} isAnimationActive={false} />
         </ComposedChart>
       </KhungBieuDo>
     </div>
@@ -261,6 +273,9 @@ function BieuDoNgay({ p, tuNgay }) {
 }
 
 function ChiTietMoRong({ p, bc }) {
+  // Bình quân một ngày chia cho số ngày bán của máy chủ (hàng về giữa kỳ: từ ngày về), cùng số với cột Đủ bán
+  const soNgayBan = N(p.soNgayBan) || bc.soNgay;
+  const binhQuan = N(p.soLuong) / soNgayBan;
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]">
       <div className="min-w-0">
@@ -280,7 +295,9 @@ function ChiTietMoRong({ p, bc }) {
       </div>
       <div className="min-w-0">
         <h3 className="mb-1 text-xs font-semibold text-bo-muted">
-          {t("Bán mỗi ngày")}{N(p.soLuong) ? t(" · bình quân {{binhQuan}} sản phẩm/ngày", { binhQuan: (N(p.soLuong) / bc.soNgay).toLocaleString("vi-VN", { maximumFractionDigits: 1 }), count: Math.round((N(p.soLuong) / bc.soNgay) * 10) / 10 }) : ""}
+          {t("Bán mỗi ngày")}
+          {binhQuan > 0 ? t(" · bình quân {{binhQuan}} sản phẩm/ngày", { binhQuan: binhQuan.toLocaleString("vi-VN", { maximumFractionDigits: 1 }), count: Math.round(binhQuan * 10) / 10 }) : ""}
+          {binhQuan > 0 && soNgayBan < bc.soNgay ? t(" ({{n}} ngày từ khi hàng về)", { n: soNgayBan, count: soNgayBan }) : ""}
         </h3>
         <BieuDoNgay p={p} tuNgay={bc.tuNgay} />
       </div>
@@ -562,7 +579,7 @@ export default function BaoCaoSanPham() {
                   ))}
                   <th scope="col" className={cn(TH, "text-left")}>{t("Theo ngày")}</th>
                   <th scope="col" className={cn(TH, "text-right")}>{t("Khả dụng")}</th>
-                  <th scope="col" className={cn(TH, "text-right")} title={t("Khả dụng chia số bán bình quân một ngày")}>{t("Đủ bán")}</th>
+                  <th scope="col" className={cn(TH, "text-right")} title={t("Khả dụng chia số bán bình quân một ngày của mọi kênh")}>{t("Đủ bán")}</th>
                   <th scope="col" className={cn(TH, "text-left")}>{t("Tình trạng")}</th>
                   <th scope="col" className={cn(TH, "text-center")}>{t("Thao tác")}</th>
                 </tr>
@@ -586,16 +603,17 @@ export default function BaoCaoSanPham() {
                         </td>
                         <td className="px-3 py-3 text-right tabular-nums">
                           <span className={N(p.doanhThu) ? undefined : "text-bo-muted"}>{formatCurrency(p.doanhThu)}</span>
-                          {N(bc.tong?.doanhThu) && N(p.doanhThu) ? <span className="block text-xs text-bo-muted">{t("{{tyLe}} doanh thu", { tyLe: formatPercent(N(p.doanhThu) / N(bc.tong.doanhThu)) })}</span> : null}
+                          {/* Tỷ trọng, biên chỉ khi doanh thu dương: kỳ chỉ có hàng trả thì doanh thu âm, tỷ lệ không có nghĩa */}
+                          {N(bc.tong?.doanhThu) > 0 && N(p.doanhThu) > 0 ? <span className="block text-xs text-bo-muted">{t("{{tyLe}} doanh thu", { tyLe: formatPercent(N(p.doanhThu) / N(bc.tong.doanhThu)) })}</span> : null}
                         </td>
                         {coGiaVon ? (
                           <td className="px-3 py-3 text-right tabular-nums">
-                            <span className={N(p.doanhThu) ? undefined : "text-bo-muted"}>{formatCurrency(p.loiNhuan)}</span>
-                            {N(p.doanhThu) ? <span className="block text-xs text-bo-muted">{t("biên {{bien}}", { bien: formatPercent(N(p.loiNhuan) / N(p.doanhThu)) })}</span> : null}
+                            <span className={N(p.loiNhuan) < 0 ? "text-bo-danger" : N(p.loiNhuan) ? undefined : "text-bo-muted"}>{formatCurrency(p.loiNhuan)}</span>
+                            {N(p.doanhThu) > 0 ? <span className="block text-xs text-bo-muted">{t("biên {{bien}}", { bien: formatPercent(N(p.loiNhuan) / N(p.doanhThu)) })}</span> : null}
                           </td>
                         ) : null}
                         <td className="px-3 py-3">
-                          {N(p.soLuong) ? <DuongNho arr={p.theoNgay} /> : <span className="text-xs text-bo-muted">{p.ngayBanCuoi ? t("bán gần nhất {{ngayBanCuoi}}", { ngayBanCuoi: ngayVN(p.ngayBanCuoi) }) : t("chưa từng bán")}</span>}
+                          {N(p.soLuong) > 0 && p.theoNgay?.length ? <DuongNho arr={p.theoNgay} /> : <span className="text-xs text-bo-muted">{p.ngayBanCuoi ? t("bán gần nhất {{ngayBanCuoi}}", { ngayBanCuoi: ngayVN(p.ngayBanCuoi) }) : t("chưa từng bán")}</span>}
                         </td>
                         <td className="px-3 py-3 text-right tabular-nums">
                           <b className={cn("font-semibold", N(p.khaDung) ? "text-bo-foreground" : "text-bo-muted")}>{formatNumber(p.khaDung)}</b>
@@ -620,7 +638,7 @@ export default function BaoCaoSanPham() {
               </tbody>
             </table>
             <p className="border-t border-[#eef1f5] px-5 py-3 text-xs text-bo-muted max-md:px-4">
-              {t("Tính theo ngày giao hàng, đơn đã xuất kho hoặc hoàn thành. Doanh thu đã trừ giảm giá, gồm thuế GTGT, chưa gồm phí vận chuyển. Khả dụng là số hiện tại; đủ bán = khả dụng chia số bán bình quân một ngày của kỳ.")}
+              {t("Tính theo ngày giao hàng, đơn đã xuất kho hoặc hoàn thành; hàng khách trả tại quầy trừ vào ngày trả. Doanh thu đã trừ giảm giá, gồm thuế GTGT, chưa gồm phí vận chuyển. Khả dụng là số hiện tại, đã trừ hàng đang giữ cho đơn chưa xuất và phiếu chuyển kho. Đủ bán = khả dụng chia số bán bình quân một ngày của mọi kênh; hàng về kho giữa kỳ thì tính từ ngày về.")}
             </p>
           </>
         )}
