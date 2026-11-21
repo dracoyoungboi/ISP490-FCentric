@@ -96,6 +96,12 @@ public class DssReplenishmentRepository {
     }
 
     public List<SkuRawInput> loadRawInputs(Integer khoId, int observationDaysN, int leadTimeSampleM, LocalDate todayVn) {
+        KhoInfo khoInfo = resolveWarehouse(khoId);
+        return loadRawInputs(khoId, khoInfo == null || khoInfo.laKhoTong(), observationDaysN, leadTimeSampleM, todayVn);
+    }
+
+    public List<SkuRawInput> loadRawInputs(
+            Integer khoId, boolean laKhoTong, int observationDaysN, int leadTimeSampleM, LocalDate todayVn) {
         List<VariantStockRow> variants = loadVariantsWithStock(khoId);
         if (variants.isEmpty()) {
             return List.of();
@@ -124,6 +130,10 @@ public class DssReplenishmentRepository {
         String posSelect = hasPosTable
                 ? "CASE WHEN pos.id IS NOT NULL THEN 1 ELSE 0 END AS la_pos"
                 : "0 AS la_pos";
+        String warehouseFilter = laKhoTong
+                ? "JOIN kho kx ON kx.id = d.kho_xuat_id AND kx.trang_thai = 1 AND kx.ma_kho <> 'KHO_TRANSIT'"
+                : "";
+        String warehouseWhere = laKhoTong ? "" : "AND d.kho_xuat_id = :khoId";
 
         String sqlSales = """
                 SELECT ct.bien_the_san_pham_id AS bien_the_id,
@@ -134,17 +144,22 @@ public class DssReplenishmentRepository {
                        COALESCE(ct.thanh_tien, ct.so_luong_dat * ct.don_gia) - COALESCE(ct.tien_giam_gia, 0) AS doanh_thu
                 FROM chi_tiet_don_ban_hang ct
                 JOIN don_ban_hang d ON d.id = ct.don_ban_hang_id
+                %s
                 LEFT JOIN kenh_ban_hang kb ON kb.id = d.kenh_ban_id
                 %s
                 WHERE d.loai_chung_tu = 'don_ban_hang'
                   AND d.trang_thai NOT IN (0, 4)
-                  AND d.kho_xuat_id = :khoId
+                  %s
                   AND d.ngay_dat_hang >= :sinceUtc
-                """.formatted(posSelect, posJoin);
+                """.formatted(posSelect, warehouseFilter, posJoin, warehouseWhere);
+
+        MapSqlParameterSource salesParams = new MapSqlParameterSource("sinceUtc", Timestamp.from(sinceUtc));
+        if (!laKhoTong) {
+            salesParams.addValue("khoId", khoId);
+        }
 
         jdbc.query(sqlSales,
-                new MapSqlParameterSource("khoId", khoId)
-                        .addValue("sinceUtc", Timestamp.from(sinceUtc)),
+                salesParams,
                 rs -> {
                     int bienTheId = rs.getInt("bien_the_id");
                     Timestamp ts = rs.getTimestamp("ngay_dat_hang");
@@ -331,9 +346,13 @@ public class DssReplenishmentRepository {
                                COALESCE(t.outgoing, 0) AS outgoing,
                                COALESCE(t.ftu, 0) AS ftu,
                                CASE WHEN t.bien_the_id IS NULL THEN 0 ELSE 1 END AS da_tung_nhap,
-                               (SELECT lh.gia_von FROM lo_hang lh
-                                 WHERE lh.bien_the_san_pham_id = bt.id
-                                 ORDER BY lh.ngay_nhap DESC, lh.id DESC LIMIT 1) AS don_gia_nhap
+                               COALESCE(
+                                   (SELECT lh.gia_von FROM lo_hang lh
+                                     WHERE lh.bien_the_san_pham_id = bt.id
+                                     ORDER BY lh.ngay_tao DESC, lh.id DESC LIMIT 1),
+                                   bt.gia_von,
+                                   sp.gia_von_mac_dinh
+                               ) AS don_gia_nhap
                         FROM bien_the_san_pham bt
                         JOIN san_pham_quan_ao sp      ON sp.id = bt.san_pham_id
                         LEFT JOIN danh_muc_quan_ao dm ON dm.id = sp.danh_muc_id
