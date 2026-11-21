@@ -9,8 +9,10 @@ import {
   nhanSoPhanLoai,
   phanTrangTheoSanPham,
   gioChungCuaNhom,
+  conDongBo,
   laChoDay,
   nhomDangMo,
+  tinhSoSeDay,
 } from "./nhomLienKet.js";
 
 // Chạy: node --test src/components/channel/nhomLienKet.test.js
@@ -168,4 +170,17 @@ test("nhomDangMo: mặc định thu gọn, chế độ Mở tất cả, tự m�
   assert.equal(nhomDangMo({ moTatCa: true, laNgoaiLe: true }), false, "tự gập một nhóm khi đang Mở tất cả");
   assert.equal(nhomDangMo({ laNgoaiLe: true }), true, "tự mở một nhóm khi đang thu gọn");
   assert.equal(nhomDangMo({ tuMo: true, boTuMo: true, laNgoaiLe: true }), true);
+});
+
+test("conDongBo & tinhSoSeDay: an toàn khi dòng null/undefined (trạng thái đóng Sheet) và ưu tiên soLuongSeDay", () => {
+  assert.equal(conDongBo(null), false);
+  assert.equal(conDongBo(undefined), false);
+  assert.equal(tinhSoSeDay(null, { tyLeDayTon: 100, tonDem: 5, nguongVe0: 0 }), null);
+  assert.equal(tinhSoSeDay(undefined, { tyLeDayTon: 100, tonDem: 5, nguongVe0: 0 }), null);
+  assert.equal(tinhSoSeDay({ trangThaiLienKet: "chua_lien_ket", soLuongSeDay: 10 }, { tyLeDayTon: 100 }), null);
+  assert.equal(tinhSoSeDay({ trangThaiLienKet: "da_lien_ket", choPhepDongBo: false, soLuongSeDay: 10 }, { tyLeDayTon: 100 }), null);
+  assert.equal(tinhSoSeDay({ trangThaiLienKet: "da_lien_ket", soLuongKhaDung: 135, soLuongSeDay: 122 }, { tyLeDayTon: 100, tonDem: 5, nguongVe0: 0 }), 122);
+  assert.equal(tinhSoSeDay({ trangThaiLienKet: "da_lien_ket", soLuongKhaDung: 135, soLuongSeDay: 0 }, { tyLeDayTon: 100, tonDem: 5, nguongVe0: 0 }), 0);
+  assert.equal(tinhSoSeDay({ trangThaiLienKet: "da_lien_ket", soLuongKhaDung: 50 }, { tyLeDayTon: 100, tonDem: 5, nguongVe0: 0 }), 45);
+  assert.equal(tinhSoSeDay({ trangThaiLienKet: "da_lien_ket", soLuongKhaDung: 50 }, null), null);
 });
