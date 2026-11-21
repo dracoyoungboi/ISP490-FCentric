@@ -8,7 +8,7 @@
  * - Gọi thongKeHeThongService.getTonKhoTongQuan({ khoId?, keyword? })
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { Fragment, useState, useEffect, useCallback, useRef, useSyncExternalStore } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { toast } from "@/lib/thongBaoNhanh";
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
     PackagePlus, Warehouse, ShieldAlert,
-    ChevronDown, Check, SearchX,
+    ChevronDown, ChevronRight, Check, SearchX, Layers,
 } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -36,6 +36,7 @@ import ErrorState from "@/components/shared/ErrorState";
 import SearchInput from "@/components/shared/SearchInput";
 import NutXuatExcel from "@/components/shared/NutXuatExcel";
 import useCoQuyenXuatBaoCao from "@/hooks/useCoQuyenXuatBaoCao";
+import BangLoTonKho from "./BangLoTonKho";
 
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
@@ -156,6 +157,20 @@ const khopTab = (item, tab, laTrungChuyen) => {
     return !cfg || cfg.key === "tat_ca" || trangThaiTon(item, laTrungChuyen) === cfg.key;
 };
 
+// Khổ điện thoại (< 768px, như lớp md: của Tailwind): thẻ thay cho bảng. Phần lô chỉ vẽ ở một trong hai kiểu để
+// không tải lô hai lần (thẻ và bảng cùng nằm trong trang, CSS ẩn một bên).
+const MQ_DIEN_THOAI = "(max-width: 767.98px)";
+function useLaDienThoai() {
+    return useSyncExternalStore(
+        (baoDoi) => {
+            const mq = window.matchMedia(MQ_DIEN_THOAI);
+            mq.addEventListener("change", baoDoi);
+            return () => mq.removeEventListener("change", baoDoi);
+        },
+        () => window.matchMedia(MQ_DIEN_THOAI).matches,
+    );
+}
+
 // ─── PAGE COMPONENT ───────────────────────────────────────────────────────────
 export default function TonKhoTongQuan() {
     const coQuyenXuat = useCoQuyenXuatBaoCao();
@@ -194,6 +209,18 @@ export default function TonKhoTongQuan() {
     // Phân trang tại chỗ (API trả hết các dòng của kho + từ khóa)
     const [page, setPage] = useState(0);
     const [pageSize, setPageSize] = useState(SO_DONG_MAC_DINH);
+
+    // Dòng đang mở xem lô (khóa "khoId-bienTheId", mở được nhiều dòng). Đổi kho, tab, trang, số dòng hay từ khóa thì
+    // thu gọn hết; bấm ⟳ / quay lại tab thì giữ nguyên.
+    const [dongMo, setDongMo] = useState([]);
+    // Lô đã tải của từng dòng: { khóa: { lanTai, ds } }. lanTaiLo tăng mỗi lần bảng tải xong: dòng đang mở tải lại lô,
+    // dòng đang đóng tải lại khi mở ra.
+    const [loNho, setLoNho] = useState({});
+    const [lanTaiLo, setLanTaiLo] = useState(0);
+    const nhoLo = useCallback((khoa, giaTri) => setLoNho((cu) => ({ ...cu, [khoa]: giaTri })), []);
+    const batTatLo = (khoa) => setDongMo((cu) => (cu.includes(khoa) ? cu.filter((k) => k !== khoa) : [...cu, khoa]));
+    const thuGonLo = () => setDongMo([]);
+    const laDienThoai = useLaDienThoai();
 
     const initDone = useRef(false);
 
@@ -278,6 +305,7 @@ export default function TonKhoTongQuan() {
             if (requestId !== requestIdRef.current) return;
             const rows = res.data?.data ?? [];
             setData(rows);
+            setLanTaiLo((n) => n + 1);
             hoiKiemKe.then((kiem) => {
                 const ds = kiem?.data?.data ?? [];
                 if (requestId !== requestIdRef.current || ds.length === 0) return;
@@ -319,6 +347,7 @@ export default function TonKhoTongQuan() {
     // Bấm nút Lọc
     const handleFilter = () => {
         setPage(0);
+        thuGonLo();
         const khoId = selectedKhoId ?? (khoList.length === 1 ? khoList[0].id : undefined);
         loadTonKho({ khoId, kw: keyword.trim() || undefined });
     };
@@ -337,6 +366,7 @@ export default function TonKhoTongQuan() {
 
         setHasLoaded(false);
         setPage(0);
+        thuGonLo();
         loadTonKho({ khoId: numId ?? undefined, kw: keyword.trim() || undefined });
     };
 
@@ -362,6 +392,7 @@ export default function TonKhoTongQuan() {
         setKeyword("");
         if (tuKhoaDaApDung) {
             setPage(0);
+            thuGonLo();
             const khoId = selectedKhoId ?? (khoList.length === 1 ? khoList[0].id : undefined);
             loadTonKho({ khoId });
         }
@@ -380,6 +411,7 @@ export default function TonKhoTongQuan() {
     const changeTab = (value) => {
         setTrangThaiFilter(value);
         setPage(0);
+        thuGonLo();
     };
 
     // Số trên tab = số dòng thấy khi bấm tab, trên dữ liệu đã lọc kho + từ khóa (R1);
@@ -599,8 +631,8 @@ export default function TonKhoTongQuan() {
                             page={safePage}
                             size={pageSize}
                             total={filteredData.length}
-                            onPageChange={setPage}
-                            onSizeChange={(size) => { setPageSize(size); setPage(0); }}
+                            onPageChange={(p) => { setPage(p); thuGonLo(); }}
+                            onSizeChange={(size) => { setPageSize(size); setPage(0); thuGonLo(); }}
                             capNhat={capNhat}
                         />
                     </div>
@@ -680,6 +712,8 @@ export default function TonKhoTongQuan() {
                             const coNutNhap = showNhapKho && !trungChuyen;
                             const { onHand, incoming, outgoing, freeToUse, giaTri } = soTon(item);
                             const mauCo = [item.tenMau, item.tenSize ?? item.maSize].filter(Boolean).join(" / ");
+                            const khoaLo = `${item.khoId}-${item.bienTheId}`;
+                            const moLo = dongMo.includes(khoaLo);
                             return (
                                 <li key={`${item.bienTheId}-${item.khoId}-${idx}`} className="px-4 py-3">
                                     <div className="flex items-start justify-between gap-3">
@@ -731,15 +765,43 @@ export default function TonKhoTongQuan() {
                                             </Button>
                                         ) : null}
                                     </div>
+                                    {/* Các lô đang tồn của mã ở kho: mở ngay trong thẻ; mã hết hàng không có lô nên không có nút */}
+                                    {onHand > 0 ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => batTatLo(khoaLo)}
+                                            aria-expanded={moLo}
+                                            aria-controls={`lo-${khoaLo}`}
+                                            className={`mt-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-md border border-bo-border bg-bo-surface text-sm font-medium ${moLo ? "text-bo-primary" : "text-bo-foreground"}`}
+                                        >
+                                            <Layers className="size-4" aria-hidden="true" />
+                                            {moLo ? t("Thu gọn lô") : t("Xem lô")}
+                                            <ChevronDown className={`size-4 transition-transform motion-reduce:transition-none ${moLo ? "rotate-180" : ""}`} aria-hidden="true" />
+                                        </button>
+                                    ) : null}
+                                    {moLo && onHand > 0 && laDienThoai ? (
+                                        <BangLoTonKho
+                                            item={item}
+                                            so={soTon(item)}
+                                            trungChuyen={trungChuyen}
+                                            dienThoai
+                                            nho={loNho[khoaLo]}
+                                            onNho={nhoLo}
+                                            lanTai={lanTaiLo}
+                                        />
+                                    ) : null}
                                 </li>
                             );
                         })}
                     </ul>
                     {/* Máy tính bảng dọc (cảm ứng): bỏ cột STT, Mã SP / SKU, Kho, Tồn tối thiểu, Tình trạng, Thao tác — SKU · kho,
                         tình trạng và Yêu cầu nhập xuống dưới tên sản phẩm — để không vuốt ngang */}
-                    <table className="w-full min-w-[1280px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
+                    {/* Lớp @container: bề rộng khung bảng đang thấy (100cqw), để phần lô đứng yên khi cuộn ngang bảng */}
+                    <div className="@container shrink-0 max-md:hidden">
+                    <table className="w-full min-w-[1320px] text-sm cam-ung:max-lg:min-w-0">
                         <thead className="sticky top-0 z-10 bg-bo-surface-subtle">
                             <tr className="border-b border-bo-border">
+                                <th className={`${TH_CLASS} w-10 px-0`}><span className="sr-only">{t("Xem lô")}</span></th>
                                 <th className={`${TH_CLASS} text-center cam-ung:max-lg:hidden`}>{t("STT")}</th>
                                 <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>{t("Mã SP / SKU")}</th>
                                 <th className={`${TH_CLASS} min-w-[200px] text-left`}>{t("Sản phẩm & biến thể")}</th>
@@ -760,13 +822,36 @@ export default function TonKhoTongQuan() {
                                 const statusKey = trangThaiTon(item, trungChuyen);
                                 const statusCfg = statusKey ? STATUS_CFG[statusKey] ?? STATUS_CFG.binh_thuong : null;
 
-                                const { onHand, incoming, outgoing, freeToUse, giaTri } = soTon(item);
+                                const so = soTon(item);
+                                const { onHand, incoming, outgoing, freeToUse, giaTri } = so;
+                                const khoaLo = `${item.khoId}-${item.bienTheId}`;
+                                const moLo = dongMo.includes(khoaLo);
 
                                 return (
+                                    <Fragment key={`${item.bienTheId}-${item.khoId}-${idx}`}>
+                                    {/* Bấm cả dòng (hoặc mũi tên) để mở / thu gọn các lô; nút trong dòng không mở */}
                                     <tr
-                                        key={`${item.bienTheId}-${item.khoId}-${idx}`}
-                                        className="bg-bo-surface transition-colors hover:bg-bo-surface-subtle"
+                                        onClick={() => batTatLo(khoaLo)}
+                                        className={`cursor-pointer transition-colors hover:bg-bo-surface-subtle ${moLo ? "border-b-0! bg-bo-surface-subtle" : "bg-bo-surface"}`}
                                     >
+                                        <td className="w-10 py-3 pl-2 pr-0 text-center">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); batTatLo(khoaLo); }}
+                                                aria-expanded={moLo}
+                                                aria-controls={`lo-${khoaLo}`}
+                                                aria-label={moLo
+                                                    ? t("Thu gọn các lô của {{sku}}", { sku: item.maSku })
+                                                    : t("Xem các lô của {{sku}}", { sku: item.maSku })}
+                                                title={moLo ? t("Thu gọn lô") : t("Xem lô")}
+                                                className="inline-grid size-7 place-items-center rounded-md text-bo-muted hover:bg-slate-200/70 hover:text-bo-foreground cam-ung:size-9"
+                                            >
+                                                <ChevronRight
+                                                    className={`size-4 transition-transform motion-reduce:transition-none ${moLo ? "rotate-90 text-bo-primary" : ""}`}
+                                                    aria-hidden="true"
+                                                />
+                                            </button>
+                                        </td>
                                         <td className="px-3 py-3 text-center text-xs text-bo-muted cam-ung:max-lg:hidden">{safePage * pageSize + idx + 1}</td>
 
                                         <td className="px-3 py-3 cam-ung:max-lg:hidden">
@@ -800,7 +885,10 @@ export default function TonKhoTongQuan() {
                                                     <Button
                                                         type="button"
                                                         variant="outline"
-                                                        onClick={() => navigate(`/purchase-requests/create?bienTheId=${item.bienTheId}&khoId=${item.khoId}`)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            navigate(`/purchase-requests/create?bienTheId=${item.bienTheId}&khoId=${item.khoId}`);
+                                                        }}
                                                         className="h-9 gap-1.5 border-bo-input-border bg-bo-surface px-3 text-sm font-medium text-bo-foreground"
                                                     >
                                                         <PackagePlus className="size-4" aria-hidden="true" />
@@ -864,10 +952,26 @@ export default function TonKhoTongQuan() {
                                             )}
                                         </td>
                                     </tr>
+                                    {moLo && !laDienThoai ? (
+                                        <tr className="bg-bo-surface-subtle">
+                                            <td colSpan={13} className="px-3 pb-3.5 pt-0.5 cam-ung:max-lg:px-2">
+                                                <BangLoTonKho
+                                                    item={item}
+                                                    so={so}
+                                                    trungChuyen={trungChuyen}
+                                                    nho={loNho[khoaLo]}
+                                                    onNho={nhoLo}
+                                                    lanTai={lanTaiLo}
+                                                />
+                                            </td>
+                                        </tr>
+                                    ) : null}
+                                    </Fragment>
                                 );
                             })}
                         </tbody>
                     </table>
+                    </div>
                     </>
                 )}
             </TableShell>
