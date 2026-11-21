@@ -1,4 +1,5 @@
 import { t } from "../../i18n/t.js";
+import { tinhSoTonDayLenSan } from "../../constants/channel.js";
 /**
  * Danh sách liên kết của trang "Sản phẩm theo sàn" phân trang theo SẢN PHẨM (API /lien-ket/theo-san-pham):
  * mỗi phần tử là một sản phẩm kèm đủ các SKU khớp bộ lọc, nên một sản phẩm không bị cắt sang hai trang.
@@ -101,8 +102,21 @@ export function phanTrangTheoSanPham(dongKhop, tatCaDong, { page = 0, size = 20 
   };
 }
 
-/** Dòng còn đẩy tồn (Đang đồng bộ hoặc Lỗi); "chua_lien_ket" là Ngừng đồng bộ. */
-export const conDongBo = (dong) => dong?.trangThaiLienKet !== "chua_lien_ket";
+/** Dòng còn đẩy tồn (Đang đồng bộ hoặc Lỗi); null hoặc "chua_lien_ket" / tắt đồng bộ là false. */
+export const conDongBo = (dong) =>
+  Boolean(dong) && Boolean(dong.choPhepDongBo ?? dong.trangThaiLienKet !== "chua_lien_ket");
+
+/**
+ * Số tồn sẽ gửi ở lần đẩy tới cho một dòng liên kết; null khi dòng null, đang ngừng đồng bộ,
+ * hoặc thiếu quy tắc khi máy chủ chưa trả `soLuongSeDay`.
+ */
+export function tinhSoSeDay(dong, quyTac) {
+  if (!conDongBo(dong)) return null;
+  if (dong.soLuongSeDay !== null && dong.soLuongSeDay !== undefined) {
+    return Number(dong.soLuongSeDay);
+  }
+  return quyTac ? tinhSoTonDayLenSan(dong.soLuongKhaDung, quyTac) : null;
+}
 
 /**
  * Dòng đang chờ đẩy: lần đẩy tới sẽ đổi số trên sàn (`seDay` khác số đã đẩy), hoặc vừa bật lại mà chưa có lần đẩy nào
