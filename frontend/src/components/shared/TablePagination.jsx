@@ -133,7 +133,7 @@ export default function TablePagination({
                 key={pageNum}
                 variant="ghost"
                 onClick={() => onPageChange(pageNum)}
-                aria-label={`Trang ${formatNumber(pageNum + 1)}`}
+                aria-label={t("Trang {{so}}", { so: formatNumber(pageNum + 1) })}
                 aria-current={page === pageNum ? "page" : undefined}
                 className={
                   page === pageNum
