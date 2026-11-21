@@ -63,7 +63,16 @@ public class HangNhapKhoTongRepository {
                          ORDER BY COALESCE(a.anh_chinh, 0) = 1 DESC, a.id LIMIT 1))              AS anh,
                    COALESCE(t.kha_dung, 0)                                                         AS kha_dung,
                    CASE WHEN t.bien_the_id IS NULL THEN 0 ELSE 1 END                               AS da_tung_nhap,
-                   COALESCE(NULLIF(sp.muc_ton_toi_thieu, 0), :nguongMacDinh)                     AS nguong
+                   COALESCE(
+                       NULLIF((SELECT cb.nguong_canh_bao FROM canh_bao cb
+                                WHERE cb.bien_the_san_pham_id = bt.id
+                                  AND cb.kho_id = :khoId
+                                  AND cb.loai_canh_bao = 'ton_kho_thap'
+                                  AND cb.lo_hang_id IS NULL
+                                  AND cb.nguong_canh_bao > 0
+                                ORDER BY cb.ngay_canh_bao DESC, cb.id DESC LIMIT 1), 0),
+                       NULLIF(sp.muc_ton_toi_thieu, 0),
+                       :nguongMacDinh)                                                             AS nguong
             FROM bien_the_san_pham bt
             JOIN san_pham_quan_ao sp      ON sp.id = bt.san_pham_id
             LEFT JOIN danh_muc_quan_ao dm ON dm.id = sp.danh_muc_id

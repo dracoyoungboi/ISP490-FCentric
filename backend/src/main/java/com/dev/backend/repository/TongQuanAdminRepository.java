@@ -443,13 +443,28 @@ public class TongQuanAdminRepository {
             ),
             loai AS (
                 SELECT cap.*,
-                       COALESCE(NULLIF(sp.muc_ton_toi_thieu, 0), :nguongMacDinh)                 AS nguong,
+                       %s                 AS nguong,
                        CASE WHEN bt.trang_thai = 1 AND sp.trang_thai IN (0, 1) THEN 1 ELSE 0 END  AS dang_ban
                 FROM cap
                 JOIN bien_the_san_pham bt ON bt.id = cap.bien_the_id
                 JOIN san_pham_quan_ao sp  ON sp.id = bt.san_pham_id
             )
             """;
+
+    private String bieuThucNguong() {
+        if (!coBang("canh_bao")) {
+            return "COALESCE(NULLIF(sp.muc_ton_toi_thieu, 0), :nguongMacDinh)";
+        }
+        return "COALESCE(NULLIF((SELECT cb.nguong_canh_bao FROM canh_bao cb "
+                + "WHERE cb.kho_id = cap.kho_id AND cb.bien_the_san_pham_id = cap.bien_the_id "
+                + "AND cb.loai_canh_bao = 'ton_kho_thap' AND cb.lo_hang_id IS NULL AND cb.nguong_canh_bao > 0 "
+                + "ORDER BY cb.ngay_canh_bao DESC, cb.id DESC LIMIT 1), 0), "
+                + "NULLIF(sp.muc_ton_toi_thieu, 0), :nguongMacDinh)";
+    }
+
+    private String cteTonTheoCap() {
+        return CTE_TON_THEO_CAP.formatted(bieuThucNguong());
+    }
 
     static final String SQL_TON_KHO_TONG_HOP = """
             SELECT COALESCE(SUM(ton), 0)        AS ton,
@@ -469,7 +484,7 @@ public class TongQuanAdminRepository {
             """;
 
     public TonKhoTongHopDong tonKhoTongHop(Integer khoId, int nguongMacDinh, int heSoDu) {
-        String sql = CTE_TON_THEO_CAP + SQL_TON_KHO_TONG_HOP;
+        String sql = cteTonTheoCap() + SQL_TON_KHO_TONG_HOP;
         MapSqlParameterSource p = thamSo(khoId).addValue("nguongMacDinh", nguongMacDinh).addValue("heSoDu", heSoDu);
         return jdbc.queryForObject(sql, p, (rs, i) -> new TonKhoTongHopDong(
                 bd(rs, "ton"), bd(rs, "giu"), bd(rs, "kha_dung"), bd(rs, "gia_tri"),
@@ -499,7 +514,7 @@ public class TongQuanAdminRepository {
 
     /** Số dòng Dư hàng chưa bán được kể từ :tu (giờ Việt Nam). */
     public long demDuChamBan(Integer khoId, int nguongMacDinh, int heSoDu, LocalDateTime tu) {
-        String sql = CTE_TON_THEO_CAP + SQL_DU_CHAM_BAN;
+        String sql = cteTonTheoCap() + SQL_DU_CHAM_BAN;
         MapSqlParameterSource p = thamSo(khoId).addValue("nguongMacDinh", nguongMacDinh).addValue("heSoDu", heSoDu)
                 .addValue("tu", moc(tu));
         Long n = jdbc.queryForObject(sql, p, Long.class);
@@ -590,7 +605,7 @@ public class TongQuanAdminRepository {
      * mà ở KhaDungChuyenKhoService, cùng phép kiểm khi tạo yêu cầu chuyển kho.
      */
     public List<HangCanBoSungDong> hangCanBoSung(Integer khoId, int nguongMacDinh, int soDong) {
-        String sql = CTE_TON_THEO_CAP + SQL_HANG_CAN_BO_SUNG;
+        String sql = cteTonTheoCap() + SQL_HANG_CAN_BO_SUNG;
         MapSqlParameterSource p = thamSo(khoId).addValue("nguongMacDinh", nguongMacDinh).addValue("soDong", soDong);
         return jdbc.query(sql, p, (rs, i) -> new HangCanBoSungDong(rs.getInt("bien_the_id"), rs.getString("ma_sku"),
                 rs.getString("ten_san_pham"), rs.getString("ten_mau"), rs.getString("ten_size"), rs.getInt("kho_id"),
@@ -630,7 +645,7 @@ public class TongQuanAdminRepository {
 
     /** Các mã Hết hàng / Thiếu hàng của :soNhom nhóm (sản phẩm, kho) tệ nhất, nhóm tệ nhất trước, trong nhóm mã tệ nhất trước. */
     public List<HangCanBoSungNhomDong> hangCanBoSungTheoNhom(Integer khoId, int nguongMacDinh, int soNhom) {
-        String sql = CTE_TON_THEO_CAP + SQL_HANG_CAN_BO_SUNG_THEO_NHOM;
+        String sql = cteTonTheoCap() + SQL_HANG_CAN_BO_SUNG_THEO_NHOM;
         MapSqlParameterSource p = thamSo(khoId).addValue("nguongMacDinh", nguongMacDinh).addValue("soNhom", soNhom);
         return jdbc.query(sql, p, (rs, i) -> new HangCanBoSungNhomDong(rs.getInt("san_pham_id"), rs.getInt("bien_the_id"),
                 rs.getString("ma_sku"), rs.getString("ten_san_pham"), rs.getString("ten_mau"), rs.getString("ten_size"),
