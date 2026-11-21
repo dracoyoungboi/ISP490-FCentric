@@ -36,7 +36,7 @@ import { t } from "@/i18n";
 /*
  * Báo cáo sản phẩm (bố cục như Báo cáo tồn kho, mẫu 2 chốt 05/11/2026):
  * - Một hàng: tab nhóm (Tất cả / Có bán / Sắp hết hàng / Dư hàng / Không bán), kỳ, kho, kênh, tìm kiếm.
- * - Bảng theo sản phẩm, bấm "Màu, size" mở ma trận màu × size (bán / còn), tỷ trọng kênh, bán mỗi ngày.
+ * - Bảng theo sản phẩm, bấm "Chi tiết" mở ma trận màu × size (bán / còn), tỷ trọng kênh, bán mỗi ngày.
  * - Chân bảng: dòng tổng của nhóm đang xem, phân trang, giờ cập nhật. Xuất Excel do máy chủ dựng (cùng số với màn).
  * - Tab, kỳ, kho, kênh nằm trên đường dẫn (?nhom, ?ky | ?tu&den, ?kho, ?kenh): thẻ Bán chạy ở Tổng quan mở đúng kỳ và kho.
  * - Dòng phụ ghi hạng theo số lượng kèm lên / xuống so với kỳ trước (FO-091 bảng xếp hạng bán chạy).
@@ -262,7 +262,7 @@ const Vach = () => <span className="h-4 w-px bg-bo-border max-md:hidden" aria-hi
 /** Kỳ mặc định (30 ngày qua) đứng đầu: ô lọc coi lựa chọn đầu là "chưa lọc" (chip trên điện thoại, nút ×). */
 const MOC_KY = [...MOC_NGAY.filter((m) => m.value === "30"), ...MOC_NGAY.filter((m) => m.value !== "30")];
 
-const NUT_MO = "inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-bo-border bg-bo-surface px-2.5 text-xs font-medium text-bo-foreground hover:bg-bo-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30";
+const NUT_MO = "inline-flex h-8 shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded-md border border-bo-border bg-bo-surface px-2.5 text-xs font-medium text-bo-foreground hover:bg-bo-surface-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30";
 
 export default function BaoCaoSanPham() {
   const coQuyenXuat = useCoQuyenXuatBaoCao();
@@ -497,8 +497,8 @@ export default function BaoCaoSanPham() {
                     </dl>
                     <div className="mt-2 flex min-h-9 items-center justify-between gap-3 text-[13px]">
                       <span className="text-bo-muted"><SoVoi nay={p.soLuong} truoc={p.soLuongTruoc} />{N(p.soLuongTruoc) ? t(" so với kỳ trước") : ""}</span>
-                      <button type="button" className={cn(NUT_MO, "h-9")} aria-expanded={dangMo} aria-label={`${dangMo ? t("Thu gọn") : t("Xem theo màu, size")}: ${p.tenSanPham}`} onClick={() => doiMo(p.id)}>
-                        {t("Màu, size")}<ChevronDown className={cn("size-3.5 transition-transform", dangMo && "rotate-180")} aria-hidden="true" />
+                      <button type="button" className={cn(NUT_MO, "h-9")} aria-expanded={dangMo} aria-label={dangMo ? t("Thu gọn chi tiết {{ten}}", { ten: p.tenSanPham }) : t("Xem chi tiết {{ten}}", { ten: p.tenSanPham })} onClick={() => doiMo(p.id)}>
+                        {t("Chi tiết")}<ChevronDown className={cn("size-3.5 transition-transform", dangMo && "rotate-180")} aria-hidden="true" />
                       </button>
                     </div>
                     {dangMo ? <div className="mt-3 rounded-lg border border-bo-border bg-[#fbfcfd] p-3"><ChiTietMoRong p={p} bc={bc} /></div> : null}
@@ -565,8 +565,8 @@ export default function BaoCaoSanPham() {
                         <td className="px-3 py-3 text-right tabular-nums"><DuBan p={p} /></td>
                         <td className="px-3 py-3"><TinhTrang ma={p.tinhTrang} /></td>
                         <td className="px-3 py-3 text-center">
-                          <button type="button" className={NUT_MO} aria-expanded={dangMo} aria-label={`${dangMo ? t("Thu gọn") : t("Xem theo màu, size")}: ${p.tenSanPham}`} onClick={() => doiMo(p.id)}>
-                            {t("Màu, size")}<ChevronDown className={cn("size-3.5 transition-transform", dangMo && "rotate-180")} aria-hidden="true" />
+                          <button type="button" className={NUT_MO} aria-expanded={dangMo} aria-label={dangMo ? t("Thu gọn chi tiết {{ten}}", { ten: p.tenSanPham }) : t("Xem chi tiết {{ten}}", { ten: p.tenSanPham })} onClick={() => doiMo(p.id)}>
+                            {t("Chi tiết")}<ChevronDown className={cn("size-3.5 transition-transform", dangMo && "rotate-180")} aria-hidden="true" />
                           </button>
                         </td>
                       </tr>
