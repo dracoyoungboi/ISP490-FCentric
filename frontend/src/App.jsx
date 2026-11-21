@@ -117,6 +117,7 @@ const QuotationRequestList = taiTrang(() => import("./pages/order/QuotationReque
 const QuotationRequestCreate = taiTrang(() => import("./pages/order/QuotationRequestCreate"));
 const PurchaseOrderCreateManual = taiTrang(() => import("./pages/order/PurchaseOrderCreateManual"));
 const PurchaseRequestList = taiTrang(() => import("./pages/order/PurchaseRequestList"));
+const DssReplenishmentPage = taiTrang(() => import("./pages/order/DssReplenishmentPage"));
 const CreatePurchaseRequestPage = taiTrang(() => import("./pages/order/CreatePurchaseRequestPage"));
 const SendQuotationRequestPage = taiTrang(() => import("./pages/order/SendQuotationRequestPage"));
 const PurchaseRequestDetail = taiTrang(() => import("./pages/order/PurchaseRequestDetail"));
@@ -140,6 +141,7 @@ const ChannelsPage = taiTrang(() => import("./pages/channels/ChannelsPage"));
 const ChannelSetupWizard = taiTrang(() => import("./pages/channels/ChannelSetupWizard"));
 const ChannelMappingsPage = taiTrang(() => import("./pages/channels/ChannelMappingsPage"));
 const ChannelSyncDashboard = taiTrang(() => import("./pages/channels/ChannelSyncDashboard"));
+const OmnichannelAnalyticsPage = taiTrang(() => import("./pages/channels/OmnichannelAnalyticsPage"));
 const ChannelOrdersPage = taiTrang(() => import("./pages/channels/ChannelOrdersPage"));
 const ChannelSettingsPage = taiTrang(() => import("./pages/channels/ChannelSettingsPage"));
 const OAuthCallbackPage = taiTrang(() => import("./pages/channels/OAuthCallbackPage"));
@@ -296,6 +298,7 @@ const CAY_DUONG_DAN = (
       {/* Yêu cầu nhập hàng (danh sách, chi tiết): quản lý kho, nhân viên kho; nhân viên mua hàng chỉ xem (SRS 4.4) */}
       <Route element={<RequireRole roles={VAI_TRO_XEM_YEU_CAU_NHAP} />}>
         <Route path="/purchase-requests" element={<PurchaseRequestList />} />
+        <Route path="/purchase-requests/dss" element={<DssReplenishmentPage />} />
       </Route>
       {/* Yêu cầu báo giá (danh sách, chi tiết): nhân viên mua hàng; quản lý kho xem để so báo giá trước khi chốt đơn mua.
           Máy chủ bỏ giá mua với vai trò không xem đơn mua và màn tự ẩn cột giá */}
@@ -491,7 +494,10 @@ const CAY_DUONG_DAN = (
         <Route path="/pos-transfers" element={<DoiSoatChuyenKhoan />} />
       </Route>
 
-      {/* Kênh bán hàng (FO-073–077) — chỉ quản trị viên (backend cũng chặn bằng @RequireAuth) */}
+      {/* Kênh bán hàng (FO-073–077) — chỉ quản trị viên; màn Hiệu năng & Đề xuất cho cả quản lý kho xem */}
+      <Route element={<RequireRole roles={VAI_TRO_DANH_SACH_KHO} />}>
+        <Route path="/channels/analytics" element={<OmnichannelAnalyticsPage />} />
+      </Route>
       <Route element={<RequireRole roles={VAI_TRO_KENH_BAN} />}>
         <Route path="/channels" element={<ChannelsPage />} />
         {/* Mỗi sàn (shopify, lazada, tiktok) cùng bộ trang; sàn chờ cấp API (shopee) chỉ có màn giới thiệu, trang con

@@ -236,6 +236,12 @@ function TongQuanGianHang() {
           </div>
           {/* max-w-full: màn hẹp thì nút xuống dòng dưới tên gian hàng (ml-auto giữ bên phải), không lẹm ra ngoài */}
           <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/channels/analytics">
+                <BarChart3 className="mr-1.5 size-4" aria-hidden="true" />
+                {t("Hiệu năng & Đề xuất đồng bộ")}
+              </Link>
+            </Button>
             <NutDongBoNgay
               tienDo={dongBo}
               tenSan={SAN.ten}

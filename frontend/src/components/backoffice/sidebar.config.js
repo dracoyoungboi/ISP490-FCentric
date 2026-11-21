@@ -8,6 +8,7 @@ import {
   BarChart3,
   Settings,
   Store,
+  Activity,
 } from "lucide-react";
 import {
   LazadaMenuIcon,
@@ -163,6 +164,12 @@ export const SIDEBAR_MENU = [
       {
         label: t("Yêu cầu nhập hàng"),
         to: "/purchase-requests",
+        nhom: CHUNG_TU,
+        roles: VAI_TRO_XEM_YEU_CAU_NHAP,
+      },
+      {
+        label: t("Gợi ý nhập hàng (DSS)"),
+        to: "/purchase-requests/dss",
         nhom: CHUNG_TU,
         roles: VAI_TRO_XEM_YEU_CAU_NHAP,
       },
@@ -355,6 +362,13 @@ export const SIDEBAR_MENU = [
     section: "channels",
     to: "/pos",
     roles: VAI_TRO_BAN_TAI_QUAY,
+  },
+  {
+    label: t("Hiệu năng đồng bộ"),
+    icon: Activity,
+    section: "channels",
+    to: "/channels/analytics",
+    roles: VAI_TRO_DANH_SACH_KHO,
   },
   // Sinh từ SAN_BAN_HANG; `maKenh`: BackofficeSidebar chỉ hiện sàn đã kết nối (danh sách tải ở BackofficeLayout)
   ...SAN_BAN_HANG.filter((san) => san.hoTro && !san.anTam).map((san) => ({
