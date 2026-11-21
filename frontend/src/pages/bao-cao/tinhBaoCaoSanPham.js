@@ -64,20 +64,38 @@ export function xep(ds, theo = "sl") {
 /** Tăng / giảm so với kỳ trước (0,128 = 12,8%); kỳ trước 0 thì null. */
 export const tyLeTang = (nay, truoc) => (N(truoc) ? (N(nay) - N(truoc)) / Math.abs(N(truoc)) : null);
 
-/** Ma trận màu × size: hàng = màu, cột = size (theo thứ tự size), ô = biến thể hoặc null. */
+/** Sản phẩm không chia màu, size (mọi mã đều thiếu cả hai): không vẽ ma trận, liệt kê từng mã. */
+export const khongPhanLoai = (bienThe = []) => bienThe.length > 0 && bienThe.every((b) => !b.mau && !b.size);
+
+/**
+ * Ma trận màu × size: hàng = màu, cột = size (theo thứ tự size), ô = các biến thể cùng màu, size hoặc null.
+ * Một ô có thể gộp nhiều mã (cùng màu, size, khác chất liệu — khóa biến thể gồm cả chất liệu): cộng số bán, khả dụng;
+ * đủ bán lấy mã thấp nhất để viền "còn dưới 7 ngày bán" không bị mã kia che.
+ */
 export function maTran(bienThe = []) {
   const mau = [];
   const size = new Map();
+  const oTheoKhoa = new Map();
   bienThe.forEach((b) => {
     const tenMau = b.mau || "—", tenSize = b.size || "—";
     if (!mau.some((m) => m.ten === tenMau)) mau.push({ ten: tenMau, hex: b.maMauHex });
     // Size chưa có thứ tự xếp cuối
     if (!size.has(tenSize)) size.set(tenSize, b.thuTuSize ?? Number.MAX_SAFE_INTEGER);
+    const khoa = `${tenMau}\u0000${tenSize}`;
+    const o = oTheoKhoa.get(khoa) ?? { dong: [], soLuong: 0, khaDung: 0, duBanNgay: null };
+    o.dong.push(b);
+    o.soLuong += N(b.soLuong);
+    o.khaDung += N(b.khaDung);
+    if (b.duBanNgay != null && (o.duBanNgay == null || N(b.duBanNgay) < o.duBanNgay)) o.duBanNgay = N(b.duBanNgay);
+    oTheoKhoa.set(khoa, o);
   });
   const dsSize = [...size.entries()].sort((a, b) => a[1] - b[1]).map(([s]) => s);
-  const o = (m, s) => bienThe.find((b) => (b.mau || "—") === m && (b.size || "—") === s) ?? null;
-  return { mau, size: dsSize, o, max: Math.max(1, ...bienThe.map((b) => N(b.soLuong))) };
+  const o = (m, s) => oTheoKhoa.get(`${m}\u0000${s}`) ?? null;
+  return { mau, size: dsSize, o, max: Math.max(1, ...[...oTheoKhoa.values()].map((x) => x.soLuong)) };
 }
+
+/** Ô ma trận cần cảnh báo "còn dưới 7 ngày bán" (đủ bán của máy chủ: số bán mọi kênh, số ngày bán). */
+export const oSapHet = (o) => o != null && o.duBanNgay != null && o.duBanNgay < 7;
 
 /** Lỗi khoảng ngày tùy chọn (chuỗi rỗng = hợp lệ): đủ hai ngày, từ năm 2000, không sau hôm nay, tối đa 1 năm. */
 export function loiKhoang(tuNgay, denNgay, homNay = new Date()) {

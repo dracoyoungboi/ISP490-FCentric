@@ -29,7 +29,8 @@ import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatPercent } from "@/utils/formatters";
 import { MOC_NGAY, khoangMoc, ngayMay, ngayVN } from "./tinhBaoCaoDoanhThu";
 import {
-  N, NHOM, TINH_TRANG, boLocTuUrl, chuoiBoLocUrl, demNhom, doiHang, ghiBoLocLenUrl, locNhom, loiKhoang, maTran, tenTepExcel, timKiem, tyLeTang, xep,
+  N, NHOM, TINH_TRANG, boLocTuUrl, chuoiBoLocUrl, demNhom, doiHang, ghiBoLocLenUrl, khongPhanLoai, locNhom, loiKhoang, maTran, oSapHet,
+  tenTepExcel, timKiem, tyLeTang, xep,
 } from "./tinhBaoCaoSanPham";
 import { t } from "@/i18n";
 
@@ -125,16 +126,63 @@ function DuongNho({ arr }) {
   );
 }
 
-function MaTran({ p, soNgay }) {
+/** Chú thích khi rê chuột của một ô / một mã: "SKU: bán 5, còn 12", ô gộp nhiều mã thì mỗi mã một dòng. */
+const moTaMa = (ds) => ds.map((b) => t("{{maSku}}: bán {{ban}}, còn {{con}}", { maSku: b.maSku, ban: formatNumber(N(b.soLuong)), con: formatNumber(N(b.khaDung)) })).join("\n");
+
+/** Chú thích dưới ma trận / danh sách mã: mức đậm theo số bán, viền đỏ khi còn dưới 7 ngày bán. */
+function ChuThichMaTran() {
+  return (
+    <p className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-bo-muted">
+      <span className="inline-flex items-center gap-1.5"><i className="inline-block size-2.5 rounded-[3px]" style={{ background: "rgba(13, 97, 228, 0.38)" }} aria-hidden="true" />{t("đậm = bán nhiều")}</span>
+      <span className="inline-flex items-center gap-1.5"><i className="inline-block size-2.5 rounded-[3px] bg-white ring-1 ring-inset ring-red-300" aria-hidden="true" />{t("còn dưới 7 ngày bán")}</span>
+    </p>
+  );
+}
+
+/** Ô bán / còn của ma trận (hoặc một mã): số bán đậm theo mức bán, viền đỏ và chữ cho trình đọc màn hình khi sắp hết. */
+function OBanCon({ o, max, as = "td", className }) {
+  const Tag = as;
+  const ban = N(o.soLuong), con = N(o.khaDung);
+  const thieu = oSapHet(o);
+  return (
+    <Tag title={moTaMa(o.dong)}
+      className={cn("h-10 min-w-[56px] whitespace-nowrap rounded-md px-1.5 text-center leading-tight", thieu && "ring-1 ring-inset ring-red-300", className)}
+      style={{ background: ban > 0 ? `rgba(13, 97, 228, ${(0.06 + (ban / max) * 0.32).toFixed(2)})` : "#f8fafc" }}>
+      <b className={cn("block text-[13px]", ban > 0 ? "text-bo-foreground" : "font-normal text-bo-muted")}>{formatNumber(ban)}</b>
+      <span className={cn("block text-[11px]", thieu ? "font-semibold text-bo-danger" : "text-bo-muted")}>{t("còn {{con}}", { con: formatNumber(con) })}</span>
+      {thieu ? <span className="sr-only">{t(" (còn dưới 7 ngày bán)")}</span> : null}
+      {o.dong.length > 1 ? <span className="sr-only">{`: ${moTaMa(o.dong)}`}</span> : null}
+    </Tag>
+  );
+}
+
+function MaTran({ p }) {
   const m = useMemo(() => maTran(p.bienThe), [p.bienThe]);
-  if (!m.mau.length) return <p className="text-[13px] text-bo-muted">{t("Sản phẩm chưa có mã SKU.")}</p>;
+  if (!m.mau.length) return <p className="text-[13px] text-bo-muted">{t("Các mã SKU của sản phẩm đã ngừng và không còn hàng.")}</p>;
+  // Sản phẩm không chia màu, size: ma trận chỉ còn một ô "—" khó hiểu, liệt kê từng mã
+  if (khongPhanLoai(p.bienThe)) {
+    return (
+      <div>
+        <ul className="flex max-w-[320px] flex-col gap-1.5">
+          {p.bienThe.map((b) => (
+            <li key={b.id} className="flex items-center gap-3">
+              <span className="min-w-0 flex-1 truncate text-[13px] text-bo-foreground" title={b.maSku}>{b.maSku}</span>
+              <OBanCon as="span" className="inline-block" o={{ dong: [b], soLuong: b.soLuong, khaDung: b.khaDung, duBanNgay: b.duBanNgay }} max={m.max} />
+            </li>
+          ))}
+        </ul>
+        <ChuThichMaTran />
+      </div>
+    );
+  }
   return (
     <div>
       <div className="overflow-x-auto">
         <table className="border-separate border-spacing-1 text-xs tabular-nums">
           <thead>
             <tr>
-              <th scope="col"><span className="sr-only">{t("Màu")}</span></th>
+              {/* Cột màu dính bên trái khi ma trận nhiều size phải cuộn ngang (điện thoại) */}
+              <th scope="col" className="sticky left-0 z-[1] bg-[#fbfcfd]"><span className="sr-only">{t("Màu")}</span></th>
               {m.size.map((s) => <th key={s} scope="col" className="px-1 text-center font-medium text-bo-muted">{s}</th>)}
               <th scope="col" className="pl-2 text-right font-medium text-bo-muted">{t("Cộng")}</th>
             </tr>
@@ -144,36 +192,24 @@ function MaTran({ p, soNgay }) {
               const dong = m.size.map((s) => m.o(mau.ten, s));
               return (
                 <tr key={mau.ten}>
-                  <th scope="row" className="whitespace-nowrap pr-2 text-left font-normal text-bo-foreground">
+                  <th scope="row" className="sticky left-0 z-[1] whitespace-nowrap bg-[#fbfcfd] pr-2 text-left font-normal text-bo-foreground">
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="size-2.5 rounded-full ring-1 ring-black/10" style={{ background: mau.hex || "#cbd5e1" }} aria-hidden="true" />
+                      {/* Mã không có màu ("—"): không vẽ chấm, kẻo trông như một màu xám thật */}
+                      {mau.ten !== "—" ? <span className="size-2.5 rounded-full ring-1 ring-black/10" style={{ background: mau.hex || "#cbd5e1" }} aria-hidden="true" /> : null}
                       {mau.ten}
                     </span>
                   </th>
-                  {dong.map((b, j) => {
-                    if (!b) return <td key={m.size[j]} className="h-10 min-w-[56px] rounded-md bg-bo-surface-subtle text-center text-bo-muted">·</td>;
-                    const ban = N(b.soLuong), con = N(b.khaDung);
-                    const thieu = ban > 0 && con < (ban / soNgay) * 7;
-                    return (
-                      <td key={b.id} title={t("{{maSku}}: bán {{ban}}, còn {{con}}", { maSku: b.maSku, ban: formatNumber(ban), con: formatNumber(con) })}
-                        className={cn("h-10 min-w-[56px] whitespace-nowrap rounded-md px-1.5 text-center leading-tight", thieu && "ring-1 ring-inset ring-red-300")}
-                        style={{ background: ban ? `rgba(13, 97, 228, ${(0.06 + (ban / m.max) * 0.32).toFixed(2)})` : "#f8fafc" }}>
-                        <b className={cn("block text-[13px]", ban ? "text-bo-foreground" : "font-normal text-bo-muted")}>{formatNumber(ban)}</b>
-                        <span className={cn("block text-[11px]", thieu ? "font-semibold text-bo-danger" : "text-bo-muted")}>{t("còn {{con}}", { con: formatNumber(con) })}</span>
-                      </td>
-                    );
-                  })}
-                  <td className="pl-2 text-right font-semibold">{formatNumber(dong.reduce((a, b) => a + (b ? N(b.soLuong) : 0), 0))}</td>
+                  {dong.map((o, j) => (o
+                    ? <OBanCon key={m.size[j]} o={o} max={m.max} />
+                    : <td key={m.size[j]} className="h-10 min-w-[56px] rounded-md bg-bo-surface-subtle text-center text-bo-muted"><span aria-hidden="true">·</span><span className="sr-only">{t("Không có mã")}</span></td>))}
+                  <td className="pl-2 text-right font-semibold">{formatNumber(dong.reduce((a, o) => a + (o ? o.soLuong : 0), 0))}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
-      <p className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-bo-muted">
-        <span className="inline-flex items-center gap-1.5"><i className="inline-block size-2.5 rounded-[3px]" style={{ background: "rgba(13, 97, 228, 0.38)" }} aria-hidden="true" />{t("đậm = bán nhiều")}</span>
-        <span className="inline-flex items-center gap-1.5"><i className="inline-block size-2.5 rounded-[3px] bg-white ring-1 ring-inset ring-red-300" aria-hidden="true" />{t("còn dưới 7 ngày bán")}</span>
-      </p>
+      <ChuThichMaTran />
     </div>
   );
 }
@@ -228,8 +264,10 @@ function ChiTietMoRong({ p, bc }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]">
       <div className="min-w-0">
-        <h3 className="mb-2 text-xs font-semibold text-bo-muted">{t("Theo màu và size · bán / còn khả dụng")}</h3>
-        <MaTran p={p} soNgay={bc.soNgay} />
+        <h3 className="mb-2 text-xs font-semibold text-bo-muted">
+          {khongPhanLoai(p.bienThe) ? t("Theo mã SKU · bán / còn khả dụng") : t("Theo màu và size · bán / còn khả dụng")}
+        </h3>
+        <MaTran p={p} />
       </div>
       <div className="min-w-0">
         <h3 className="mb-2.5 text-xs font-semibold text-bo-muted">{t("Theo kênh bán")}</h3>
