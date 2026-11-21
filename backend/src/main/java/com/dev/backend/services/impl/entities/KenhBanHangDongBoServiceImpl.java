@@ -9646,6 +9646,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     public boolean dongBoTrangThaiChuanBiHangShopee(String maDonHangKenh) {
         if (maDonHangKenh == null || maDonHangKenh.isBlank()) return false;
         String orderSn = maDonHangKenh.trim();
+        if (donBanHangRepository != null) {
+            DonBanHang don = donBanHangRepository.findByMaDonHangKenh(orderSn)
+                    .or(() -> donBanHangRepository.findBySoDonHang("SHP-" + orderSn))
+                    .orElse(null);
+            if (don != null && DonBanHangService.laDonShopeeChoXacNhan(don)) {
+                log.warn("[SHOPEE-PREPARE] Đơn {} đang ở trạng thái Chờ xác nhận sàn (UNPAID) -> Chặn gọi shipOrderAuto", orderSn);
+                return false;
+            }
+        }
         KenhBanHang kenh = xacDinhKenhShopee(orderSn);
         if (kenh == null) {
             log.warn("[SHOPEE-PREPARE] Không tìm thấy kênh Shopee cho đơn {}", orderSn);
