@@ -45,7 +45,9 @@ public interface IHanhDong {
             cap_nhat_kenh_ban = "cap_nhat_kenh_ban",
             dong_bo_san_pham = "dong_bo_san_pham",
             dong_bo_ton_kho = "dong_bo_ton_kho",
-            cap_nhat_cau_hinh = "cap_nhat_cau_hinh";
+            cap_nhat_cau_hinh = "cap_nhat_cau_hinh",
+            chay_dss_nhap_hang = "chay_dss_nhap_hang",
+            cap_nhat_buffer_kenh = "cap_nhat_buffer_kenh";
     //Chuyển kho nội bộ (lich_su_thay_doi.loai_tham_chieu = phieu_chuyen_kho, id_tham_chieu = id phiếu chuyển;
     //gia_tri_cu / gia_tri_moi = trạng thái, ghi_chu = lý do hoặc số chứng từ sinh ra)
     String

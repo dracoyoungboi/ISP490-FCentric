@@ -62,5 +62,13 @@ public class TrangThaiDongBoSanPham {
     /** Thời điểm đẩy tồn thành công gần nhất */
     @Column(name = "ngay_day_ton_cuoi")
     Instant ngayDayTonCuoi;
+
+    /** Tỷ lệ giữ tồn an toàn trên sàn (%) riêng cho SKU (0..50); null = không giữ buffer thêm */
+    @Column(name = "buffer_percent")
+    Integer bufferPercent;
+
+    /** Ngưỡng kích hoạt đồng bộ tức thời (Threshold_RT,k) riêng cho SKU; null = dùng cấu hình toàn cục REALTIME_SYNC_THRESHOLD */
+    @Column(name = "realtime_threshold")
+    Integer realtimeThreshold;
 }
 

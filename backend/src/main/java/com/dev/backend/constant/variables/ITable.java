@@ -47,5 +47,7 @@ public interface ITable {
             thuong_hieu = "thuong_hieu",
             khu_vuc_kho = "khu_vuc_kho",
             vi_tri_kho = "vi_tri_kho",
-            mat_bang_kho = "mat_bang_kho";
+            mat_bang_kho = "mat_bang_kho",
+            lich_su_dong_bo_metric = "lich_su_dong_bo_metric",
+            trang_thai_dong_bo_san_pham = "trang_thai_dong_bo_san_pham";
 }
