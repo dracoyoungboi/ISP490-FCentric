@@ -62,6 +62,14 @@ public interface TonKhoViTriRepository extends JpaRepository<TonKhoViTri, Intege
             + "WHERE t.viTriKho.kho.id = :khoId AND t.loHang.id IN :loHangIds GROUP BY t.loHang.id")
     List<Object[]> tongTrenKeTheoLo(@Param("khoId") Integer khoId, @Param("loHangIds") java.util.Collection<Integer> loHangIds);
 
+    /**
+     * Các kệ đang chứa những lô này ở một kho (chỉ dòng dương, như màn Hàng chưa có kệ):
+     * [loHangId, viTriKhoId, maViTri, soLuong], theo mã kệ.
+     */
+    @Query("SELECT t.loHang.id, v.id, v.maViTri, t.soLuong FROM TonKhoViTri t JOIN t.viTriKho v "
+            + "WHERE v.kho.id = :khoId AND t.loHang.id IN :loHangIds AND t.soLuong > 0 ORDER BY v.maViTri, v.id")
+    List<Object[]> keCuaLoTheoKho(@Param("khoId") Integer khoId, @Param("loHangIds") java.util.Collection<Integer> loHangIds);
+
     /** Kệ còn dòng tồn dương (kiểm thêm khi tổng tồn kệ về 0 vì có dòng âm bù). */
     boolean existsByViTriKho_IdAndSoLuongGreaterThan(Integer viTriKhoId, Integer soLuong);
 

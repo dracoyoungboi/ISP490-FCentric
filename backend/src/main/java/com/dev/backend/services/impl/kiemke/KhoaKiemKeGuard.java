@@ -239,6 +239,16 @@ public class KhoaKiemKeGuard {
         return tt.trong() ? new HashMap<>() : luongDangKiemKe(tt, khoId, tonTheoLo);
     }
 
+    /**
+     * Như {@link #luongDangKiemKe(Integer, Map)} nhưng đọc thường, không khóa chia sẻ — cho đường chỉ hiển thị
+     * (các lô của một mã ở Báo cáo tồn kho). Cộng các lô ra đúng số "Đang kiểm kê" của mã ở {@link #dangKiemKeTheoMa}.
+     */
+    public Map<Integer, BigDecimal> luongDangKiemKeHienThi(Integer khoId, Map<Integer, BigDecimal> tonTheoLo) {
+        if (khoId == null || tonTheoLo == null || tonTheoLo.isEmpty() || !sanSang.sanSang()) return new HashMap<>();
+        TrangThaiKhoa tt = trangThai(khoId, false);
+        return tt.trong() ? new HashMap<>() : luongDangKiemKe(tt, khoId, tonTheoLo);
+    }
+
     /** Như trên, tự đọc tồn lô ở kho (chỉ khi kho đang có đợt giữ khóa). */
     public Map<Integer, BigDecimal> luongDangKiemKe(Integer khoId, Collection<Integer> loIds) {
         if (khoId == null || loIds == null || loIds.isEmpty() || !sanSang.sanSang()) return new HashMap<>();
