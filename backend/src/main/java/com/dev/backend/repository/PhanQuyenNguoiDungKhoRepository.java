@@ -3,8 +3,10 @@ package com.dev.backend.repository;
 import com.dev.backend.dto.response.entities.KhoPhuTrachInfoDto;
 import com.dev.backend.entities.NguoiDung;
 import com.dev.backend.entities.PhanQuyenNguoiDungKho;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -92,16 +94,16 @@ public interface PhanQuyenNguoiDungKhoRepository extends JpaRepository<PhanQuyen
      * Đọc BẢN MỚI NHẤT (FOR SHARE): gọi sau khi khóa dòng kho để thấy dấu giao dịch khác vừa ghi — đọc thường trong
      * REPEATABLE READ chỉ thấy ảnh chụp lúc giao dịch bắt đầu. Chỉ khóa dòng phân quyền, không khóa người dùng.
      */
-    @Query(value = """
-            SELECT pq.id, pq.nguoi_dung_id FROM phan_quyen_nguoi_dung_kho pq
-            WHERE pq.kho_id = :khoId
-              AND pq.la_quan_ly_kho = 1
-              AND pq.trang_thai = 1
-              AND (pq.ngay_bat_dau IS NULL OR pq.ngay_bat_dau <= :now)
-              AND (pq.ngay_ket_thuc IS NULL OR pq.ngay_ket_thuc > :now)
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("""
+            SELECT pq.id, pq.nguoiDung.id FROM PhanQuyenNguoiDungKho pq
+            WHERE pq.kho.id = :khoId
+              AND pq.laQuanLyKho = 1
+              AND pq.trangThai = 1
+              AND (pq.ngayBatDau IS NULL OR pq.ngayBatDau <= :now)
+              AND (pq.ngayKetThuc IS NULL OR pq.ngayKetThuc > :now)
             ORDER BY pq.id
-            FOR SHARE
-            """, nativeQuery = true)
+            """)
     List<Object[]> dauQuanLyChinhMoiNhat(@Param("khoId") Integer khoId, @Param("now") Instant now);
 
     /**
