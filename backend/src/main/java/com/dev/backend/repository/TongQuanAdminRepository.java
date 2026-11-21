@@ -1,5 +1,6 @@
 package com.dev.backend.repository;
 
+import com.dev.backend.constant.variables.ITrangThaiDonBanHang;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -374,24 +375,40 @@ public class TongQuanAdminRepository {
      * thứ hạng với Báo cáo sản phẩm (BaoCaoSanPhamRepository.SQL_BAN_BIEN_THE, BaoCaoSanPhamService.xepHang), để số ở
      * thẻ Bán chạy khớp trang báo cáo khi bấm "Xem tất cả". Mã so theo byte (CAST AS BINARY) cho cùng thứ tự với
      * String.compareTo của Java; collation mặc định của cột không phân biệt hoa thường và xếp "Đ" ngay sau "D".
-     * Ngày ghi nhận vẫn theo quy tắc chung của Tổng quan (ngay_gn).
+     * Hàng khách trả tại quầy trừ vào số bán, doanh thu theo ngày lập phiếu trả, ở cửa hàng bán (như Báo cáo sản phẩm,
+     * BaoCaoSanPhamRepository.traQuayTheoBienThe); sản phẩm còn số bán ≤ 0 thì không vào bảng (báo cáo không xếp hạng).
+     * Ngày ghi nhận của đơn vẫn theo quy tắc chung của Tổng quan (ngay_gn). %s: phần trả hàng (rỗng khi chưa có bảng).
      */
     static final String SQL_SAN_PHAM_BAN_CHAY = """
             SELECT sp.id AS san_pham_id, sp.ma_san_pham, sp.ten_san_pham,
-                   SUM(ct.so_luong_dat)                                                                        AS so_luong,
-                   SUM(COALESCE(ct.thanh_tien, ct.so_luong_dat * ct.don_gia) - COALESCE(ct.tien_giam_gia, 0)) AS doanh_thu
-            FROM don
-            JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = don.id
-            JOIN bien_the_san_pham bt     ON bt.id = ct.bien_the_san_pham_id
-            JOIN san_pham_quan_ao sp      ON sp.id = bt.san_pham_id
-            WHERE don.ngay_gn >= :tu AND don.ngay_gn < :den
+                   SUM(x.so_luong) AS so_luong, SUM(x.doanh_thu) AS doanh_thu
+            FROM (
+                SELECT ct.bien_the_san_pham_id AS bt_id, ct.so_luong_dat AS so_luong,
+                       COALESCE(ct.thanh_tien, ct.so_luong_dat * ct.don_gia) - COALESCE(ct.tien_giam_gia, 0) AS doanh_thu
+                FROM don
+                JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = don.id
+                WHERE don.ngay_gn >= :tu AND don.ngay_gn < :den
+            %s) x
+            JOIN bien_the_san_pham bt ON bt.id = x.bt_id
+            JOIN san_pham_quan_ao sp  ON sp.id = bt.san_pham_id
             GROUP BY sp.id, sp.ma_san_pham, sp.ten_san_pham
+            HAVING SUM(x.so_luong) > 0
             ORDER BY so_luong DESC, doanh_thu DESC, CAST(sp.ma_san_pham AS BINARY), sp.id
             LIMIT :soDong
             """;
 
+    /** Phần trả hàng tại quầy của SQL_SAN_PHAM_BAN_CHAY: số trả và tiền hoàn âm. ngay_tao do ứng dụng ghi (cùng độ lệch :tu). */
+    static final String TRA_QUAY_BAN_CHAY = """
+                UNION ALL
+                SELECT c.bien_the_san_pham_id, -c.so_luong, -c.thanh_tien_hoan
+                FROM phieu_tra_hang pth
+                JOIN chi_tiet_phieu_tra_hang c ON c.phieu_tra_hang_id = pth.id
+                WHERE pth.ngay_tao >= :tu AND pth.ngay_tao < :den
+                  AND (:khoId IS NULL OR pth.kho_ban_id = :khoId)
+            """;
+
     public List<SanPhamBanChayDong> sanPhamBanChay(LocalDateTime tu, LocalDateTime den, Integer khoId, int soDong) {
-        String sql = cteDon("3, 5") + SQL_SAN_PHAM_BAN_CHAY;
+        String sql = cteDon("3, 5") + SQL_SAN_PHAM_BAN_CHAY.formatted(coBang("phieu_tra_hang") ? TRA_QUAY_BAN_CHAY : "");
         MapSqlParameterSource p = thamSo(khoId, tu).addValue("tu", moc(tu)).addValue("den", moc(den))
                 .addValue("soDong", soDong);
         return jdbc.query(sql, p, (rs, i) -> new SanPhamBanChayDong(rs.getInt("san_pham_id"),
@@ -399,22 +416,39 @@ public class TongQuanAdminRepository {
     }
 
     static final String SQL_KHA_DUNG_THEO_SAN_PHAM = """
-            SELECT bt.san_pham_id, COALESCE(SUM(tk.so_luong_kha_dung), 0) AS kha_dung
-            FROM ton_kho_theo_lo tk
-            JOIN lo_hang lh           ON lh.id = tk.lo_hang_id
-            JOIN bien_the_san_pham bt ON bt.id = lh.bien_the_san_pham_id
-            JOIN kho k                ON k.id = tk.kho_id AND k.trang_thai = 1 AND k.ma_kho <> 'KHO_TRANSIT'
+            SELECT bt.san_pham_id, SUM(GREATEST(COALESCE(t.kha_dung, 0) - COALESCE(g.giu, 0), 0)) AS kha_dung
+            FROM bien_the_san_pham bt
+            LEFT JOIN (
+                SELECT lh.bien_the_san_pham_id AS bt_id, SUM(tk.so_luong_kha_dung) AS kha_dung
+                FROM ton_kho_theo_lo tk
+                JOIN lo_hang lh           ON lh.id = tk.lo_hang_id
+                JOIN bien_the_san_pham b2 ON b2.id = lh.bien_the_san_pham_id AND b2.san_pham_id IN (:sanPhamIds)
+                JOIN kho k                ON k.id = tk.kho_id AND k.trang_thai = 1 AND k.ma_kho <> 'KHO_TRANSIT'
+                WHERE (:khoId IS NULL OR tk.kho_id = :khoId)
+                GROUP BY lh.bien_the_san_pham_id
+            ) t ON t.bt_id = bt.id
+            LEFT JOIN (
+                SELECT x.bt_id, SUM(x.so_luong) AS giu FROM (
+            """ + BaoCaoSanPhamRepository.GIU_HANG_DONG + """
+                ) x
+                GROUP BY x.bt_id
+            ) g ON g.bt_id = bt.id
             WHERE bt.san_pham_id IN (:sanPhamIds)
-              AND (:khoId IS NULL OR tk.kho_id = :khoId)
             GROUP BY bt.san_pham_id
             """;
 
-    /** Tồn khả dụng theo sản phẩm (cộng mọi biến thể, mọi lô). */
+    /**
+     * Khả dụng theo sản phẩm, cùng số với Báo cáo sản phẩm: mỗi biến thể max(0, tồn khả dụng ở các kho bán được − hàng
+     * đang giữ cho đơn bán chưa xuất / phiếu chuyển kho), cộng theo sản phẩm. khoId null = mọi kho.
+     */
     public Map<Integer, BigDecimal> khaDungTheoSanPham(Collection<Integer> sanPhamIds, Integer khoId) {
         Map<Integer, BigDecimal> ketQua = new HashMap<>();
         if (sanPhamIds == null || sanPhamIds.isEmpty()) return ketQua;
-        jdbc.query(SQL_KHA_DUNG_THEO_SAN_PHAM, thamSo(khoId).addValue("sanPhamIds", sanPhamIds),
-                rs -> { ketQua.put(rs.getInt("san_pham_id"), bd(rs, "kha_dung")); });
+        MapSqlParameterSource p = thamSo(khoId).addValue("sanPhamIds", sanPhamIds)
+                .addValue("giuHang", ITrangThaiDonBanHang.DANG_GIU_HANG)
+                .addValue("tatCa", khoId == null ? 1 : 0)
+                .addValue("khoIds", khoId == null ? List.of(-1) : List.of(khoId));
+        jdbc.query(SQL_KHA_DUNG_THEO_SAN_PHAM, p, rs -> { ketQua.put(rs.getInt("san_pham_id"), bd(rs, "kha_dung")); });
         return ketQua;
     }
 
