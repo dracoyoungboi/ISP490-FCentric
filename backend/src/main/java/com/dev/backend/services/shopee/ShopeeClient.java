@@ -107,7 +107,7 @@ public class ShopeeClient {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10_000);
         factory.setReadTimeout(15_000);
-        this.restTemplate = new RestTemplate(factory);
+        this.restTemplate = com.dev.backend.services.omnichannel.OmnichannelTelemetryInterceptor.attach(new RestTemplate(factory));
         this.objectMapper = new ObjectMapper();
     }
 

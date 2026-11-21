@@ -16,7 +16,7 @@ public class ShopifyOrderSnapshotClient {
     private final ObjectMapper mapper;
     @Autowired
     public ShopifyOrderSnapshotClient(ObjectMapper mapper) {
-        this(new RestTemplate(factory()), mapper);
+        this(com.dev.backend.services.omnichannel.OmnichannelTelemetryInterceptor.attach(new RestTemplate(factory())), mapper);
     }
     ShopifyOrderSnapshotClient(RestTemplate rest, ObjectMapper mapper) { this.rest = rest; this.mapper = mapper; }
 

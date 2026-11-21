@@ -19,7 +19,7 @@ public class ShopifyRealtimeRegistration {
     private final ShopifyRealtimeConnection connection;
     private final KenhBanHangService credentials;
     private final ShopifyWebhookInbox inbox;
-    private final RestTemplate rest = new RestTemplate(ShopifyOrderSnapshotClient.factory());
+    private final RestTemplate rest = com.dev.backend.services.omnichannel.OmnichannelTelemetryInterceptor.attach(new RestTemplate(ShopifyOrderSnapshotClient.factory()));
     private final ObjectMapper mapper;
     private final String publicBase;
 

@@ -285,7 +285,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
             factory.setConnectTimeout(8000);
             factory.setReadTimeout(15000);
-            RestTemplate restTemplate = new RestTemplate(factory);
+            RestTemplate restTemplate = com.dev.backend.services.omnichannel.OmnichannelTelemetryInterceptor.attach(new RestTemplate(factory));
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Shopify-Access-Token", token);
@@ -4273,7 +4273,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 maSku = tuSinhMaSkuChoBienThe(bt);
             }
             if (maSku == null || maSku.isBlank()) continue;
-            int soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
+            int soDay = tinhSoTonDayVoiSkuBuffer(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0, dong.getBufferPercent(), resolveEffectiveRtThreshold(dong));
 
             boolean daThanhCong = "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
             boolean soTonKhongDoi = dong.getSoLuongDaDay() != null && dong.getSoLuongDaDay().equals(soDay);
@@ -4668,7 +4668,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         for (TrangThaiDongBoSanPham dong : dongCanDay) {
             BienTheSanPham bt = dong.getBienTheSanPham();
             if (bt == null || bt.getMaSku() == null || bt.getMaSku().isBlank()) continue;
-            int soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
+            int soDay = tinhSoTonDayVoiSkuBuffer(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0, dong.getBufferPercent(), resolveEffectiveRtThreshold(dong));
 
             boolean daThanhCong = "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
             boolean soTonKhongDoi = dong.getSoLuongDaDay() != null && dong.getSoLuongDaDay().equals(soDay);
@@ -4989,7 +4989,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 boolean khongDoi;
                 int soDay;
                 if (shopifyDaKho && bt.getId() != null) {
-                    Map<Long, Integer> expectedLocs = tinhTonTheoLocationShopify(bt.getId(), mappingCfg, tyLe, tonDem, nguongVe0, laKhoTongMap);
+                    Map<Long, Integer> expectedLocs = tinhTonTheoLocationShopify(
+                            bt.getId(), mappingCfg, tyLe, tonDem, nguongVe0, laKhoTongMap,
+                            dong.getBufferPercent(), resolveEffectiveRtThreshold(dong));
                     soDay = expectedLocs.values().stream().mapToInt(Integer::intValue).sum();
                     expectedTheoSku.put(bt.getId(), expectedLocs);
                     Map<Long, Integer> prevLocs = docTonDaDayTheoKhoShopify(bt.getId());
@@ -4999,7 +5001,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             && prevLocs != null
                             && prevLocs.equals(expectedLocs);
                 } else {
-                    soDay = tinhSoTonDay(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0);
+                    soDay = tinhSoTonDayVoiSkuBuffer(khaDungToanChuoi(bt.getId()), tyLe, tonDem, nguongVe0, dong.getBufferPercent(), resolveEffectiveRtThreshold(dong));
                     khongDoi = dong.getSoLuongDaDay() != null
                             && dong.getSoLuongDaDay().equals(soDay)
                             && "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
@@ -5104,45 +5106,57 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 log.info("[JOB-03 Real-time] Kênh {} đang tắt tự động đẩy tồn, bỏ qua SKU ID {}", maKenhCuaDong, bienTheSanPhamId);
                 continue;
             }
-            log.info("[JOB-03 Real-time] Tồn kho SKU ID {} < 3 units. Kích hoạt đẩy tồn khẩn cấp lên kênh {} (Sàn SKU: {})",
-                    bienTheSanPhamId, maKenhCuaDong, m.getMaSanPhamKenh());
-            try {
-                KetNoiDayTon ketNoi = moKetNoiDayTon(m.getKenhBanHang());
-                if (ketNoi.lyDoLoi() != null) {
-                    log.warn("[JOB-03 Real-time] Không đẩy tồn khẩn cấp SKU ID {} lên kênh {}: {}", bienTheSanPhamId, maKenhCuaDong, ketNoi.lyDoLoi());
-                    continue;
-                }
-                KetQuaGuiTon kq;
-                boolean shopifyDaKho = OmnichannelOrderSyncJob.isShopify(maKenhCuaDong);
-                KenhKhoMappingConfigDto mappingCfg = shopifyDaKho ? layCauHinhKhoMappingDaLuu("SHOPIFY") : null;
-                if (mappingCfg != null && Boolean.TRUE.equals(mappingCfg.getCheDoDaKho())
-                        && mappingCfg.getDanhSachKho() != null && mappingCfg.getDanhSachKho().size() >= 2) {
-                    DayTonKenhRequest rule = quyTacDaLuu("SHOPIFY");
-                    BigDecimal tl = rule.getTyLeDayTon() != null ? rule.getTyLeDayTon() : BigDecimal.valueOf(100);
-                    Map<Long, Integer> expectedLocs = tinhTonTheoLocationShopify(
-                            bienTheSanPhamId, mappingCfg, tl, rule.getTonDem(), rule.getNguongVe0(), taiBanDoLaKhoTong());
-                    int soDay = expectedLocs.values().stream().mapToInt(Integer::intValue).sum();
-                    kq = dayTonChoDongShopifyTheoMap(m, ketNoi, soDay, expectedLocs);
-                    if (kq.thanhCong()) {
-                        flushTonDaDayTheoKhoShopify();
-                    }
-                } else {
-                    int soDay = soTonDayTheoQuyTacDaLuu(maKenhCuaDong, tinhKhaDungTheoKhoKenh(maKenhCuaDong, bienTheSanPhamId));
-                    kq = dayTonChoDong(m, ketNoi, soDay);
-                }
-                if (kq.loiKenh()) {
-                    log.warn("[JOB-03 Real-time] Không đẩy tồn khẩn cấp SKU ID {} lên kênh {}: {}", bienTheSanPhamId, maKenhCuaDong, kq.lyDo());
-                    continue;
-                }
-                if (kq.thanhCong()) {
-                    lanDayTonCuoi.put(m.getKenhBanHang().getId(), Instant.now());
-                } else {
-                    log.warn("[JOB-03 Real-time] Shopify không nhận tồn khẩn cấp SKU ID {}: {}", bienTheSanPhamId, kq.lyDo());
-                }
-                trangThaiDongBoSanPhamRepository.save(m);
-            } catch (Exception e) {
-                log.warn("Lỗi khi đẩy tồn khẩn cấp cho SKU {}: {}", bienTheSanPhamId, e.getMessage());
-            }
+            int rtThreshold = resolveEffectiveRtThreshold(m);
+            log.info("[JOB-03 Real-time] Tồn kho SKU ID {} <= {} units. Kích hoạt đẩy tồn khẩn cấp lên kênh {} (Sàn SKU: {})",
+                    bienTheSanPhamId, rtThreshold, maKenhCuaDong, m.getMaSanPhamKenh());
+            com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.runWith(
+                    maKenhCuaDong,
+                    com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.JOB_REALTIME_CRITICAL,
+                    () -> {
+                        try {
+                            KetNoiDayTon ketNoi = moKetNoiDayTon(m.getKenhBanHang());
+                            if (ketNoi.lyDoLoi() != null) {
+                                log.warn("[JOB-03 Real-time] Không đẩy tồn khẩn cấp SKU ID {} lên kênh {}: {}", bienTheSanPhamId, maKenhCuaDong, ketNoi.lyDoLoi());
+                                return;
+                            }
+                            KetQuaGuiTon kq;
+                            boolean shopifyDaKho = OmnichannelOrderSyncJob.isShopify(maKenhCuaDong);
+                            KenhKhoMappingConfigDto mappingCfg = shopifyDaKho ? layCauHinhKhoMappingDaLuu("SHOPIFY") : null;
+                            if (mappingCfg != null && Boolean.TRUE.equals(mappingCfg.getCheDoDaKho())
+                                    && mappingCfg.getDanhSachKho() != null && mappingCfg.getDanhSachKho().size() >= 2) {
+                                DayTonKenhRequest rule = quyTacDaLuu("SHOPIFY");
+                                BigDecimal tl = rule.getTyLeDayTon() != null ? rule.getTyLeDayTon() : BigDecimal.valueOf(100);
+                                Map<Long, Integer> expectedLocs = tinhTonTheoLocationShopify(
+                                        bienTheSanPhamId, mappingCfg, tl, rule.getTonDem(), rule.getNguongVe0(),
+                                        taiBanDoLaKhoTong(), m.getBufferPercent(), rtThreshold);
+                                int soDay = expectedLocs.values().stream().mapToInt(Integer::intValue).sum();
+                                kq = dayTonChoDongShopifyTheoMap(m, ketNoi, soDay, expectedLocs);
+                                if (kq.thanhCong()) {
+                                    flushTonDaDayTheoKhoShopify();
+                                }
+                            } else {
+                                DayTonKenhRequest rule = quyTacDaLuu(maKenhCuaDong);
+                                BigDecimal tl = rule.getTyLeDayTon() != null ? rule.getTyLeDayTon() : BigDecimal.valueOf(100);
+                                int soDay = tinhSoTonDayVoiSkuBuffer(
+                                        tinhKhaDungTheoKhoKenh(maKenhCuaDong, bienTheSanPhamId),
+                                        tl, rule.getTonDem(), rule.getNguongVe0(),
+                                        m.getBufferPercent(), rtThreshold);
+                                kq = dayTonChoDong(m, ketNoi, soDay);
+                            }
+                            if (kq.loiKenh()) {
+                                log.warn("[JOB-03 Real-time] Không đẩy tồn khẩn cấp SKU ID {} lên kênh {}: {}", bienTheSanPhamId, maKenhCuaDong, kq.lyDo());
+                                return;
+                            }
+                            if (kq.thanhCong()) {
+                                lanDayTonCuoi.put(m.getKenhBanHang().getId(), Instant.now());
+                            } else {
+                                log.warn("[JOB-03 Real-time] Shopify không nhận tồn khẩn cấp SKU ID {}: {}", bienTheSanPhamId, kq.lyDo());
+                            }
+                            trangThaiDongBoSanPhamRepository.save(m);
+                        } catch (Exception e) {
+                            log.warn("Lỗi khi đẩy tồn khẩn cấp cho SKU {}: {}", bienTheSanPhamId, e.getMessage());
+                        }
+                    });
         }
     }
 
@@ -7180,6 +7194,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             int tonDem,
             int nguongVe0,
             Map<Integer, Boolean> laKhoTongMap) {
+        return tinhTonTheoLocationShopify(bienTheId, mappingCfg, tyLe, tonDem, nguongVe0, laKhoTongMap, null, 0);
+    }
+
+    Map<Long, Integer> tinhTonTheoLocationShopify(
+            Integer bienTheId,
+            KenhKhoMappingConfigDto mappingCfg,
+            BigDecimal tyLe,
+            int tonDem,
+            int nguongVe0,
+            Map<Integer, Boolean> laKhoTongMap,
+            Integer skuBufferPercent,
+            int effectiveRtThreshold) {
         if (bienTheId == null || mappingCfg == null || mappingCfg.getDanhSachKho() == null) {
             return Collections.emptyMap();
         }
@@ -7202,6 +7228,23 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             });
             boolean isTong = laKhoTongMap != null && laKhoTongMap.getOrDefault(khoId, false);
             inputs.add(new KhoTonInput(locId, khoId, isTong, kd));
+        }
+
+        if (skuBufferPercent != null && skuBufferPercent > 0) {
+            BigDecimal totalFtu = tonKhaDungTheoKhoMap.values().stream()
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (totalFtu.compareTo(BigDecimal.valueOf(Math.max(0, effectiveRtThreshold))) > 0) {
+                int safePct = Math.min(50, Math.max(0, skuBufferPercent));
+                BigDecimal remainFactor = BigDecimal.valueOf(100 - safePct);
+                inputs = inputs.stream()
+                        .map(in -> new KhoTonInput(
+                                in.locationId(),
+                                in.khoId(),
+                                in.laKhoTong(),
+                                in.khaDung().multiply(remainFactor).divide(BigDecimal.valueOf(100), 0, RoundingMode.FLOOR)))
+                        .toList();
+            }
         }
 
         return phanBoTonDemWaterfall(inputs, tyLe, tonDem, nguongVe0);
@@ -8303,6 +8346,37 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return so.min(BigDecimal.valueOf(Integer.MAX_VALUE)).intValue();
     }
 
+    /**
+     * Tính tồn đẩy lên sàn có áp dụng Buffer % giữ tồn POS riêng theo SKU ({@code bufferPercent})
+     * khi tồn kho vẫn trên ngưỡng kích hoạt đồng bộ tức thời {@code effectiveRtThreshold}.
+     */
+    static int tinhSoTonDayVoiSkuBuffer(
+            BigDecimal khaDung,
+            BigDecimal tyLe,
+            int tonDem,
+            int nguongVe0,
+            Integer skuBufferPercent,
+            int effectiveRtThreshold) {
+        BigDecimal kd = khaDung != null ? khaDung : BigDecimal.ZERO;
+        if (skuBufferPercent != null && skuBufferPercent > 0
+                && kd.compareTo(BigDecimal.valueOf(effectiveRtThreshold)) > 0) {
+            int safePct = Math.min(50, Math.max(0, skuBufferPercent));
+            kd = kd.multiply(BigDecimal.valueOf(100 - safePct))
+                    .divide(BigDecimal.valueOf(100), 0, RoundingMode.FLOOR);
+        }
+        return tinhSoTonDay(kd, tyLe, tonDem, nguongVe0);
+    }
+
+    private int resolveEffectiveRtThreshold(TrangThaiDongBoSanPham dong) {
+        if (dong != null && dong.getRealtimeThreshold() != null) {
+            return Math.max(0, dong.getRealtimeThreshold());
+        }
+        if (dieuHanhHeThongService != null) {
+            return Math.max(0, dieuHanhHeThongService.getCauHinhInt("REALTIME_SYNC_THRESHOLD", 3));
+        }
+        return 3;
+    }
+
     /** Quy tắc đẩy tồn đã lưu của kênh (chưa lưu thì 100%, tồn đệm 0, ngưỡng 0). */
     private DayTonKenhRequest quyTacDaLuu(String maKenh) {
         Integer khoId = SecurityContextHolder.getKhoId();
@@ -8326,7 +8400,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(8000);
         factory.setReadTimeout(15000);
-        return new RestTemplate(factory);
+        return com.dev.backend.services.omnichannel.OmnichannelTelemetryInterceptor.attach(new RestTemplate(factory));
     }
 
     private HttpHeaders createHeaders(String token) {
@@ -8376,7 +8450,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
             factory.setConnectTimeout(8000);
             factory.setReadTimeout(15000);
-            RestTemplate restTemplate = new RestTemplate(factory);
+            RestTemplate restTemplate = com.dev.backend.services.omnichannel.OmnichannelTelemetryInterceptor.attach(new RestTemplate(factory));
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Shopify-Access-Token", token);
@@ -11846,7 +11920,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         for (TrangThaiDongBoSanPham dong : dongCanDay) {
             BienTheSanPham bt = dong.getBienTheSanPham();
             if (bt == null || bt.getId() == null) continue;
-            int soDay = tinhSoTonDay(tinhKhaDungTheoKhoKenh(maKenh, bt.getId()), tyLe, tonDem, nguongVe0);
+            int soDay = tinhSoTonDayVoiSkuBuffer(
+                    tinhKhaDungTheoKhoKenh(maKenh, bt.getId()), tyLe, tonDem, nguongVe0,
+                    dong.getBufferPercent(), resolveEffectiveRtThreshold(dong));
 
             boolean daThanhCong = "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
             boolean soTonKhongDoi = dong.getSoLuongDaDay() != null && dong.getSoLuongDaDay().equals(soDay);

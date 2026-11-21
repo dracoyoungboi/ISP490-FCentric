@@ -51,7 +51,7 @@ public class ShopifyOrderProgressClient {
         };
         factory.setConnectTimeout(8000);
         factory.setReadTimeout(15000);
-        restTemplate = new RestTemplate(factory);
+        restTemplate = com.dev.backend.services.omnichannel.OmnichannelTelemetryInterceptor.attach(new RestTemplate(factory));
         objectMapper = new ObjectMapper();
     }
 

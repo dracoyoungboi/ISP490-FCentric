@@ -117,7 +117,7 @@ public class ShopifyMultiLocationClient {
         };
         factory.setConnectTimeout(5000);
         factory.setReadTimeout(12000);
-        return new RestTemplate(factory);
+        return com.dev.backend.services.omnichannel.OmnichannelTelemetryInterceptor.attach(new RestTemplate(factory));
     }
 
     public record OrderGraphMeta(String returnStatus, List<FulfillmentOrderSnapshot> fulfillmentOrders) {}
@@ -352,3 +352,4 @@ public class ShopifyMultiLocationClient {
         return root.path("data");
     }
 }
+

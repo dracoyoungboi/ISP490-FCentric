@@ -323,7 +323,9 @@ public class OmnichannelOrderSyncJob {
                         log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", maKenh);
                         continue;
                     }
-                    syncShopifyOrders(kenh, intervalMins);
+                    com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.callWith(
+                            maKenh, com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.JOB_SCHEDULED_BATCH,
+                            () -> syncShopifyOrders(kenh, intervalMins));
                 } else if (isLazada(maKenh)) {
                     if (isLazadaSandbox(maKenh)) {
                         log.debug("[JOB-01] Kênh {} (Sandbox) đã được vô hiệu hóa, bỏ qua", maKenh);
@@ -333,19 +335,25 @@ public class OmnichannelOrderSyncJob {
                         log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", maKenh);
                         continue;
                     }
-                    syncLazadaOrders(kenh, intervalMins);
+                    com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.callWith(
+                            maKenh, com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.JOB_SCHEDULED_BATCH,
+                            () -> syncLazadaOrders(kenh, intervalMins));
                 } else if (isTikTok(maKenh)) {
                     if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, maKenh)) {
                         log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", maKenh);
                         continue;
                     }
-                    syncTikTokOrders(kenh, intervalMins);
+                    com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.callWith(
+                            maKenh, com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.JOB_SCHEDULED_BATCH,
+                            () -> syncTikTokOrders(kenh, intervalMins));
                 } else if (isShopee(maKenh)) {
                     if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, maKenh)) {
                         log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", maKenh);
                         continue;
                     }
-                    syncShopeeOrders(kenh, intervalMins);
+                    com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.callWith(
+                            maKenh, com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.JOB_SCHEDULED_BATCH,
+                            () -> syncShopeeOrders(kenh, intervalMins));
                 }
             } catch (LoiCoMaException e) {
                 log.warn("[JOB-01] Kênh {} bỏ qua đợt lấy đơn: {}", maKenh, e.getMessage());
@@ -396,7 +404,7 @@ public class OmnichannelOrderSyncJob {
             SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
             factory.setConnectTimeout(8000);
             factory.setReadTimeout(15000);
-            RestTemplate restTemplate = new RestTemplate(factory);
+            RestTemplate restTemplate = com.dev.backend.services.omnichannel.OmnichannelTelemetryInterceptor.attach(new RestTemplate(factory));
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Shopify-Access-Token", token);

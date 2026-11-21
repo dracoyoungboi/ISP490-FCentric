@@ -503,7 +503,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             };
             factory.setConnectTimeout(3000);
             factory.setReadTimeout(5000);
-            RestTemplate restTemplate = new RestTemplate(factory);
+            RestTemplate restTemplate = com.dev.backend.services.omnichannel.OmnichannelTelemetryInterceptor.attach(new RestTemplate(factory));
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("X-Shopify-Access-Token", tokenToTest);
@@ -730,7 +730,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(5000);
         factory.setReadTimeout(10000);
-        RestTemplate restTemplate = new RestTemplate(factory);
+        RestTemplate restTemplate = com.dev.backend.services.omnichannel.OmnichannelTelemetryInterceptor.attach(new RestTemplate(factory));
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

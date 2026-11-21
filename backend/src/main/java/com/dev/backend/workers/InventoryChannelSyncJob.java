@@ -48,6 +48,10 @@ public class InventoryChannelSyncJob {
     @Autowired(required = false)
     ThongBaoHeThongService thongBaoHeThongService;
 
+    @NonFinal
+    @Autowired(required = false)
+    com.dev.backend.repository.TrangThaiDongBoSanPhamRepository trangThaiDongBoSanPhamRepository;
+
     /**
      * Trigger 1: Batch Scheduled - Heartbeat mỗi 60 giây, kiểm tra theo chu kỳ cấu hình OMNI_SYNC_INTERVAL_MINS
      */
@@ -87,17 +91,21 @@ public class InventoryChannelSyncJob {
                         .build();
                 // Luồng @Scheduled không có phiên JPA như request HTTP: thiếu phiên thì đọc quan hệ LAZY của dòng liên kết
                 // bị "no session". Không bọc @Transactional cả đợt: một SKU lỗi sẽ rollback cả các SKU đã đẩy.
-                DongBoNgayService.chayTrongPhienJpa(entityManagerFactory, () -> {
-                    var result = kenhBanHangDongBoService.dayTonKhoLenKenh(kenh.getMaKenh(), req);
-                    if (result.getLoiKenh() != null) {
-                        log.warn("[JOB-03 Batch] Đồng bộ tồn kho định kỳ kênh {}: {} SKU thành công, {} SKU lỗi, {} SKU chưa đẩy — {}",
-                                kenh.getMaKenh(), result.getSoDong(), result.getSoLoi(), result.getSoChuaDay(), result.getLoiKenh());
-                    } else {
-                        log.info("[JOB-03 Batch] Đồng bộ tồn kho định kỳ kênh {}: {} SKU thành công, {} SKU lỗi",
-                                kenh.getMaKenh(), result.getSoDong(), result.getSoLoi());
-                    }
-                    if (thongBaoHeThongService != null) thongBaoHeThongService.ketQuaDayTon(kenh, result.getLoiKenh());
-                });
+                DongBoNgayService.chayTrongPhienJpa(entityManagerFactory, () ->
+                        com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.runWith(
+                                kenh.getMaKenh(),
+                                com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.JOB_SCHEDULED_BATCH,
+                                () -> {
+                                    var result = kenhBanHangDongBoService.dayTonKhoLenKenh(kenh.getMaKenh(), req);
+                                    if (result.getLoiKenh() != null) {
+                                        log.warn("[JOB-03 Batch] Đồng bộ tồn kho định kỳ kênh {}: {} SKU thành công, {} SKU lỗi, {} SKU chưa đẩy — {}",
+                                                kenh.getMaKenh(), result.getSoDong(), result.getSoLoi(), result.getSoChuaDay(), result.getLoiKenh());
+                                    } else {
+                                        log.info("[JOB-03 Batch] Đồng bộ tồn kho định kỳ kênh {}: {} SKU thành công, {} SKU lỗi",
+                                                kenh.getMaKenh(), result.getSoDong(), result.getSoLoi());
+                                    }
+                                    if (thongBaoHeThongService != null) thongBaoHeThongService.ketQuaDayTon(kenh, result.getLoiKenh());
+                                }));
             } catch (Exception e) {
                 log.warn("[JOB-03 Batch] Lỗi đồng bộ tồn kho kênh {}: {}", kenh.getMaKenh(), e.getMessage());
                 if (thongBaoHeThongService != null) {
@@ -111,6 +119,7 @@ public class InventoryChannelSyncJob {
 
     /**
      * Trigger 2: Real-time Event-driven - Bắt sự kiện khi tồn kho thực tế < REALTIME_SYNC_THRESHOLD
+     * hoặc <= ngưỡng riêng Threshold_RT,k của SKU liên kết sàn.
      */
     @EventListener
     public void onInventoryDeducted(InventoryDeductedEvent event) {
@@ -120,7 +129,28 @@ public class InventoryChannelSyncJob {
         }
         threshold = Math.max(0, Math.min(threshold, 100));
 
-        if (event.getSoLuongTonConLai() != null && event.getSoLuongTonConLai().compareTo(BigDecimal.valueOf(threshold)) < 0) {
+        BigDecimal remaining = event.getSoLuongTonConLai();
+        if (remaining == null) {
+            return;
+        }
+        boolean vuotNguongToanCuc = remaining.compareTo(BigDecimal.valueOf(threshold)) < 0;
+        boolean vuotNguongRieng = false;
+        if (!vuotNguongToanCuc && trangThaiDongBoSanPhamRepository != null && event.getBienTheSanPhamId() != null) {
+            var mappings = trangThaiDongBoSanPhamRepository.findByBienTheSanPhamId(event.getBienTheSanPhamId());
+            if (mappings != null) {
+                for (var m : mappings) {
+                    if (m.getRealtimeThreshold() != null
+                            && m.getKenhBanHang() != null
+                            && Integer.valueOf(1).equals(m.getKenhBanHang().getTrangThai())
+                            && remaining.compareTo(BigDecimal.valueOf(Math.max(0, m.getRealtimeThreshold()))) <= 0) {
+                        vuotNguongRieng = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (vuotNguongToanCuc || vuotNguongRieng) {
             List<KenhBanHang> activeChannels = kenhBanHangRepository.findByTrangThai(1);
             boolean coKenhDay = false;
             if (activeChannels != null) {
@@ -137,10 +167,13 @@ public class InventoryChannelSyncJob {
                 return;
             }
 
-            log.warn("[JOB-03 Real-time] CẢNH BÁO TỒN KHO THẤP: SKU ID {} chỉ còn {} đơn vị (< {} units theo cấu hình). Kích hoạt đẩy tồn tức thì!",
-                    event.getBienTheSanPhamId(), event.getSoLuongTonConLai(), threshold);
+            log.warn("[JOB-03 Real-time] CẢNH BÁO TỒN KHO THẤP: SKU ID {} chỉ còn {} đơn vị (< {} units hoặc chạm Threshold_RT). Kích hoạt đẩy tồn tức thì!",
+                    event.getBienTheSanPhamId(), remaining, threshold);
             try {
-                kenhBanHangDongBoService.dayTonKhoKhanCap(event.getBienTheSanPhamId());
+                com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.runWith(
+                        null,
+                        com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.JOB_REALTIME_CRITICAL,
+                        () -> kenhBanHangDongBoService.dayTonKhoKhanCap(event.getBienTheSanPhamId()));
             } catch (Exception e) {
                 log.error("[JOB-03 Real-time] Lỗi đẩy tồn khẩn cấp SKU ID {}: {}", event.getBienTheSanPhamId(), e.getMessage());
             }

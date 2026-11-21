@@ -63,7 +63,7 @@ public class TikTokShopClient {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(CONNECT_TIMEOUT_MS);
         factory.setReadTimeout(READ_TIMEOUT_MS);
-        this.restTemplate = new RestTemplate(factory);
+        this.restTemplate = com.dev.backend.services.omnichannel.OmnichannelTelemetryInterceptor.attach(new RestTemplate(factory));
         this.objectMapper = new ObjectMapper();
     }
 
