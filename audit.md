@@ -139,6 +139,7 @@
 | **AUDIT-121** | `2026-11-21 04:50:00` | PhanAnh & Antigravity AI | Bug Fix & Sync / Khắc phục kẹt trạng thái `SKU chờ đẩy` trên Shopify Đa kho & Chặn xử lý sớm đơn COD Shopee ở trạng thái Chờ xác nhận (`UNPAID` vs `READY_TO_SHIP`) | `LienKetSanPhamDto.java`, `DonBanHangDto.java`, `DonBanHangDetailResponse.java`, `DonBanHangMapper.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJob.java`, `DonBanHangService.java`, `banHang.properties`, `banHang_en.properties`, `ChannelMappingsPage.jsx`, `SyncLogDetailSheet.jsx`, `channel.js`, `tinhDonBan.js`, `DonBanHangDetail.jsx`, `DonBanHangList.jsx`, `ChannelOrdersPage.jsx`, `ban-hang.json`, `hang-so.json`, `trang-thai.json`, `KenhBanHangLienKetTheoSanPhamTest.java`, `KenhBanHangShopifyMultiLocationTest.java`, `OmnichannelOrderSyncJobTest.java`, `DonBanHangServiceSendToWarehouseTest.java`, `DonBanHangServiceCancellationTest.java`, `tinhDonBan.test.js`, `nhomLienKet.test.js`, `audit.md` | (1) **Shopify Đa kho**: Bổ sung `soLuongSeDay` vào `LienKetSanPhamDto` và tính đồng nhất theo lô qua `tinhSoLuongSeDayTheoBienThe` (`phanBoTonDemWaterfall` theo các Location Shopify đang bật); sửa `ChannelMappingsPage.jsx` & `SyncLogDetailSheet.jsx` ưu tiên dùng `dong.soLuongSeDay` thay cho công thức đơn kho trên tổng chuỗi gây kẹt `→ sẽ đẩy ...` dù Delta Sync đã đẩy xong; gia cố `khongDoi` kiểm tra khớp `dong.soLuongDaDay` và xóa snapshot `SHOPIFY_TON_DA_DAY_KHO` khi lưu mapping kho mới; (2) **Shopee COD `UNPAID` vs `READY_TO_SHIP`**: Gắn cờ `[SHOPEE_CHO_XAC_NHAN]` cho đơn `UNPAID` (không sinh giả mã `SPXVN`, không báo `demDonNhapMoi`), chỉ cho phép xem tại FE/BE (khóa `sendToWarehouse`, `cancel`, `layVanDonSan`, ẩn nút gửi kho/hủy/in vận đơn, gắn badge `Chờ xác nhận sàn`), và tự động gỡ cờ mở khóa Gửi sang kho + thông báo đơn khi Shopee chuyển sang `READY_TO_SHIP` (Chờ lấy hàng - Chưa xử lý). Hậu gộp `origin/Dev`: Backend targeted suite 351/351 PASS, Frontend 31/31 JS tests, 721/721 `i18n:kiem` & `vite build` PASS. |
 | **AUDIT-122** | `2026-11-21 12:58:00` | PhanAnh & Antigravity AI | Bug Fix & Verify / Sửa lỗi `SQL_SYNTAX` JPQL `FOR SHARE`, chuẩn hóa thanh toán Shopee COD vs Ví điện tử (`UNPAID`), chặn gọi `shipOrderAuto` cho đơn chưa xác nhận và đồng bộ test `dsDiaDiem` | `PhanQuyenNguoiDungKhoRepository.java`, `OmnichannelOrderSyncJob.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJobTest.java`, `KenhBanHangDongBoServiceTest.java`, `audit.md` | Chuyển `PhanQuyenNguoiDungKhoRepository.dauQuanLyChinhMoiNhat` từ native SQL `FOR SHARE` sang JPQL + `@Lock(LockModeType.PESSIMISTIC_READ)` (hết lỗi `SQL_SYNTAX`, nạp full `BackendApplicationTests` / 94 JPA repositories); sửa `OmnichannelOrderSyncJob` không đánh dấu `da_thanh_toan` sớm cho đơn Ví điện tử `UNPAID` hay đơn COD dạng `"Cash on Delivery"` (`laPhuongThucCodShopee` & `xacDinhTrangThaiThanhToanShopee` kèm tự chữa đơn cũ); thêm lớp chắn trong `dongBoTrangThaiChuanBiHangShopee` chặn gọi `shipOrderAuto` nếu còn cờ `[SHOPEE_CHO_XAC_NHAN]`; cập nhật fixture `dsDiaDiem_danhDauVaXepDiaDiemMacDinhLenDau` theo quy chuẩn lọc bỏ `legacy`/`inactive`. Backend **435/435 PASS** (gồm `BackendApplicationTests`), Frontend **72/72 tests**, **721/721 i18n:kiem** & `vite build` PASS. |
 | **AUDIT-123** | `2026-11-21 14:53:00` | PhanAnh & Antigravity AI | Fix UX & Guard / Khắc phục sập màn hình "Sản phẩm" trên tất cả kênh đồng bộ (`SyncLogDetailSheet` đọc `lienKet.soLuongSeDay` khi `lienKet` đang `null`) | `nhomLienKet.js`, `SyncLogDetailSheet.jsx`, `ChannelMappingsPage.jsx`, `nhomLienKet.test.js`, `audit.md` | Tìm ra nguyên nhân gốc: sau thay đổi ở `AUDIT-121`, `SyncLogDetailSheet` tính `seDay` trước đoạn kiểm tra `{lienKet ? ...}` trong khi `chiTiet` truyền vào mặc định là `null` khi mới mở trang (`undefined !== "chua_lien_ket"` thành `true` -> ném `TypeError: Cannot read properties of null (reading 'soLuongSeDay')`, kích hoạt `ErrorBoundary` trên mọi kênh Shopify, Lazada, TikTok Shop, Shopee). Khắc phục: rút hàm thuần `conDongBo` (an toàn `null`) & `tinhSoSeDay` về `nhomLienKet.js`, dùng chung ở cả `SyncLogDetailSheet.jsx` lẫn `ChannelMappingsPage.jsx`, bổ sung unit test cho trường hợp `null`/`undefined`. Đạt **73/73** JS tests, **0** lỗi ESLint, **721/721 i18n:kiem** & `vite build` PASS. |
+| **AUDIT-124** | `2026-11-21 16:31:00` | PhanAnh & Antigravity AI | Feat & Analytics / Triển khai DSS gợi ý nhập hàng động (FE-04.4 Pareto 70/20/10 & 4 Kịch bản) và Hệ thống Telemetry / Throttling Guard 85% / Buffer% & Threshold_RT Đa kênh | `migration-2026-11-21-dss-va-omnichannel-metric.sql`, `DssTableInitializer.java`, `LichSuDongBoMetric.java`, `LichSuDongBoMetricRepository.java`, `TrangThaiDongBoSanPham.java`, `ITable.java`, `IHanhDong.java`, `dss.properties`, `dss_en.properties`, `dto/dss/*`, `dto/omnichannel/*`, `DssReplenishmentRepository.java`, `HangNhapKhoTongRepository.java`, `TongQuanAdminRepository.java`, `DieuHanhHeThongServiceImpl.java`, `DssPolicyEngine.java`, `DssReplenishmentService.java`, `DssSyncJob.java`, `services/omnichannel/*`, `InventoryChannelSyncJob.java`, `OmnichannelOrderSyncJob.java`, `KenhBanHangDongBoServiceImpl.java`, `KenhBanHangServiceImpl.java`, `LazadaClient.java`, `ShopeeClient.java`, `TikTokShopClient.java`, `ShopifyMultiLocationClient.java`, `ShopifyOrderProgressClient.java`, `ShopifyOrderSnapshotClient.java`, `ShopifyRealtimeRegistration.java`, `ShopifyWebhookService.java`, `DssReplenishmentController.java`, `OmnichannelAnalyticsController.java`, `dssService.js`, `omnichannelAnalyticsService.js`, `components/order/dss/*`, `DssReplenishmentPage.jsx`, `OmnichannelAnalyticsPage.jsx`, `ChannelSyncDashboard.jsx`, `App.jsx`, `index.css`, `sidebar.config.js`, `en/mua-hang.json`, `en/kenh-ban.json`, `DieuHanhHeThongDynamicConfigTest.java`, `DieuHanhHeThongDssConfigTest.java`, `DssPolicyEngineTest.java`, `DssReplenishmentControllerTest.java`, `OmnichannelAnalyticsServiceTest.java`, `OmnichannelTelemetryInterceptorTest.java`, `audit.md` | **Phần 1 — DSS Nhập hàng (FE-04.4)**: Trích xuất biến động (`OnHand`, `Outgoing`, `Incoming`, `FTU`, nhu cầu ngày `N` ngày `D_avg`/`D_max`/`sigma_D`, lead time `M=10` PO `L_avg`/`L_max` mặc định `5/7`), phân nhóm **Pareto 70/20/10** + lọc tồn chết 30 ngày, 4 kịch bản (`PRESET_01_STANDARD`, `PRESET_02_PEAK`, `PRESET_03_LEAN`, `PRESET_04_PHASE_OUT`) theo `BY_ABC_CLASS` (`A->PEAK`, `B->STANDARD`, `C->LEAN`) hoặc `GLOBAL_PRESET`; Job đêm `02:00` đồng bộ `nguong_canh_bao` trong `canh_bao` (`ton_kho_thap`) và nối ROP động vào `HangNhapKhoTongRepository` & `TongQuanAdminRepository`; Trang `/purchase-requests/dss` hỗ trợ mô phỏng What-If tức thì (`dssFormula.js`) và tạo PR 1-Click. **Phần 2 — Telemetry & Đa kênh**: Gắn `OmnichannelTelemetryInterceptor` lên toàn bộ 13 điểm `RestTemplate` + webhook inbound (`ShopifyWebhookService`) ghi `lich_su_dong_bo_metric`, thêm Throttling Guard (`RateLimitUtilization >= 85%` -> hoãn `+500ms` ở `SCHEDULED_BATCH`, giữ `0ms` ở `REALTIME_CRITICAL`), `METRIC_01..06` tại `/channels/analytics`, cùng `buffer_percent` (`r_POS,k`) & `realtime_threshold` (`Threshold_RT,k`) động trên `trang_thai_dong_bo_san_pham` áp dụng vào 4 sàn (TikTok, Lazada, Shopee, Shopify đơn/đa kho). Backend **336/336 PASS** (`16` test suites gồm `BackendApplicationTests`), Frontend **730/730 `i18n:kiem`**, **673 pass / 0 fail** (1 skip có sẵn) `node --test`, **0** lỗi ESLint, `vite build` PASS (`16.89s`). |
 
 
 ---
@@ -4751,3 +4752,123 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
 
 
 
+---
+
+### [AUDIT-124] TRIỂN KHAI DSS GỢI Ý NHẬP HÀNG ĐỘNG (FE-04.4 PARETO 70/20/10 & 4 KỊCH BẢN) VÀ HỆ THỐNG TELEMETRY / THROTTLING GUARD 85% / BUFFER% & THRESHOLD_RT ĐA KÊNH
+
+- **Thời gian (GMT+7):** `2026-11-21 16:31:00`
+- **Tác giả thực hiện:** PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng:**
+  - `Database Migration & Startup Schema Initializer`
+  - `Backend Configuration (DieuHanhHeThongServiceImpl)`
+  - `Backend DSS Replenishment Engine (FE-04.4, Pareto 70/20/10, 4 Kịch bản, CanhBao ROP Sync)`
+  - `Backend Omnichannel Telemetry, Rate Limit Throttling Guard & Dynamic Buffer/RT Sync`
+  - `Frontend DSS Replenishment UI (/purchase-requests/dss)` & `Omnichannel Analytics UI (/channels/analytics)`
+  - `Frontend & Backend i18n` + `Unit / Integration Tests`
+- **Tệp thay đổi:**
+  - DB / Schema / Config:
+    + `Database/migration-2026-11-21-dss-va-omnichannel-metric.sql`
+    + `backend/src/main/java/com/dev/backend/config/DssTableInitializer.java`
+  - Entity / Constant / i18n Backend:
+    + `backend/src/main/java/com/dev/backend/entities/LichSuDongBoMetric.java`
+    + `backend/src/main/java/com/dev/backend/repository/LichSuDongBoMetricRepository.java`
+    + `backend/src/main/java/com/dev/backend/entities/TrangThaiDongBoSanPham.java`
+    + `backend/src/main/java/com/dev/backend/constant/variables/ITable.java`
+    + `backend/src/main/java/com/dev/backend/constant/variables/IHanhDong.java`
+    + `backend/src/main/resources/i18n/thong-diep/dss.properties`
+    + `backend/src/main/resources/i18n/thong-diep/dss_en.properties`
+  - DTOs:
+    + `backend/src/main/java/com/dev/backend/dto/dss/DssConfigDto.java`
+    + `backend/src/main/java/com/dev/backend/dto/dss/DssConfigUpdateRequest.java`
+    + `backend/src/main/java/com/dev/backend/dto/dss/DssRecommendationItemDto.java`
+    + `backend/src/main/java/com/dev/backend/dto/dss/DssReplenishmentResponse.java`
+    + `backend/src/main/java/com/dev/backend/dto/dss/DssSummaryDto.java`
+    + `backend/src/main/java/com/dev/backend/dto/omnichannel/ApplySyncRecommendationsRequest.java`
+    + `backend/src/main/java/com/dev/backend/dto/omnichannel/OmnichannelAnalyticsOverviewDto.java`
+    + `backend/src/main/java/com/dev/backend/dto/omnichannel/OmnichannelSyncRecommendationDto.java`
+  - Repository & DSS Engine / Worker / Controller:
+    + `backend/src/main/java/com/dev/backend/repository/DssReplenishmentRepository.java`
+    + `backend/src/main/java/com/dev/backend/repository/HangNhapKhoTongRepository.java`
+    + `backend/src/main/java/com/dev/backend/repository/TongQuanAdminRepository.java`
+    + `backend/src/main/java/com/dev/backend/services/impl/multitable/DieuHanhHeThongServiceImpl.java`
+    + `backend/src/main/java/com/dev/backend/services/impl/dss/DssPolicyEngine.java`
+    + `backend/src/main/java/com/dev/backend/services/impl/dss/DssReplenishmentService.java`
+    + `backend/src/main/java/com/dev/backend/workers/DssSyncJob.java`
+    + `backend/src/main/java/com/dev/backend/controller/DssReplenishmentController.java`
+  - Omnichannel Telemetry, Throttling & Dynamic Buffer/RT:
+    + `backend/src/main/java/com/dev/backend/services/omnichannel/OmnichannelTelemetryContext.java`
+    + `backend/src/main/java/com/dev/backend/services/omnichannel/OmnichannelRateLimitState.java`
+    + `backend/src/main/java/com/dev/backend/services/omnichannel/OmnichannelTelemetryRecorder.java`
+    + `backend/src/main/java/com/dev/backend/services/omnichannel/OmnichannelTelemetryInterceptor.java`
+    + `backend/src/main/java/com/dev/backend/services/omnichannel/OmnichannelAnalyticsService.java`
+    + `backend/src/main/java/com/dev/backend/controller/OmnichannelAnalyticsController.java`
+    + `backend/src/main/java/com/dev/backend/workers/InventoryChannelSyncJob.java`
+    + `backend/src/main/java/com/dev/backend/workers/OmnichannelOrderSyncJob.java`
+    + `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+    + `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangServiceImpl.java`
+    + `backend/src/main/java/com/dev/backend/services/lazada/LazadaClient.java`
+    + `backend/src/main/java/com/dev/backend/services/shopee/ShopeeClient.java`
+    + `backend/src/main/java/com/dev/backend/services/tiktok/TikTokShopClient.java`
+    + `backend/src/main/java/com/dev/backend/services/shopify/ShopifyMultiLocationClient.java`
+    + `backend/src/main/java/com/dev/backend/services/shopify/ShopifyOrderProgressClient.java`
+    + `backend/src/main/java/com/dev/backend/services/shopify/ShopifyOrderSnapshotClient.java`
+    + `backend/src/main/java/com/dev/backend/services/shopify/ShopifyRealtimeRegistration.java`
+    + `backend/src/main/java/com/dev/backend/services/shopify/ShopifyWebhookService.java`
+  - Frontend & i18n:
+    + `frontend/src/services/dssService.js`
+    + `frontend/src/services/omnichannelAnalyticsService.js`
+    + `frontend/src/components/order/dss/dssFormula.js`
+    + `frontend/src/components/order/dss/DssScenarioCards.jsx`
+    + `frontend/src/components/order/dss/DssParameterPanel.jsx`
+    + `frontend/src/components/order/dss/DssRecommendationTable.jsx`
+    + `frontend/src/components/order/dss/DssCreatePrModal.jsx`
+    + `frontend/src/pages/order/DssReplenishmentPage.jsx`
+    + `frontend/src/pages/channels/OmnichannelAnalyticsPage.jsx`
+    + `frontend/src/pages/channels/ChannelSyncDashboard.jsx`
+    + `frontend/src/App.jsx`
+    + `frontend/src/index.css`
+    + `frontend/src/components/backoffice/sidebar.config.js`
+    + `frontend/src/i18n/en/mua-hang.json`
+    + `frontend/src/i18n/en/kenh-ban.json`
+  - Kiểm thử:
+    + `backend/src/test/java/com/dev/backend/services/impl/multitable/DieuHanhHeThongDynamicConfigTest.java`
+    + `backend/src/test/java/com/dev/backend/services/impl/multitable/DieuHanhHeThongDssConfigTest.java`
+    + `backend/src/test/java/com/dev/backend/services/impl/dss/DssPolicyEngineTest.java`
+    + `backend/src/test/java/com/dev/backend/controller/DssReplenishmentControllerTest.java`
+    + `backend/src/test/java/com/dev/backend/services/omnichannel/OmnichannelAnalyticsServiceTest.java`
+    + `backend/src/test/java/com/dev/backend/services/omnichannel/OmnichannelTelemetryInterceptorTest.java`
+    + `frontend/src/components/order/dss/dssFormula.test.js`
+    + `audit.md`
+
+#### Mục tiêu & Bối cảnh bài toán
+1. **Bài toán gợi ý nhập hàng tĩnh trước đây:**
+   - Ngưỡng tồn kho tối thiểu trước đây dùng hằng số cứng (ví dụ `10` trong các truy vấn bổ sung hàng), chưa bóc tách được biến động sức bán (`D_avg`, `D_max`, `sigma_D`), thời gian giao hàng nhà cung cấp (`L_avg`, `L_max`), tồn đang về (`Incoming`) hay tồn treo đơn (`Outgoing` chưa trừ kho), chưa phân loại Pareto 70/20/10 và chưa đổi linh hoạt theo 4 giai đoạn kinh doanh.
+2. **Bài toán quan sát hiệu năng & tối ưu đẩy tồn đa kênh:**
+   - Hệ thống chưa có tầng telemetry tập trung đo tỷ lệ gọi API thành công/lỗi HTTP 429, độ trễ đồng bộ, tần suất oversell khi cận đáy tồn hay mức sử dụng quota sàn (`RateLimitUtilization`) để tự động giảm tốc cho job nền (`SCHEDULED_BATCH`) hoặc hiệu chỉnh động `buffer_percent` (`r_POS,k`) & `realtime_threshold` (`Threshold_RT,k`) theo từng SKU.
+
+#### Giải pháp kỹ thuật & Chi tiết triển khai
+1. **Phần 1 — DSS Gợi ý nhập hàng động (FE-04.4):**
+   - **Tham số động trong `cau_hinh_he_thong` (`DieuHanhHeThongServiceImpl`):** Tự động seed 12 khóa `CAU_HINH_DSS_*` kèm kiểm tra biên an toàn (`N_DAYS_DEMAND`, `M_ORDERS_LEAD_TIME`, `DEFAULT_LEAD_TIME_AVG`, `DEFAULT_LEAD_TIME_MAX`, `CHE_DO_AP_DUNG`, `KICH_BAN_CHUAN`, `Z_SCORE_CHUAN`, `HE_SO_DEM_CHUAN`, `Z_SCORE_CAO_DIEM`, `HE_SO_DEM_CAO_DIEM`, `DIEM_DAT_MUC_THAP_C`, `NGAY_TON_CHET`).
+   - **Trích xuất biến & Phân nhóm Pareto (`DssReplenishmentRepository` + `DssPolicyEngine`):**
+     + Tính `OnHand` (Kho Tổng), `Outgoing` (đơn trạng thái `0, 1, 2, 3, 7`), `Incoming` (PO trạng thái `1, 2, 3`), `FTU` (`OnHand - Outgoing`), nhu cầu ngày trong `N` ngày (`D_avg`, `D_max`, `sigma_D`), và lead time từ `M = 10` PO hoàn tất gần nhất (`L_avg = 5`, `L_max = 7` khi chưa có lịch sử).
+     + Phân hạng **Pareto 70/20/10** theo doanh thu `N` ngày (tích lũy trước khi cộng mục hiện tại: `< 0.70 -> A`, `< 0.90 -> B`, còn lại `C`; `doanhThu <= 0 -> C`) và nhận diện **hàng tồn chết** (`>= 30` ngày không có phát sinh xuất bán và `OnHand > 0`).
+   - **4 Kịch bản điều phối:** `PRESET_01_STANDARD`, `PRESET_02_PEAK`, `PRESET_03_LEAN`, `PRESET_04_PHASE_OUT` theo 2 chế độ `BY_ABC_CLASS` (`A->PEAK`, `B->STANDARD`, `C->LEAN`) và `GLOBAL_PRESET`.
+   - **Đồng bộ ROP về DB & Cảnh báo dashboard:** `DssSyncJob` (hàng đêm `02:00`) cập nhật `canh_bao` (`loai_canh_bao = 'ton_kho_thap'`, `nguong_canh_bao = rop`) không làm rơi ngoại lệ nền; nối `canh_bao.nguong_canh_bao` vào `HangNhapKhoTongRepository` và `TongQuanAdminRepository`.
+   - **REST API & Giao diện:** `DssReplenishmentController` (`/api/v1/dss/replenishment/*` bảo vệ bằng `@RequireAuth`) và trang `/purchase-requests/dss` (`DssReplenishmentPage.jsx`, các thẻ kịch bản, bảng gợi ý, thanh What-If dùng `dssFormula.js` tính tức thì trên client không gọi API thừa, và modal tạo nhanh PR 1-Click qua `yeu-cau-mua-hang`).
+2. **Phần 2 — Omnichannel Telemetry, Throttling Guard 85% & Dynamic Buffer/RT:**
+   - **Schema & Startup Safe (`migration-2026-11-21-dss-va-omnichannel-metric.sql` + `DssTableInitializer`):** Tạo bảng `lich_su_dong_bo_metric` và bổ sung cột `buffer_percent`, `realtime_threshold` cho `trang_thai_dong_bo_san_pham` cả bằng SQL migration và initializer an toàn `ddl-auto=none`.
+   - **Telemetry Interceptor & Throttling Guard 85% (`services/omnichannel/*`):**
+     + Gắn `OmnichannelTelemetryInterceptor.attach(...)` lên toàn bộ 13 điểm khởi tạo `RestTemplate` (`LazadaClient`, `ShopeeClient`, `TikTokShopClient`, `ShopifyMultiLocationClient`, `ShopifyOrderProgressClient`, `ShopifyOrderSnapshotClient`, `ShopifyRealtimeRegistration`, `OmnichannelOrderSyncJob`, `KenhBanHangServiceImpl:506,733`, `KenhBanHangDongBoServiceImpl:288,8329,8379`) và ghi nhận sự kiện inbound từ `ShopifyWebhookService`.
+     + `OmnichannelRateLimitState` đọc header/limit từ Shopee, Shopify, TikTok, Lazada; khi `RateLimitUtilization >= 85%`, ngữ cảnh `SCHEDULED_BATCH` tự động hoãn `+500ms` trước khi gọi sàn để nhường quota, trong khi `REALTIME_CRITICAL` giữ độ trễ `+0ms`.
+   - **Hệ chỉ số `METRIC_01..06` & Tự tối ưu theo SKU (`OmnichannelAnalyticsService`, `OmnichannelAnalyticsController`, `OmnichannelAnalyticsPage.jsx`):**
+     + Tính toán `METRIC_01..06`, tổng hợp `OmnichannelAnalyticsOverviewDto` và đề xuất cặp `buffer_percent` (`r_POS,k`) & `realtime_threshold` (`Threshold_RT,k`) cho từng SKU theo kênh/sản phẩm tại `/channels/analytics`.
+     + Nối `tinhSoTonDayVoiSkuBuffer` và `resolveEffectiveRtThreshold` vào `InventoryChannelSyncJob` và cả 4 luồng đẩy tồn của `KenhBanHangDongBoServiceImpl` (TikTok Shop, Lazada, Shopify đơn/đa kho, đẩy khẩn cấp `dayTonKhoKhanCap`, và Shopee).
+
+#### Kết quả kiểm thử & Đối soát hồi quy
+- **Backend (`mvnw test` trên 16 test suites sau lần sửa cuối):**
+  + `DieuHanhHeThongDynamicConfigTest`, `DieuHanhHeThongDssConfigTest`, `DssPolicyEngineTest`, `DssReplenishmentControllerTest`, `OmnichannelAnalyticsServiceTest`, `OmnichannelTelemetryInterceptorTest`, `InventoryChannelSyncJobTest`, `HangNhapKhoTongServiceTest`, `TongQuanHangCanBoSungTest`, `IRoleTypeTest`, `EndpointCanDangNhapTest`, `ShopifyWebhookServiceTest`, `KenhBanHangDongBoServiceTest`, `KenhBanHangShopifyMultiLocationTest`, `OmnichannelOrderSyncJobTest`, `BackendApplicationTests`: **336/336 tests PASS (`Failures: 0, Errors: 0, Skipped: 0`)** (`BUILD SUCCESS` trong `59.856s`).
+- **Frontend:**
+  + **i18n (`npm run i18n:kiem`):** **730/730 tệp sạch (`Chưa bọc: 0`, `Thiếu bản dịch: 0`, `Lệch: 0`)**.
+  + **Unit Tests (`node --test @(git ls-files "src/**/*.test.js")`):** **673 pass, 0 fail** (trong tổng số 674 tests, gồm 1 test skip có sẵn).
+  + **ESLint (`npx eslint` trên 12 tệp tạo/sửa):** **0 errors, 0 warnings**.
+  + **Production Build (`npm run build` / `vite build`):** **PASS** (hoàn tất trong `16.89s`).
