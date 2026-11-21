@@ -215,7 +215,8 @@ function BieuDoNgay({ p, tuNgay }) {
           <YAxis allowDecimals={false} tick={{ fill: MAU2.chu, fontSize: 12 }} tickLine={false} axisLine={false} width={30} />
           <Tooltip isAnimationActive={false} formatter={(v) => [t("{{soLuong}} sản phẩm", { soLuong: formatNumber(v), count: v }), t("Đã bán")]} labelFormatter={(l) => t("Ngày {{l}}", { l })}
             contentStyle={{ borderRadius: 8, borderColor: "#e1e6ec", fontSize: 12 }} />
-          <Area dataKey="sl" type="linear" stroke="none" fill={MAU2.nenVung} isAnimationActive={false} />
+          {/* Lớp nền chỉ để tô vùng: không vào ô gợi ý, không chấm khi rê chuột (đường Line đã có) */}
+          <Area dataKey="sl" type="linear" stroke="none" fill={MAU2.nenVung} tooltipType="none" activeDot={false} isAnimationActive={false} />
           <Line dataKey="sl" type="linear" stroke={MAU2.chinh} strokeWidth={2} dot={false} isAnimationActive={false} />
         </ComposedChart>
       </KhungBieuDo>
