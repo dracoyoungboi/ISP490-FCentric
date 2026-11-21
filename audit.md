@@ -138,6 +138,7 @@
 | **AUDIT-120** | `2026-11-19 21:15:00` | PhanAnh & Antigravity AI | Feat, Perf & Architecture / Hoàn thiện Đa kho phân tán Shopify Plan V2 (100% cô lập Shopify: PA 1 Waterfall Buffer, điều tiết Kho Tổng & phân quyền QLK, move/pickup/tracking 2026-04, Delta Sync theo Location) | `ShopifyMultiLocationClient.java`, `ShopifyOrderRoutingService.java`, `ShopifyOrderSnapshotClient.java`, `ShopifyOrderRoutingMeta.java`, `DonBanHangDetailResponse.java`, `KhoKhaDungDto.java`, `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJob.java`, `DonBanHangService.java`, `DongGoiServiceImpl.java`, `DonBanHangController.java`, `banHang.properties`, `banHang_en.properties`, `tinhDonBan.js`, `chonKho.js`, `DanhSachChonKho.jsx`, `BangMappingKhoSan.jsx`, `DonBanHangDetail.jsx`, `DonBanHangList.jsx`, `en/ban-hang.json`, `en/kenh-ban.json`, `IRoleTypeTest.java`, `ShopifyMultiLocationClientTest.java`, `ShopifyOrderRoutingServiceTest.java`, `ShopifyMultiLocationInventoryTest.java`, `KenhBanHangShopifyMultiLocationTest.java`, `DonBanHangShopifyDispatchTest.java`, `OmnichannelOrderSyncJobTest.java`, `tinhDonBan.test.js`, `chonKho.test.js`, `audit.md` | Triển khai trọn vẹn **Plan V2 (100% cô lập cho Shopify)**: (1) Bổ sung `ShopifyMultiLocationClient` (GraphQL 2026-04 batch `fulfillmentOrders`, `fulfillmentOrderMove`, `fulfillmentOrderLineItemsPreparedForPickup`, REST `inventory_levels/connect.json`) và `ShopifyOrderRoutingService` (lưu bền `SHOPIFY_DON_DINH_TUYEN` trong `cau_hinh_he_thong`, zero-DDL do `ddl-auto=none`); (2) Chuyển phân bổ tồn đệm đa kho Shopify sang **PA 1 Waterfall** (rút từ kho tồn cao nhất, bằng nhau ưu tiên Kho Tổng, nếu mọi kho `< buffer` rút lũy tiến tới đủ buffer), lọc bỏ location `inactive`/`legacy`, auto-connect Location 404/422 và chuẩn hóa Delta Sync theo từng cặp `(bienTheId, locationId)` (`SHOPIFY_TON_DA_DAY_KHO`); (3) Giữ đơn Shopify Nháp (`0`) luôn ở Kho Tổng, lưu gợi ý định tuyến & badge `Nhận tại cửa hàng` / `Đơn tách nhiều kho`, cô lập quyền `PUT /send-to-warehouse` cho **Quản lý Kho Tổng** chỉ trên đơn Shopify (khóa 403 QLK chi nhánh và sàn khác); (4) Tự động gọi `fulfillmentOrderMove` khi đổi kho trước `IN_PROGRESS`, gọi `preparedForPickup` khi đóng gói xong đơn `PICK_UP`, giữ nguyên fallback `DispatchDialog` truyền tracking + URL ĐVVC VN chuẩn lên `fulfillments.json`; Backend targeted suite 372/373 PASS (1 lỗi tiền có `DonBanHangServiceTongQuanKhachTest.filter_quanTriVien_khongDoiBoLoc` từ commit `0bf36873`), Frontend 16/16 JS tests, 728/728 `i18n:kiem` & `vite build` PASS. |
 | **AUDIT-121** | `2026-11-21 04:50:00` | PhanAnh & Antigravity AI | Bug Fix & Sync / Khắc phục kẹt trạng thái `SKU chờ đẩy` trên Shopify Đa kho & Chặn xử lý sớm đơn COD Shopee ở trạng thái Chờ xác nhận (`UNPAID` vs `READY_TO_SHIP`) | `LienKetSanPhamDto.java`, `DonBanHangDto.java`, `DonBanHangDetailResponse.java`, `DonBanHangMapper.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJob.java`, `DonBanHangService.java`, `banHang.properties`, `banHang_en.properties`, `ChannelMappingsPage.jsx`, `SyncLogDetailSheet.jsx`, `channel.js`, `tinhDonBan.js`, `DonBanHangDetail.jsx`, `DonBanHangList.jsx`, `ChannelOrdersPage.jsx`, `ban-hang.json`, `hang-so.json`, `trang-thai.json`, `KenhBanHangLienKetTheoSanPhamTest.java`, `KenhBanHangShopifyMultiLocationTest.java`, `OmnichannelOrderSyncJobTest.java`, `DonBanHangServiceSendToWarehouseTest.java`, `DonBanHangServiceCancellationTest.java`, `tinhDonBan.test.js`, `nhomLienKet.test.js`, `audit.md` | (1) **Shopify Đa kho**: Bổ sung `soLuongSeDay` vào `LienKetSanPhamDto` và tính đồng nhất theo lô qua `tinhSoLuongSeDayTheoBienThe` (`phanBoTonDemWaterfall` theo các Location Shopify đang bật); sửa `ChannelMappingsPage.jsx` & `SyncLogDetailSheet.jsx` ưu tiên dùng `dong.soLuongSeDay` thay cho công thức đơn kho trên tổng chuỗi gây kẹt `→ sẽ đẩy ...` dù Delta Sync đã đẩy xong; gia cố `khongDoi` kiểm tra khớp `dong.soLuongDaDay` và xóa snapshot `SHOPIFY_TON_DA_DAY_KHO` khi lưu mapping kho mới; (2) **Shopee COD `UNPAID` vs `READY_TO_SHIP`**: Gắn cờ `[SHOPEE_CHO_XAC_NHAN]` cho đơn `UNPAID` (không sinh giả mã `SPXVN`, không báo `demDonNhapMoi`), chỉ cho phép xem tại FE/BE (khóa `sendToWarehouse`, `cancel`, `layVanDonSan`, ẩn nút gửi kho/hủy/in vận đơn, gắn badge `Chờ xác nhận sàn`), và tự động gỡ cờ mở khóa Gửi sang kho + thông báo đơn khi Shopee chuyển sang `READY_TO_SHIP` (Chờ lấy hàng - Chưa xử lý). Hậu gộp `origin/Dev`: Backend targeted suite 351/351 PASS, Frontend 31/31 JS tests, 721/721 `i18n:kiem` & `vite build` PASS. |
 | **AUDIT-122** | `2026-11-21 12:58:00` | PhanAnh & Antigravity AI | Bug Fix & Verify / Sửa lỗi `SQL_SYNTAX` JPQL `FOR SHARE`, chuẩn hóa thanh toán Shopee COD vs Ví điện tử (`UNPAID`), chặn gọi `shipOrderAuto` cho đơn chưa xác nhận và đồng bộ test `dsDiaDiem` | `PhanQuyenNguoiDungKhoRepository.java`, `OmnichannelOrderSyncJob.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJobTest.java`, `KenhBanHangDongBoServiceTest.java`, `audit.md` | Chuyển `PhanQuyenNguoiDungKhoRepository.dauQuanLyChinhMoiNhat` từ native SQL `FOR SHARE` sang JPQL + `@Lock(LockModeType.PESSIMISTIC_READ)` (hết lỗi `SQL_SYNTAX`, nạp full `BackendApplicationTests` / 94 JPA repositories); sửa `OmnichannelOrderSyncJob` không đánh dấu `da_thanh_toan` sớm cho đơn Ví điện tử `UNPAID` hay đơn COD dạng `"Cash on Delivery"` (`laPhuongThucCodShopee` & `xacDinhTrangThaiThanhToanShopee` kèm tự chữa đơn cũ); thêm lớp chắn trong `dongBoTrangThaiChuanBiHangShopee` chặn gọi `shipOrderAuto` nếu còn cờ `[SHOPEE_CHO_XAC_NHAN]`; cập nhật fixture `dsDiaDiem_danhDauVaXepDiaDiemMacDinhLenDau` theo quy chuẩn lọc bỏ `legacy`/`inactive`. Backend **435/435 PASS** (gồm `BackendApplicationTests`), Frontend **72/72 tests**, **721/721 i18n:kiem** & `vite build` PASS. |
+| **AUDIT-123** | `2026-11-21 14:53:00` | PhanAnh & Antigravity AI | Fix UX & Guard / Khắc phục sập màn hình "Sản phẩm" trên tất cả kênh đồng bộ (`SyncLogDetailSheet` đọc `lienKet.soLuongSeDay` khi `lienKet` đang `null`) | `nhomLienKet.js`, `SyncLogDetailSheet.jsx`, `ChannelMappingsPage.jsx`, `nhomLienKet.test.js`, `audit.md` | Tìm ra nguyên nhân gốc: sau thay đổi ở `AUDIT-121`, `SyncLogDetailSheet` tính `seDay` trước đoạn kiểm tra `{lienKet ? ...}` trong khi `chiTiet` truyền vào mặc định là `null` khi mới mở trang (`undefined !== "chua_lien_ket"` thành `true` -> ném `TypeError: Cannot read properties of null (reading 'soLuongSeDay')`, kích hoạt `ErrorBoundary` trên mọi kênh Shopify, Lazada, TikTok Shop, Shopee). Khắc phục: rút hàm thuần `conDongBo` (an toàn `null`) & `tinhSoSeDay` về `nhomLienKet.js`, dùng chung ở cả `SyncLogDetailSheet.jsx` lẫn `ChannelMappingsPage.jsx`, bổ sung unit test cho trường hợp `null`/`undefined`. Đạt **73/73** JS tests, **0** lỗi ESLint, **721/721 i18n:kiem** & `vite build` PASS. |
 
 
 ---
@@ -4708,6 +4709,44 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
   + `npm run i18n:kiem`: **721/721 tệp sạch (`Chưa bọc: 0`, `Thiếu bản dịch: 0`, `Lệch: 0`)**.
   + `node --test`: **72/72 tests PASS (`0 fail`)**.
   + `npm run build`: **built in 16.53s**.
+
+---
+
+### [AUDIT-123] KHẮC PHỤC SẬP MÀN HÌNH "SẢN PHẨM" TRÊN TẤT CẢ KÊNH ĐỒNG BỘ (`SyncLogDetailSheet` NULL DEREFERENCE)
+
+#### Metadata
+- **Thời gian:** 21/11/2026 14:53 (GMT+7)
+- **Tác giả:** PhanAnh & Antigravity AI
+- **Phân hệ:** Giao diện Kênh bán hàng – Sản phẩm (`ChannelMappingsPage.jsx`, `SyncLogDetailSheet.jsx`, `nhomLienKet.js`).
+- **Tệp thay đổi:**
+  + `frontend/src/components/channel/nhomLienKet.js`
+  + `frontend/src/components/channel/SyncLogDetailSheet.jsx`
+  + `frontend/src/pages/channels/ChannelMappingsPage.jsx`
+  + `frontend/src/components/channel/nhomLienKet.test.js`
+  + `audit.md`
+
+#### Mục tiêu & Phân tích nguyên nhân gốc rễ (Root Cause Analysis - RCA)
+1. **Triệu chứng:** Khi bấm vào mục **Sản phẩm** ở bất kỳ kênh đồng bộ nào (`/channels/shopify/products`, `/channels/lazada/products`, `/channels/tiktok/products`, `/channels/shopee/products`...), toàn màn hình rơi ngay vào `ErrorBoundary` ("Không mở được trang này — Trang gặp lỗi khi hiển thị").
+2. **Nguyên nhân gốc (`SyncLogDetailSheet.jsx:35-41`):**
+   - Trong `ChannelMappingsPage.jsx`, khi chưa bấm chọn SKU nào (`chiTietId === null`), `chiTiet` mang giá trị `null` và được truyền thẳng vào `<SyncLogDetailSheet lienKet={chiTiet} open={false} ... />`.
+   - Tại đợt cập nhật `[AUDIT-121]`, logic tính số dự kiến đẩy `seDay` được chuyển ra ngoài khối render có điều kiện `{lienKet ? (...) : null}` lên đầu thân component `SyncLogDetailSheet`:
+     - `const trangThai = lienKet?.trangThaiLienKet;` đánh giá thành `undefined`.
+     - `const dangDongBo = trangThai !== "chua_lien_ket";` (`undefined !== "chua_lien_ket"`) cho kết quả **`true`**.
+     - Kế tiếp, `lienKet.soLuongSeDay !== null` truy xuất thuộc tính trên `lienKet = null`, ném ngoại lệ `TypeError: Cannot read properties of null (reading 'soLuongSeDay')` ngay khi trang vừa mount.
+
+#### Giải pháp kỹ thuật & Chi tiết triển khai
+1. **Hợp nhất và gia cố hàm thuần (`nhomLienKet.js`):**
+   - Gia cố `conDongBo(dong)` trả `false` khi `dong` là `null`/`undefined` hoặc bị tắt đồng bộ (`choPhepDongBo === false` hay `trangThaiLienKet === "chua_lien_ket"`).
+   - Trích xuất hàm dùng chung `tinhSoSeDay(dong, quyTac)` (trả `null` an toàn khi `!conDongBo(dong)`, ưu tiên `dong.soLuongSeDay` từ máy chủ và fallback `tinhSoTonDayLenSan`).
+2. **Loại bỏ trùng lặp ở `SyncLogDetailSheet.jsx` và `ChannelMappingsPage.jsx`:**
+   - Cả `SyncLogDetailSheet.jsx` và `ChannelMappingsPage.jsx` cùng gọi `conDongBo` và `tinhSoSeDay` từ `nhomLienKet.js`, triệt tiêu hoàn toàn ngoại lệ khi đóng sheet (`lienKet === null`).
+3. **Bổ sung Unit Test (`nhomLienKet.test.js`):** Thêm test case kiểm chứng `conDongBo(null/undefined)`, `tinhSoSeDay(null/undefined)`, `choPhepDongBo: false`, `soLuongSeDay = 0` và fallback khi thiếu `quyTac`.
+
+#### Kết quả kiểm thử & Đối soát hồi quy
+- **i18n (`npm run i18n:kiem`):** **721/721 tệp sạch (`Chưa bọc: 0`, `Thiếu bản dịch: 0`, `Lệch: 0`)**.
+- **Unit Tests (`node --test` trên `src/components/channel/*.test.js`, `src/components/ban-hang/*.test.js`, `chi-tiet-don-ban/*.test.js`, `shopeeAwbHelpers.test.js`):** **73/73 PASS (`0 fail`)**.
+- **ESLint (`npx eslint` trên 4 tệp sửa):** **0 errors, 0 warnings**.
+- **Production Build (`npm run build` / `vite build`):** thành công trong `27.51s`.
 
 
 
