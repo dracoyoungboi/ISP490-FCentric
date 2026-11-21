@@ -3,19 +3,28 @@ package com.dev.backend.services.impl.multitable;
 import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.dto.TonKhoProjection;
+import com.dev.backend.dto.response.customize.LoHangTonKhoDTO;
+import com.dev.backend.dto.response.customize.LoTrongKhoDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.Kho;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.KhoRepository;
+import com.dev.backend.repository.TonKhoTheoLoRepository;
+import com.dev.backend.repository.TonKhoViTriRepository;
 import com.dev.backend.services.impl.entities.KhoService;
+import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import com.dev.backend.services.JwtService;
 import com.dev.backend.services.multitable.ThongKeHeThongService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +61,9 @@ public class BaoCaoTonKhoService {
     private final KhoRepository khoRepository;
     private final JwtService jwtService;
     private final XuatBaoCaoService xuatBaoCaoService;
+    private final TonKhoTheoLoRepository tonKhoTheoLoRepository;
+    private final TonKhoViTriRepository tonKhoViTriRepository;
+    private final KhoaKiemKeGuard khoaKiemKeGuard;
 
     /** Một dòng của báo cáo: số liệu từ câu tồn kho tổng hợp kèm tình trạng đã tính. */
     public record Dong(TonKhoProjection so, String tinhTrang) {
@@ -90,6 +102,53 @@ public class BaoCaoTonKhoService {
                 .map(p -> new Dong(p, tinhTrang(p.getOnHand(), p.getMucTonToiThieu(), khoAo.contains(p.getKhoId()))))
                 .filter(d -> loc == null || loc.equals(d.tinhTrang()))
                 .toList();
+    }
+
+    /**
+     * Các lô đang tồn (tồn &gt; 0) của một mã ở một kho, lô vào kho trước nằm trên — phần sổ xuống khi bấm một dòng của
+     * màn. Cộng tồn các lô bằng On Hand, cộng tồn × giá vốn lô bằng Giá trị tồn của dòng (cùng nguồn ton_kho_theo_lo).
+     * Chặn kho như bảng: nhân viên kho chỉ xem kho mình được phân công.
+     */
+    @Transactional(readOnly = true)
+    public List<LoTrongKhoDto> loCuaMa(Integer khoId, Integer bienTheId) {
+        kiemTraKhoXem(khoId);
+        List<LoHangTonKhoDTO> lots = tonKhoTheoLoRepository.findLoHangByBienTheAndKho(bienTheId, khoId);
+        if (lots.isEmpty()) return List.of();
+
+        List<Integer> loIds = lots.stream().map(LoHangTonKhoDTO::getLoHangId).toList();
+        Map<Integer, List<LoTrongKhoDto.KeCuaLo>> keTheoLo = new HashMap<>();
+        for (Object[] r : tonKhoViTriRepository.keCuaLoTheoKho(khoId, loIds)) {
+            keTheoLo.computeIfAbsent(((Number) r[0]).intValue(), k -> new ArrayList<>())
+                    .add(new LoTrongKhoDto.KeCuaLo(((Number) r[1]).intValue(), (String) r[2], ((Number) r[3]).intValue()));
+        }
+
+        // Phần đang kiểm kê: cùng cách tính với nhãn "Đang kiểm kê N" của dòng (đọc thường, không khóa)
+        Map<Integer, BigDecimal> tonTheoLo = new HashMap<>();
+        lots.forEach(l -> tonTheoLo.put(l.getLoHangId(), l.getSoLuongTon()));
+        Map<Integer, BigDecimal> dangKiem = khoaKiemKeGuard.luongDangKiemKeHienThi(khoId, tonTheoLo);
+        String maDot = null;
+        if (dangKiem.values().stream().anyMatch(v -> v != null && v.signum() > 0)) {
+            KhoaKiemKeGuard.KiemKeTheoMa kk = khoaKiemKeGuard.dangKiemKeTheoMa(khoId, List.of(bienTheId));
+            maDot = kk.dotToanKho() != null ? kk.dotToanKho() : kk.dotCuaMa().get(bienTheId);
+        }
+
+        List<LoTrongKhoDto> kq = new ArrayList<>();
+        for (LoHangTonKhoDTO l : lots) {
+            List<LoTrongKhoDto.KeCuaLo> ke = keTheoLo.getOrDefault(l.getLoHangId(), List.of());
+            BigDecimal trenKe = BigDecimal.valueOf(ke.stream().mapToLong(LoTrongKhoDto.KeCuaLo::soLuong).sum());
+            BigDecimal kiem = dangKiem.getOrDefault(l.getLoHangId(), BigDecimal.ZERO);
+            boolean coKiem = kiem != null && kiem.signum() > 0;
+            kq.add(new LoTrongKhoDto(
+                    l.getLoHangId(), l.getMaLo(), l.getNgayNhapGanNhat(), l.getNgaySanXuat(), l.getTenNhaCungCap(),
+                    l.getGiaVonLo(), l.getSoLuongTon(), l.getSoLuongDaDat().max(BigDecimal.ZERO),
+                    coKiem ? kiem : BigDecimal.ZERO, coKiem ? maDot : null,
+                    ke, l.getSoLuongTon().subtract(trenKe).max(BigDecimal.ZERO)));
+        }
+        // Lô vào kho trước ở trên (thứ tự xuất trước); chưa có ngày nhập thì xuống cuối
+        kq.sort(Comparator.comparing(LoTrongKhoDto::ngayNhap, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(LoTrongKhoDto::maLo, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(LoTrongKhoDto::loHangId));
+        return kq;
     }
 
     /** Tệp Excel của màn (đúng kho, từ khóa, tab tình trạng đang chọn); ghi nhật ký mỗi lần tải. */

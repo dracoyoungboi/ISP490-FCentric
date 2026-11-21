@@ -6,6 +6,7 @@ import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.TonKhoProjection;
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.dto.response.customize.LoTrongKhoDto;
 import com.dev.backend.dto.response.customize.TonKhoChiTietDTO;
 import com.dev.backend.mapper.TonKhoTheoLoMapper;
 import com.dev.backend.services.impl.kiemke.KiemKeTheoMaService;
@@ -119,6 +120,26 @@ public class ThongKeHeThongController {
     public ResponseEntity<ResponseData<List<TonKhoProjection>>> tonKhoTongHop(@RequestParam(required = false) Integer khoId, @RequestParam(required = false) String keyword) {
         baoCaoTonKhoService.kiemTraKhoXem(khoId);
         return thongKeHeThongService.tonKhoTongHop(khoId, keyword);
+    }
+
+    /**
+     * Các lô đang tồn của một mã ở một kho (bấm mở một dòng của Báo cáo tồn kho): mã lô, kệ đang chứa, ngày nhập,
+     * nhà cung cấp, tồn, giá vốn, phần đang giữ và đang kiểm kê. Chặn kho như /ton-kho-tong-quan.
+     */
+    @GetMapping("/ton-kho-tong-quan/lo")
+    @RequireAuth(
+            roles = {
+                    IRoleType.quan_tri_vien,
+                    IRoleType.quan_ly_kho,
+                    IRoleType.nhan_vien_kho,
+                    IRoleType.nhan_vien_mua_hang,
+                    IRoleType.nhan_vien_ban_hang
+            },
+            rolesLogic = RequireAuth.LogicType.OR
+    )
+    public ResponseEntity<ResponseData<List<LoTrongKhoDto>>> loCuaMa(@RequestParam Integer khoId, @RequestParam Integer bienTheId) {
+        return ResponseEntity.ok(ResponseData.<List<LoTrongKhoDto>>builder()
+                .status(200).data(baoCaoTonKhoService.loCuaMa(khoId, bienTheId)).message("Success").build());
     }
 
     /**
