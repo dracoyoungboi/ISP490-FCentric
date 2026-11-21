@@ -73,6 +73,7 @@ export function simulateDssItem(item, config) {
   }
 
   const doi = dAvg > 0.0001 ? Math.round((Math.max(0, ftu) / dAvg) * 10) / 10 : null;
+  const deadStock = ftu > 0 && (Boolean(item.deadStock) || (doi !== null && doi > 60));
   let urgencyLevel = "NORMAL";
   if (isPhaseOut) {
     urgencyLevel = "EXCESS_OR_PHASE_OUT";
@@ -80,7 +81,7 @@ export function simulateDssItem(item, config) {
     urgencyLevel = "CRITICAL";
   } else if (ftu <= reorderPoint && (suggestedOrderQty > 0 || dAvg > 0.0001)) {
     urgencyLevel = "HIGH";
-  } else if (item.deadStock || (doi !== null && doi > 60)) {
+  } else if (deadStock) {
     urgencyLevel = "EXCESS_OR_PHASE_OUT";
   }
 
@@ -92,10 +93,11 @@ export function simulateDssItem(item, config) {
     suggestedOrderQty,
     excessStock,
     daysOfInventory: doi,
+    deadStock,
     urgencyLevel,
     needsReorder: !isPhaseOut && ftu <= reorderPoint && suggestedOrderQty > 0,
     prCreationLocked: isPhaseOut,
-    flashSaleRecommended: (isPhaseOut && (excessStock > 0 || (doi !== null && doi > 60))) || Boolean(item.deadStock),
+    flashSaleRecommended: (isPhaseOut && (excessStock > 0 || (doi !== null && doi > 60))) || deadStock,
   };
 }
 

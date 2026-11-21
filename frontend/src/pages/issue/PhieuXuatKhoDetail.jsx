@@ -351,7 +351,8 @@ function ManPhieuXuatKho({ id }) {
   );
 
   const laDonSan = laLazada || laShopee || Boolean(phieu?.donBanHang?.maDonHangKenh);
-  const hoTroInVanDonSan = laDonSan && !laShopify && (tt === TRANG_THAI_PHIEU_XUAT.CHO_XUAT || tt === TRANG_THAI_PHIEU_XUAT.DA_XUAT);
+  const choXacNhanSan = String(phieu.donBanHang?.ghiChu || "").includes("[SHOPEE_CHO_XAC_NHAN]");
+  const hoTroInVanDonSan = laDonSan && !laShopify && !choXacNhanSan && (tt === TRANG_THAI_PHIEU_XUAT.CHO_XUAT || tt === TRANG_THAI_PHIEU_XUAT.DA_XUAT);
 
   const soDon = phieu.donBanHang?.soDonHang;
   const moTaHuy = t("Hủy phiếu {{soPhieuXuat}}? Số lượng đang giữ được trả lại tồn kho{{phanDon}}. Không hoàn tác được.", { soPhieuXuat: phieu.soPhieuXuat, phanDon: soDon ? t("; đơn {{soDon}} quay về Chờ nhặt hàng (Đã xuất một phần nếu đơn đã xuất một phần trước đó)", { soDon }) : "" });
@@ -405,12 +406,12 @@ function ManPhieuXuatKho({ id }) {
             ]}
             onQuayLai={() => navigate(DANH_SACH)}
             nhanQuayLai={t("Về danh sách phiếu xuất kho")}
-            nutPhu={quyen.coIn ? { ma: "in", nhan: t("In phiếu"), icon: Printer, onClick: () => moTrangIn(`/goods-issues/${phieu.id}/print`, navigate) } : null}
+            nutPhu={[
+              quyen.coIn ? { ma: "in", nhan: t("In phiếu"), icon: Printer, onClick: () => moTrangIn(`/goods-issues/${phieu.id}/print`, navigate) } : null,
+              hoTroInVanDonSan ? { ma: "inPackingSlip", nhan: t("In vận đơn sàn (A6)"), icon: Printer, onClick: () => moTrangIn(`/goods-issues/${phieu.id}/print-packing-slip`, navigate) } : null,
+            ].filter(Boolean)}
             saoChepMa={{ giaTri: phieu.soPhieuXuat, nhan: t("Sao chép mã phiếu") }}
                         menu={[
-              hoTroInVanDonSan
-                ? { ma: "inPackingSlip", nhan: t("In vận đơn / phiếu đóng gói sàn (A6)"), icon: Printer, onSelect: () => moTrangIn(`/goods-issues/${phieu.id}/print-packing-slip`, navigate) }
-                : null,
               coXemBangChung
                 ? { ma: "bangChung", nhan: t("Xem bằng chứng đóng gói"), icon: ShieldCheck, onSelect: () => setHop("bangChung") }
                 : null,
