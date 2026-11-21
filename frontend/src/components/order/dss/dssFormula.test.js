@@ -90,5 +90,22 @@ describe("dssFormula", () => {
     assert.equal(po.needsReorder, false);
     assert.equal(po.flashSaleRecommended, true);
   });
+
+  it("đánh dấu deadStock khi DOI > 60 ngày ở mọi kịch bản", () => {
+    const slow = simulateDssItem(
+      {
+        abcClass: "C",
+        avgDailyDemand: 1,
+        maxDailyDemand: 1,
+        leadTimeAvg: 5,
+        ftu: 120,
+        incoming: 0,
+      },
+      baseConfig,
+    );
+    assert.equal(slow.deadStock, true);
+    assert.equal(slow.flashSaleRecommended, true);
+    assert.equal(slow.urgencyLevel, "EXCESS_OR_PHASE_OUT");
+  });
 });
 

@@ -175,4 +175,18 @@ class DssPolicyEngineTest {
         assertTrue(item.isFlashSaleRecommended());
         assertEquals(DssPolicyEngine.URGENCY_EXCESS, item.getUrgencyLevel());
     }
+
+    @Test
+    void deadStock_doiLonHon60Ngay_danhDauTonCham() {
+        SkuRawInput in = sku(14, "SKU-SLOW", 200, 0, new double[]{1, 0, 0, 0, 0, 0, 0}, 500L, 1, List.of(4.0));
+        DssConfigDto cfg = baseConfig(DssPolicyEngine.MODE_GLOBAL, DssPolicyEngine.PRESET_STANDARD);
+
+        CalculationOutput out = DssPolicyEngine.calculate(List.of(in), cfg, LocalDate.of(2026, 11, 21));
+        DssRecommendationItemDto item = out.items().get(0);
+
+        assertTrue(item.getDaysOfInventory() > 60.0d);
+        assertTrue(item.isDeadStock());
+        assertTrue(item.isFlashSaleRecommended());
+        assertEquals(DssPolicyEngine.URGENCY_EXCESS, item.getUrgencyLevel());
+    }
 }

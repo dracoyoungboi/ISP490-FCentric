@@ -248,5 +248,52 @@ class ShopeeClientTest {
         assertEquals("VN1001", sellerStock.get(0).get("location_id"));
         assertEquals(25, sellerStock.get(0).get("stock"));
     }
+
+    @Test
+    @DisplayName("downloadShippingDocument: Dừng sớm khi createShippingDocument lỗi, không spam getShippingDocumentResult")
+    void downloadShippingDocument_dungSomKhiCreateDocLoi_khongSpamPolling() {
+        ShopeeClient realClient = new ShopeeClient(1253449L, "real_partner_key_1234567890abcdef", 99999L, "token_xyz", true);
+        ReflectionTestUtils.setField(realClient, "restTemplate", restTemplate);
+        ReflectionTestUtils.setField(realClient, "objectMapper", objectMapper);
+
+        when(restTemplate.exchange(contains("/api/v2/logistics/get_tracking_number"), eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{\"error\":\"logistics.order_not_shipped\",\"message\":\"not shipped\"}"));
+        when(restTemplate.postForEntity(contains("/api/v2/logistics/create_shipping_document"), any(), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{\"error\":\"logistics.package_cannot_print\",\"message\":\"cannot print\"}"));
+
+        byte[] bytes = realClient.downloadShippingDocument(
+                "1253449", "real_partner_key_1234567890abcdef", "token_xyz", "99999", "261121TEST", true, true);
+
+        assertEquals(0, bytes.length);
+        verify(restTemplate, times(1)).exchange(contains("/get_tracking_number"), eq(HttpMethod.GET), any(), eq(String.class));
+        verify(restTemplate, never()).postForEntity(contains("/get_shipping_document_result"), any(), eq(String.class));
+        verify(restTemplate, never()).exchange(contains("/download_shipping_document"), eq(HttpMethod.POST), any(), eq(byte[].class));
+    }
+
+    @Test
+    @DisplayName("downloadShippingDocument: Khi đã chuẩn bị hàng thì bỏ qua ship_order và tải thành công khi READY")
+    void downloadShippingDocument_khiDaChuanBiHang_boQuaShipOrderVaTaiPdf() {
+        ShopeeClient realClient = new ShopeeClient(1253449L, "real_partner_key_1234567890abcdef", 99999L, "token_xyz", true);
+        ReflectionTestUtils.setField(realClient, "restTemplate", restTemplate);
+        ReflectionTestUtils.setField(realClient, "objectMapper", objectMapper);
+
+        when(restTemplate.exchange(contains("/api/v2/logistics/get_tracking_number"), eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{\"error\":\"\",\"response\":{\"tracking_number\":\"SPXVN001\"}}"));
+        when(restTemplate.postForEntity(contains("/api/v2/logistics/create_shipping_document"), any(), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{\"error\":\"\",\"response\":{\"result_list\":[{\"order_sn\":\"261121OK\"}]}}"));
+        when(restTemplate.postForEntity(contains("/api/v2/logistics/get_shipping_document_result"), any(), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("{\"error\":\"\",\"response\":{\"result_list\":[{\"order_sn\":\"261121OK\",\"status\":\"READY\"}]}}"));
+        byte[] fakePdf = "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nstream\n123456789012345678901234567890".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+        when(restTemplate.exchange(contains("/api/v2/logistics/download_shipping_document"), eq(HttpMethod.POST), any(), eq(byte[].class)))
+                .thenReturn(ResponseEntity.ok(fakePdf));
+
+        byte[] res = realClient.downloadShippingDocument(
+                "1253449", "real_partner_key_1234567890abcdef", "token_xyz", "99999", "261121OK", true, true);
+
+        assertTrue(res.length > 50);
+        verify(restTemplate, never()).exchange(contains("/get_shipping_parameter"), eq(HttpMethod.GET), any(), eq(String.class));
+        verify(restTemplate, never()).postForEntity(contains("/ship_order"), any(), eq(String.class));
+        verify(restTemplate, times(1)).postForEntity(contains("/get_shipping_document_result"), any(), eq(String.class));
+    }
 }
 
