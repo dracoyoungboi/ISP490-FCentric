@@ -383,6 +383,24 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
     /** In thuế GTGT trên hóa đơn bán hàng (giá bán đã gồm thuế; thuế suất lấy từ bảng thue_suat_gtgt, xem ThueGtgtService). */
     public static final String CAU_HINH_VAT_BAT = "VAT_BAT";
 
+    /** Cấu hình chiến lược nhập hàng động DSS (FE-04.4). */
+    public static final String CAU_HINH_DSS_MODE = "DSS_REPLENISHMENT_MODE";
+    public static final String CAU_HINH_DSS_GLOBAL_PRESET = "DSS_GLOBAL_PRESET_CODE";
+    public static final String CAU_HINH_DSS_OBSERVATION_DAYS_N = "DSS_OBSERVATION_DAYS_N";
+    public static final String CAU_HINH_DSS_SERVICE_LEVEL_Z = "DSS_SERVICE_LEVEL_Z";
+    public static final String CAU_HINH_DSS_CYCLE_T = "DSS_REPLENISHMENT_CYCLE_T";
+    public static final String CAU_HINH_DSS_PEAK_GROWTH_G = "DSS_PEAK_GROWTH_PERCENT_G";
+    public static final String CAU_HINH_DSS_PEAK_CAMPAIGN_DAYS = "DSS_PEAK_CAMPAIGN_DAYS";
+    public static final String CAU_HINH_DSS_LEAN_BUFFER_DAYS = "DSS_LEAN_BUFFER_DAYS";
+    public static final String CAU_HINH_DSS_PHASEOUT_REMAINING_DAYS = "DSS_PHASEOUT_REMAINING_DAYS";
+    public static final String CAU_HINH_DSS_DEFAULT_L_AVG = "DSS_DEFAULT_LEAD_TIME_AVG";
+    public static final String CAU_HINH_DSS_DEFAULT_L_MAX = "DSS_DEFAULT_LEAD_TIME_MAX";
+    public static final String CAU_HINH_DSS_LEAD_TIME_SAMPLE_M = "DSS_LEAD_TIME_SAMPLE_M";
+
+    public static final Set<String> DSS_MODES_HOP_LE = Set.of("BY_ABC_CLASS", "GLOBAL_PRESET");
+    public static final Set<String> DSS_PRESETS_HOP_LE = Set.of(
+            "PRESET_01_STANDARD", "PRESET_02_PEAK", "PRESET_03_LEAN", "PRESET_04_PHASE_OUT");
+
     @EventListener(ApplicationReadyEvent.class)
     @Transactional(rollbackFor = Exception.class)
     public void initDefaultConfigurations() {
@@ -404,6 +422,18 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         seedIfMissing(CAU_HINH_XKNB_CHE_DO, IChuyenKho.XKNB_CHI_CANH_BAO, KieuDuLieuCauHinh.STRING, "Khi xác nhận xuất chuyển kho mà chưa có số phiếu XKNB");
         seedIfMissing(CAU_HINH_CHUYEN_KHO_QUYEN_XU_LY_LECH, IChuyenKho.XU_LY_LECH_QL_KHO_TONG, KieuDuLieuCauHinh.STRING,
                 "Ai được xử lý chênh lệch khi nhận hàng chuyển kho");
+        seedIfMissing(CAU_HINH_DSS_MODE, "BY_ABC_CLASS", KieuDuLieuCauHinh.STRING, "Chế độ áp dụng kịch bản DSS (BY_ABC_CLASS hoặc GLOBAL_PRESET)");
+        seedIfMissing(CAU_HINH_DSS_GLOBAL_PRESET, "PRESET_01_STANDARD", KieuDuLieuCauHinh.STRING, "Mã kịch bản DSS toàn cục mặc định");
+        seedIfMissing(CAU_HINH_DSS_OBSERVATION_DAYS_N, "14", KieuDuLieuCauHinh.INT, "Chu kỳ quan sát sức bán lịch sử N (ngày)");
+        seedIfMissing(CAU_HINH_DSS_SERVICE_LEVEL_Z, "1.65", KieuDuLieuCauHinh.DECIMAL, "Hệ số mức độ phục vụ Z");
+        seedIfMissing(CAU_HINH_DSS_CYCLE_T, "14", KieuDuLieuCauHinh.INT, "Chu kỳ dự trữ / nhập hàng T (ngày)");
+        seedIfMissing(CAU_HINH_DSS_PEAK_GROWTH_G, "30", KieuDuLieuCauHinh.INT, "Tỷ lệ tăng trưởng dự phóng mùa cao điểm (%)");
+        seedIfMissing(CAU_HINH_DSS_PEAK_CAMPAIGN_DAYS, "14", KieuDuLieuCauHinh.INT, "Thời gian chiến dịch cao điểm T_campaign (ngày)");
+        seedIfMissing(CAU_HINH_DSS_LEAN_BUFFER_DAYS, "3", KieuDuLieuCauHinh.INT, "Số ngày tồn đệm an toàn kịch bản Tinh gọn (ngày)");
+        seedIfMissing(CAU_HINH_DSS_PHASEOUT_REMAINING_DAYS, "15", KieuDuLieuCauHinh.INT, "Số ngày còn lại của mùa vụ kịch bản Xả hàng (ngày)");
+        seedIfMissing(CAU_HINH_DSS_DEFAULT_L_AVG, "5", KieuDuLieuCauHinh.INT, "Lead Time trung bình mặc định khi chưa có lịch sử nhập (ngày)");
+        seedIfMissing(CAU_HINH_DSS_DEFAULT_L_MAX, "7", KieuDuLieuCauHinh.INT, "Lead Time tối đa mặc định khi chưa có lịch sử nhập (ngày)");
+        seedIfMissing(CAU_HINH_DSS_LEAD_TIME_SAMPLE_M, "10", KieuDuLieuCauHinh.INT, "Số đơn mua gần nhất tính Lead Time nhà cung cấp");
     }
 
     private void seedIfMissing(String maCauHinh, String defaultValue, KieuDuLieuCauHinh kieuDuLieu, String moTa) {
@@ -620,6 +650,49 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         } else if (CAU_HINH_CHUYEN_KHO_QUYEN_XU_LY_LECH.equals(maCauHinh)) {
             if (giaTri == null || !IChuyenKho.QUYEN_XU_LY_LECH.contains(giaTri)) {
                 throw new CommonException(ThongDiep.of("khoVanHanh.nguoiXuLyChenhLechKhongHopLe"));
+            }
+        } else if (CAU_HINH_DSS_MODE.equals(maCauHinh)) {
+            if (giaTri == null || !DSS_MODES_HOP_LE.contains(giaTri)) {
+                throw new CommonException(ThongDiep.of("dss.cheDoKhongHopLe"));
+            }
+        } else if (CAU_HINH_DSS_GLOBAL_PRESET.equals(maCauHinh)) {
+            if (giaTri == null || !DSS_PRESETS_HOP_LE.contains(giaTri)) {
+                throw new CommonException(ThongDiep.of("dss.kichBanKhongHopLe"));
+            }
+        } else if (CAU_HINH_DSS_OBSERVATION_DAYS_N.equals(maCauHinh)) {
+            int val = Integer.parseInt(giaTri);
+            if (val < 7 || val > 90) {
+                throw new CommonException(ThongDiep.of("dss.chuKyQuanSatKhongHopLe"));
+            }
+        } else if (CAU_HINH_DSS_SERVICE_LEVEL_Z.equals(maCauHinh)) {
+            double val = Double.parseDouble(giaTri);
+            if (val < 0 || val > 4) {
+                throw new CommonException(ThongDiep.of("dss.heSoPhucVuKhongHopLe"));
+            }
+        } else if (CAU_HINH_DSS_CYCLE_T.equals(maCauHinh) || CAU_HINH_DSS_PEAK_CAMPAIGN_DAYS.equals(maCauHinh)) {
+            int val = Integer.parseInt(giaTri);
+            if (val < 1 || val > 120) {
+                throw new CommonException(ThongDiep.of("dss.chuKyDuTruKhongHopLe"));
+            }
+        } else if (CAU_HINH_DSS_PEAK_GROWTH_G.equals(maCauHinh)) {
+            int val = Integer.parseInt(giaTri);
+            if (val < -80 || val > 300) {
+                throw new CommonException(ThongDiep.of("dss.tyLeTangTruongKhongHopLe"));
+            }
+        } else if (CAU_HINH_DSS_LEAN_BUFFER_DAYS.equals(maCauHinh) || CAU_HINH_DSS_PHASEOUT_REMAINING_DAYS.equals(maCauHinh)) {
+            int val = Integer.parseInt(giaTri);
+            if (val < 1 || val > 90) {
+                throw new CommonException(ThongDiep.of("dss.soNgayDemHoacConLaiKhongHopLe"));
+            }
+        } else if (CAU_HINH_DSS_DEFAULT_L_AVG.equals(maCauHinh) || CAU_HINH_DSS_DEFAULT_L_MAX.equals(maCauHinh)) {
+            int val = Integer.parseInt(giaTri);
+            if (val < 1 || val > 90) {
+                throw new CommonException(ThongDiep.of("dss.leadTimeMacDinhKhongHopLe"));
+            }
+        } else if (CAU_HINH_DSS_LEAD_TIME_SAMPLE_M.equals(maCauHinh)) {
+            int val = Integer.parseInt(giaTri);
+            if (val < 1 || val > 50) {
+                throw new CommonException(ThongDiep.of("dss.soMauLeadTimeKhongHopLe"));
             }
         }
     }
