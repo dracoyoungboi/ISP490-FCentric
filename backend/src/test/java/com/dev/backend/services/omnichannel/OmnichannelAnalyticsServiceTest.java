@@ -120,5 +120,100 @@ class OmnichannelAnalyticsServiceTest {
         assertEquals(8, row.getRealtimeThreshold());
         verify(mappingRepository).saveAll(anyList());
     }
+
+    @Test
+    void getSyncRecommendations_tinhDungBufferTheoParetoAbc_vaMoRongFilterTiktok() {
+        when(adminRepo.coBang("pos_checkout_request")).thenReturn(true);
+        when(dieuHanhHeThongService.getCauHinhInt("REALTIME_SYNC_THRESHOLD", 3)).thenReturn(3);
+        when(dieuHanhHeThongService.getCauHinhString("DSS_REPLENISHMENT_MODE", "BY_ABC_CLASS")).thenReturn("BY_ABC_CLASS");
+        when(dieuHanhHeThongService.getCauHinhString("DSS_GLOBAL_PRESET_CODE", "PRESET_01_STANDARD")).thenReturn("PRESET_01_STANDARD");
+        when(dieuHanhHeThongService.getCauHinhInt("DSS_DEFAULT_LEAD_TIME_AVG", 5)).thenReturn(5);
+        when(dieuHanhHeThongService.getCauHinhInt("DSS_DEFAULT_LEAD_TIME_MAX", 7)).thenReturn(7);
+
+        List<Map<String, Object>> mappings = List.of(
+                new java.util.HashMap<>(Map.ofEntries(
+                        Map.entry("mapping_id", 101), Map.entry("bien_the_san_pham_id", 1), Map.entry("ma_sku", "SKU-A"),
+                        Map.entry("ten_san_pham", "Áo A"), Map.entry("kenh_ban_id", 2),
+                        Map.entry("ma_kenh", "SHOPEE"), Map.entry("ten_kenh", "k flex"))),
+                new java.util.HashMap<>(Map.ofEntries(
+                        Map.entry("mapping_id", 102), Map.entry("bien_the_san_pham_id", 2), Map.entry("ma_sku", "SKU-B"),
+                        Map.entry("ten_san_pham", "Áo B"), Map.entry("kenh_ban_id", 3),
+                        Map.entry("ma_kenh", "TIKTOK_SHOP"), Map.entry("ten_kenh", "TikTok Official"))),
+                new java.util.HashMap<>(Map.ofEntries(
+                        Map.entry("mapping_id", 103), Map.entry("bien_the_san_pham_id", 3), Map.entry("ma_sku", "SKU-C"),
+                        Map.entry("ten_san_pham", "Áo C"), Map.entry("kenh_ban_id", 4),
+                        Map.entry("ma_kenh", "LAZADA"), Map.entry("ten_kenh", "Lazada Store")))
+        );
+        when(jdbc.queryForList(anyString(), any(MapSqlParameterSource.class))).thenReturn(mappings);
+
+        // Stub 3 jdbc.query calls in order: ftuMap -> daily sales/rev
+        doAnswer(inv -> {
+            String sql = inv.getArgument(0);
+            if (sql.contains("ton_kho_theo_lo")) {
+                var rch = (org.springframework.jdbc.core.RowCallbackHandler) inv.getArgument(1);
+                var rs = mock(java.sql.ResultSet.class);
+                when(rs.getInt("bt_id")).thenReturn(1, 2, 3);
+                when(rs.getBigDecimal("ftu")).thenReturn(
+                        java.math.BigDecimal.valueOf(100),
+                        java.math.BigDecimal.valueOf(50),
+                        java.math.BigDecimal.valueOf(40));
+                rch.processRow(rs);
+                rch.processRow(rs);
+                rch.processRow(rs);
+            }
+            return null;
+        }).when(jdbc).query(anyString(), any(org.springframework.jdbc.core.RowCallbackHandler.class));
+
+        doAnswer(inv -> {
+            var rch = (org.springframework.jdbc.core.RowCallbackHandler) inv.getArgument(2);
+            var rs = mock(java.sql.ResultSet.class);
+            // Row 1 (Class A): rev=8000 (<70% cumBefore), pos=55, online=45 => rPos=0.55 => Buffer = min(25, max(10, round(0.55*30))) = 17
+            // Row 2 (Class B): rev=1500 (cumBefore=80%), pos=50, online=50 => rPos=0.50 => Buffer = 10
+            // Row 3 (Class C): rev=500  (cumBefore=95%), pos=80, online=20 => rPos=0.80 => Buffer = 0
+            when(rs.getInt("bt_id")).thenReturn(1, 2, 3);
+            when(rs.getBigDecimal("pos_qty")).thenReturn(
+                    java.math.BigDecimal.valueOf(55), java.math.BigDecimal.valueOf(50), java.math.BigDecimal.valueOf(80));
+            when(rs.getBigDecimal("online_qty")).thenReturn(
+                    java.math.BigDecimal.valueOf(45), java.math.BigDecimal.valueOf(50), java.math.BigDecimal.valueOf(20));
+            when(rs.getBigDecimal("doanh_thu")).thenReturn(
+                    java.math.BigDecimal.valueOf(8000), java.math.BigDecimal.valueOf(1500), java.math.BigDecimal.valueOf(500));
+            when(rs.getDate("ngay_ban")).thenReturn(java.sql.Date.valueOf("2026-11-20"));
+            rch.processRow(rs);
+            rch.processRow(rs);
+            rch.processRow(rs);
+            return null;
+        }).when(jdbc).query(anyString(), any(MapSqlParameterSource.class), any(org.springframework.jdbc.core.RowCallbackHandler.class));
+
+        var rec = service.getSyncRecommendations(14, "TIKTOK");
+        assertEquals(14, rec.getObservationDays());
+        assertEquals(3, rec.getItems().size());
+
+        var bySku = new java.util.HashMap<String, com.dev.backend.dto.omnichannel.OmnichannelSyncRecommendationDto.ItemDto>();
+        rec.getItems().forEach(i -> bySku.put(i.getMaSku(), i));
+
+        assertEquals("A", bySku.get("SKU-A").getAbcClass());
+        assertEquals("SHOPEE", bySku.get("SKU-A").getPlatformCode());
+        assertEquals(17, bySku.get("SKU-A").getRecommendedBufferPercent());
+        assertEquals(665, bySku.get("SKU-A").getRecommendedRealtimeThreshold()); // Peak SS = ceil(100*7 - (100/14)*5) = 665
+
+        assertEquals("B", bySku.get("SKU-B").getAbcClass());
+        assertEquals("TIKTOK_SHOP", bySku.get("SKU-B").getPlatformCode());
+        assertEquals(10, bySku.get("SKU-B").getRecommendedBufferPercent());
+        assertEquals(4, bySku.get("SKU-B").getRecommendedRealtimeThreshold()); // max(3, ceil(0.5 * 7.14)) = 4
+
+        assertEquals("C", bySku.get("SKU-C").getAbcClass());
+        assertEquals(0, bySku.get("SKU-C").getRecommendedBufferPercent());
+        assertEquals(4, bySku.get("SKU-C").getRecommendedRealtimeThreshold());
+
+        // Chế độ Bình thường (GLOBAL_PRESET = PRESET_01_STANDARD): Hạng A dùng max(3, ceil(0.5 * D_avg)) = 4
+        when(dieuHanhHeThongService.getCauHinhString("DSS_REPLENISHMENT_MODE", "BY_ABC_CLASS")).thenReturn("GLOBAL_PRESET");
+        var recNormal = service.getSyncRecommendations(14, "ALL");
+        var skuANormal = recNormal.getItems().stream()
+                .filter(i -> "SKU-A".equals(i.getMaSku()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(17, skuANormal.getRecommendedBufferPercent());
+        assertEquals(4, skuANormal.getRecommendedRealtimeThreshold());
+    }
 }
 

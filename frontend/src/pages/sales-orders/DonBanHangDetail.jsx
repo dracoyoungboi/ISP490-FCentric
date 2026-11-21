@@ -32,10 +32,8 @@ import {
   dongHangBan,
   gioNgay,
   hauQuaHuy,
-  laChoXacNhanSan,
   laDonLazada,
   laDonShopee,
-  laDonShopify,
   laDonSan,
   laDonTaiQuay,
   lyDoSanHuy,
@@ -108,10 +106,7 @@ function ChiTietDonBanHang({ id }) {
   const laSan = laDonSan(don);
   const laLazada = laDonLazada(don);
   const laShopee = laDonShopee(don);
-  const laShopify = laDonShopify(don);
   const laSanXuatKhoTong = laLazada || laShopee;
-  const choXacNhanSan = laChoXacNhanSan(ct);
-  const hoTroInVanDonSan = laSan && !laShopify && !choXacNhanSan && don?.trangThai !== TRANG_THAI_DON.DA_HUY;
 
   const [hop, setHop] = useState(""); // "" | "guiKho" | "huy" | "daGiao" | "hoanTra"
   const [dangChay, setDangChay] = useState(""); // thao tác đang gửi lên máy chủ
@@ -120,8 +115,6 @@ function ChiTietDonBanHang({ id }) {
   const [lyDoHuy, setLyDoHuy] = useState("");
   // Hết thời hạn mà máy chủ có thể vẫn đang làm: khóa nút thao tác tới khi lời gọi gốc kết thúc (khiGocKetThuc)
   const [choGoc, setChoGoc] = useState(false);
-  // Đang tải tem vận đơn sàn (A6); phải khai báo trước lệnh return sớm lúc đang tải
-  const [dangTaiVanDon, setDangTaiVanDon] = useState(false);
   const huyChoGocRef = useRef(null);
   const daGoRef = useRef(false);
   useEffect(() => {
@@ -282,33 +275,6 @@ function ChiTietDonBanHang({ id }) {
       },
     });
 
-  const inVanDonSan = async () => {
-    // Shopee: giao diện in A6 nội bộ (tự nhúng vận đơn chuẩn sàn bên trong) ở thẻ mới, như mọi trang in của chứng từ;
-    // sàn khác: tệp PDF của sàn ở thẻ mới
-    if (laShopee) {
-      moTrangIn(`/sales-orders/${id}/print-packing-slip`, navigate);
-      return;
-    }
-    try {
-      setDangTaiVanDon(true);
-      const blob = await donBanHangService.layVanDonSan(id);
-      const fileUrl = window.URL.createObjectURL(blob);
-      const win = window.open(fileUrl, "_blank");
-      if (!win) {
-        window.location.href = fileUrl;
-      }
-    } catch (err) {
-      toast.error(t("Không thể tải tem vận đơn từ sàn: {{error}}", { error: getApiErrorMessage(err, t("Lỗi kết nối")) }));
-      if (v.pxMo?.id) {
-        moTrangIn(`/goods-issues/${v.pxMo.id}/print-packing-slip`, navigate);
-      } else {
-        moTrangIn(`/sales-orders/${id}/print-packing-slip`, navigate);
-      }
-    } finally {
-      setDangTaiVanDon(false);
-    }
-  };
-
   // ── Đầu khối ────────────────────────────────────────────────────────────
   const nguon = laPos ? t("Bán tại quầy") : laSan ? t("Đơn {{tenKenh}}", { tenKenh }) : t("Đơn bán hàng");
   const nutChinh = khoaKhiChoGoc(
@@ -333,24 +299,11 @@ function ChiTietDonBanHang({ id }) {
       v.nutTaoLai
         ? { ma: "taoLai", nhan: t("Tạo lại phiếu xuất"), icon: RefreshCw, dangChay: dangChay === "taoLai", khoa: Boolean(dangChay), onClick: taoLaiPhieuXuat }
         : null,
-      hoTroInVanDonSan
-        ? { ma: "inVanDonSan", nhan: t("In vận đơn sàn (A6)"), icon: Printer, dangChay: dangTaiVanDon, khoa: dangTaiVanDon, onClick: inVanDonSan }
-        : null,
     ].filter(Boolean),
     choGoc,
   );
 
   const menu = [
-    hoTroInVanDonSan
-      ? {
-        ma: "inVanDonSan",
-        nhan: t("In vận đơn sàn (A6)"),
-        moTa: t("Mở tem in vận chuyển chuẩn sàn"),
-        icon: Printer,
-        khoa: dangTaiVanDon,
-        onSelect: inVanDonSan,
-      }
-      : null,
     v.menuHoanTra
       ? { ma: "hoanTra", nhan: t("Ghi nhận hoàn trả"), moTa: t("Khách trả lại cả đơn"), icon: Undo2, khoa: choGoc, onSelect: () => moHop("hoanTra") }
       : null,

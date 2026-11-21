@@ -2064,13 +2064,14 @@ public class OmnichannelOrderSyncJob {
                     }
                 }
 
-                // 2.1 Đối soát tiến trình: đơn đã gửi sang kho trên FCentric (1, 7, 8) nhưng Shopee vẫn READY_TO_SHIP -> đồng bộ sang PROCESSED
+                // 2.1 Đối soát tiến trình: đơn đã gửi sang kho trên FCentric (1, 7, 8) nhưng Shopee vẫn READY_TO_SHIP -> đồng bộ sang PROCESSED (có cooldown 15p/đơn tránh gọi ship_order liên tục)
                 Integer trangThaiKho = existing.getTrangThai();
                 if (kenhBanHangDongBoService != null
                         && "READY_TO_SHIP".equalsIgnoreCase(shopeeStatus)
                         && trangThaiKho != null
                         && List.of(ITrangThaiDonBanHang.CHO_NHAT_HANG,
-                                ITrangThaiDonBanHang.CHO_DONG_GOI, ITrangThaiDonBanHang.DA_DONG_GOI).contains(trangThaiKho)) {
+                                ITrangThaiDonBanHang.CHO_DONG_GOI, ITrangThaiDonBanHang.DA_DONG_GOI).contains(trangThaiKho)
+                        && choPhepDoiSoatChuanBiShopee(orderId)) {
                     SauCommit.chay("Đối soát tiến trình đơn Shopee đã gửi sang kho",
                             () -> kenhBanHangDongBoService.dongBoTrangThaiChuanBiHangShopee(orderId));
                 }
@@ -2262,5 +2263,18 @@ public class OmnichannelOrderSyncJob {
         String clean = apiUrl.trim().replaceFirst("^(?i)https?://", "");
         int slashIdx = clean.indexOf('/');
         return (slashIdx > 0 ? clean.substring(0, slashIdx) : clean).trim().toLowerCase();
+    }
+
+    private final ConcurrentHashMap<String, Instant> shopeePrepareCooldown = new ConcurrentHashMap<>();
+
+    private boolean choPhepDoiSoatChuanBiShopee(String orderId) {
+        if (orderId == null || orderId.isBlank()) return false;
+        Instant now = Instant.now();
+        Instant prev = shopeePrepareCooldown.get(orderId);
+        if (prev != null && Duration.between(prev, now).toMinutes() < 15) {
+            return false;
+        }
+        shopeePrepareCooldown.put(orderId, now);
+        return true;
     }
 }

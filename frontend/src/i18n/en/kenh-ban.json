@@ -1043,5 +1043,10 @@
   "Số đẩy sàn": "Published qty",
   "Buffer phần trăm {{sku}}": "Buffer percentage for {{sku}}",
   "Ngưỡng đồng bộ tức thời {{sku}}": "Real-time threshold for {{sku}}",
-  "Hiện tại": "Current"
+  "Hiện tại": "Current",
+  "Bán tại quầy (POS)": "Point of Sale (POS)",
+  "POS là lượng bán tại quầy cửa hàng; Tỷ trọng POS = POS / Tổng bán (POS + Online). Nhóm A (POS ≥ 30%) đệm 10%–25%, Nhóm B (POS ≥ 40%) đệm 10%; tồn ≤ Ngưỡng tức thời sẽ đẩy 100%.": "POS tracks store counter sales; POS share = POS / Total sold (POS + Online). Class A (POS ≥ 30%) holds a 10%–25% buffer, Class B (POS ≥ 40%) holds 10%; at or below real-time threshold, 100% is pushed.",
+  "Gian hàng / Kênh bán": "Store / Channel",
+  "Số lượng bán tại quầy (POS) trên tổng lượng bán mọi kênh": "In-store POS units sold out of total units across all channels",
+  "Tỷ trọng bán tại quầy r_POS = POS / Tổng bán": "POS sales share r_POS = POS / Total sold"
 }

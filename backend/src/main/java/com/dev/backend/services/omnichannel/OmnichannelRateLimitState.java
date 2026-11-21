@@ -5,6 +5,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,33 +25,51 @@ public class OmnichannelRateLimitState {
 
     public static final double THROTTLE_THRESHOLD_PCT = 85.0d;
     public static final long SCHEDULED_THROTTLE_DELAY_MS = 500L;
+    public static final int DEFAULT_CALLS_PER_MINUTE = 120;
     private static final long BUCKET_TTL_SECONDS = 60L;
     private static final Pattern RATIO_PATTERN = Pattern.compile("(\\d+)\\s*/\\s*(\\d+)");
 
     public record BucketSnapshot(int used, int limit, double utilizationPct, Instant updatedAt) {}
 
     private final Map<String, BucketSnapshot> buckets = new ConcurrentHashMap<>();
+    private final Map<String, Deque<Instant>> rollingWindowCalls = new ConcurrentHashMap<>();
 
     public void updateFromHeader(String channelCode, String callLimitHeader, int httpStatus) {
         if (channelCode == null || channelCode.isBlank()) return;
         String key = normalizeChannel(channelCode);
+        Instant now = Instant.now();
         if (httpStatus == 429) {
-            buckets.put(key, new BucketSnapshot(40, 40, 100.0d, Instant.now()));
+            buckets.put(key, new BucketSnapshot(40, 40, 100.0d, now));
             return;
         }
-        if (callLimitHeader == null || callLimitHeader.isBlank()) return;
-        Matcher m = RATIO_PATTERN.matcher(callLimitHeader);
-        if (m.find()) {
-            try {
-                int used = Integer.parseInt(m.group(1));
-                int limit = Integer.parseInt(m.group(2));
-                if (limit > 0) {
-                    double pct = Math.min(100.0d, Math.round((used * 10000.0d / limit)) / 100.0d);
-                    buckets.put(key, new BucketSnapshot(used, limit, pct, Instant.now()));
+        if (callLimitHeader != null && !callLimitHeader.isBlank()) {
+            Matcher m = RATIO_PATTERN.matcher(callLimitHeader);
+            if (m.find()) {
+                try {
+                    int used = Integer.parseInt(m.group(1));
+                    int limit = Integer.parseInt(m.group(2));
+                    if (limit > 0) {
+                        double pct = Math.min(100.0d, Math.round((used * 10000.0d / limit)) / 100.0d);
+                        buckets.put(key, new BucketSnapshot(used, limit, pct, now));
+                        return;
+                    }
+                } catch (NumberFormatException ignored) {
                 }
-            } catch (NumberFormatException ignored) {
             }
         }
+        // Sàn không trả header bucket (Shopee / Lazada / TikTok): tính theo số request trong 60 giây gần nhất / 120 rpm
+        Deque<Instant> window = rollingWindowCalls.computeIfAbsent(key, k -> new ArrayDeque<>());
+        int usedInMinute;
+        synchronized (window) {
+            window.addLast(now);
+            Instant cutoff = now.minusSeconds(BUCKET_TTL_SECONDS);
+            while (!window.isEmpty() && window.peekFirst().isBefore(cutoff)) {
+                window.pollFirst();
+            }
+            usedInMinute = window.size();
+        }
+        double pct = Math.min(100.0d, Math.round((usedInMinute * 10000.0d / DEFAULT_CALLS_PER_MINUTE)) / 100.0d);
+        buckets.put(key, new BucketSnapshot(usedInMinute, DEFAULT_CALLS_PER_MINUTE, pct, now));
     }
 
     public double getUtilizationPct(String channelCode) {

@@ -272,6 +272,27 @@ public class OmnichannelAnalyticsService {
         int globalRt = dieuHanhHeThongService != null
                 ? Math.max(0, dieuHanhHeThongService.getCauHinhInt("REALTIME_SYNC_THRESHOLD", 3))
                 : 3;
+        String dssMode = dieuHanhHeThongService != null
+                ? dieuHanhHeThongService.getCauHinhString("DSS_REPLENISHMENT_MODE", "BY_ABC_CLASS")
+                : "BY_ABC_CLASS";
+        String dssGlobalPreset = dieuHanhHeThongService != null
+                ? dieuHanhHeThongService.getCauHinhString("DSS_GLOBAL_PRESET_CODE", "PRESET_01_STANDARD")
+                : "PRESET_01_STANDARD";
+        double defaultLAvg = dieuHanhHeThongService != null
+                ? Math.max(1.0d, dieuHanhHeThongService.getCauHinhInt("DSS_DEFAULT_LEAD_TIME_AVG", 5))
+                : 5.0d;
+        double defaultLMax = dieuHanhHeThongService != null
+                ? Math.max(defaultLAvg, dieuHanhHeThongService.getCauHinhInt("DSS_DEFAULT_LEAD_TIME_MAX", 7))
+                : 7.0d;
+
+        List<String> channelCodes = expandChannelCodes(channelFilter);
+        String channelWhereClause = channelCodes.isEmpty()
+                ? ""
+                : "WHERE UPPER(kb.ma_kenh) IN (:channelCodes)";
+        MapSqlParameterSource mappingParams = new MapSqlParameterSource();
+        if (!channelCodes.isEmpty()) {
+            mappingParams.addValue("channelCodes", channelCodes);
+        }
 
         List<Map<String, Object>> mappings = jdbc.queryForList("""
                         SELECT t.id AS mapping_id,
@@ -291,10 +312,10 @@ public class OmnichannelAnalyticsService {
                         JOIN kenh_ban_hang kb ON kb.id = t.kenh_ban_id AND kb.trang_thai = 1
                         LEFT JOIN mau_sac ms ON ms.id = bt.mau_sac_id
                         LEFT JOIN size sz ON sz.id = bt.size_id
-                        WHERE (:channel IS NULL OR UPPER(kb.ma_kenh) = UPPER(:channel))
+                        %s
                         ORDER BY kb.id, sp.ten_san_pham, bt.id
-                        """,
-                new MapSqlParameterSource().addValue("channel", channelFilter));
+                        """.formatted(channelWhereClause),
+                mappingParams);
 
         Map<Integer, Long> ftuMap = new HashMap<>();
         jdbc.query("""
@@ -310,28 +331,73 @@ public class OmnichannelAnalyticsService {
                 });
 
         boolean hasPosTable = adminRepo.coBang("pos_checkout_request");
-        String posExpr = hasPosTable ? "CASE WHEN pos.id IS NOT NULL THEN 1 ELSE 0 END" : "CASE WHEN d.kenh_ban_id IS NULL THEN 1 ELSE 0 END";
+        String posExpr = hasPosTable ? "CASE WHEN pos.id IS NOT NULL THEN 1 ELSE 0 END" : "0";
         String posJoin = hasPosTable ? "LEFT JOIN pos_checkout_request pos ON pos.don_ban_hang_id = d.id" : "";
 
         Map<Integer, long[]> posOnlineSoldMap = new HashMap<>();
+        Map<Integer, Long> revenueMap = new HashMap<>();
+        Map<Integer, Map<LocalDateTime, Long>> dailyByDayMap = new HashMap<>();
+
         jdbc.query("""
                         SELECT ct.bien_the_san_pham_id AS bt_id,
+                               DATE(d.ngay_dat_hang) AS ngay_ban,
                                SUM(CASE WHEN %s = 1 THEN ct.so_luong_dat ELSE 0 END) AS pos_qty,
-                               SUM(CASE WHEN %s = 0 THEN ct.so_luong_dat ELSE 0 END) AS online_qty
+                               SUM(CASE WHEN %s = 0 THEN ct.so_luong_dat ELSE 0 END) AS online_qty,
+                               COALESCE(SUM(COALESCE(ct.thanh_tien, ct.so_luong_dat * ct.don_gia) - COALESCE(ct.tien_giam_gia, 0)), 0) AS doanh_thu
                         FROM chi_tiet_don_ban_hang ct
                         JOIN don_ban_hang d ON d.id = ct.don_ban_hang_id
                         %s
                         WHERE d.loai_chung_tu = 'don_ban_hang'
                           AND d.trang_thai NOT IN (0, 4)
                           AND d.ngay_dat_hang >= :since
-                        GROUP BY ct.bien_the_san_pham_id
+                        GROUP BY ct.bien_the_san_pham_id, DATE(d.ngay_dat_hang)
                         """.formatted(posExpr, posExpr, posJoin),
                 new MapSqlParameterSource("since", Timestamp.from(since)),
                 rs -> {
-                    long pos = rs.getBigDecimal("pos_qty") != null ? rs.getBigDecimal("pos_qty").setScale(0, RoundingMode.HALF_UP).longValue() : 0L;
-                    long onl = rs.getBigDecimal("online_qty") != null ? rs.getBigDecimal("online_qty").setScale(0, RoundingMode.HALF_UP).longValue() : 0L;
-                    posOnlineSoldMap.put(rs.getInt("bt_id"), new long[]{pos, onl});
+                    int btId = rs.getInt("bt_id");
+                    BigDecimal posBd = rs.getBigDecimal("pos_qty");
+                    BigDecimal onlBd = rs.getBigDecimal("online_qty");
+                    BigDecimal revBd = rs.getBigDecimal("doanh_thu");
+                    long pos = posBd != null ? posBd.setScale(0, RoundingMode.HALF_UP).longValue() : 0L;
+                    long onl = onlBd != null ? onlBd.setScale(0, RoundingMode.HALF_UP).longValue() : 0L;
+                    long rev = revBd != null ? Math.max(0L, revBd.setScale(0, RoundingMode.HALF_UP).longValue()) : 0L;
+                    posOnlineSoldMap.compute(btId, (k, prev) -> prev == null ? new long[]{pos, onl} : new long[]{prev[0] + pos, prev[1] + onl});
+                    revenueMap.merge(btId, rev, Long::sum);
+                    java.sql.Date sqlDate = rs.getDate("ngay_ban");
+                    if (sqlDate != null) {
+                        dailyByDayMap.computeIfAbsent(btId, k -> new HashMap<>())
+                                .merge(sqlDate.toLocalDate().atStartOfDay(), pos + onl, Long::sum);
+                    }
                 });
+
+        // Phân hạng Pareto ABC (70% / 20% / 10%) theo doanh thu toàn kho trong N ngày
+        Map<Integer, String> abcClassByVariant = new HashMap<>();
+        Map<Integer, Double> revShareByVariant = new HashMap<>();
+        long totalRevenue = 0L;
+        for (Long r : revenueMap.values()) {
+            totalRevenue += Math.max(0L, r);
+        }
+        List<Map.Entry<Integer, Long>> rankedVariants = new ArrayList<>(revenueMap.entrySet());
+        rankedVariants.sort((a, b) -> Long.compare(Math.max(0L, b.getValue()), Math.max(0L, a.getValue())));
+        long cumRev = 0L;
+        for (Map.Entry<Integer, Long> entry : rankedVariants) {
+            long rev = Math.max(0L, entry.getValue());
+            double cumBeforeRatio = totalRevenue > 0 ? (double) cumRev / totalRevenue : 1.0d;
+            cumRev += rev;
+            double sharePct = totalRevenue > 0 ? round2((double) rev * 100.0d / totalRevenue) : 0.0d;
+            revShareByVariant.put(entry.getKey(), sharePct);
+            String cls;
+            if (totalRevenue <= 0 || rev <= 0) {
+                cls = "C";
+            } else if (cumBeforeRatio < 0.70d) {
+                cls = "A";
+            } else if (cumBeforeRatio < 0.90d) {
+                cls = "B";
+            } else {
+                cls = "C";
+            }
+            abcClassByVariant.put(entry.getKey(), cls);
+        }
 
         List<ItemDto> items = new ArrayList<>(mappings.size());
         for (Map<String, Object> row : mappings) {
@@ -345,12 +411,35 @@ public class OmnichannelAnalyticsService {
             double avgDaily = round2((double) totalSold / days);
             double rPos = totalSold > 0 ? round2((double) posSold / totalSold) : 0.0d;
 
+            String abcClass = abcClassByVariant.getOrDefault(btId, "C");
+            long revN = revenueMap.getOrDefault(btId, 0L);
+            double sharePct = revShareByVariant.getOrDefault(btId, 0.0d);
+
+            // Công thức Buffer %_k đúng đặc tả Mục 2.4:
+            // - Hạng A & r_POS >= 0.30 -> min(25%, max(10%, ROUND(r_POS * 30%)))
+            // - Hạng B & r_POS >= 0.40 -> 10%
+            // - Còn lại -> 0%
             int recBuf = 0;
-            if (posSold > 0) {
-                int step5 = (int) Math.round((rPos * 40.0d) / 5.0d) * 5;
-                recBuf = Math.max(5, Math.min(40, step5));
+            if ("A".equals(abcClass) && rPos >= 0.30d) {
+                recBuf = (int) Math.min(25L, Math.max(10L, Math.round(rPos * 30.0d)));
+            } else if ("B".equals(abcClass) && rPos >= 0.40d) {
+                recBuf = 10;
             }
-            int recRt = Math.max(3, Math.min(25, (int) Math.ceil(avgDaily * 1.5d)));
+
+            // Công thức Threshold_RT,k đúng đặc tả Mục 2.4:
+            // - Chuẩn / Lean: max(3, ceil(0.5 * D_avg))
+            // - Cao điểm (PRESET_02_PEAK) với SKU Hạng A: max(3, SS_k)
+            String appliedPreset = resolveDssPreset(dssMode, dssGlobalPreset, abcClass);
+            int normalRt = Math.max(3, (int) Math.ceil(0.5d * avgDaily - 1e-9d));
+            int recRt = normalRt;
+            if ("A".equals(abcClass) && "PRESET_02_PEAK".equals(appliedPreset)) {
+                double dMax = dailyByDayMap.getOrDefault(btId, Map.of()).values().stream()
+                        .mapToDouble(Long::doubleValue)
+                        .max()
+                        .orElse(avgDaily);
+                long peakSs = Math.max(0L, (long) Math.ceil(dMax * defaultLMax - avgDaily * defaultLAvg - 1e-9d));
+                recRt = (int) Math.min(1000L, Math.max(normalRt, peakSs));
+            }
 
             Integer curBuf = row.get("buffer_percent") != null ? ((Number) row.get("buffer_percent")).intValue() : null;
             Integer curRt = row.get("realtime_threshold") != null ? ((Number) row.get("realtime_threshold")).intValue() : null;
@@ -361,6 +450,7 @@ public class OmnichannelAnalyticsService {
             boolean needsAdj = !Objects.equals(curBuf != null ? curBuf : 0, recBuf)
                     || !Objects.equals(curRt != null ? curRt : globalRt, recRt);
 
+            String maKenh = (String) row.get("ma_kenh");
             items.add(ItemDto.builder()
                     .mappingId(mappingId)
                     .bienTheSanPhamId(btId)
@@ -369,8 +459,13 @@ public class OmnichannelAnalyticsService {
                     .tenMau((String) row.get("ten_mau"))
                     .tenSize((String) row.get("ten_size"))
                     .kenhBanId(((Number) row.get("kenh_ban_id")).intValue())
-                    .maKenh((String) row.get("ma_kenh"))
+                    .maKenh(maKenh)
                     .tenKenh((String) row.get("ten_kenh"))
+                    .platformCode(canonicalPlatform(maKenh))
+                    .abcClass(abcClass)
+                    .appliedPreset(appliedPreset)
+                    .revenueN(revN)
+                    .revenueSharePercent(sharePct)
                     .ftu(ftu)
                     .posSoldN(posSold)
                     .onlineSoldN(onlineSold)
@@ -388,6 +483,7 @@ public class OmnichannelAnalyticsService {
         }
 
         items.sort(Comparator.comparing(ItemDto::isNeedsAdjustment, Comparator.reverseOrder())
+                .thenComparing(it -> abcRank(it.getAbcClass()))
                 .thenComparing(Comparator.comparingDouble(ItemDto::getRPos).reversed())
                 .thenComparingLong(it -> -it.getTotalSoldN()));
 
@@ -414,7 +510,7 @@ public class OmnichannelAnalyticsService {
                 entity.setBufferPercent(buf);
             }
             if (reqItem.getRealtimeThreshold() != null) {
-                int rt = Math.max(0, Math.min(100, reqItem.getRealtimeThreshold()));
+                int rt = Math.max(0, Math.min(1000, reqItem.getRealtimeThreshold()));
                 entity.setRealtimeThreshold(rt);
             }
             toSave.add(entity);
@@ -489,7 +585,52 @@ public class OmnichannelAnalyticsService {
         if (channelParam == null || channelParam.isBlank() || "ALL".equalsIgnoreCase(channelParam.trim())) {
             return null;
         }
-        return channelParam.trim().toUpperCase(Locale.ROOT);
+        String c = channelParam.trim().toUpperCase(Locale.ROOT);
+        if ("TIKTOK_SHOP".equals(c)) return "TIKTOK";
+        if ("SHOPEE_OFFICIAL".equals(c)) return "SHOPEE";
+        if ("LAZADA_SANDBOX".equals(c)) return "LAZADA";
+        return c;
+    }
+
+    private static List<String> expandChannelCodes(String normalizedFilter) {
+        if (normalizedFilter == null || normalizedFilter.isBlank()) {
+            return List.of();
+        }
+        return switch (normalizedFilter) {
+            case "SHOPEE" -> List.of("SHOPEE", "SHOPEE_OFFICIAL");
+            case "SHOPEE_SANDBOX" -> List.of("SHOPEE_SANDBOX");
+            case "TIKTOK" -> List.of("TIKTOK", "TIKTOK_SHOP");
+            case "LAZADA" -> List.of("LAZADA", "LAZADA_SANDBOX");
+            case "SHOPIFY" -> List.of("SHOPIFY");
+            default -> List.of(normalizedFilter);
+        };
+    }
+
+    private static String canonicalPlatform(String maKenh) {
+        if (maKenh == null || maKenh.isBlank()) return "OMNICHANNEL";
+        String c = maKenh.trim().toUpperCase(Locale.ROOT);
+        if (c.contains("SHOPEE")) return c.contains("SANDBOX") ? "SHOPEE_SANDBOX" : "SHOPEE";
+        if (c.contains("TIKTOK")) return "TIKTOK_SHOP";
+        if (c.contains("LAZADA")) return c.contains("SANDBOX") ? "LAZADA_SANDBOX" : "LAZADA";
+        if (c.contains("SHOPIFY")) return "SHOPIFY";
+        return c;
+    }
+
+    private static String resolveDssPreset(String mode, String globalPresetCode, String abcClass) {
+        if ("GLOBAL_PRESET".equalsIgnoreCase(mode) && globalPresetCode != null && !globalPresetCode.isBlank()) {
+            return globalPresetCode;
+        }
+        return switch (abcClass != null ? abcClass : "C") {
+            case "A" -> "PRESET_02_PEAK";
+            case "B" -> "PRESET_01_STANDARD";
+            default -> "PRESET_03_LEAN";
+        };
+    }
+
+    private static int abcRank(String abcClass) {
+        if ("A".equals(abcClass)) return 0;
+        if ("B".equals(abcClass)) return 1;
+        return 2;
     }
 
     private static String formatTrendBucket(Instant createdAt, String range) {

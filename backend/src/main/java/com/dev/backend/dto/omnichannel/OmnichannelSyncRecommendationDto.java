@@ -26,6 +26,11 @@ public class OmnichannelSyncRecommendationDto {
         private Integer kenhBanId;
         private String maKenh;
         private String tenKenh;
+        private String platformCode;
+        private String abcClass;
+        private String appliedPreset;
+        private long revenueN;
+        private double revenueSharePercent;
         private long ftu;
         private long posSoldN;
         private long onlineSoldN;

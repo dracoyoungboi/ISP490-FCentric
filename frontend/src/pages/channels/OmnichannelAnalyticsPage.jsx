@@ -27,6 +27,24 @@ const KENH_LOC = [
   { value: "TIKTOK", label: "TikTok Shop" },
 ];
 
+function nhanSanChuan(code) {
+  const norm = String(code || "").trim().toUpperCase();
+  if (!norm) return t("Kênh bán");
+  if (norm.includes("SHOPEE")) return norm.includes("SANDBOX") ? "Shopee Sandbox" : "Shopee";
+  if (norm.includes("TIKTOK")) return "TikTok Shop";
+  if (norm.includes("LAZADA")) return norm.includes("SANDBOX") ? "Lazada Sandbox" : "Lazada";
+  if (norm.includes("SHOPIFY")) return "Shopify";
+  if (norm === "POS") return t("Bán tại quầy (POS)");
+  return code;
+}
+
+function chuanHoaGianHangVaSan(it) {
+  const tenSan = nhanSanChuan(it.platformCode || it.maKenh);
+  const rawName = String(it.tenKenh || "").trim();
+  const tenGianHang = rawName || tenSan;
+  return { tenGianHang, tenSan };
+}
+
 export default function OmnichannelAnalyticsPage() {
   const userRole = localStorage.getItem("role") || "";
   const isAdmin = hasAnyRole([userRole], [ROLES.QUAN_TRI_VIEN]);
@@ -258,7 +276,7 @@ export default function OmnichannelAnalyticsPage() {
               overview.channelStats.map((ch) => (
                 <div key={ch.channel} className="rounded-md border border-bo-border px-3 py-2 text-xs">
                   <div className="flex items-center justify-between font-semibold text-bo-heading">
-                    <span>{ch.channel}</span>
+                    <span>{nhanSanChuan(ch.channel)}</span>
                     <span className={ch.successRatePercent >= 99 ? "text-emerald-700" : "text-red-600"}>
                       {ch.successRatePercent}%
                     </span>
@@ -304,7 +322,7 @@ export default function OmnichannelAnalyticsPage() {
               {t("Khuyến nghị giữ tồn an toàn POS (Buffer %) & Ngưỡng đồng bộ tức thời")}
             </h2>
             <p className="text-xs text-bo-muted">
-              {t("Khi tồn khả dụng > Ngưỡng tức thời: giữ lại Buffer % phòng bán trùng tại quầy. Khi ≤ Ngưỡng tức thời: đẩy 100% tồn còn lại lên sàn.")}
+              {t("POS là lượng bán tại quầy cửa hàng; Tỷ trọng POS = POS / Tổng bán (POS + Online). Nhóm A (POS ≥ 30%) đệm 10%–25%, Nhóm B (POS ≥ 40%) đệm 10%; tồn ≤ Ngưỡng tức thời sẽ đẩy 100%.")}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -350,10 +368,15 @@ export default function OmnichannelAnalyticsPage() {
                     ) : null}
                   </th>
                   <th className="px-3 py-2.5">{t("Sản phẩm / SKU")}</th>
-                  <th className="px-2.5 py-2.5">{t("Kênh")}</th>
+                  <th className="px-2 py-2.5 text-center">{t("ABC")}</th>
+                  <th className="px-2.5 py-2.5">{t("Gian hàng / Kênh bán")}</th>
                   <th className="px-2.5 py-2.5 text-right">{t("Khả dụng")}</th>
-                  <th className="px-2.5 py-2.5 text-right">{t("POS / Tổng bán")}</th>
-                  <th className="px-2.5 py-2.5 text-right">{t("Tỷ trọng POS")}</th>
+                  <th className="px-2.5 py-2.5 text-right" title={t("Số lượng bán tại quầy (POS) trên tổng lượng bán mọi kênh")}>
+                    {t("POS / Tổng bán")}
+                  </th>
+                  <th className="px-2.5 py-2.5 text-right" title={t("Tỷ trọng bán tại quầy r_POS = POS / Tổng bán")}>
+                    {t("Tỷ trọng POS")}
+                  </th>
                   <th className="px-2.5 py-2.5 text-right">{t("Buffer %")}</th>
                   <th className="px-2.5 py-2.5 text-right">{t("Ngưỡng tức thời")}</th>
                   <th className="px-3 py-2.5 text-right">{t("Số đẩy sàn")}</th>
@@ -370,6 +393,8 @@ export default function OmnichannelAnalyticsPage() {
                     edits.bufferPercent,
                     edits.realtimeThreshold,
                   );
+                  const { tenGianHang, tenSan } = chuanHoaGianHangVaSan(it);
+                  const abc = it.abcClass || "C";
                   return (
                     <tr key={it.mappingId} className="hover:bg-bo-surface-subtle/60">
                       <td className="px-3 py-2 text-center">
@@ -392,13 +417,34 @@ export default function OmnichannelAnalyticsPage() {
                         <p className="font-medium text-bo-heading">{it.tenSanPham}</p>
                         <p className="font-mono text-xs text-bo-muted">{it.maSku}</p>
                       </td>
-                      <td className="px-2.5 py-2 text-xs font-medium text-bo-heading">{it.tenKenh || it.maKenh}</td>
+                      <td className="px-2 py-2 text-center">
+                        <span
+                          className={cn(
+                            "inline-flex min-w-6 items-center justify-center rounded border px-1.5 py-0.5 text-xs font-semibold",
+                            abc === "A"
+                              ? "border-indigo-200 bg-indigo-50 text-indigo-700"
+                              : abc === "B"
+                                ? "border-sky-200 bg-sky-50 text-sky-700"
+                                : "border-slate-200 bg-slate-100 text-slate-600",
+                          )}
+                        >
+                          {abc}
+                        </span>
+                      </td>
+                      <td className="px-2.5 py-2 text-xs">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-medium text-bo-heading">{tenGianHang}</span>
+                          <span className="inline-flex rounded border border-bo-border bg-bo-surface-subtle px-1.5 py-0.5 text-[11px] font-medium text-bo-muted">
+                            {tenSan}
+                          </span>
+                        </div>
+                      </td>
                       <td className="px-2.5 py-2 text-right tabular-nums">{formatNumber(it.ftu)}</td>
                       <td className="px-2.5 py-2 text-right text-xs tabular-nums text-bo-muted">
                         {formatNumber(it.posSoldN)} / {formatNumber(it.totalSoldN)}
                       </td>
                       <td className="px-2.5 py-2 text-right tabular-nums">
-                        <span className={cn("font-medium", it.rPos >= 0.4 ? "text-amber-700" : "text-bo-heading")}>
+                        <span className={cn("font-medium", it.rPos >= 0.3 ? "text-amber-700" : "text-bo-heading")}>
                           {Math.round(it.rPos * 100)}%
                         </span>
                       </td>
@@ -429,7 +475,7 @@ export default function OmnichannelAnalyticsPage() {
                         <Input
                           type="number"
                           min={0}
-                          max={100}
+                          max={1000}
                           disabled={!isAdmin || applying}
                           value={edits.realtimeThreshold}
                           onChange={(e) =>
@@ -437,7 +483,7 @@ export default function OmnichannelAnalyticsPage() {
                               ...prev,
                               [it.mappingId]: {
                                 ...edits,
-                                realtimeThreshold: Math.max(0, Math.min(100, parseInt(e.target.value || "0", 10))),
+                                realtimeThreshold: Math.max(0, Math.min(1000, parseInt(e.target.value || "0", 10))),
                               },
                             }))
                           }

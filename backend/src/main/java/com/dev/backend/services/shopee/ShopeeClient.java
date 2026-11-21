@@ -1318,6 +1318,11 @@ public class ShopeeClient {
 
     public byte[] downloadShippingDocument(String partnerId, String partnerKey, String accessToken, String shopId,
                                           String orderSn, boolean isSandbox) {
+        return downloadShippingDocument(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox, false);
+    }
+
+    public byte[] downloadShippingDocument(String partnerId, String partnerKey, String accessToken, String shopId,
+                                          String orderSn, boolean isSandbox, boolean daChuanBiHang) {
         if (isMockCredentials(partnerId, partnerKey)) {
             String mockHtml = "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Shopee AWB " + orderSn + "</title>"
                     + "<style>@page{size:100mm 150mm;margin:0;}body{font-family:sans-serif;margin:10mm;text-align:center;}"
@@ -1331,17 +1336,19 @@ public class ShopeeClient {
             return mockHtml.getBytes(StandardCharsets.UTF_8);
         }
         try {
-            // Bước 0: Chuẩn bị hàng tự động theo get_shipping_parameter (pickup / dropoff)
-            try {
-                shipOrderAuto(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
-            } catch (Exception shipEx) {
-                log.info("[SHOPEE-DOC] shipOrderAuto phản hồi: {}", shipEx.getMessage());
+            // Bước 0: Chỉ gọi shipOrderAuto nếu đơn chưa có mã vận đơn/chưa chuẩn bị hàng trên Shopee (tránh lỗi lặp ship_order)
+            if (!daChuanBiHang) {
+                try {
+                    shipOrderAuto(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
+                } catch (Exception shipEx) {
+                    log.info("[SHOPEE-DOC] shipOrderAuto phản hồi: {}", shipEx.getMessage());
+                }
             }
 
-            // Bước 1: Lấy tracking_number (thử tối đa 3 lần phòng trường hợp Shopee vừa cấp sau ship_order)
+            // Bước 1: Lấy tracking_number (dừng ngay nếu sàn trả lỗi rõ ràng để tránh spam API)
             String trackingNumber = layTrackingNumberShopee(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
 
-            // Bước 2-4: Tạo bản in (create_shipping_document kèm tracking_number) -> Chờ READY -> Tải file PDF
+            // Bước 2-4: Tạo bản in (create_shipping_document) -> Chờ READY -> Tải file PDF
             for (String docType : List.of("THERMAL_AIR_WAYBILL", "NORMAL_AIR_WAYBILL")) {
                 byte[] downloaded = taoVaTaiVanDonTheoLoai(
                         partnerId, partnerKey, accessToken, shopId, orderSn, trackingNumber, docType, isSandbox);
@@ -1358,14 +1365,21 @@ public class ShopeeClient {
 
     private String layTrackingNumberShopee(String partnerId, String partnerKey, String accessToken, String shopId,
                                            String orderSn, boolean isSandbox) {
-        for (int attempt = 0; attempt < 3; attempt++) {
+        for (int attempt = 0; attempt < 2; attempt++) {
             try {
                 JsonNode trackRes = getTrackingNumber(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
-                String trackingNo = trackRes != null ? trackRes.path("response").path("tracking_number").asText("").trim() : "";
-                if (!trackingNo.isBlank()) {
-                    return trackingNo;
+                if (trackRes != null) {
+                    String err = trackRes.path("error").asText("").trim();
+                    String trackingNo = trackRes.path("response").path("tracking_number").asText("").trim();
+                    if (!trackingNo.isBlank()) {
+                        return trackingNo;
+                    }
+                    if (!err.isBlank()) {
+                        log.debug("[SHOPEE-DOC] getTrackingNumber trả lỗi '{}' cho {} -> dừng retry", err, orderSn);
+                        break;
+                    }
                 }
-                if (attempt < 2) {
+                if (attempt == 0) {
                     Thread.sleep(400);
                 }
             } catch (InterruptedException ie) {
@@ -1373,6 +1387,7 @@ public class ShopeeClient {
                 break;
             } catch (Exception ex) {
                 log.debug("[SHOPEE-DOC] getTrackingNumber lần {} thất bại cho {}: {}", attempt + 1, orderSn, ex.getMessage());
+                break;
             }
         }
         return "";
@@ -1380,29 +1395,50 @@ public class ShopeeClient {
 
     private byte[] taoVaTaiVanDonTheoLoai(String partnerId, String partnerKey, String accessToken, String shopId,
                                           String orderSn, String trackingNumber, String docType, boolean isSandbox) {
+        boolean createdOrExists = false;
         try {
             JsonNode createRes = createShippingDocument(
                     partnerId, partnerKey, accessToken, shopId, orderSn, trackingNumber, docType, isSandbox);
-            if (!laCreateDocThanhCong(createRes) && trackingNumber != null && !trackingNumber.isBlank()) {
+            createdOrExists = laCreateDocThanhCongHoacDaTonTai(createRes);
+            if (!createdOrExists && trackingNumber != null && !trackingNumber.isBlank() && coTheThuKhongTracking(createRes)) {
                 log.info("[SHOPEE-DOC] createShippingDocument kèm tracking [{}] chưa đạt ({}), thử lại không truyền tracking_number...",
                         trackingNumber, createRes != null ? createRes.toString() : "null");
-                createShippingDocument(partnerId, partnerKey, accessToken, shopId, orderSn, null, docType, isSandbox);
+                JsonNode retryRes = createShippingDocument(partnerId, partnerKey, accessToken, shopId, orderSn, null, docType, isSandbox);
+                createdOrExists = laCreateDocThanhCongHoacDaTonTai(retryRes);
             }
         } catch (Exception ex) {
             log.info("[SHOPEE-DOC] createShippingDocument ({}) phản hồi: {}", docType, ex.getMessage());
         }
 
-        // Kiểm tra trạng thái sẵn sàng (polling tối đa 8 lần, mỗi lần 500ms)
-        for (int i = 0; i < 8; i++) {
+        if (!createdOrExists) {
+            log.debug("[SHOPEE-DOC] Bỏ qua polling getShippingDocumentResult ({}) cho đơn {} do createShippingDocument thất bại", docType, orderSn);
+            return new byte[0];
+        }
+
+        // Kiểm tra trạng thái sẵn sàng (tối đa 4 lần, dừng ngay khi READY, FAILED hoặc có lỗi JSON)
+        boolean ready = false;
+        for (int i = 0; i < 4; i++) {
             try {
                 JsonNode statusRes = getShippingDocumentResult(
                         partnerId, partnerKey, accessToken, shopId, orderSn, docType, isSandbox);
                 if (statusRes != null) {
+                    String topErr = statusRes.path("error").asText("").trim();
+                    if (!topErr.isBlank()) {
+                        log.warn("[SHOPEE-DOC] getShippingDocumentResult ({}) lỗi '{}' cho đơn {} -> dừng polling", docType, topErr, orderSn);
+                        return new byte[0];
+                    }
+                    JsonNode firstResult = statusRes.path("response").path("result_list").path(0);
+                    String failErr = firstResult.path("fail_error").asText("").trim();
+                    if (!failErr.isBlank()) {
+                        log.warn("[SHOPEE-DOC] getShippingDocumentResult ({}) fail_error='{}' cho đơn {} -> dừng polling", docType, failErr, orderSn);
+                        return new byte[0];
+                    }
                     String st = statusRes.path("response").path("status").asText("");
                     if (st.isBlank() && statusRes.path("response").path("result_list").isArray()) {
-                        st = statusRes.path("response").path("result_list").path(0).path("status").asText("");
+                        st = firstResult.path("status").asText("");
                     }
                     if ("READY".equalsIgnoreCase(st)) {
+                        ready = true;
                         break;
                     }
                     if ("FAILED".equalsIgnoreCase(st)) {
@@ -1410,11 +1446,20 @@ public class ShopeeClient {
                         return new byte[0];
                     }
                 }
-                Thread.sleep(500);
+                if (i < 3) {
+                    Thread.sleep(500L + i * 200L);
+                }
             } catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();
                 break;
-            } catch (Exception ignored) {}
+            } catch (Exception ex) {
+                break;
+            }
+        }
+
+        if (!ready) {
+            log.debug("[SHOPEE-DOC] Vận đơn {} của đơn {} chưa READY sau tối đa 4 lần kiểm tra -> bỏ qua download_shipping_document", docType, orderSn);
+            return new byte[0];
         }
 
         try {
@@ -1447,16 +1492,30 @@ public class ShopeeClient {
         }
     }
 
-    private static boolean laCreateDocThanhCong(JsonNode res) {
+    private static boolean laCreateDocThanhCongHoacDaTonTai(JsonNode res) {
         if (res == null) return false;
-        String err = res.path("error").asText("");
-        if (!err.isBlank()) return false;
+        String err = res.path("error").asText("").trim().toLowerCase(Locale.ROOT);
+        String msg = res.path("message").asText("").trim().toLowerCase(Locale.ROOT);
+        if (!err.isBlank()) {
+            return msg.contains("already") || err.contains("already") || msg.contains("created");
+        }
         JsonNode resultList = res.path("response").path("result_list");
         if (resultList.isArray() && !resultList.isEmpty()) {
-            String failErr = resultList.get(0).path("fail_error").asText("");
-            return failErr.isBlank();
+            String failErr = resultList.get(0).path("fail_error").asText("").trim().toLowerCase(Locale.ROOT);
+            String failMsg = resultList.get(0).path("fail_message").asText("").trim().toLowerCase(Locale.ROOT);
+            return failErr.isBlank() || failErr.contains("already") || failMsg.contains("already");
         }
         return true;
+    }
+
+    private static boolean coTheThuKhongTracking(JsonNode res) {
+        if (res == null) return false;
+        String err = res.path("error").asText("").toLowerCase(Locale.ROOT);
+        if (err.contains("auth") || err.contains("denied") || err.contains("not_found") || err.contains("http_401") || err.contains("http_403")) {
+            return false;
+        }
+        String text = res.toString().toLowerCase(Locale.ROOT);
+        return text.contains("tracking");
     }
 
     private byte[] extractPdfFromZipOrRaw(byte[] bytes) {

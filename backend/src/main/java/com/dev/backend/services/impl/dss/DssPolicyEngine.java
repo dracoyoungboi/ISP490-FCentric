@@ -169,7 +169,6 @@ public final class DssPolicyEngine {
 
             String appliedPreset = resolvePreset(config, abcClass);
             boolean isPhaseOut = PRESET_PHASE_OUT.equals(appliedPreset);
-            boolean deadStock = in.totalSold30Days() <= 0 && in.ftu() > 0;
 
             long ftu = in.ftu();
             long incoming = Math.max(0L, in.incoming());
@@ -218,6 +217,7 @@ public final class DssPolicyEngine {
                 }
             }
 
+            boolean deadStock = ftu > 0L && (in.totalSold30Days() <= 0L || (doi != null && doi > 60.0d));
             boolean needsReorder = !isPhaseOut && ftu <= reorderPoint && suggestedOrderQty > 0;
             boolean flashSale = (isPhaseOut && (excessStock > 0 || (doi != null && doi > 60.0))) || deadStock;
 

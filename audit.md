@@ -140,6 +140,7 @@
 | **AUDIT-122** | `2026-11-21 12:58:00` | PhanAnh & Antigravity AI | Bug Fix & Verify / Sửa lỗi `SQL_SYNTAX` JPQL `FOR SHARE`, chuẩn hóa thanh toán Shopee COD vs Ví điện tử (`UNPAID`), chặn gọi `shipOrderAuto` cho đơn chưa xác nhận và đồng bộ test `dsDiaDiem` | `PhanQuyenNguoiDungKhoRepository.java`, `OmnichannelOrderSyncJob.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJobTest.java`, `KenhBanHangDongBoServiceTest.java`, `audit.md` | Chuyển `PhanQuyenNguoiDungKhoRepository.dauQuanLyChinhMoiNhat` từ native SQL `FOR SHARE` sang JPQL + `@Lock(LockModeType.PESSIMISTIC_READ)` (hết lỗi `SQL_SYNTAX`, nạp full `BackendApplicationTests` / 94 JPA repositories); sửa `OmnichannelOrderSyncJob` không đánh dấu `da_thanh_toan` sớm cho đơn Ví điện tử `UNPAID` hay đơn COD dạng `"Cash on Delivery"` (`laPhuongThucCodShopee` & `xacDinhTrangThaiThanhToanShopee` kèm tự chữa đơn cũ); thêm lớp chắn trong `dongBoTrangThaiChuanBiHangShopee` chặn gọi `shipOrderAuto` nếu còn cờ `[SHOPEE_CHO_XAC_NHAN]`; cập nhật fixture `dsDiaDiem_danhDauVaXepDiaDiemMacDinhLenDau` theo quy chuẩn lọc bỏ `legacy`/`inactive`. Backend **435/435 PASS** (gồm `BackendApplicationTests`), Frontend **72/72 tests**, **721/721 i18n:kiem** & `vite build` PASS. |
 | **AUDIT-123** | `2026-11-21 14:53:00` | PhanAnh & Antigravity AI | Fix UX & Guard / Khắc phục sập màn hình "Sản phẩm" trên tất cả kênh đồng bộ (`SyncLogDetailSheet` đọc `lienKet.soLuongSeDay` khi `lienKet` đang `null`) | `nhomLienKet.js`, `SyncLogDetailSheet.jsx`, `ChannelMappingsPage.jsx`, `nhomLienKet.test.js`, `audit.md` | Tìm ra nguyên nhân gốc: sau thay đổi ở `AUDIT-121`, `SyncLogDetailSheet` tính `seDay` trước đoạn kiểm tra `{lienKet ? ...}` trong khi `chiTiet` truyền vào mặc định là `null` khi mới mở trang (`undefined !== "chua_lien_ket"` thành `true` -> ném `TypeError: Cannot read properties of null (reading 'soLuongSeDay')`, kích hoạt `ErrorBoundary` trên mọi kênh Shopify, Lazada, TikTok Shop, Shopee). Khắc phục: rút hàm thuần `conDongBo` (an toàn `null`) & `tinhSoSeDay` về `nhomLienKet.js`, dùng chung ở cả `SyncLogDetailSheet.jsx` lẫn `ChannelMappingsPage.jsx`, bổ sung unit test cho trường hợp `null`/`undefined`. Đạt **73/73** JS tests, **0** lỗi ESLint, **721/721 i18n:kiem** & `vite build` PASS. |
 | **AUDIT-124** | `2026-11-21 16:31:00` | PhanAnh & Antigravity AI | Feat & Analytics / Triển khai DSS gợi ý nhập hàng động (FE-04.4 Pareto 70/20/10 & 4 Kịch bản) và Hệ thống Telemetry / Throttling Guard 85% / Buffer% & Threshold_RT Đa kênh | `migration-2026-11-21-dss-va-omnichannel-metric.sql`, `DssTableInitializer.java`, `LichSuDongBoMetric.java`, `LichSuDongBoMetricRepository.java`, `TrangThaiDongBoSanPham.java`, `ITable.java`, `IHanhDong.java`, `dss.properties`, `dss_en.properties`, `dto/dss/*`, `dto/omnichannel/*`, `DssReplenishmentRepository.java`, `HangNhapKhoTongRepository.java`, `TongQuanAdminRepository.java`, `DieuHanhHeThongServiceImpl.java`, `DssPolicyEngine.java`, `DssReplenishmentService.java`, `DssSyncJob.java`, `services/omnichannel/*`, `InventoryChannelSyncJob.java`, `OmnichannelOrderSyncJob.java`, `KenhBanHangDongBoServiceImpl.java`, `KenhBanHangServiceImpl.java`, `LazadaClient.java`, `ShopeeClient.java`, `TikTokShopClient.java`, `ShopifyMultiLocationClient.java`, `ShopifyOrderProgressClient.java`, `ShopifyOrderSnapshotClient.java`, `ShopifyRealtimeRegistration.java`, `ShopifyWebhookService.java`, `DssReplenishmentController.java`, `OmnichannelAnalyticsController.java`, `dssService.js`, `omnichannelAnalyticsService.js`, `components/order/dss/*`, `DssReplenishmentPage.jsx`, `OmnichannelAnalyticsPage.jsx`, `ChannelSyncDashboard.jsx`, `App.jsx`, `index.css`, `sidebar.config.js`, `en/mua-hang.json`, `en/kenh-ban.json`, `DieuHanhHeThongDynamicConfigTest.java`, `DieuHanhHeThongDssConfigTest.java`, `DssPolicyEngineTest.java`, `DssReplenishmentControllerTest.java`, `OmnichannelAnalyticsServiceTest.java`, `OmnichannelTelemetryInterceptorTest.java`, `audit.md` | **Phần 1 — DSS Nhập hàng (FE-04.4)**: Trích xuất biến động (`OnHand`, `Outgoing`, `Incoming`, `FTU`, nhu cầu ngày `N` ngày `D_avg`/`D_max`/`sigma_D`, lead time `M=10` PO `L_avg`/`L_max` mặc định `5/7`), phân nhóm **Pareto 70/20/10** + lọc tồn chết 30 ngày, 4 kịch bản (`PRESET_01_STANDARD`, `PRESET_02_PEAK`, `PRESET_03_LEAN`, `PRESET_04_PHASE_OUT`) theo `BY_ABC_CLASS` (`A->PEAK`, `B->STANDARD`, `C->LEAN`) hoặc `GLOBAL_PRESET`; Job đêm `02:00` đồng bộ `nguong_canh_bao` trong `canh_bao` (`ton_kho_thap`) và nối ROP động vào `HangNhapKhoTongRepository` & `TongQuanAdminRepository`; Trang `/purchase-requests/dss` hỗ trợ mô phỏng What-If tức thì (`dssFormula.js`) và tạo PR 1-Click. **Phần 2 — Telemetry & Đa kênh**: Gắn `OmnichannelTelemetryInterceptor` lên toàn bộ 13 điểm `RestTemplate` + webhook inbound (`ShopifyWebhookService`) ghi `lich_su_dong_bo_metric`, thêm Throttling Guard (`RateLimitUtilization >= 85%` -> hoãn `+500ms` ở `SCHEDULED_BATCH`, giữ `0ms` ở `REALTIME_CRITICAL`), `METRIC_01..06` tại `/channels/analytics`, cùng `buffer_percent` (`r_POS,k`) & `realtime_threshold` (`Threshold_RT,k`) động trên `trang_thai_dong_bo_san_pham` áp dụng vào 4 sàn (TikTok, Lazada, Shopee, Shopify đơn/đa kho). Backend **336/336 PASS** (`16` test suites gồm `BackendApplicationTests`), Frontend **730/730 `i18n:kiem`**, **673 pass / 0 fail** (1 skip có sẵn) `node --test`, **0** lỗi ESLint, `vite build` PASS (`16.89s`). |
+| **AUDIT-125** | `2026-11-22 01:46:00` | PhanAnh & Antigravity AI | Fix SQL, Spec Alignment, UI & Shopee Logistics / Sửa lỗi `BadSqlGrammarException` (`lh.ngay_nhap`), chuẩn hóa công thức `Buffer%`/`Threshold_RT`/`deadStock`/`Bucket` theo đặc tả DSS, chuẩn hóa hiển thị cột Gian hàng/Kênh ở Hiệu năng đa kênh, chuyển nút In vận đơn sàn A6 về Chi tiết phiếu xuất kho và triệt spam API Logistics Shopee | `DssReplenishmentRepository.java`, `DssPolicyEngine.java`, `OmnichannelRateLimitState.java`, `OmnichannelSyncRecommendationDto.java`, `OmnichannelAnalyticsService.java`, `ShopeeClient.java`, `DonBanHangService.java`, `OmnichannelOrderSyncJob.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelAnalyticsPage.jsx`, `DonBanHangDetail.jsx`, `PhieuXuatKhoDetail.jsx`, `dssFormula.js`, `en/kenh-ban.json`, `DssPolicyEngineTest.java`, `OmnichannelAnalyticsServiceTest.java`, `OmnichannelTelemetryInterceptorTest.java`, `ShopeeClientTest.java`, `dssFormula.test.js`, `audit.md` | (1) Sửa `DssReplenishmentRepository.loadVariantsWithStock` từ `lh.ngay_nhap` (không tồn tại ở `lo_hang`) sang `lh.ngay_tao` + fallback `bt.gia_von`/`sp.gia_von_mac_dinh`, và mở rộng truy vấn nhu cầu `Kho Tổng` tổng hợp POS + Online toàn bộ kho hoạt động; (2) Khớp 100% đặc tả `.docx`: cập nhật `deadStock` gồm `DOI > 60`, `OmnichannelRateLimitState` đếm trượt 60 giây (`120 calls/phút`) cho sàn không có bucket header, và `OmnichannelAnalyticsService` tính `Buffer%` theo Pareto ABC 70/20/10 (`A & rPos >= 0.30 -> min(25, max(10, round(rPos*30)))`, `B & rPos >= 0.40 -> 10`, còn lại `0`) và `Threshold_RT` (`max(3, ceil(0.5*D_avg))`, riêng Hạng A `PRESET_02_PEAK` = `max(normal, SS_k)`) kèm mở rộng lọc kênh (`TIKTOK` khớp `TIKTOK_SHOP`); (3) Chuẩn hóa cột **Gian hàng / Kênh bán** chỉ tại `OmnichannelAnalyticsPage.jsx` theo format thống nhất `<Tên gian hàng> [Tên sàn chuẩn]`; (4) Gỡ nút/menu "In vận đơn sàn (A6)" khỏi `DonBanHangDetail.jsx` và đưa nút phụ `In vận đơn sàn (A6)` lên header `PhieuXuatKhoDetail.jsx`; (5) Triệt spam API Shopee (`ShopeeClient.downloadShippingDocument` dừng polling sớm khi `createShippingDocument`/`getShippingDocumentResult` báo lỗi thay vì lặp 16 lượt + bỏ qua `shipOrderAuto` khi đã chuẩn bị hàng, cache `get_warehouse_detail` 24h cho shop đơn kho, cooldown `shipOrderAuto` 10–15p và bỏ gọi lặp khi xuất kho). Backend **308/308 PASS** (`12` suites gồm `BackendApplicationTests`), Frontend **730/730 `i18n:kiem`**, **677 pass / 0 fail / 1 skip** `node --test`, **0** lỗi ESLint, `vite build` PASS (`1m 4s`). |
 
 
 ---
@@ -3571,31 +3572,6 @@
    - 14 lỗi còn lại thuộc về sản phẩm *"Áo polo bảo hộ lao động ngắn tay"* (12 phân loại), hiển thị thông điệp đỏ:
      `Lazada từ chối tạo: E500: Create product failed - BIZ_CHECK_MTEE_RISK_RULE_TRIGGER_MTEE_RISK_RULE_TRIG by Policy(R_6049911): Đăng sản phẩm thất bại do chọn sai danh mục. Vui lòng cập nhật lại danh mục dựa theo đề xuất của hệ thống và thử lại.`
 2. **Nguyên nhân kỹ thuật sâu xa**:
-   - Trong hàm `xacDinhLazadaCategoryId`, sản phẩm chứa từ khóa `"polo"` bị gán vào danh mục `14275` (Quần áo nam > Áo > Áo thun có cổ nam).
-   - Tuy nhiên, tên sản phẩm có chứa cụm từ `"bảo hộ lao động"`. Sàn Lazada có bộ quy tắc kiểm soát rủi ro hàng hóa MTEE Risk Policy `R_6049911`: **Nghiêm cấm đăng sản phẩm bảo hộ lao động vào danh mục thời trang nam thông thường (14275)**, bắt buộc phải thuộc danh mục lá **`8017` ("Đồ bảo hộ lao động")**.
-   - Khi gửi thử nghiệm trực tiếp lên API Lazada Open Platform với `PrimaryCategory = 8017`, sàn yêu cầu 3 thuộc tính bắt buộc:
-     1. `<clothing_material>`: 100% Cotton hoặc Polyester
-     2. `<Fit_Type>`: Slim Fit
-     3. `<Neckline>`: Polo hoặc Round Neck
-   - Khi đáp ứng đủ 3 thuộc tính trên, Lazada trả về HTTP 200: `{"data":{"item_id":13511719830,"item_status":"Active"},"code":"0"}` thành công 100%!
-3. **Hiện tượng lỗi Shopee và TikTok Shop khi tester xóa sản phẩm trên sàn**:
-   - Khi tester hoặc người bán chủ động xóa sản phẩm trên Shopee/TikTok Seller Center:
-     - Trong cơ sở dữ liệu FCentric, bản ghi `TrangThaiDongBoSanPham` vẫn còn lưu `maSanPhamKenh` (Item ID cũ của Shopee hoặc SKU ID cũ của TikTok).
-     - Khi người dùng bấm "Thử lại" hoặc hệ thống chạy job đồng bộ, FCentric nhận diện sản phẩm đã từng liên kết nên thực hiện luồng UPDATE (UPSERT) vào ID cũ đó.
-     - Shopee từ chối vì sản phẩm đã bị xóa hoặc tạm khóa: `All the fields cannot be updated because the product {id} status is abnormal`.
-     - TikTok Shop từ chối: `(12052557): Operation Not Allowed. Cannot perform this operation for the provided SKU ID: the SKU ID does not belong to the product`.
-   - **Bản chất của RAM Cache**:
-     - FCentric sử dụng in-memory cache (`ConcurrentHashMap`) cho Catalog sàn nhằm tuân thủ quy chuẩn Omnichannel Rule mục 2 (bảo vệ Quota API, tránh quét phân trang hàng ngàn SKU mỗi lần đẩy lẻ).
-     - Khi tắt server hoặc kéo code mới về chạy lại, RAM cache bị reset về rỗng. Tuy nhiên, mapping trong DB vẫn tồn tại.
-     - Cần bổ sung cơ chế tự phục hồi (Self-Healing) bắt lỗi `status is abnormal` ở toàn bộ các hàm update (cả `updatePrice` và `updateStockBatch`) để tự động gỡ liên kết DB, xóa cache và kích hoạt tạo mới.
-
-#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
-1. **Ánh xạ danh mục 8017 (Đồ bảo hộ lao động) cho Lazada**:
-   - Trong `KenhBanHangDongBoServiceImpl.xacDinhLazadaCategoryId`: Đặt quy tắc ưu tiên hàng đầu (Rule 0): nếu tên sản phẩm hoặc danh mục chứa `"bảo hộ"`, `"lao động"`, `"workwear"`, `"bao ho"`, `"lao dong"` -> trả về ngay `8017`.
-2. **Cung cấp đủ thuộc tính bắt buộc danh mục 8017 trong `taoSanPhamLenLazada`**:
-   - Thêm khối `categoryId == 8017`:
-     - `<clothing_material>`: Tự động gán `"Polyester"` (nếu có poly/gió) hoặc `"100% Cotton"`.
-     - `<Fit_Type>Slim Fit</Fit_Type>`.
      - `<Neckline>`: Tự động gán `"Polo"` (nếu tên có polo/có cổ) hoặc `"Round Neck"`.
      - Giữ nguyên `<fa_pattern>Trơn</fa_pattern>`.
 3. **Bổ sung API `getCategorySuggestion` trong `LazadaClient.java`**:
@@ -4872,3 +4848,84 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
   + **Unit Tests (`node --test @(git ls-files "src/**/*.test.js")`):** **673 pass, 0 fail** (trong tổng số 674 tests, gồm 1 test skip có sẵn).
   + **ESLint (`npx eslint` trên 12 tệp tạo/sửa):** **0 errors, 0 warnings**.
   + **Production Build (`npm run build` / `vite build`):** **PASS** (hoàn tất trong `16.89s`).
+
+
+---
+
+### [AUDIT-125] SỬA LỖI TRUY VẤN DSS (`lh.ngay_nhap`), CHUẨN HÓA ĐẶC TẢ BUFFER% / THRESHOLD_RT / POS, HIỂN THỊ KÊNH HIỆU NĂNG, CHUYỂN NÚT IN VẬN ĐƠN SANG PHIẾU XUẤT KHO & TRIỆT SPAM API LOGISTICS SHOPEE
+
+- **Thời gian (GMT+7):** `2026-11-22 01:46:00`
+- **Tác giả thực hiện:** PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng:**
+  - `DSS Nhập hàng (DssReplenishmentRepository, DssPolicyEngine, dssFormula)`
+  - `Omnichannel Analytics & Telemetry (OmnichannelAnalyticsService, OmnichannelRateLimitState, OmnichannelAnalyticsPage)`
+  - `Đơn bán hàng & Phiếu xuất kho (DonBanHangDetail, PhieuXuatKhoDetail)`
+  - `Tích hợp Logistics Shopee (ShopeeClient, DonBanHangService, OmnichannelOrderSyncJob, KenhBanHangDongBoServiceImpl)`
+  - `Frontend i18n & Unit Tests`
+- **Tệp thay đổi:**
+  - `backend/src/main/java/com/dev/backend/repository/DssReplenishmentRepository.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/dss/DssPolicyEngine.java`
+  - `backend/src/main/java/com/dev/backend/services/omnichannel/OmnichannelRateLimitState.java`
+  - `backend/src/main/java/com/dev/backend/dto/omnichannel/OmnichannelSyncRecommendationDto.java`
+  - `backend/src/main/java/com/dev/backend/services/omnichannel/OmnichannelAnalyticsService.java`
+  - `backend/src/main/java/com/dev/backend/services/shopee/ShopeeClient.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/DonBanHangService.java`
+  - `backend/src/main/java/com/dev/backend/workers/OmnichannelOrderSyncJob.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `frontend/src/components/order/dss/dssFormula.js`
+  - `frontend/src/pages/channels/OmnichannelAnalyticsPage.jsx`
+  - `frontend/src/pages/sales-orders/DonBanHangDetail.jsx`
+  - `frontend/src/pages/issue/PhieuXuatKhoDetail.jsx`
+  - `frontend/src/i18n/en/kenh-ban.json`
+  - `backend/src/test/java/com/dev/backend/services/impl/dss/DssPolicyEngineTest.java`
+  - `backend/src/test/java/com/dev/backend/services/omnichannel/OmnichannelAnalyticsServiceTest.java`
+  - `backend/src/test/java/com/dev/backend/services/omnichannel/OmnichannelTelemetryInterceptorTest.java`
+  - `backend/src/test/java/com/dev/backend/services/shopee/ShopeeClientTest.java`
+  - `frontend/src/components/order/dss/dssFormula.test.js`
+  - `audit.md`
+
+#### Mục tiêu & Phân tích nguyên nhân gốc rễ (Root Cause Analysis - RCA)
+1. **Lỗi truy vấn `/api/v1/dss/replenishment/recommendations` (`BadSqlGrammarException`):**
+   - Trong `DssReplenishmentRepository.loadVariantsWithStock`, subquery lấy đơn giá nhập gần nhất sắp xếp theo `ORDER BY lh.ngay_nhap DESC, lh.id DESC`, trong khi bảng `lo_hang` (`LoHang.java`) không có cột `ngay_nhap` (chỉ có `ngay_tao`).
+   - Ngoài ra, khi xem phân tích tại **Kho Tổng** (`laKhoTong = true`), truy vấn doanh số trước đó lọc cứng `d.kho_xuat_id = :khoId` khiến sản lượng bán tại quầy (POS) ở các kho chi nhánh chưa được tổng hợp vào tổng nhu cầu của Kho Tổng.
+2. **Độ lệch so với tài liệu đặc tả `.docx` (Phần 1 & Phần 2):**
+   - Trong `OmnichannelAnalyticsService.getSyncRecommendations`, công thức `recommendedBufferPercent` đang lấy gần đúng (`Math.round(rPos * 40 / 5) * 5`) thay vì phân hạng **Pareto ABC (70/20/10)** và nhánh công thức chuẩn: Hạng A (`r_POS >= 0.30`) = `min(25%, max(10%, ROUND(r_POS * 30%)))`, Hạng B (`r_POS >= 0.40`) = `10%`, Hạng C / còn lại = `0%`.
+   - Công thức `recommendedRealtimeThreshold` trước đó dùng `ceil(1.5 * avgDaily)` (giới hạn 25) thay vì `max(3, ceil(0.5 * D_avg))` (chuẩn/tinh gọn) và `max(3, SS_k)` cho SKU Hạng A ở kịch bản Cao điểm `PRESET_02_PEAK`.
+   - Bộ lọc kênh tại `getSyncRecommendations` so sánh cứng `UPPER(kb.ma_kenh) = UPPER(:channel)` khiến chọn `"TIKTOK"` không khớp `"TIKTOK_SHOP"` hoặc `"SHOPEE"` không khớp `"SHOPEE_OFFICIAL"`.
+   - Cờ `deadStock` ở `DssPolicyEngine` và `dssFormula.js` cần bật cả khi `FTU > 0 && DOI > 60`.
+   - `OmnichannelRateLimitState` mới đọc header Leaky Bucket của Shopify và mã `429`, chưa đếm cửa sổ trượt 60 giây (`120 calls/phút`) cho các sàn không trả header bucket (Shopee, Lazada, TikTok) theo Mục 2.3 đặc tả.
+3. **Chuẩn hóa hiển thị kênh tại màn Hiệu năng đa kênh:**
+   - Cột `Kênh` trong bảng khuyến nghị giữ tồn chỉ in `it.tenKenh || it.maKenh` (ví dụ `"k flex"` cho Shopee), không thống nhất quy cách gian hàng + sàn bán đằng sau gây khó hiểu cho người vận hành.
+4. **Điều chỉnh luồng In vận đơn sàn A6 về riêng Chi tiết Phiếu xuất kho:**
+   - Rà soát luồng `DonBanHangDetail.jsx`, `PhieuXuatKhoDetail.jsx`, `DongGoiPage.jsx`, `PhieuXuatKhoService.java`, `DonBanHangController.java` (`@RequireAuth` của `GET /{id}/van-don-san` đã cho phép `quan_ly_kho` và `nhan_vien_kho`), xác nhận việc chuyển nút in vận đơn về Chi tiết phiếu xuất kho không làm lỗi đồng bộ trạng thái hay tạo vận đơn.
+5. **Nguyên nhân tỷ lệ lỗi cao & gọi lặp liên tục các API Logistics Shopee trên Partner Console:**
+   - **`v2.logistics.get_shipping_document_result` (26 ok / 116 fail — 18.3%):** Trong `ShopeeClient.taoVaTaiVanDonTheoLoai`, dù `createShippingDocument` trả về lỗi JSON cả 2 lần, hệ thống vẫn đi tiếp vào vòng lặp polling `getShippingDocumentResult` 8 lần liên tiếp cho `THERMAL_AIR_WAYBILL` và 8 lần cho `NORMAL_AIR_WAYBILL` (không `break` khi phản hồi có `"error"` hoặc `fail_error`), tạo ra tới 16 request thất bại chỉ trong 1 lượt bấm in, sau đó vẫn cố gọi thêm `download_shipping_document` (`30.7%`).
+   - **`v2.logistics.ship_order` (6.4%) & `v2.logistics.get_shipping_parameter` (3.5%):** Bị gọi lặp mù quáng từ 3 nguồn mà không kiểm tra/giãn tần suất: (a) Cron `OmnichannelOrderSyncJob` mỗi 1 phút gọi lại `dongBoTrangThaiChuanBiHangShopee` cho mọi đơn đã gửi kho nhưng sàn còn `READY_TO_SHIP`; (b) Mọi bước `SendToWarehouse -> Pick -> Pack -> Xuất kho` và Bước 0 của `downloadShippingDocument` đều gọi lại `shipOrderAuto`; (c) Gọi `shipOrderAuto` lên đơn đã xử lý trước đó gây lỗi lặp.
+   - **`v2.shop.get_warehouse_detail` (0 ok / 12 fail — 0%):** Shop Shopee 1 kho / Sandbox không bật Multi-Warehouse luôn trả lỗi khi gọi `get_warehouse_detail` ở mỗi lần mở màn cấu hình địa điểm kho vì chưa được cache âm.
+
+#### Giải pháp kỹ thuật & Chi tiết triển khai
+1. **Sửa `DssReplenishmentRepository.java` & `DssPolicyEngine.java`:**
+   - Thay `lh.ngay_nhap` -> `lh.ngay_tao` + fallback `bt.gia_von, sp.gia_von_mac_dinh` trong `loadVariantsWithStock`.
+   - Khi xem **Kho Tổng** (`laKhoTong == true`), mở rộng truy vấn doanh số trong `loadRawInputs` qua toàn bộ kho đang hoạt động (loại trừ `KHO_TRANSIT`) để gộp cả bán tại quầy (POS) lẫn Online.
+   - Cập nhật `deadStock` gồm điều kiện `doi > 60.0` đồng bộ giữa `DssPolicyEngine.java` và `dssFormula.js`.
+2. **Chuẩn hóa `OmnichannelAnalyticsService.java`, `OmnichannelRateLimitState.java` & `OmnichannelAnalyticsPage.jsx`:**
+   - Bổ sung đếm trượt 60 giây (`DEFAULT_CALLS_PER_MINUTE = 120`) vào `OmnichannelRateLimitState` cho các sàn không trả header Leaky Bucket.
+   - Nâng cấp `getSyncRecommendations` tính phân hạng Pareto ABC 70/20/10, áp dụng chính xác công thức `Buffer %_k` và `Threshold_RT,k` theo đặc tả `.docx` Mục 2.4, chuẩn hóa filter theo nền tảng (`TIKTOK -> TIKTOK, TIKTOK_SHOP`...), trả thêm `platformCode`, `abcClass`, `appliedPreset`, mở rộng giới hạn `realtimeThreshold` tối đa `1000`.
+   - Chỉ riêng tại `OmnichannelAnalyticsPage.jsx`, chuẩn hóa cột **Gian hàng / Kênh bán** luôn hiển thị `<Tên gian hàng> [<Tên sàn chuẩn: Shopee / Shopee Sandbox / TikTok Shop / Lazada / Shopify>]` và chú giải rõ công thức `POS / Tổng bán`.
+3. **Chuyển nút In vận đơn sàn A6 về Chi tiết Phiếu xuất kho:**
+   - Gỡ nút chính, mục menu và handler `inVanDonSan` khỏi `DonBanHangDetail.jsx` (giữ nguyên `In hóa đơn` bán hàng).
+   - Tại `PhieuXuatKhoDetail.jsx`, chặn in khi còn cờ `[SHOPEE_CHO_XAC_NHAN]` và đưa nút **`In vận đơn sàn (A6)`** lên `nutPhu` ngay cạnh `In phiếu` để thủ kho thao tác trực tiếp tại phiếu xuất kho.
+4. **Cắt triệt để spam & fail API Logistics Shopee:**
+   - `ShopeeClient.downloadShippingDocument`: cho phép truyền `daChuanBiHang` bỏ qua `shipOrderAuto` khi đơn đã có mã vận đơn thật; `layTrackingNumberShopee` dừng ngay khi có `"error"` rõ ràng; `taoVaTaiVanDonTheoLoai` bỏ qua polling & tải tệp nếu `createShippingDocument` thất bại, thu gọn polling tối đa 4 lần và dừng ngay khi phản hồi có `"error"`/`fail_error`/`FAILED`, chỉ gọi `download_shipping_document` khi `READY`.
+   - `DonBanHangService.layVanDonSan`: bỏ gọi dư `getTrackingNumber` sau `downloadShippingDocument`.
+   - `KenhBanHangDongBoServiceImpl`: cache 24h shop chưa hỗ trợ `get_warehouse_detail`; cooldown 10 phút khi `shipOrderAuto` lỗi; dừng loop tracking khi gặp error; bỏ gọi lặp `shipOrderAuto` ở `dongBoTrangThaiXuatKhoShopee` khi đơn đã có `[VẬN ĐƠN:]`.
+   - `OmnichannelOrderSyncJob`: thêm cooldown 15 phút cho mỗi `orderSn` khi đối soát đẩy sang `PROCESSED`.
+
+#### Kết quả kiểm thử & Đối soát hồi quy
+- **Backend (`mvnw test` trên 12 test suites sau lần sửa cuối):**
+  + `DssPolicyEngineTest`, `DssReplenishmentControllerTest`, `DieuHanhHeThongDssConfigTest`, `OmnichannelAnalyticsServiceTest`, `OmnichannelTelemetryInterceptorTest`, `ShopeeClientTest`, `DonBanHangServiceGiaoHangSanTest`, `KenhBanHangDongBoServiceTest`, `OmnichannelOrderSyncJobTest`, `IRoleTypeTest`, `EndpointCanDangNhapTest`, `BackendApplicationTests`: **308/308 tests PASS (`Failures: 0, Errors: 0, Skipped: 0`, `BUILD SUCCESS` trong `01:13 min`)**.
+- **Frontend (sau lần sửa cuối):**
+  + `npm run i18n:kiem`: **730/730 tệp sạch (`Chưa bọc: 0`, `Thiếu bản dịch: 0`, `Lệch: 0`)**.
+  + `npx eslint`: **0 errors, 0 warnings** trên các tệp sửa.
+  + `node --test`: **677 pass, 0 fail, 1 skip có sẵn** (tổng `678` tests).
+  + `npm run build` (`vite build`): **PASS** (`✓ built in 1m 4s`).

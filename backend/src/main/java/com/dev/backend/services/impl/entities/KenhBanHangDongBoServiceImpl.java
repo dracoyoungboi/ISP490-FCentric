@@ -5377,6 +5377,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return getTongQuan(maKenh);
     }
 
+    private static final java.util.concurrent.ConcurrentHashMap<String, Instant> SHOPEE_WH_DETAIL_UNSUPPORTED =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.concurrent.ConcurrentHashMap<String, Instant> SHOPEE_PREPARE_FAIL_COOLDOWN =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
     private List<ShopifyLocationDto> layDanhSachKhoShopee(KenhBanHang kenh) {
         String maKenh = kenh.getMaKenh();
         boolean isSandbox = OmnichannelOrderSyncJob.isShopeeSandbox(maKenh);
@@ -5385,37 +5390,47 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         try {
             com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
-            try {
-                JsonNode whRes = client.getWarehouseDetail();
-                if (whRes != null && whRes.path("error").asText("").isEmpty()) {
-                    JsonNode resp = whRes.path("response");
-                    JsonNode whArray = resp.isArray() ? resp
-                            : (resp.path("warehouse_list").isArray() ? resp.path("warehouse_list") : resp.path("list"));
-                    if (whArray.isArray()) {
-                        for (JsonNode w : whArray) {
-                            String locId = w.path("location_id").asText("").trim();
-                            if (locId.isBlank()) {
-                                locId = w.path("warehouse_id").asText("").trim();
+            Instant unsupportedAt = maKenh != null ? SHOPEE_WH_DETAIL_UNSUPPORTED.get(maKenh) : null;
+            boolean skipWarehouseDetail = unsupportedAt != null
+                    && Duration.between(unsupportedAt, Instant.now()).toHours() < 24;
+            if (!skipWarehouseDetail) {
+                try {
+                    JsonNode whRes = client.getWarehouseDetail();
+                    if (whRes != null && whRes.path("error").asText("").isEmpty()) {
+                        JsonNode resp = whRes.path("response");
+                        JsonNode whArray = resp.isArray() ? resp
+                                : (resp.path("warehouse_list").isArray() ? resp.path("warehouse_list") : resp.path("list"));
+                        if (whArray.isArray()) {
+                            for (JsonNode w : whArray) {
+                                String locId = w.path("location_id").asText("").trim();
+                                if (locId.isBlank()) {
+                                    locId = w.path("warehouse_id").asText("").trim();
+                                }
+                                if (locId.isBlank()) continue;
+                                String maKho = "wh_loc:" + locId;
+                                if (!seenIds.add(maKho)) continue;
+                                String name = w.path("warehouse_name").asText("").trim();
+                                if (name.isBlank()) name = w.path("address_name").asText("").trim();
+                                if (name.isBlank()) name = w.path("address").asText("").trim();
+                                boolean macDinh = w.path("default_warehouse").asBoolean(false)
+                                        || w.path("is_default").asBoolean(false);
+                                list.add(ShopifyLocationDto.builder()
+                                        .maKhoSan(maKho)
+                                        .tenKhoSan(name.isBlank() ? ("Kho Shopee (" + locId + ")") : name)
+                                        .loai("fulfillment")
+                                        .macDinh(macDinh)
+                                        .build());
                             }
-                            if (locId.isBlank()) continue;
-                            String maKho = "wh_loc:" + locId;
-                            if (!seenIds.add(maKho)) continue;
-                            String name = w.path("warehouse_name").asText("").trim();
-                            if (name.isBlank()) name = w.path("address_name").asText("").trim();
-                            if (name.isBlank()) name = w.path("address").asText("").trim();
-                            boolean macDinh = w.path("default_warehouse").asBoolean(false)
-                                    || w.path("is_default").asBoolean(false);
-                            list.add(ShopifyLocationDto.builder()
-                                    .maKhoSan(maKho)
-                                    .tenKhoSan(name.isBlank() ? ("Kho Shopee (" + locId + ")") : name)
-                                    .loai("fulfillment")
-                                    .macDinh(macDinh)
-                                    .build());
                         }
+                    } else if (whRes != null && !whRes.path("error").asText("").isBlank() && maKenh != null) {
+                        SHOPEE_WH_DETAIL_UNSUPPORTED.put(maKenh, Instant.now());
                     }
+                } catch (Exception ex) {
+                    if (maKenh != null) {
+                        SHOPEE_WH_DETAIL_UNSUPPORTED.put(maKenh, Instant.now());
+                    }
+                    log.debug("[SHOPEE-WAREHOUSE] Gian hàng {} chưa bật get_warehouse_detail: {}", maKenh, ex.getMessage());
                 }
-            } catch (Exception ex) {
-                log.debug("[SHOPEE-WAREHOUSE] Gian hàng {} chưa bật get_warehouse_detail: {}", maKenh, ex.getMessage());
             }
 
             if (list.size() <= 1) {
@@ -9720,14 +9735,20 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     public boolean dongBoTrangThaiChuanBiHangShopee(String maDonHangKenh) {
         if (maDonHangKenh == null || maDonHangKenh.isBlank()) return false;
         String orderSn = maDonHangKenh.trim();
+        DonBanHang existingDon = null;
         if (donBanHangRepository != null) {
-            DonBanHang don = donBanHangRepository.findByMaDonHangKenh(orderSn)
+            existingDon = donBanHangRepository.findByMaDonHangKenh(orderSn)
                     .or(() -> donBanHangRepository.findBySoDonHang("SHP-" + orderSn))
                     .orElse(null);
-            if (don != null && DonBanHangService.laDonShopeeChoXacNhan(don)) {
+            if (existingDon != null && DonBanHangService.laDonShopeeChoXacNhan(existingDon)) {
                 log.warn("[SHOPEE-PREPARE] Đơn {} đang ở trạng thái Chờ xác nhận sàn (UNPAID) -> Chặn gọi shipOrderAuto", orderSn);
                 return false;
             }
+        }
+        Instant failedAt = SHOPEE_PREPARE_FAIL_COOLDOWN.get(orderSn);
+        if (failedAt != null && Duration.between(failedAt, Instant.now()).toMinutes() < 10) {
+            log.debug("[SHOPEE-PREPARE] Đơn {} vừa thất bại shipOrderAuto trong 10 phút qua -> Bỏ qua gọi lặp", orderSn);
+            return false;
         }
         KenhBanHang kenh = xacDinhKenhShopee(orderSn);
         if (kenh == null) {
@@ -9746,34 +9767,47 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     || err.toLowerCase().contains("processed");
 
             log.info("[SHOPEE-PREPARE] Gọi shipOrderAuto cho đơn {}: error='{}', message='{}'", orderSn, err, msg);
+            if (!isOk) {
+                SHOPEE_PREPARE_FAIL_COOLDOWN.put(orderSn, Instant.now());
+                return false;
+            }
 
-            // 2. Poll mã vận đơn (tối đa 3 lần) để lưu vào đơn FCentric & tạo trước shipping document A6
+            // 2. Lấy mã vận đơn nếu đơn FCentric chưa có mã vận đơn thật (dừng ngay nếu sàn trả lỗi rõ ràng)
+            String existingNote = existingDon != null && existingDon.getGhiChu() != null ? existingDon.getGhiChu() : "";
+            boolean daCoVanDonThat = existingNote.contains("[VẬN ĐƠN:") && !existingNote.contains("SPXVN" + orderSn);
             String trackingNo = "";
-            for (int attempt = 0; attempt < 3; attempt++) {
-                try {
-                    JsonNode trackRes = client.getTrackingNumber(orderSn);
-                    String candidate = trackRes != null ? trackRes.path("response").path("tracking_number").asText("") : "";
-                    if (candidate != null && !candidate.isBlank()) {
-                        trackingNo = candidate.trim();
+            if (!daCoVanDonThat) {
+                for (int attempt = 0; attempt < 2; attempt++) {
+                    try {
+                        JsonNode trackRes = client.getTrackingNumber(orderSn);
+                        String candidate = trackRes != null ? trackRes.path("response").path("tracking_number").asText("") : "";
+                        if (candidate != null && !candidate.isBlank()) {
+                            trackingNo = candidate.trim();
+                            break;
+                        }
+                        String trackErr = trackRes != null ? trackRes.path("error").asText("").trim() : "";
+                        if (!trackErr.isBlank()) {
+                            break;
+                        }
+                        if (attempt == 0) {
+                            Thread.sleep(300L);
+                        }
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    } catch (Exception trackEx) {
+                        log.warn("[SHOPEE-PREPARE] Không thể lấy mã vận đơn lần {} cho đơn {}: {}", attempt + 1, orderSn, trackEx.getMessage());
                         break;
                     }
-                    if (attempt < 2) {
-                        Thread.sleep(300L);
-                    }
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    break;
-                } catch (Exception trackEx) {
-                    log.warn("[SHOPEE-PREPARE] Không thể lấy mã vận đơn lần {} cho đơn {}: {}", attempt + 1, orderSn, trackEx.getMessage());
                 }
             }
 
             if (!trackingNo.isBlank()) {
-                DonBanHang don = donBanHangRepository != null
+                DonBanHang don = existingDon != null ? existingDon : (donBanHangRepository != null
                         ? donBanHangRepository.findByMaDonHangKenh(orderSn)
                                 .or(() -> donBanHangRepository.findBySoDonHang("SHP-" + orderSn))
                                 .orElse(null)
-                        : null;
+                        : null);
                 if (don != null) {
                     String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
                     if (!currentNote.contains("[VẬN ĐƠN:")) {
@@ -9786,15 +9820,18 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             }
 
-            // 3. Tạo trước phiếu vận đơn trên Shopee (create_shipping_document) để tránh lỗi shipping_document_should_print_first khi in
-            try {
-                client.createShippingDocument(orderSn, trackingNo, "THERMAL_AIR_WAYBILL");
-            } catch (Exception docEx) {
-                log.debug("[SHOPEE-PREPARE] Pre-create shipping document cho đơn {}: {}", orderSn, docEx.getMessage());
+            // 3. Tạo trước phiếu vận đơn trên Shopee khi đã có tracking (giảm lỗi create_shipping_document trước khi ship xong)
+            if (!trackingNo.isBlank() || daCoVanDonThat) {
+                try {
+                    client.createShippingDocument(orderSn, trackingNo, "THERMAL_AIR_WAYBILL");
+                } catch (Exception docEx) {
+                    log.debug("[SHOPEE-PREPARE] Pre-create shipping document cho đơn {}: {}", orderSn, docEx.getMessage());
+                }
             }
 
-            return isOk;
+            return true;
         } catch (Exception ex) {
+            SHOPEE_PREPARE_FAIL_COOLDOWN.put(orderSn, Instant.now());
             log.error("[SHOPEE-PREPARE] Lỗi ngoại lệ khi chuẩn bị hàng cho đơn {}: {}", orderSn, ex.getMessage());
             return false;
         }
@@ -9808,33 +9845,35 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (kenh == null) return false;
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
         try {
-            // Đảm bảo đơn đã được ship_order tự động đúng pickup/dropoff
-            try {
-                Long preferredAddressId = layPreferredAddressIdShopee(kenh.getMaKenh());
-                client.shipOrderAuto(orderSn, preferredAddressId);
-            } catch (Exception e) {
-                // bỏ qua nếu đơn đã ship trước đó
+            DonBanHang donGoc = (donId != null && donBanHangRepository != null)
+                    ? donBanHangRepository.findById(donId).orElse(null)
+                    : null;
+            String currentNote = donGoc != null && donGoc.getGhiChu() != null ? donGoc.getGhiChu() : "";
+            boolean daCoVanDon = currentNote.contains("[VẬN ĐƠN:");
+
+            // Chỉ gọi shipOrderAuto lúc xuất kho nếu đơn chưa có thông tin vận đơn (tránh gọi ship_order lặp trên đơn đã PROCESSED/SHIPPED)
+            if (!daCoVanDon) {
+                try {
+                    Long preferredAddressId = layPreferredAddressIdShopee(kenh.getMaKenh());
+                    client.shipOrderAuto(orderSn, preferredAddressId);
+                } catch (Exception ignored) {
+                }
             }
             // Ghi chú trạng thái xuất kho
             client.setOrderNote(orderSn, "FCentric: Đơn hàng đã xuất kho vật lý, sẵn sàng bàn giao bưu tá");
             log.info("[SHOPEE-DISPATCH] Đã ghi nhận xuất kho cho đơn Shopee {}", orderSn);
 
             // Tra cứu mã vận đơn bổ sung nếu đơn hàng FCentric chưa có
-            if (donId != null && donBanHangRepository != null) {
-                donBanHangRepository.findById(donId).ifPresent(don -> {
-                    String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
-                    if (!currentNote.contains("[VẬN ĐƠN:")) {
-                        try {
-                            JsonNode trackRes = client.getTrackingNumber(orderSn);
-                            String trackingNo = trackRes != null ? trackRes.path("response").path("tracking_number").asText("") : "";
-                            if (trackingNo != null && !trackingNo.isBlank()) {
-                                don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + "[VẬN ĐƠN: " + trackingNo.trim() + " - Shopee]");
-                                don.setNgayCapNhat(Instant.now());
-                                donBanHangRepository.save(don);
-                            }
-                        } catch (Exception ignored) {}
+            if (donGoc != null && !daCoVanDon) {
+                try {
+                    JsonNode trackRes = client.getTrackingNumber(orderSn);
+                    String trackingNo = trackRes != null ? trackRes.path("response").path("tracking_number").asText("") : "";
+                    if (trackingNo != null && !trackingNo.isBlank()) {
+                        donGoc.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + "[VẬN ĐƠN: " + trackingNo.trim() + " - Shopee]");
+                        donGoc.setNgayCapNhat(Instant.now());
+                        donBanHangRepository.save(donGoc);
                     }
-                });
+                } catch (Exception ignored) {}
             }
             return true;
         } catch (Exception ex) {

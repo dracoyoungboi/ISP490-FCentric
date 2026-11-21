@@ -48,6 +48,22 @@ class OmnichannelTelemetryInterceptorTest {
     }
 
     @Test
+    void rateLimitState_khongCoHeaderBucket_tinhTheo120CallsPhut() {
+        OmnichannelRateLimitState state = new OmnichannelRateLimitState();
+        for (int i = 0; i < 101; i++) {
+            state.updateFromHeader("SHOPEE", null, 200);
+        }
+        assertFalse(state.shouldThrottleScheduledBatch("SHOPEE"));
+        state.updateFromHeader("SHOPEE", null, 200); // 102 / 120 = 85.0%
+        assertEquals(85.0d, state.getUtilizationPct("SHOPEE"));
+        assertTrue(state.shouldThrottleScheduledBatch("SHOPEE"));
+        var snap = state.getSnapshot("SHOPEE");
+        assertNotNull(snap);
+        assertEquals(102, snap.used());
+        assertEquals(120, snap.limit());
+    }
+
+    @Test
     void telemetryContext_pushPopStackDungChuan() {
         assertNull(OmnichannelTelemetryContext.current());
         OmnichannelTelemetryContext.runWith("SHOPEE", OmnichannelTelemetryContext.JOB_SCHEDULED_BATCH, () -> {
