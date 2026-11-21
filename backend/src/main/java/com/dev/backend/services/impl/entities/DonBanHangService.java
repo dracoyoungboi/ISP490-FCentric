@@ -1516,8 +1516,10 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                     boolean isSandbox = OmnichannelOrderSyncJob.isShopeeSandbox(maKenh);
 
                     if (partnerId != null && partnerKey != null && accessToken != null && shopId != null) {
+                        String ghiChu = don.getGhiChu() != null ? don.getGhiChu() : "";
+                        boolean daCoVanDonThat = ghiChu.contains("[VẬN ĐƠN:") && !ghiChu.contains("SPXVN" + orderSn);
                         byte[] docBytes = shopeeClient.downloadShippingDocument(
-                                String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId), orderSn, isSandbox);
+                                String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId), orderSn, isSandbox, daCoVanDonThat);
                         if (docBytes != null && docBytes.length > 50 && !com.dev.backend.services.shopee.ShopeeClient.laJsonLoiShopee(docBytes)) {
                             boolean isPdf = docBytes.length > 4 && docBytes[0] == '%' && docBytes[1] == 'P' && docBytes[2] == 'D' && docBytes[3] == 'F';
                             String preview = isPdf ? "" : new String(docBytes, 0, Math.min(docBytes.length, 512), StandardCharsets.UTF_8).toLowerCase(java.util.Locale.ROOT);
@@ -1527,14 +1529,6 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                                 return new VanDonSanDto(docBytes, mime, "van-don-shopee-" + don.getSoDonHang() + (isPdf ? ".pdf" : ".html"));
                             }
                         }
-                        try {
-                            JsonNode trackRes = shopeeClient.getTrackingNumber(
-                                    String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId), orderSn, isSandbox);
-                            String tk = trackRes != null ? trackRes.path("response").path("tracking_number").asText("").trim() : "";
-                            if (!tk.isBlank()) {
-                                resolvedTracking = tk;
-                            }
-                        } catch (Exception ignored) {}
                     }
                 }
             } catch (Exception ex) {
