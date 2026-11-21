@@ -301,8 +301,6 @@ class IRoleTypeTest {
                 Arguments.of(AdminDashboardController.class, "GET", "/bao-cao/tien-thu", Set.of(QT, NVBH)),
                 Arguments.of(NhatKyNhapXuatController.class, "GET", "/tong-hop", Set.of(QT, QLK, NVK)),
                 Arguments.of(NhatKyNhapXuatController.class, "GET", "/xuat-excel", Set.of(QT, QLK, NVK)),
-                Arguments.of(KhachHangReportController.class, "GET", "", Set.of(QT, NVBH)),
-                Arguments.of(KhachHangReportController.class, "GET", "/xuat-excel", Set.of(QT, NVBH)),
                 Arguments.of(KeToanController.class, "POST", "/lo-xuat", Set.of(QT)),
                 // Cấu hình (Đ5): quản lý kho chỉ xem thông tin cửa hàng, mẫu in
                 Arguments.of(ThongTinCongTyController.class, "GET", "", TAT_CA),
@@ -476,7 +474,7 @@ class IRoleTypeTest {
         void xuatExcel_doiQuyenXuatBaoCao() {
             for (Object[] a : new Object[][]{{AdminDashboardController.class, "/bao-cao/doanh-thu/xuat-excel"},
                     {AdminDashboardController.class, "/bao-cao/san-pham/xuat-excel"},
-                    {NhatKyNhapXuatController.class, "/xuat-excel"}, {KhachHangReportController.class, "/xuat-excel"},
+                    {NhatKyNhapXuatController.class, "/xuat-excel"},
                     {ThongKeHeThongController.class, "/ton-kho-tong-quan/xuat-excel"}}) {
                 RequireAuth ra = yeuCau((Class<?>) a[0], "GET", (String) a[1]);
                 assertArrayEquals(new String[]{IPermissionType.xuat_bao_cao}, ra.permissions(), (String) a[1]);
