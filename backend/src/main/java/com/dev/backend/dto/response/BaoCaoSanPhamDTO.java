@@ -12,8 +12,10 @@ import java.util.List;
 /**
  * Báo cáo sản phẩm (màn /reports/products và tệp Excel dùng chung). Số bán tính như Báo cáo doanh thu: đơn bán đã xuất
  * toàn bộ / hoàn thành, theo ngày giao hàng; doanh thu hàng = thành tiền dòng − giảm giá dòng (gồm thuế GTGT, không gồm
- * phí vận chuyển); giá vốn theo lô đã xuất. Hoàn = số lượng trên đơn bị hoàn trả có ngày giao trong kỳ. Khả dụng và đang
- * về là số hiện tại, không theo kỳ. Kỳ trước = khoảng ngày liền trước, cùng số ngày.
+ * phí vận chuyển); giá vốn theo lô đã xuất. Hàng khách trả tại quầy trừ khỏi số bán, doanh thu, giá vốn (phần hàng Đạt)
+ * ở kỳ chứa ngày trả. Hoàn = số lượng trên đơn bị hoàn trả có ngày giao trong kỳ + số trả tại quầy trong kỳ. Khả dụng
+ * (đã trừ hàng đang giữ cho đơn chưa xuất, phiếu chuyển kho) và đang về là số hiện tại, không theo kỳ. Kỳ trước = khoảng
+ * ngày liền trước, cùng số ngày.
  */
 @Data
 @Builder
@@ -115,6 +117,8 @@ public class BaoCaoSanPhamDTO {
         private BigDecimal giaTriTon;
         /** Khả dụng chia số bán bình quân một ngày của mọi kênh (null khi không bán). */
         private BigDecimal duBanNgay;
+        /** Số ngày dùng tính bình quân bán một ngày: số ngày của kỳ, hoặc từ ngày hàng về nếu hàng về kho giữa kỳ. */
+        private Integer soNgayBan;
         /** HET_HANG (khả dụng 0), BAN_CHAY_SAP_HET, DU_HANG, KHONG_BAN, BINH_THUONG. */
         private String tinhTrang;
         private LocalDate ngayBanCuoi;
@@ -153,5 +157,7 @@ public class BaoCaoSanPhamDTO {
         private BigDecimal soLuongHoan;
         private BigDecimal khaDung;
         private BigDecimal dangVe;
+        /** Như SanPham.duBanNgay nhưng của riêng mã này (số bán mọi kênh, cùng soNgayBan của sản phẩm). */
+        private BigDecimal duBanNgay;
     }
 }
