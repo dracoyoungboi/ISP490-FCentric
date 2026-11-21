@@ -37,16 +37,18 @@ import useDongBoNgay from "@/components/channel/useDongBoNgay";
 import useSanHienTai from "@/components/channel/useSanHienTai";
 import {
   capNhatDongTrongTrang,
+  conDongBo,
   dongCuaTrang,
   gioChungCuaNhom,
   laChoDay,
   laMotPhanLoai,
   nhanSoPhanLoai,
   nhomDangMo,
+  tinhSoSeDay,
 } from "@/components/channel/nhomLienKet";
 import { quyTacTonKho } from "@/components/channel/cauHinhDongBo";
 import { ketQuaDayLenSan, ketQuaTaiSanPham } from "@/components/channel/ketQuaThaoTac";
-import { LIEN_KET_STATUS, LIEN_KET_TABS, tinhSoTonDayLenSan } from "@/constants/channel";
+import { LIEN_KET_STATUS, LIEN_KET_TABS } from "@/constants/channel";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { GHI_CHU_DU_LIEU_MAU_KENH, isChannelMock, kenhBanHangService } from "@/services/kenhBanHangService";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
@@ -64,7 +66,7 @@ const SEARCH_DEBOUNCE_MS = 350;
 const TH = "h-10 whitespace-nowrap px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted";
 const CHECKBOX_CLASS =
   "border-slate-300 bg-white data-[state=checked]:border-bo-primary data-[state=checked]:bg-bo-primary data-[state=indeterminate]:border-bo-primary data-[state=indeterminate]:bg-bo-primary data-[state=indeterminate]:text-white";
-const dangDongBo = (dong) => Boolean(dong.choPhepDongBo ?? (dong.trangThaiLienKet !== "chua_lien_ket"));
+const dangDongBo = (dong) => conDongBo(dong);
 // Giá bán FCentric khác giá trên sàn (máy chủ đánh dấu lechGia, hoặc hai giá đều có mà khác nhau)
 const coLechGia = (dong) =>
   Boolean(dong.lechGia || (dong.giaBanSan != null && dong.giaBan != null && Number(dong.giaBanSan) !== Number(dong.giaBan)));
@@ -683,13 +685,8 @@ export default function ChannelMappingsPage() {
     setNgoaiLe(new Set());
   };
 
-  /** Số lần đẩy tới sẽ gửi lên sàn (khả dụng × quy tắc ở Cấu hình); null khi dòng ngừng hoặc chưa tải quy tắc. */
   /** Số tồn sẽ gửi ở lần đẩy tới cho dòng đang đồng bộ; ưu tiên số tính chính xác từ máy chủ (hỗ trợ đa kho Shopify). */
-  const soSeDay = (dong) => {
-    if (!dangDongBo(dong)) return null;
-    if (coSo(dong.soLuongSeDay)) return Number(dong.soLuongSeDay);
-    return quyTac ? tinhSoTonDayLenSan(dong.soLuongKhaDung, quyTac) : null;
-  };
+  const soSeDay = (dong) => tinhSoSeDay(dong, quyTac);
 
   /**
    * Một dòng SKU. `trongNhom`: nằm dưới hàng sản phẩm (chỉ ghi biến thể, thụt vào); `gioNhom`: giờ đẩy chung đã ghi

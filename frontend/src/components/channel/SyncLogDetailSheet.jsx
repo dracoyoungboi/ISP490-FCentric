@@ -3,8 +3,9 @@ import { Loader2 } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { AnhSanPham } from "@/components/channel/HienThiKenh";
+import { conDongBo, tinhSoSeDay } from "@/components/channel/nhomLienKet";
 import StatusBadge from "@/components/shared/StatusBadge";
-import { LIEN_KET_STATUS, tinhSoTonDayLenSan } from "@/constants/channel";
+import { LIEN_KET_STATUS } from "@/constants/channel";
 import { formatCurrency, formatNumberOrDash } from "@/utils/formatters";
 import { formatDateTime } from "@/utils/dateTime";
 import { t, tDuLieu } from "@/i18n";
@@ -33,12 +34,8 @@ function Dong({ nhan, children }) {
  */
 export default function SyncLogDetailSheet({ lienKet, open, onOpenChange, quyTac, duongDanCauHinh, tenSan = "Shopify", dangXuLy, onThuLai, onDoiBienThe, onBatTat }) {
   const trangThai = lienKet?.trangThaiLienKet;
-  const dangDongBo = trangThai !== "chua_lien_ket";
-  const seDay = dangDongBo
-    ? (lienKet.soLuongSeDay !== null && lienKet.soLuongSeDay !== undefined
-      ? Number(lienKet.soLuongSeDay)
-      : (quyTac ? tinhSoTonDayLenSan(lienKet.soLuongKhaDung, quyTac) : null))
-    : null;
+  const dangDongBo = conDongBo(lienKet);
+  const seDay = tinhSoSeDay(lienKet, quyTac);
   const meta = LIEN_KET_STATUS[trangThai] ?? { label: trangThai ? `Không xác định (mã ${trangThai})` : "Chưa có trạng thái" }; // i18n-giu-nguyen: nhãn đưa vào StatusBadge, thẻ tự dịch
   const khoa = Boolean(dangXuLy);
   const nutPhu = "h-9 gap-2 rounded-lg border-bo-border bg-white px-3.5 text-bo-foreground hover:bg-bo-surface-subtle max-sm:h-11";
