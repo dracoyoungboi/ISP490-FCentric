@@ -32,7 +32,7 @@ import {
   N, NHOM, TINH_TRANG, boLocTuUrl, chuoiBoLocUrl, demNhom, doiHang, ghiBoLocLenUrl, khongPhanLoai, locNhom, loiKhoang, maTran, oSapHet,
   tenTepExcel, timKiem, tyLeTang, xep,
 } from "./tinhBaoCaoSanPham";
-import { t } from "@/i18n";
+import { t, tDuLieu } from "@/i18n";
 
 /*
  * Báo cáo sản phẩm (bố cục như Báo cáo tồn kho, mẫu 2 chốt 05/11/2026):
@@ -232,7 +232,7 @@ function TyTrongKenh({ ds }) {
     <ul className="flex flex-col gap-2.5 text-sm">
       {ds.map((d) => (
         <li key={d.ten} className="grid grid-cols-[minmax(0,1fr)_88px_44px] items-center gap-3">
-          <span className="truncate text-bo-foreground" title={t("{{soLuong}} sản phẩm · {{doanhThu}}", { soLuong: formatNumber(d.soLuong), doanhThu: formatCurrency(d.doanhThu), count: N(d.soLuong) })}>{t(d.ten) /* tên kênh: "Bán tại quầy", "Đơn bán trực tiếp" do máy chủ đặt thì dịch, tên sàn không có khóa nên giữ nguyên */}</span>
+          <span className="truncate text-bo-foreground" title={t("{{soLuong}} sản phẩm · {{doanhThu}}", { soLuong: formatNumber(d.soLuong), doanhThu: formatCurrency(d.doanhThu), count: N(d.soLuong) })}>{tDuLieu(d.ten) /* tên kênh: "Bán tại quầy", "Đơn bán trực tiếp" do máy chủ đặt thì dịch, tên sàn người dùng đặt giữ nguyên */}</span>
           <span className="block h-1.5 overflow-hidden rounded-full bg-[#eef1f5]" aria-hidden="true">
             <span className="block h-full rounded-full bg-bo-primary" style={{ width: `${(N(d.soLuong) / tong) * 100}%` }} />
           </span>
@@ -421,6 +421,13 @@ export default function BaoCaoSanPham() {
     setNhapKhoang(moi);
     if (!loiKhoang(moi.tuNgay, moi.denNgay)) setBoLoc({ khoang: moi });
   };
+  // Ô ngày đổi. Bấm × ở chip "Từ ngày …" / "Đến ngày …" trên điện thoại: ListToolbar gọi onChange bằng sự kiện giả (không
+  // có nativeEvent) với giá trị rỗng → bỏ kỳ tùy chọn, về 30 ngày qua (không thì chip mất mà bảng vẫn lọc khoảng cũ, câu
+  // lỗi nằm trong sheet đang đóng). Xóa ô ngày trên máy tính vẫn báo lỗi ngay dưới ô như cũ.
+  const doiONgay = (truong) => (e) => {
+    if (!e.nativeEvent && !e.target.value) chon("30");
+    else doiNgay({ [truong]: e.target.value });
+  };
   const loiNgay = boLoc.moc === "tuy-chon" ? loiKhoang(nhapKhoang.tuNgay, nhapKhoang.denNgay) : "";
 
   // Số trên màn chỉ dùng khi đúng bộ lọc đang chọn: đổi kho / kênh / kỳ thì chờ số mới, không hiện số cũ dưới bộ lọc mới
@@ -438,11 +445,15 @@ export default function BaoCaoSanPham() {
   const cong = (k) => dong.reduce((a, p) => a + N(p[k]), 0);
   const tabs = NHOM.map((n) => ({ value: n.value, label: n.label, count: bc && !kq.loading ? dem[n.value] : null, tone: n.tone }));
 
-  const dsKenh = [{ value: "", label: t("Tất cả kênh") }, ...(kq.data?.dsKenh ?? []).map((k) => ({ value: k.ma, label: k.ma === "POS" || k.ma === "TRUC_TIEP" ? t(k.ten) : k.ten }))];
+  // Tên kênh máy chủ đặt ("Bán tại quầy", "Đơn bán trực tiếp") thì dịch, tên kênh sàn người dùng đặt giữ nguyên
+  const dsKenh = [{ value: "", label: t("Tất cả kênh") }, ...(kq.data?.dsKenh ?? []).map((k) => ({ value: k.ma, label: tDuLieu(k.ten) }))];
   const dsKhoChon = [{ value: "", label: laQtv ? t("Tất cả kho") : t("Tất cả nơi làm việc") }, ...dsKho.map((k) => ({ value: String(k.id), label: k.tenKho }))];
+  // Không tải được danh sách kho mà đường dẫn đang lọc một kho: số vẫn theo kho đó, ô Kho ghi rõ thay vì hiện "Tất cả kho"
+  if (taiKho === "loi" && boLoc.khoId) dsKhoChon.push({ value: boLoc.khoId, label: t("Kho #{{id}}", { id: boLoc.khoId }) });
   // Người không phải quản trị viên chỉ có một kho: bỏ ô Kho (hai lựa chọn như nhau), đầu trang ghi "Kho: <tên>" (PQ-17)
   const motKho = !laQtv && taiKho === "xong" && dsKho.length === 1 ? dsKho[0] : null;
-  const coLoc = Boolean(tuKhoa) || Boolean(boLoc.khoId) || Boolean(boLoc.kenh) || boLoc.moc !== "30";
+  // Kho đang ẩn ô lọc (một kho) không tính là đang lọc, kẻo hiện nút Xóa lọc mà không thấy ô nào để xóa
+  const coLoc = Boolean(tuKhoa) || (Boolean(boLoc.khoId) && !motKho) || Boolean(boLoc.kenh) || boLoc.moc !== "30";
   const xoaLoc = () => { setTuKhoa(""); setNhapKhoang(khoangMoc("30")); setBoLoc({ moc: "30", khoang: khoangMoc("30"), khoId: "", kenh: "" }); };
   const homNay = ngayMay(new Date());
   const doiMo = (id) => setMo((c) => { const m = new Set(c); if (m.has(id)) m.delete(id); else m.add(id); return m; });
@@ -471,13 +482,13 @@ export default function BaoCaoSanPham() {
             {boLoc.moc === "tuy-chon" ? (
               <label className="flex items-center">
                 <input aria-label={t("Từ ngày")} type="date" className={O_NGAY} value={nhapKhoang.tuNgay} min="2000-01-01" max={nhapKhoang.denNgay || homNay}
-                  aria-invalid={loiNgay ? true : undefined} aria-describedby={loiNgay ? "bcsp-loi" : undefined} onChange={(e) => doiNgay({ tuNgay: e.target.value })} />
+                  aria-invalid={loiNgay ? true : undefined} aria-describedby={loiNgay ? "bcsp-loi" : undefined} onChange={doiONgay("tuNgay")} />
               </label>
             ) : null}
             {boLoc.moc === "tuy-chon" ? (
               <label className="flex !h-auto flex-col items-start gap-1">
                 <input aria-label={t("Đến ngày")} type="date" className={O_NGAY} value={nhapKhoang.denNgay} min={nhapKhoang.tuNgay || "2000-01-01"} max={homNay}
-                  aria-invalid={loiNgay ? true : undefined} aria-describedby={loiNgay ? "bcsp-loi" : undefined} onChange={(e) => doiNgay({ denNgay: e.target.value })} />
+                  aria-invalid={loiNgay ? true : undefined} aria-describedby={loiNgay ? "bcsp-loi" : undefined} onChange={doiONgay("denNgay")} />
                 {loiNgay ? <span id="bcsp-loi" role="alert" className="text-xs text-bo-danger">{loiNgay}</span> : null}
               </label>
             ) : null}
@@ -543,7 +554,9 @@ export default function BaoCaoSanPham() {
                         <p className="mt-0.5 truncate text-[13px] text-bo-muted"><Hang p={p} coBanKyTruoc={coBanKyTruoc} />{p.maSanPham} · {tenDanhMuc(p)}</p>
                       </div>
                     </div>
-                    <dl className="mt-2.5 grid grid-cols-4 gap-2 rounded-lg bg-bo-surface-subtle px-2 py-2 text-center">
+                    {/* Cột chia theo độ dài số: Doanh thu ("123,4 triệu ₫") và Đủ bán ("dưới 1 ngày") rộng hơn Đã bán, Khả dụng,
+                        kẻo bốn cột bằng nhau ở khổ 375px cắt mất chữ */}
+                    <dl className="mt-2.5 grid grid-cols-[0.7fr_1.3fr_0.8fr_1.2fr] gap-1 rounded-lg bg-bo-surface-subtle px-2 py-2 text-center">
                       {[[t("Đã bán"), formatNumber(p.soLuong)], [t("Doanh thu"), formatCurrencyCompact(p.doanhThu)], [t("Khả dụng"), formatNumber(p.khaDung)], [t("Đủ bán"), <DuBan key="d" p={p} />]].map(([nhan, gt]) => (
                         <div key={nhan} className="min-w-0">
                           <dt className="truncate text-[11px] leading-4 text-bo-muted">{nhan}</dt>
