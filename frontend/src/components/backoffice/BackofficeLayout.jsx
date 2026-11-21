@@ -348,6 +348,11 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             title: t("Tạo yêu cầu nhập hàng"),
         },
         {
+            key: "PURCHASE_REQUESTS_DSS",
+            match: (path) => path === "/purchase-requests/dss",
+            title: t("Gợi ý nhập hàng (DSS)"),
+        },
+        {
             key: "PURCHASE_ORDER_CREATE",
             match: (path) => path === "/purchase-orders/create",
             title: t("Tạo đơn mua hàng"),
@@ -409,6 +414,11 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             key: "CHANNELS",
             match: (path) => path === "/channels",
             title: t("Kênh bán hàng"),
+        },
+        {
+            key: "CHANNELS_ANALYTICS",
+            match: (path) => path === "/channels/analytics",
+            title: t("Hiệu năng đồng bộ"),
         },
         // Trang của từng sàn (Shopify, Lazada, TikTok Shop) và trang quay về sau ủy quyền. Sàn chờ cấp API (Shopee) chỉ dùng
         // tiêu đề Tổng quan: trang con của sàn đó chuyển ngay về màn giới thiệu (KenhHopLe)
