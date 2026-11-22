@@ -10,7 +10,6 @@ import {
   chonKhiEnter,
   datSoLuong,
   demTheoDeXuat,
-  docDanhSachDan,
   docDeXuatDuongDan,
   docNgay,
   doiOLuoi,
@@ -165,63 +164,6 @@ test("luoiNhap: mọi biến thể của sản phẩm, cỡ theo thứ tự, ô 
   assert.equal(luoi.hang[1].o[0].bienThe, null, "Trắng không có cỡ S");
   assert.deepEqual(luoi.congCot, [0, 4, 20]);
   assert.equal(luoi.cong, 24);
-});
-
-test("docDanhSachDan: tiêu đề, Tab / phẩy / khoảng trắng, mã vạch, số có dấu nghìn, lỗi và cộng dồn", () => {
-  const chu = [
-    "Mã SKU\tSố lượng",
-    "SP10-ĐEN-XL\t30",
-    "sp10-đen-s, 12",
-    `${HANG[5].maVach} 1.200`,
-    "SP20-XANH-31,7",
-    "SP99-KHONG-CO\t10",
-    "SP10-TRẮNG-M\tmười",
-    "SP10-TRẮNG-M",
-    "SP10-ĐEN-XL\t5",
-    "",
-  ].join("\r\n");
-  const kq = docDanhSachDan(chu, CM);
-  assert.deepEqual(kq.hop, [
-    { bienTheId: 1, soLuong: 35 },
-    { bienTheId: 2, soLuong: 12 },
-    { bienTheId: 6, soLuong: 1200 },
-    { bienTheId: 5, soLuong: 7 },
-  ]);
-  assert.deepEqual(kq.loi.map((e) => [e.dongSo, e.lyDo]), [[6, "không tìm thấy mã"], [7, "số lượng không hợp lệ"], [8, "thiếu số lượng"]]);
-  assert.equal(kq.soDong, 5);
-  assert.equal(kq.soDongLap, 1);
-  assert.equal(docDanhSachDan("SP10-ĐEN-XL\t200000", CM).hop[0].soLuong, SO_LUONG_TOI_DA);
-  assert.deepEqual(docDanhSachDan("XYZ\t10", CM).loi.length, 1, "dòng đầu kết thúc bằng số thì không phải tiêu đề");
-  assert.deepEqual(docDanhSachDan("SP10-ĐEN-XL\t0", CM).loi[0].lyDo, "số lượng không hợp lệ");
-});
-
-test("docDanhSachDan: CSV ngoặc kép, ngăn nghìn bằng dấu cách / NBSP, cột STT trước mã, BOM", () => {
-  const kq = docDanhSachDan([
-    "﻿\"Mã\",\"Số lượng\"",
-    "\"SP10-ĐEN-XL\",\"30\"",
-    "SP10-ĐEN-S\t1 200",
-    "SP10-ĐEN-M\t1 200",
-    "3\tSP20-XANH-31\tQuần jean slim\t7",
-  ].join("\n"), CM);
-  assert.deepEqual(kq.hop, [
-    { bienTheId: 1, soLuong: 30 },
-    { bienTheId: 2, soLuong: 1200 },
-    { bienTheId: 4, soLuong: 1200 },
-    { bienTheId: 5, soLuong: 7 },
-  ]);
-  assert.deepEqual(kq.loi, []);
-});
-
-test("docDanhSachDan: không đoán sai số lượng — dòng hơn 2 phần báo lỗi, chỉ dòng đầu được coi là tiêu đề", () => {
-  const kq = docDanhSachDan(["SP10-ĐEN-XL,1,200", "SP10-ĐEN-S 30 SP10-ĐEN-M 20"].join("\n"), CM);
-  assert.deepEqual(kq.hop, []);
-  assert.deepEqual(kq.loi.map((e) => e.lyDo), [
-    "dòng có hơn 2 phần, mỗi dòng chỉ ghi mã và số lượng",
-    "dòng có hơn 2 phần, mỗi dòng chỉ ghi mã và số lượng",
-  ]);
-  const goTay = docDanhSachDan(["TYPO1", "TYPO2", "SP10-ĐEN-XL 5"].join("\n"), CM);
-  assert.deepEqual(goTay.loi.map((e) => e.dongSo), [2], "dòng 1 là tiêu đề, dòng 2 phải báo lỗi");
-  assert.deepEqual(goTay.hop, [{ bienTheId: 1, soLuong: 5 }]);
 });
 
 test("luoiNhap: hai biến thể trùng màu và cỡ khác chất liệu tách hàng, không gộp mất mã", () => {

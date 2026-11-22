@@ -1,6 +1,6 @@
 /*
  * Hàm thuần của màn Tạo yêu cầu nhập hàng (/purchase-requests/create): chỉ mục danh mục hàng Kho tổng, tìm / quét,
- * thêm – cộng – thay – bỏ dòng, đọc danh sách dán từ Excel, lưới màu × kích cỡ, ngày giao, cảnh báo, tóm tắt theo nhóm
+ * thêm – cộng – thay – bỏ dòng, lưới màu × kích cỡ, ngày giao, cảnh báo, tóm tắt theo nhóm
  * hàng, lý do khóa nút Gửi duyệt và thân yêu cầu POST. Không gọi API, không phụ thuộc React (chạy bằng node --test).
  *
  * Danh mục hàng: `bienThe[]` của GET /nghiep-vu/yeu-cau-mua-hang/hang-kho-tong (HangNhapKhoTongResponse.BienThe):
@@ -30,8 +30,6 @@ export const GHI_CHU_TOI_DA = 500;
 export const SO_DONG_TOI_DA = 1000;
 /** Nút chọn nhanh ngày giao: sau n ngày. */
 export const MOC_NGAY_GIAO = Object.freeze([7, 14, 30]);
-/** Hộp Dán từ Excel: số dòng lỗi hiện ra (còn lại gom "và n dòng lỗi khác"). */
-export const SO_LOI_DAN_HIEN = 6;
 /** Tóm tắt theo nhóm hàng: số nhóm hiện, còn lại gom "Nhóm khác". */
 export const SO_NHOM_HANG_HIEN = 5;
 
@@ -152,7 +150,7 @@ export function themDong(dong, bienTheId, soLuong = 1) {
 }
 
 /**
- * Thêm nhiều mã một lần (Gợi ý cần nhập, Dán từ Excel, Thêm cả n biến thể). `cach`: mã đã có thì "cong" (cộng thêm),
+ * Thêm nhiều mã một lần (Gợi ý cần nhập, Thêm cả n biến thể, điền sẵn từ Tổng quan). `cach`: mã đã có thì "cong" (cộng thêm),
  * "thay" (thay bằng số mới) hoặc "giu" (giữ nguyên). Trả `{ dong, moi, capNhat }` (số mã mới, số mã đã có bị đổi).
  */
 export function themNhieu(dong, dsThem, cach = "cong") {
@@ -342,84 +340,6 @@ export function luoiNhap(dsBienThe, dong) {
   });
   const congCot = cotKichCo.map((_, i) => hang.reduce((s, h) => s + docSo(h.o[i].soLuong), 0));
   return { cotKichCo, hang, congCot, cong: hang.reduce((s, h) => s + h.cong, 0) };
-}
-
-/* ------------------------------------------------------------------ dán từ Excel */
-
-// Một ô của dòng dán: gọt khoảng trắng và ngoặc kép hai đầu (CSV "SKU","30")
-const gotO = (x) => String(x ?? "").trim().replace(/^"([\s\S]*)"$/, "$1").trim();
-// Khoảng trắng trong ô số: Excel định dạng ngăn nghìn bằng dấu cách / NBSP / U+202F ("1 200")
-const KHOANG_TRONG_SO = /[\s\u00a0\u202f]/g;
-
-/** Ô số lượng của dòng dán: số nguyên dương (cho phép ngăn nghìn "1.200", "1,200", "1 200"); sai thì null. */
-function docOSoDan(chu) {
-  const tho = gotO(chu).replace(KHOANG_TRONG_SO, "");
-  const so = /^\d{1,3}([.,]\d{3})+$/.test(tho) ? tho.replace(/[.,]/g, "") : tho;
-  return /^\d+$/.test(so) && Number(so) > 0 ? Number(so) : null;
-}
-
-/**
- * Tách một dòng dán thành `{ bt, cacO }`: `bt` là biến thể của ô mã (null nếu không ô nào là mã), `cacO` các ô sau ô mã.
- * - Có Tab (chép từ Excel): tách theo Tab; ô mã là ô đầu tiên khớp SKU / mã vạch (bỏ qua được cột STT, tên phía trước),
- *   các cột sau ô mã giữ nguyên (cột cuối là số lượng).
- * - Không có Tab: thử tách theo chấm phẩy, khoảng trắng, dấu phẩy; lấy cách tách mà ô đầu là mã.
- */
-function tachDongDan(goc, chiMuc) {
-  const tim = (o) => chiMuc?.theoMa?.get(o.toLowerCase()) ?? null;
-  if (goc.includes("\t")) {
-    const cacO = goc.split("\t").map(gotO).filter(Boolean);
-    const viTri = cacO.findIndex((o) => tim(o));
-    return viTri < 0 ? { bt: null, cacO, coTab: true } : { bt: tim(cacO[viTri]), cacO: cacO.slice(viTri + 1), coTab: true };
-  }
-  for (const ngan of [/;/, /\s+/, /,/]) {
-    const cacO = goc.split(ngan).map(gotO).filter(Boolean);
-    if (cacO.length && tim(cacO[0])) return { bt: tim(cacO[0]), cacO: cacO.slice(1), coTab: false };
-  }
-  return { bt: null, cacO: goc.split(/[;,\s]+/).map(gotO).filter(Boolean), coTab: false };
-}
-
-/**
- * Đọc danh sách dán (mỗi dòng: SKU hoặc mã vạch, rồi số lượng). Mã lặp được cộng dồn; quá SO_LUONG_TOI_DA thì kẹp lại.
- * - Dòng không trống ĐẦU TIÊN không có mã nào và không kết thúc bằng số: coi là tiêu đề, bỏ qua (chỉ dòng đầu).
- * - Không có Tab mà dòng có hơn 2 phần ("SKU,1,200", "SKU1 30 SKU2 20"): báo lỗi thay vì đoán sai số lượng.
- * Trả `{ hop: [{ bienTheId, soLuong }], loi: [{ dongSo, chu, lyDo }], soDong, soDongLap }`.
- */
-export function docDanhSachDan(chu, chiMuc) {
-  const gop = new Map();
-  const loi = [];
-  let soDong = 0;
-  let daQuaDongDau = false;
-  String(chu ?? "").replace(/^\ufeff/, "").split(/\r?\n/).forEach((dong, i) => {
-    const goc = dong.trim();
-    if (!goc) return;
-    const laDongDau = !daQuaDongDau;
-    daQuaDongDau = true;
-    const hienThi = goc.replace(/\t/g, "  ");
-    const { bt, cacO, coTab } = tachDongDan(goc, chiMuc);
-    if (!bt) {
-      if (laDongDau && docOSoDan(cacO[cacO.length - 1]) == null) return; // dòng tiêu đề
-      loi.push({ dongSo: i + 1, chu: hienThi, lyDo: t("không tìm thấy mã") });
-      return;
-    }
-    if (!cacO.length) {
-      loi.push({ dongSo: i + 1, chu: hienThi, lyDo: t("thiếu số lượng") });
-      return;
-    }
-    if (!coTab && cacO.length > 1) {
-      loi.push({ dongSo: i + 1, chu: hienThi, lyDo: t("dòng có hơn 2 phần, mỗi dòng chỉ ghi mã và số lượng") });
-      return;
-    }
-    const so = docOSoDan(cacO[cacO.length - 1]);
-    if (so == null) {
-      loi.push({ dongSo: i + 1, chu: hienThi, lyDo: t("số lượng không hợp lệ") });
-      return;
-    }
-    soDong += 1;
-    const khoa = String(bt.bienTheId);
-    gop.set(khoa, { bienTheId: bt.bienTheId, soLuong: (gop.get(khoa)?.soLuong ?? 0) + so });
-  });
-  const hop = [...gop.values()].map((x) => ({ ...x, soLuong: Math.min(SO_LUONG_TOI_DA, x.soLuong) }));
-  return { hop, loi, soDong, soDongLap: soDong - hop.length };
 }
 
 /* ------------------------------------------------------------------ ngày giao */

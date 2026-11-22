@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ClipboardList, PackagePlus, Send, Sparkles, Trash2 } from "lucide-react";
+import { PackagePlus, Send, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "@/lib/thongBaoNhanh";
 import { Button } from "@/components/ui/button";
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -16,7 +16,6 @@ import { phanTrang, soVN } from "@/components/chung-tu/bangChungTu";
 import { GHI_CHU_HOP } from "@/components/chung-tu/kieuHopThoai";
 import BangHangYeuCauTao from "@/components/order/tao-yeu-cau/BangHangYeuCauTao";
 import CotThongTinYeuCau from "@/components/order/tao-yeu-cau/CotThongTinYeuCau";
-import HopDanExcel from "@/components/order/tao-yeu-cau/HopDanExcel";
 import HopGoiYCanNhap from "@/components/order/tao-yeu-cau/HopGoiYCanNhap";
 import LuoiNhapSoLuong from "@/components/order/tao-yeu-cau/LuoiNhapSoLuong";
 import OTimThemHang from "@/components/order/tao-yeu-cau/OTimThemHang";
@@ -86,9 +85,9 @@ function moTaLoiTai(e) {
  * chốt 25/10/2026, canvas "Tạo yêu cầu nhập hàng – thiết kế lại").
  *
  * - Danh mục: GET /nghiep-vu/yeu-cau-mua-hang/hang-kho-tong — mọi mã nhập được kèm khả dụng, đang về, số đề xuất (quy tắc
- *   Cần mua ở Tổng quan), cờ còn dư, yêu cầu nhập đang mở. Một danh sách dùng cho ô tìm, Gợi ý cần nhập, Dán từ Excel.
- * - Thêm hàng: tìm / quét từng mã (quét lại cộng 1), "Thêm cả n biến thể", Gợi ý cần nhập (cả loạt theo số đề xuất),
- *   Dán từ Excel. Bảng gom theo sản phẩm (tìm, lọc Cần chú ý, thu gọn, phân trang theo config/bangChungTu.js), chọn nhiều
+ *   Cần mua ở Tổng quan), cờ còn dư, yêu cầu nhập đang mở. Một danh sách dùng cho ô tìm và Gợi ý cần nhập.
+ * - Thêm hàng: tìm / quét từng mã (quét lại cộng 1), "Thêm cả n biến thể", Gợi ý cần nhập (cả loạt theo số đề xuất).
+ *   Bảng gom theo sản phẩm (tìm, lọc Cần chú ý, thu gọn, phân trang theo config/bangChungTu.js), chọn nhiều
  *   để đặt số lượng / theo đề xuất / bỏ; hoặc nhập theo lưới màu × kích cỡ.
  * - Mã đang trong yêu cầu khác hay Kho tổng còn dư: chỉ cảnh báo, không chặn gửi.
  * - Gửi duyệt: POST /nghiep-vu/yeu-cau-mua-hang/create (máy chủ kiểm ngày giao, ghi chú, dòng hàng) → mở Chi tiết yêu cầu
@@ -116,7 +115,7 @@ export default function CreatePurchaseRequestPage() {
   const [chon, setChon] = useState(() => new Set());
   const [ngayGiao, setNgayGiao] = useState("");
   const [ghiChu, setGhiChu] = useState("");
-  const [hop, setHop] = useState(""); // "" | "goiY" | "dan" | "gui"
+  const [hop, setHop] = useState(""); // "" | "goiY" | "gui"
   const [hoiRoi, setHoiRoi] = useState(null);
   const [dangGui, setDangGui] = useState(false);
   const [loiGui, setLoiGui] = useState(null);
@@ -272,24 +271,6 @@ export default function CreatePurchaseRequestPage() {
     toast.success(t("Đã thêm {{moi}} mã theo số đề xuất", { count: kq.moi, moi: soVN(kq.moi) }), {
       description: t("Tổng {{tong}}. Sửa từng dòng, hoặc chọn nhiều dòng để đặt số lượng một lần.", { tong: soVN(ds.reduce((s, bt) => s + Number(bt.soLuongDeXuat || 0), 0)) }),
     });
-  };
-
-  const themDan = (dsDan, cach, soLoi) => {
-    const kq = themNhieu(dong, dsDan, cach);
-    setDong(kq.dong);
-    setHop("");
-    if (dsDan[0]) toSang(dsDan[0].bienTheId);
-    const chu = [
-      kq.moi ? t("{{moi}} mã mới", { count: kq.moi, moi: soVN(kq.moi) }) : "",
-      kq.capNhat
-        ? cach === "thay"
-          ? t("thay số lượng {{capNhat}} mã đã có", { count: kq.capNhat, capNhat: soVN(kq.capNhat) })
-          : t("cộng thêm {{capNhat}} mã đã có", { count: kq.capNhat, capNhat: soVN(kq.capNhat) })
-        : "",
-    ].filter(Boolean).join(", ");
-    const cau = t("Đã thêm từ danh sách dán: {{chiTiet}}", { chiTiet: chu || t("không có mã mới") });
-    if (soLoi) toast.warning(cau, { description: t("Bỏ qua {{soLoi}} dòng lỗi.", { count: soLoi, soLoi: soVN(soLoi) }) });
-    else toast.success(cau);
   };
 
   /**
@@ -536,16 +517,6 @@ export default function CreatePurchaseRequestPage() {
             </span>
           ) : null}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={khoa || !kho}
-          onClick={() => setHop("dan")}
-          className="gap-1.5 border-bo-border bg-bo-surface text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
-        >
-          <ClipboardList className="size-4" aria-hidden="true" />
-          {t("Dán từ Excel")}
-        </Button>
       </div>
 
       {!coBang ? (
@@ -553,8 +524,8 @@ export default function CreatePurchaseRequestPage() {
           icon={PackagePlus}
           title={t("Chưa có sản phẩm nào")}
           description={soGoiYMoi
-            ? t("{{tenKho}} đang có {{soGoiYMoi}} mã hết hoặc sắp hết. Lấy cả loạt theo số đề xuất, dán danh sách từ Excel, hoặc tìm / quét từng mã ở ô phía trên.", { tenKho: kho?.tenKho || t("Kho tổng"), count: soGoiYMoi, soGoiYMoi: soVN(soGoiYMoi) })
-            : t("Tìm hoặc quét từng mã ở ô phía trên (quét lại cùng mã cộng thêm 1), hoặc dán danh sách SKU – số lượng từ Excel.")}
+            ? t("{{tenKho}} đang có {{soGoiYMoi}} mã hết hoặc sắp hết. Lấy cả loạt theo số đề xuất, hoặc tìm / quét từng mã ở ô phía trên.", { tenKho: kho?.tenKho || t("Kho tổng"), count: soGoiYMoi, soGoiYMoi: soVN(soGoiYMoi) })
+            : t("Tìm hoặc quét từng mã ở ô phía trên. Quét lại cùng mã thì cộng thêm 1.")}
           action={soGoiYMoi && !khoa && !duLieuCu ? (
             <Button type="button" onClick={() => setHop("goiY")} className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">
               <Sparkles className="size-4" aria-hidden="true" />
@@ -682,14 +653,6 @@ export default function CreatePurchaseRequestPage() {
         tenKho={kho?.tenKho}
         nguong={duLieu?.nguongMacDinh}
         onThem={themGoiY}
-        traTieuDiemVe={oTimRef}
-      />
-      <HopDanExcel
-        mo={hop === "dan"}
-        onDoiMo={(mo) => { if (!mo) setHop(""); }}
-        chiMuc={chiMuc}
-        dong={dong}
-        onThem={themDan}
         traTieuDiemVe={oTimRef}
       />
       <HopXacNhanChungTu
