@@ -67,6 +67,10 @@ public class TraHangTaiQuayTransaction {
     private SoTonKeService soTonKeService;
     @Autowired(required = false)
     private ApplicationEventPublisher eventPublisher;
+    /** Tính lại giá / trạng thái sản phẩm sau khi hàng trả vào tồn; @Lazy tránh vòng phụ thuộc; null khi unit test. */
+    @Autowired(required = false)
+    @org.springframework.context.annotation.Lazy
+    private com.dev.backend.services.impl.entities.SanPhamQuanAoService sanPhamQuanAoService;
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public TraHangDto.KetQua xacNhan(TraHangDto.XacNhanRequest req, Integer userId) {
@@ -309,6 +313,18 @@ public class TraHangTaiQuayTransaction {
                         .build());
             }
             hoiPhucTheoBienThe.merge(g.ct.getBienTheSanPham().getId(), g.d.soLuong(), BigDecimal::add);
+        }
+
+        // Hàng đạt vừa vào tồn: tính lại giá / trạng thái sản phẩm như phiếu nhập kho (Hết hàng → Còn hàng để quầy bán lại
+        // được; sản phẩm đã ngừng kinh doanh thì giữ Ngừng và báo quản trị viên có hàng quay về)
+        if (sanPhamQuanAoService != null) {
+            java.util.Set<Integer> sanPhamCoHangVe = new java.util.LinkedHashSet<>();
+            for (DongGhi g : ghi) {
+                if (g.dat && g.ct.getBienTheSanPham() != null && g.ct.getBienTheSanPham().getSanPham() != null) {
+                    sanPhamCoHangVe.add(g.ct.getBienTheSanPham().getSanPham().getId());
+                }
+            }
+            for (Integer sanPhamId : sanPhamCoHangVe) sanPhamQuanAoService.recalculatePriceAndStatus(sanPhamId);
         }
 
         // Cập nhật đơn gốc: trả một phần / trả hết (không đổi trang_thai — xem migration 2026-11-11)
