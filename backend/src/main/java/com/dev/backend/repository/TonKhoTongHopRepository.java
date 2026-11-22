@@ -24,7 +24,8 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
      * Chờ xuất (outgoing) = đặt − đã xuất thật của đơn bán đang giữ hàng (ITrangThaiDonBanHang.DANG_GIU_HANG);
      * không dùng soLuongDaGiao (chỉ ghi khi giao thành công nên xuất một phần bị trừ hai lần).
      * * Điều kiện lọc:
-     * - Sản phẩm cha đang hoạt động (trangThai IN (0, 1))
+     * - Sản phẩm cha đang hoạt động (trangThai IN (0, 1)); sản phẩm Ngừng hoạt động (2) chỉ hiện ở kho còn hàng của nó
+     *   (hàng quay về sau khi ngừng: khách trả, nhập trễ) để báo cáo không bỏ sót tồn thật
      * - Biến thể đang hoạt động (trangThai = 1)
      */
     @Query("""
@@ -124,7 +125,7 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
     LEFT JOIN TonKhoTheoLo tkl       ON tkl.loHang = lh AND tkl.kho = k
     
     WHERE bt.trangThai = 1
-      AND sp.trangThai IN (0, 1)
+      AND (sp.trangThai IN (0, 1) OR tkl.soLuongTon > 0)
       AND (:khoId IS NULL OR k.id = :khoId)
       AND (:keyword IS NULL
            OR LOWER(bt.maSku)       LIKE LOWER(CONCAT('%', :keyword, '%'))
