@@ -329,6 +329,40 @@ public class ThongBaoXuatKhoService {
         }
     }
 
+    /**
+     * Hàng quay về sản phẩm đã ngừng kinh doanh (khách trả, nhập trễ, đơn sàn hoàn về): sản phẩm không bán được ở quầy, cần
+     * cho kinh doanh lại hoặc xử lý số hàng này. Một dòng mỗi sản phẩm: lần có hàng sau hiện lại chưa đọc với số mới.
+     */
+    public void sanPhamNgungCoTon(Integer sanPhamId, String maSanPham, String tenSanPham, String soLuong) {
+        if (sanPhamId == null) return;
+        try {
+            String khoa = "SPNGUNGTON:" + sanPhamId;
+            NoiDung nd = new NoiDung(LOAI_SAN_PHAM, ThongBaoService.TONE_WARNING,
+                    tb("spNgungCoTonTieuDe", tenSanPham),
+                    tb("spNgungCoTonMoTa", maSanPham, soLuong),
+                    "/products?trangThai=ngung-hoat-dong", LOAI_SAN_PHAM, sanPhamId, null, khoa);
+            thongBaoService.capNhatTomTatSauCommit("Thông báo sản phẩm đã ngừng có hàng",
+                    () -> new ThongBaoService.TomTat(khoa, nguoiNhan.quanTriVien(), null, nd, true));
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không chuẩn bị được thông báo sản phẩm đã ngừng có hàng: {}", e.getMessage());
+        }
+    }
+
+    /** Sản phẩm đã ngừng hết hàng (đã chuyển / xuất trả số hàng quay về): dòng báo có hàng đánh dấu đã xử lý. */
+    public void sanPhamNgungHetTon(Integer sanPhamId) {
+        if (sanPhamId == null) return;
+        try {
+            String khoa = "SPNGUNGTON:" + sanPhamId;
+            thongBaoService.capNhatTomTatSauCommit("Gỡ thông báo sản phẩm đã ngừng có hàng",
+                    () -> ThongBaoService.TomTat.hetViec(khoa, null));
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không gỡ được thông báo sản phẩm đã ngừng có hàng: {}", e.getMessage());
+        }
+    }
+
+    /** Loại thông báo gắn với một sản phẩm (bảng san_pham_quan_ao); chuông hiện hình hộp hàng. */
+    public static final String LOAI_SAN_PHAM = "san_pham_quan_ao";
+
     /** Một đơn sàn mới có dòng thuộc sản phẩm đã ngừng kinh doanh: số đơn và SKU → số lượng đặt. */
     public record DonCoSanPhamNgung(String soDon, Map<String, Integer> sku) {}
 

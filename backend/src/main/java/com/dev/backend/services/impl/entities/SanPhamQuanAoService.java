@@ -80,6 +80,10 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         /** Nhật ký sản phẩm (lịch sử master data, ghi trong giao dịch); null khi unit test dựng tay. */
         @Autowired(required = false)
         private NhatKyNghiepVu nhatKy;
+        /** Báo quản trị viên khi hàng quay về sản phẩm đã ngừng kinh doanh; @Lazy tránh vòng phụ thuộc; null khi unit test. */
+        @Autowired(required = false)
+        @org.springframework.context.annotation.Lazy
+        private ThongBaoXuatKhoService thongBaoXuatKhoService;
 
         /**
          * Đổi danh mục của sản phẩm khi danh mục cũ hoặc mới (kể cả danh mục con tạo sau, xét theo cha) đang được kiểm kê ở
@@ -172,6 +176,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 BigDecimal tongGiaVonBienThe = BigDecimal.ZERO;
                 BigDecimal tongGiaBanBienThe = BigDecimal.ZERO;
                 int soBienTheCoHang = 0;
+                BigDecimal tongTonSanPham = BigDecimal.ZERO;
 
                 // Trạng thái biến thể (1 Hoạt động / 0 Tạm ngừng) do người dùng quản lý,
                 // KHÔNG suy ra từ tồn kho — chỉ tính lại giá ở đây.
@@ -189,6 +194,7 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
 
                                 BigDecimal tongGiaTriTon = result[0] != null ? new BigDecimal(result[0].toString()) : BigDecimal.ZERO;
                                 BigDecimal tongSoLuongTon = result[1] != null ? new BigDecimal(result[1].toString()) : BigDecimal.ZERO;
+                                tongTonSanPham = tongTonSanPham.add(tongSoLuongTon.max(BigDecimal.ZERO));
 
                                 // Nếu biến thể còn tồn kho
                                 if (tongSoLuongTon.compareTo(BigDecimal.ZERO) > 0) {
@@ -237,6 +243,15 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 }
 
                 repository.save(sp);
+                // Sản phẩm đã ngừng mà có hàng (khách trả, nhập trễ, đơn sàn hoàn về): báo quản trị viên; hết hàng thì gỡ báo
+                if (ngungHoatDong && thongBaoXuatKhoService != null) {
+                        if (tongTonSanPham.signum() > 0) {
+                                thongBaoXuatKhoService.sanPhamNgungCoTon(sp.getId(), sp.getMaSanPham(), sp.getTenSanPham(),
+                                        dinhDangSoLuong(tongTonSanPham));
+                        } else {
+                                thongBaoXuatKhoService.sanPhamNgungHetTon(sp.getId());
+                        }
+                }
         }
         @Transactional
         public ResponseEntity<ResponseData<SanPhamQuanAoDto>> create(
