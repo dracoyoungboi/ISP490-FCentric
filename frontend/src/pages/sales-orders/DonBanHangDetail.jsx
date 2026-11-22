@@ -326,7 +326,7 @@ function ChiTietDonBanHang({ id }) {
       <DongThongBao
         key={n.ma}
         tone={n.tone}
-        actions={n.lienKet === "donChoXuat" ? <NutChu onClick={() => navigate("/goods-issues/pending-orders")}>{t("Mở Đơn chờ xuất")}</NutChu> : null}
+        actions={n.lienKet === "donChoXuat" ? <NutChu onClick={() => navigate("/goods-issues/pending-orders")}>{t("Mở Đơn chờ nhặt hàng")}</NutChu> : null}
       >
         {n.chu}
       </DongThongBao>

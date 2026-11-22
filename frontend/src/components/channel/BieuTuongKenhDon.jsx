@@ -13,7 +13,7 @@ export default function BieuTuongKenhDon({ maKenh, tenKenh, className }) {
   const ma = maKenh ? String(maKenh).toUpperCase() : null;
   const taiQuay = !ma || ma === "POS";
   // tenKenh dịch lúc vẽ: tên gian hàng thật không có khóa nên giữ nguyên.
-  // Đơn tại quầy luôn gọi "Bán hàng tại quầy" (bỏ qua "Trực tiếp" mà máy chủ gửi cho Đơn chờ xuất)
+  // Đơn tại quầy luôn gọi "Bán hàng tại quầy" (bỏ qua "Trực tiếp" mà máy chủ gửi cho Đơn chờ nhặt hàng)
   const ten = taiQuay ? t("Bán hàng tại quầy") : (tenKenh && tDuLieu(tenKenh)) || t(getChannelName(ma));
   return (
     // relative: giữ chữ sr-only trong khung này, không để nó thoát ra kéo dài vùng cuộn của hộp thoại / bảng

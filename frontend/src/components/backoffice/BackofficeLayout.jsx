@@ -393,7 +393,7 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
         {
             key: "PENDING_ORDERS",
             match: (path) => path === "/goods-issues/pending-orders",
-            title: t("Đơn chờ xuất"),
+            title: t("Đơn chờ nhặt hàng"),
         },
         {
             key: "PICK_LISTS",

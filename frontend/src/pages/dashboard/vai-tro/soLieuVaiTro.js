@@ -2,7 +2,7 @@
 // thuần dữ liệu (không React) để kiểm thử bằng node --test. Dữ liệu vào là GET /api/v1/tong-quan/cua-toi.
 //
 // Quy tắc đường dẫn: một số mở đúng một danh sách và đúng tab (?trangThai=) của hệ thống, để số trên Tổng quan
-// bằng số dòng trên trang. Trang chỉ xem một kho (Đơn chờ xuất, Phiếu nhặt hàng, Chuyển kho nội bộ…) tự lọc theo
+// bằng số dòng trên trang. Trang chỉ xem một kho (Đơn chờ nhặt hàng, Phiếu nhặt hàng, Chuyển kho nội bộ…) tự lọc theo
 // kho làm việc; trang có tham số kho (Yêu cầu nhập hàng, Đơn mua hàng, Báo cáo tồn kho) được truyền ?kho=.
 import { bienDong, docNgay, formatSo, formatTienNgan, gioPhut, tachTien } from "../admin/tong-quan/tongQuanFormat.js";
 import { duongDanKemThamSo } from "../../../utils/thamSoDuongDan.js";
@@ -320,7 +320,7 @@ const VIEC_QLK = {
   xac_nhan_bien_ban_chuyen: { ten: t("Xác nhận biên bản giao nhận"), phu: t("Kho nhận báo thiếu, hỏng hàng kho bạn gửi"), icon: "chuyen", tuoi: t("Chờ từ") },
   // Máy chủ chỉ trả cho người được xử lý chênh lệch theo Cấu hình › Chuyển kho, sau khi kho gửi đã xác nhận biên bản
   xu_ly_chenh_lech_chuyen: { ten: t("Xử lý chênh lệch chuyển kho"), phu: t("Kho gửi đã xác nhận biên bản, chờ xử lý"), icon: "chuyen", tuoi: t("Chờ từ") },
-  gom_phieu_nhat: { ten: t("Tạo phiếu nhặt cho đơn chờ xuất"), phu: t("Đơn chưa có phiếu nhặt"), icon: "nhat", tuoi: t("Cũ nhất") },
+  gom_phieu_nhat: { ten: t("Tạo phiếu nhặt cho đơn chờ nhặt hàng"), phu: t("Đơn chưa có phiếu nhặt"), icon: "nhat", tuoi: t("Cũ nhất") },
   phan_cong_nhat: { ten: t("Phân công phiếu nhặt"), phu: t("Phiếu nhặt chưa giao người nhặt"), icon: "nhat", tuoi: t("Cũ nhất") },
   hoan_tat_kiem_ke: { ten: t("Hoàn tất đợt kiểm kê"), phu: t("Đợt kiểm kê đang mở"), icon: "kiemKe", tuoi: t("Mở từ") },
 };

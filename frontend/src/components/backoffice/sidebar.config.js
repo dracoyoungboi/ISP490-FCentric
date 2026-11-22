@@ -211,8 +211,8 @@ export const SIDEBAR_MENU = [
     roles: [...new Set([...VAI_TRO_CHUYEN_KE, ...VAI_TRO_XEM_PHIEU_NHAP])],
     children: [
       { label: t("Phiếu nhập kho"), to: "/goods-receipts", nhom: CHUNG_TU, roles: VAI_TRO_XEM_PHIEU_NHAP },
-      // Xuất kho theo Pick List (FO-045–047): Đơn chờ xuất → Pick List → Phiếu xuất kho
-      { label: t("Đơn chờ xuất"), to: "/goods-issues/pending-orders", nhom: CHUNG_TU, roles: VAI_TRO_KHO },
+      // Xuất kho theo Pick List (FO-045–047): Đơn chờ nhặt hàng → Pick List → Phiếu xuất kho
+      { label: t("Đơn chờ nhặt hàng"), to: "/goods-issues/pending-orders", nhom: CHUNG_TU, roles: VAI_TRO_KHO },
       { label: t("Phiếu nhặt hàng"), to: "/goods-issues/pick-lists", nhom: CHUNG_TU, roles: VAI_TRO_KHO },
       {
         label: t("Phiếu xuất kho"),

@@ -30,7 +30,7 @@ const CHU_DANG_XEM_KHO = {
 };
 
 /**
- * Ô "Nơi làm việc" (kho làm việc) cho các trang chỉ xem một kho (Đơn chờ xuất, Phiếu nhặt hàng, Chuyển kho nội bộ).
+ * Ô "Nơi làm việc" (kho làm việc) cho các trang chỉ xem một kho (Đơn chờ nhặt hàng, Phiếu nhặt hàng, Chuyển kho nội bộ).
  * - Ghi rõ trang đang xem kho nào. Nhân viên chỉ có một kho thì không vẽ: đáy menu (điện thoại: đầu trang) đã ghi
  *   "Nơi làm việc", ô khóa ở trang chỉ lặp lại (PQ-17). Quản lý kho không có ô ở đáy menu nên vẫn thấy ô này.
  * - Người có từ 2 kho giao dịch trở lên đổi được kho ngay tại đây; đổi kho là đổi kho làm việc của

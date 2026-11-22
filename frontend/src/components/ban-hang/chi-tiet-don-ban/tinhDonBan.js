@@ -334,7 +334,7 @@ export function buocDonBan(ct) {
 
 /**
  * Các dòng thông báo trong khối (chỉ khi có việc phải biết) `{ ma, tone, chu, lienKet? }`; `lienKet: "donChoXuat"` →
- * nút "Mở Đơn chờ xuất" (chỉ vai trò kho). `tenKho`: kho xuất của đơn. Câu theo bản demo đã chốt.
+ * nút "Mở Đơn chờ nhặt hàng" (chỉ vai trò kho). `tenKho`: kho xuất của đơn. Câu theo bản demo đã chốt.
  */
 export function thongBaoDonBan(ct, { laBan = false, laKho = false, laQuanLyKhoTong = false } = {}) {
   const don = ct?.donBanHang;
@@ -374,7 +374,7 @@ export function thongBaoDonBan(ct, { laBan = false, laKho = false, laQuanLyKhoTo
       }
     }
   } else if (tt === TT.CHO_NHAT_HANG && !pl) {
-    them("choGom", "neutral", t("Đơn đang ở Đơn chờ xuất của {{tenKho}}, chờ kho gom vào phiếu nhặt hàng.", { tenKho }), laKho ? "donChoXuat" : null);
+    them("choGom", "neutral", t("Đơn đang ở Đơn chờ nhặt hàng của {{tenKho}}, chờ kho gom vào phiếu nhặt hàng.", { tenKho }), laKho ? "donChoXuat" : null);
   } else if (tt === TT.CHO_NHAT_HANG && daNhat) {
     const px = dsPhieuXuat(ct).find((p) => Number(p.trangThai) === TRANG_THAI_PHIEU_XUAT.DA_HUY);
     const soPx = px?.soPhieuXuat ? t("Phiếu xuất {{soPhieuXuat}}", { soPhieuXuat: px.soPhieuXuat }) : t("Phiếu xuất");
@@ -395,7 +395,7 @@ export function thongBaoDonBan(ct, { laBan = false, laKho = false, laQuanLyKhoTo
           : t("Đơn còn phần chưa xuất. Kho cần tạo lại phiếu xuất cho phần còn lại."),
       );
     } else {
-      them("conLai", "neutral", t("Đơn còn phần chưa xuất, đang ở Đơn chờ xuất của {{tenKho}}.", { tenKho }));
+      them("conLai", "neutral", t("Đơn còn phần chưa xuất, đang ở Đơn chờ nhặt hàng của {{tenKho}}.", { tenKho }));
     }
   } else if (tt === TT.DA_HUY) {
     const sanHuy = lyDoSanHuy(don.lyDoTuChoi);

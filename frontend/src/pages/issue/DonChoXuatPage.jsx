@@ -120,7 +120,7 @@ export default function DonChoXuatPage() {
             setData([]);
             setTotal(0);
             setLoadError(error);
-            if (error?.response?.status !== 403) toast.error(getApiErrorMessage(error, t("Không tải được danh sách đơn chờ xuất")));
+            if (error?.response?.status !== 403) toast.error(getApiErrorMessage(error, t("Không tải được danh sách đơn chờ nhặt hàng")));
         } finally {
             if (requestId === requestIdRef.current) setLoading(false);
         }
@@ -254,7 +254,7 @@ export default function DonChoXuatPage() {
                             <KhoLamViecSelect onChange={handleDoiKho} />
                             <SearchInput
                                 placeholder={t("Nhập số đơn hoặc tên khách hàng...")}
-                                label={t("Tìm đơn chờ xuất")}
+                                label={t("Tìm đơn chờ nhặt hàng")}
                                 value={searchText}
                                 onChange={(event) => setSearchText(event.target.value)}
                                 onClear={() => setSearchText("")}
@@ -346,10 +346,10 @@ export default function DonChoXuatPage() {
                 }
             >
                 {loading ? (
-                    <LoadingState className="min-h-64" label={t("Đang tải đơn chờ xuất")} />
+                    <LoadingState className="min-h-64" label={t("Đang tải đơn chờ nhặt hàng")} />
                 ) : loadError ? (
                     <ErrorState
-                        description={t("Không thể tải danh sách đơn chờ xuất. Vui lòng thử lại.")}
+                        description={t("Không thể tải danh sách đơn chờ nhặt hàng. Vui lòng thử lại.")}
                         error={loadError}
                         onRetry={() => fetchData()}
                     />
@@ -357,7 +357,7 @@ export default function DonChoXuatPage() {
                     dangLoc ? (
                         <EmptyState
                             icon={SearchX}
-                            title={t("Không tìm thấy đơn chờ xuất phù hợp")}
+                            title={t("Không tìm thấy đơn chờ nhặt hàng phù hợp")}
                             description={t("Thử đổi từ khóa hoặc kênh bán.")}
                             action={
                                 <Button variant="outline" onClick={clearFilters} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
@@ -368,7 +368,7 @@ export default function DonChoXuatPage() {
                     ) : (
                         <EmptyState
                             icon={ShoppingBag}
-                            title={t("Chưa có đơn chờ xuất")}
+                            title={t("Chưa có đơn chờ nhặt hàng")}
                             description={t("Đơn bán đã gửi sang kho sẽ hiện ở đây để gom thành phiếu nhặt hàng.")}
                             action={
                                 <Link to="/sales-orders" className="text-sm font-medium text-bo-primary hover:underline">

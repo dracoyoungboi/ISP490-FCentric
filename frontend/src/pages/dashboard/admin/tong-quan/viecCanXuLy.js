@@ -5,7 +5,7 @@ import { t } from "../../../../i18n/t.js";
 const UU_TIEN = { bad: 0, warn: 1, info: 2 };
 
 /**
- * Đơn chờ xuất, Phiếu nhặt hàng và Chuyển kho nội bộ chỉ xem kho làm việc (selected_kho_id).
+ * Đơn chờ nhặt hàng, Phiếu nhặt hàng và Chuyển kho nội bộ chỉ xem kho làm việc (selected_kho_id).
  * Dòng của các trang này mang theo kho: bấm vào thì đổi kho làm việc sang kho đó rồi mở trang,
  * để số trên dòng bằng số dòng trên trang. Xem "Tất cả kho" thì tách một dòng cho mỗi kho có việc
  * (backend trả viecCanXuLy.theoKho).

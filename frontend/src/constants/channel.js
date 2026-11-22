@@ -12,7 +12,7 @@ export const CHANNELS = {
   SHOPEE_SANDBOX: { id: 7, maKenh: "SHOPEE_SANDBOX", tenKenh: "Shopee Sandbox" },
 };
 
-/** Lựa chọn lọc theo kênh sàn (Đơn chờ xuất, Đơn bán hàng). */
+/** Lựa chọn lọc theo kênh sàn (Đơn chờ nhặt hàng, Đơn bán hàng). */
 export const MARKETPLACE_FILTER_OPTIONS = [
   { value: "", label: "Tất cả kênh" },
   { value: "shopify", label: "Shopify", id: CHANNELS.SHOPIFY.id },

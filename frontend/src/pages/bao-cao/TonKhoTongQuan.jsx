@@ -356,7 +356,7 @@ export default function TonKhoTongQuan() {
     const handleSelectKho = (id) => {
         const numId = id ? Number(id) : null;
         setSelectedKhoId(numId);
-        // Chỉ là bộ lọc: ghi lên đường dẫn, KHÔNG đổi nơi làm việc (Đơn chờ xuất, Phiếu nhặt hàng, Chuyển kho
+        // Chỉ là bộ lọc: ghi lên đường dẫn, KHÔNG đổi nơi làm việc (Đơn chờ nhặt hàng, Phiếu nhặt hàng, Chuyển kho
         // và các thao tác tạo chứng từ vẫn theo nơi làm việc). API báo cáo nhận kho qua tham số khoId.
         setSearchParams((truoc) => {
             const tiep = new URLSearchParams(truoc);

@@ -1,4 +1,4 @@
-// Dữ liệu mẫu cho luồng Đơn chờ xuất → Pick List → quét mã → hoàn tất nhặt.
+// Dữ liệu mẫu cho luồng Đơn chờ nhặt hàng → Pick List → quét mã → hoàn tất nhặt.
 // Hình dạng dữ liệu bám đúng DTO backend: DonChoXuatDto, DanhSachNhatHangDto,
 // ChiTietNhatHangDto, KetQuaQuetBarcodeDto (API-KENH-BAN-HANG.md mục 4).
 import { clone, isoMinutesAgo, mockDelay, mockError, normalizeText, paginate } from "./mockHelpers";
@@ -189,7 +189,7 @@ function todayCode() {
   return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Đơn đang nằm trong một phiếu nhặt chưa hủy (không còn hiện ở Đơn chờ xuất). */
+/** Đơn đang nằm trong một phiếu nhặt chưa hủy (không còn hiện ở Đơn chờ nhặt hàng). */
 function dangTrongPhieuNhat(orderId) {
   return state.pickLists.some((pl) => pl.trangThai !== "da_huy" && pl.donHangIds.includes(orderId));
 }

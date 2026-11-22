@@ -83,7 +83,7 @@ export default function ActionPanel({ data, khoId, loading, error, onRetry, clas
           <DauTichDong key={data?.thoiDiem} className="size-9" />
           <div>
             <p className="text-sm font-medium text-bo-foreground">{t("Không có việc nào đang chờ")}</p>
-            <p className="text-xs text-bo-muted">{t("Đơn chờ xuất, phiếu chờ duyệt, lỗi đồng bộ sẽ hiện ở đây.")}</p>
+            <p className="text-xs text-bo-muted">{t("Đơn chờ nhặt hàng, phiếu chờ duyệt, lỗi đồng bộ sẽ hiện ở đây.")}</p>
           </div>
         </div>
       ) : (

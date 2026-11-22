@@ -58,7 +58,7 @@ export default function HopGuiSangKho({ mo, onDoiMo, don, dangChay = false, loi,
       onDoiMo={onDoiMo}
       rong
       tieuDe={t("Gửi sang kho")}
-      moTa={t("Chọn kho xuất cho đơn {{so}}. Đơn chuyển sang Chờ nhặt hàng và hiện ở Đơn chờ xuất của kho đó.", { so: don?.soDonHang ?? "" })}
+      moTa={t("Chọn kho xuất cho đơn {{so}}. Đơn chuyển sang Chờ nhặt hàng và hiện ở Đơn chờ nhặt hàng của kho đó.", { so: don?.soDonHang ?? "" })}
       nhanXacNhan={t("Gửi sang kho")}
       iconXacNhan={Send}
       dangChay={dangChay}

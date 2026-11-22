@@ -293,10 +293,10 @@ export default function PickListList() {
                         <EmptyState
                             icon={PackageSearch}
                             title={t("Chưa có phiếu nhặt hàng")}
-                            description={t("Chọn đơn ở màn Đơn chờ xuất để gom thành phiếu nhặt hàng đầu tiên.")}
+                            description={t("Chọn đơn ở màn Đơn chờ nhặt hàng để gom thành phiếu nhặt hàng đầu tiên.")}
                             action={
                                 <Link to="/goods-issues/pending-orders" className="text-sm font-medium text-bo-primary hover:underline">
-                                    {t("Đến Đơn chờ xuất")}
+                                    {t("Đến Đơn chờ nhặt hàng")}
                                 </Link>
                             }
                         />
