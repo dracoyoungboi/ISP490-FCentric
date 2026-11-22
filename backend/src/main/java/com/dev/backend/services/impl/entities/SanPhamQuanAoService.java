@@ -1416,19 +1416,32 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         conDo.add(ThongDiep.of("sanPhamMuaHang.ngungConTon", dinhDangSoLuong(tongTon), donViTinhChuThuong(sanPham), ((Number) ton[1]).longValue()));
                 }
 
+                // Đơn bán còn giữ hàng + đơn đã xuất đang giao (sàn có thể hoàn về, hàng quay lại sản phẩm đã ngừng)
+                List<Integer> donBanDangXuLy = new ArrayList<>(ITrangThaiDonBanHang.DANG_GIU_HANG);
+                donBanDangXuLy.add(ITrangThaiDonBanHang.DA_XUAT_TOAN_BO);
                 long donBan = demChungTu("SELECT COUNT(DISTINCT d.id) FROM don_ban_hang d "
                                 + "JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = d.id "
                                 + "JOIN bien_the_san_pham bt ON bt.id = ct.bien_the_san_pham_id "
                                 + "WHERE bt.san_pham_id = :id AND d.loai_chung_tu = 'don_ban_hang' AND d.trang_thai IN (:trangThai)",
-                        id, ITrangThaiDonBanHang.DANG_GIU_HANG);
+                        id, donBanDangXuLy);
                 if (donBan > 0) conDo.add(ThongDiep.of("sanPhamMuaHang.ngungConDonBan", donBan));
 
+                // Yêu cầu nhập hàng chưa thành đơn mua (chờ duyệt, đã duyệt, đã gửi báo giá): duyệt xong vẫn nhập hàng về
+                long yeuCauNhap = demChungTu("SELECT COUNT(DISTINCT y.id) FROM yeu_cau_mua_hang y "
+                                + "JOIN chi_tiet_yeu_cau_mua_hang ct ON ct.yeu_cau_mua_hang_id = y.id "
+                                + "JOIN bien_the_san_pham bt ON bt.id = ct.bien_the_san_pham_id "
+                                + "WHERE bt.san_pham_id = :id AND y.trang_thai IN (:trangThai)",
+                        id, List.of(YeuCauMuaHangService.TRANG_THAI_CHO_DUYET, YeuCauMuaHangService.TRANG_THAI_DA_DUYET,
+                                YeuCauMuaHangService.TRANG_THAI_DA_GUI_BAO_GIA));
+                if (yeuCauNhap > 0) conDo.add(ThongDiep.of("sanPhamMuaHang.ngungConYeuCauNhap", yeuCauNhap));
+
+                // Đơn mua chờ báo giá (chấp nhận xong là hàng về) và đơn đang về chưa nhận đủ
                 long donMua = demChungTu("SELECT COUNT(DISTINCT d.id) FROM don_mua_hang d "
                                 + "JOIN chi_tiet_don_mua_hang ct ON ct.don_mua_hang_id = d.id "
                                 + "JOIN bien_the_san_pham bt ON bt.id = ct.bien_the_san_pham_id "
                                 + "WHERE bt.san_pham_id = :id AND d.trang_thai IN (:trangThai) "
                                 + "AND COALESCE(ct.so_luong_da_nhan, 0) < ct.so_luong_dat",
-                        id, List.of(DonMuaHangService.TRANG_THAI_DA_CHAP_NHAN));
+                        id, List.of(DonMuaHangService.TRANG_THAI_CHO_BAO_GIA, DonMuaHangService.TRANG_THAI_DA_CHAP_NHAN));
                 if (donMua > 0) conDo.add(ThongDiep.of("sanPhamMuaHang.ngungConDonMua", donMua));
 
                 long phieuChuyen = demChungTu("SELECT COUNT(DISTINCT p.id) FROM phieu_chuyen_kho p "
@@ -1470,13 +1483,14 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 return kq == null ? 0 : ((Number) kq).longValue();
         }
 
-        /** "Còn a — …", "Còn a và b — …", "Còn a, b và c — …" (1–4 phần; mỗi số phần một khóa để dịch được). */
+        /** "Còn a — …", "Còn a và b — …", "Còn a, b và c — …" (1–5 phần; mỗi số phần một khóa để dịch được). */
         static ThongDiep cauKhongTheNgung(List<ThongDiep> ds) {
                 return switch (ds.size()) {
                         case 1 -> ThongDiep.of("sanPhamMuaHang.ngungKhongDuoc", ds.get(0));
                         case 2 -> ThongDiep.of("sanPhamMuaHang.ngungKhongDuocHai", ds.get(0), ds.get(1));
                         case 3 -> ThongDiep.of("sanPhamMuaHang.ngungKhongDuocBa", ds.get(0), ds.get(1), ds.get(2));
-                        default -> ThongDiep.of("sanPhamMuaHang.ngungKhongDuocBon", ds.get(0), ds.get(1), ds.get(2), ds.get(3));
+                        case 4 -> ThongDiep.of("sanPhamMuaHang.ngungKhongDuocBon", ds.get(0), ds.get(1), ds.get(2), ds.get(3));
+                        default -> ThongDiep.of("sanPhamMuaHang.ngungKhongDuocNam", ds.get(0), ds.get(1), ds.get(2), ds.get(3), ds.get(4));
                 };
         }
 
