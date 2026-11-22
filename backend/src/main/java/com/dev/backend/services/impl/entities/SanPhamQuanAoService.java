@@ -1505,6 +1505,64 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         }
 
         // ==========================================================
+        // SẮP THEO NHÓM TRẠNG THÁI (trang Sản phẩm, tab Tất cả)
+        // Còn hàng → Hết hàng → Ngừng hoạt động trên TOÀN danh sách rồi mới chia trang; trước đây giao diện sắp lại
+        // trong từng trang nên trang 2 lại bắt đầu bằng Còn hàng và cột Ngày tạo nhảy lộn xộn.
+        // ==========================================================
+
+        /** Trường sắp xếp ảo: thứ tự nhóm Còn hàng (1) → Hết hàng (0) → Ngừng hoạt động (2, và giá trị lạ). */
+        public static final String SAP_XEP_NHOM_TRANG_THAI = "nhomTrangThai";
+
+        @Override
+        @Transactional(readOnly = true)
+        public org.springframework.data.domain.Page<SanPhamQuanAo> filter(com.dev.backend.dto.request.BaseFilterRequest request) {
+                List<com.dev.backend.dto.request.SortCriteria> sorts = request.getSorts() == null ? List.of() : request.getSorts();
+                if (sorts.stream().noneMatch(s -> SAP_XEP_NHOM_TRANG_THAI.equals(s.getFieldName()))) {
+                        return super.filter(request);
+                }
+                List<com.dev.backend.dto.request.SortCriteria> sapXepThuong = sorts.stream()
+                        .filter(s -> !SAP_XEP_NHOM_TRANG_THAI.equals(s.getFieldName()))
+                        .toList();
+                // createPageable kiểm tên trường của các tiêu chí còn lại như luồng thường (chặn cột bí mật, cột không có)
+                org.springframework.data.domain.Pageable trang = createPageable(sapXepThuong, request.getPage(), request.getSize());
+                boolean nhomGiamDan = sorts.stream()
+                        .filter(s -> SAP_XEP_NHOM_TRANG_THAI.equals(s.getFieldName()))
+                        .anyMatch(s -> s.getDirection() == com.dev.backend.constant.enums.SortDirection.DESC);
+                org.springframework.data.jpa.domain.Specification<SanPhamQuanAo> spec = createSpecification(request.getFilters())
+                        .and(sapXepTheoNhomTrangThai(nhomGiamDan, trang.getSort()));
+                // Thứ tự nằm trong spec nên trang gửi đi không kèm Sort (Spring sẽ ghi đè ORDER BY của spec);
+                // câu đếm tổng của Spring tự bỏ ORDER BY
+                return repository.findAll(spec, org.springframework.data.domain.PageRequest.of(trang.getPageNumber(), trang.getPageSize()));
+        }
+
+        /**
+         * ORDER BY CASE trang_thai WHEN 1 THEN 0 WHEN 0 THEN 1 ELSE 2 END, rồi các tiêu chí sắp khác, cuối cùng id giảm dần
+         * để hai sản phẩm cùng ngày tạo không đổi chỗ giữa các trang. Không thêm điều kiện lọc.
+         */
+        org.springframework.data.jpa.domain.Specification<SanPhamQuanAo> sapXepTheoNhomTrangThai(
+                boolean giamDan, org.springframework.data.domain.Sort sapXepKhac) {
+                return (root, query, cb) -> {
+                        Class<?> kieuKetQua = query.getResultType();
+                        if (Long.class.equals(kieuKetQua) || long.class.equals(kieuKetQua)) return null; // câu đếm
+                        jakarta.persistence.criteria.Expression<Integer> nhom = cb.<Integer>selectCase()
+                                .when(cb.equal(root.get("trangThai"), 1), 1)
+                                .when(cb.equal(root.get("trangThai"), 0), 2)
+                                .otherwise(3);
+                        List<jakarta.persistence.criteria.Order> thuTu = new ArrayList<>();
+                        thuTu.add(giamDan ? cb.desc(nhom) : cb.asc(nhom));
+                        boolean coId = false;
+                        for (org.springframework.data.domain.Sort.Order o : sapXepKhac) {
+                                jakarta.persistence.criteria.Path<?> duong = getFieldPath(root, o.getProperty());
+                                thuTu.add(o.isAscending() ? cb.asc(duong) : cb.desc(duong));
+                                coId |= "id".equals(o.getProperty());
+                        }
+                        if (!coId) thuTu.add(cb.desc(root.get("id")));
+                        query.orderBy(thuTu);
+                        return null;
+                };
+        }
+
+        // ==========================================================
         // LỌC THEO GIÁ BIẾN THỂ (trang Sản phẩm, ô "Giá từ / Giá đến")
         // giaBanMacDinh chỉ tính trên biến thể còn hàng nên sản phẩm hết hàng luôn là 0;
         // danh sách hiện giá theo biến thể đang bán nên bộ lọc cũng phải lọc theo đó.
