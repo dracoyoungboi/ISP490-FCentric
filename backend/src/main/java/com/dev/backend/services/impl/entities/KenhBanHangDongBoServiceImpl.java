@@ -842,7 +842,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (soSku == 0) {
             List<BienTheSanPham> activeVariants = bienTheSanPhamRepository.findActiveVariantsWithDetails();
             if (activeVariants == null || activeVariants.isEmpty()) {
-                activeVariants = bienTheSanPhamRepository.findByTrangThai(1);
+                activeVariants = bienTheSanPhamRepository.findByTrangThaiAndSanPhamTrangThaiIn(1, List.of(0, 1));
             }
             if (activeVariants != null) {
                 for (BienTheSanPham bt : activeVariants) {
@@ -3107,7 +3107,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         List<BienTheSanPham> activeVariants = bienTheSanPhamRepository.findActiveVariantsWithDetails();
         if (activeVariants == null || activeVariants.isEmpty()) {
-            activeVariants = bienTheSanPhamRepository.findByTrangThai(1);
+            activeVariants = bienTheSanPhamRepository.findByTrangThaiAndSanPhamTrangThaiIn(1, List.of(0, 1));
         }
 
         // 2. Tra cứu danh mục TikTok Shop hiện có trong cache RAM
@@ -3296,7 +3296,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         List<BienTheSanPham> activeVariants = bienTheSanPhamRepository.findActiveVariantsWithDetails();
         if (activeVariants == null || activeVariants.isEmpty()) {
-            activeVariants = bienTheSanPhamRepository.findByTrangThai(1);
+            activeVariants = bienTheSanPhamRepository.findByTrangThaiAndSanPhamTrangThaiIn(1, List.of(0, 1));
         }
         if (activeVariants == null || activeVariants.isEmpty()) {
             return TuDongLienKetResultDto.builder()
@@ -3533,7 +3533,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         // Sử dụng query tối ưu JOIN FETCH chống N+1 queries (hunt-springboot)
         List<BienTheSanPham> activeVariants = bienTheSanPhamRepository.findActiveVariantsWithDetails();
         if (activeVariants == null || activeVariants.isEmpty()) {
-            activeVariants = bienTheSanPhamRepository.findByTrangThai(1);
+            activeVariants = bienTheSanPhamRepository.findByTrangThaiAndSanPhamTrangThaiIn(1, List.of(0, 1));
         }
         if (activeVariants == null || activeVariants.isEmpty()) {
             return TuDongLienKetResultDto.builder()
@@ -10382,7 +10382,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
         List<BienTheSanPham> activeVariants = bienTheSanPhamRepository.findActiveVariantsWithDetails();
         if (activeVariants == null || activeVariants.isEmpty()) {
-            activeVariants = bienTheSanPhamRepository.findByTrangThai(1);
+            activeVariants = bienTheSanPhamRepository.findByTrangThaiAndSanPhamTrangThaiIn(1, List.of(0, 1));
         }
         if (activeVariants == null || activeVariants.isEmpty()) {
             return TuDongLienKetResultDto.builder()

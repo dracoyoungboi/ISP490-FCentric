@@ -81,6 +81,8 @@ public interface BienTheSanPhamRepository extends JpaRepository<BienTheSanPham, 
             @Param("maVachSku") String maVachSku
     );
     List<BienTheSanPham> findByTrangThai(Integer trangThai);
+    /** Biến thể đang bán của sản phẩm còn kinh doanh (trạng thái sản phẩm 0/1, bỏ Ngừng hoạt động 2): tự động liên kết sàn. */
+    List<BienTheSanPham> findByTrangThaiAndSanPhamTrangThaiIn(Integer trangThai, java.util.Collection<Integer> trangThaiSanPham);
     Optional<BienTheSanPham> findByMaSkuIgnoreCase(String maSku);
 
     /** Biến thể có mã vạch tem FCentric này (mã vạch do người dùng nhập nên có thể trùng, lấy bản đầu). */

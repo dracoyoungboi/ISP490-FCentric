@@ -231,6 +231,39 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
      * (đặc tả BA, ma trận 3.2), không âm. Giữ tên cũ cho các chỗ đẩy tồn sàn; dòng trả về [biến thể, BigDecimal].
      */
     default List<Object[]> sumTongFreeToUseToanHeThongByBienTheIds(List<Integer> bienTheIds) {
+        return veKhongNeuSanPhamNgung(tongFreeToUseTruGiuCho(bienTheIds), bienTheIds);
+    }
+
+    /**
+     * Biến thể thuộc sản phẩm Ngừng hoạt động (san_pham_quan_ao.trang_thai = 2) trong danh sách. Chỉ hai hàm tính tồn đẩy
+     * sàn dùng: sản phẩm đã ngừng kinh doanh đẩy 0 lên mọi sàn, kể cả khi hàng quay về kho (khách trả, nhập trễ).
+     */
+    @Query(value = """
+        SELECT bt.id FROM bien_the_san_pham bt
+        JOIN san_pham_quan_ao sp ON sp.id = bt.san_pham_id
+        WHERE sp.trang_thai = 2 AND bt.id IN (:bienTheIds)
+    """, nativeQuery = true)
+    List<Integer> bienTheThuocSanPhamNgung(@Param("bienTheIds") List<Integer> bienTheIds);
+
+    /**
+     * Đặt tồn đẩy sàn về 0 cho biến thể của sản phẩm đã ngừng kinh doanh. Delta sync thấy số đổi thì đẩy 0 một lần rồi
+     * thôi; cho kinh doanh lại thì số thật quay về và lượt quét kế tiếp đẩy lại — không đụng cấu hình liên kết.
+     */
+    private List<Object[]> veKhongNeuSanPhamNgung(List<Object[]> ketQua, List<Integer> bienTheIds) {
+        if (ketQua == null || ketQua.isEmpty() || bienTheIds == null || bienTheIds.isEmpty()) return ketQua;
+        List<Integer> ngung = bienTheThuocSanPhamNgung(bienTheIds);
+        if (ngung == null || ngung.isEmpty()) return ketQua;
+        java.util.Set<Integer> boQua = new java.util.HashSet<>();
+        for (Object id : ngung) if (id != null) boQua.add(((Number) id).intValue());
+        List<Object[]> daChan = new ArrayList<>(ketQua.size());
+        for (Object[] row : ketQua) {
+            boolean laNgung = row[0] != null && boQua.contains(((Number) row[0]).intValue());
+            daChan.add(laNgung ? new Object[]{row[0], BigDecimal.ZERO} : row);
+        }
+        return daChan;
+    }
+
+    private List<Object[]> tongFreeToUseTruGiuCho(List<Integer> bienTheIds) {
         List<Object[]> ketQua = sumTongFreeToUseToanChuoi(bienTheIds, ITrangThaiDonBanHang.DANG_GIU_HANG);
         if (ketQua.isEmpty()) return ketQua;
         Map<Integer, BigDecimal> giuCho = new HashMap<>();
@@ -321,6 +354,10 @@ public interface TonKhoTongHopRepository extends JpaRepository<BienTheSanPham, I
      * Tồn khả dụng Free to Use của danh sách biến thể theo một kho cụ thể, đã trừ hàng giữ chỗ chuyển kho tại kho đó.
      */
     default List<Object[]> sumFreeToUseTheoKhoVaBienTheIds(Integer khoId, List<Integer> bienTheIds) {
+        return veKhongNeuSanPhamNgung(freeToUseTheoKhoTruGiuCho(khoId, bienTheIds), bienTheIds);
+    }
+
+    private List<Object[]> freeToUseTheoKhoTruGiuCho(Integer khoId, List<Integer> bienTheIds) {
         if (khoId == null || khoId <= 0 || bienTheIds == null || bienTheIds.isEmpty()) return List.of();
         List<Object[]> ketQua = sumFreeToUseTheoKho(khoId, bienTheIds, ITrangThaiDonBanHang.DANG_GIU_HANG);
         if (ketQua.isEmpty()) return ketQua;
