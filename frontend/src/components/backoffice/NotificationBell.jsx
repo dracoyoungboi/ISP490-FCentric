@@ -6,6 +6,7 @@ import {
   Bell,
   BellRing,
   Building2,
+  Package,
   CheckCheck,
   ClipboardCheck,
   ClipboardList,
@@ -53,6 +54,8 @@ const LOAI_THONG_BAO = {
   nguoi_dung: ShieldCheck,
   // Đổi MST nhà cung cấp (mở /supplier/{id})
   nha_cung_cap: Building2,
+  // Sản phẩm đã ngừng kinh doanh có hàng quay về (mở danh sách sản phẩm, tab Ngừng hoạt động)
+  san_pham_quan_ao: Package,
 };
 
 const MAU_O_BIEU_TUONG = {

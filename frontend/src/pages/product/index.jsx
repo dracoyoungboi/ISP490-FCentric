@@ -5,13 +5,13 @@ import { productService } from "@/services/productService.js";
 import { thuongHieuService } from "@/services/thuongHieuService.js";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { toast } from "@/lib/thongBaoNhanh";
-import { Eye, Edit, Package, Plus, ChevronDown, Check, Info, SearchX, Ban } from "lucide-react";
+import { Eye, Edit, Package, Plus, ChevronDown, Check, Info, SearchX, Ban, RotateCcw } from "lucide-react";
 import { useToggle } from "@/hooks/useToggle";
 import { useIsMobile } from "@/hooks/use-mobile";
 import AddProductModal from "@/pages/product/components/product/AddProductModal";
 import EditProductModal from "@/pages/product/components/product/EditProductModal";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
-import { formatDate } from "@/utils/formatters";
+import { formatDate, formatNumber } from "@/utils/formatters";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { hasAnyRole } from "@/utils/roles";
 import { dinhDangKhoangGia } from "@/pages/product/components/product/khoangGiaBienThe";
@@ -144,13 +144,35 @@ function buildProductFilterPayload(filters) {
         page: filters.page,
         size: filters.size,
         filters: filterList,
-        sorts: [{ fieldName: "ngayTao", direction: "DESC" }],
+        // Máy chủ sắp Còn hàng → Hết hàng → Ngừng hoạt động trên toàn danh sách rồi mới chia trang (trường ảo
+        // nhomTrangThai), cùng nhóm thì mới tạo trước; không sắp lại ở trình duyệt vì chỉ đúng trong một trang
+        sorts: [
+            { fieldName: "nhomTrangThai", direction: "ASC" },
+            { fieldName: "ngayTao", direction: "DESC" },
+        ],
     };
 }
 
 // Nhãn trạng thái sản phẩm: cùng nhãn với cột Trạng thái của bảng
 const nhanTrangThai = (trangThai) =>
     trangThai === 1 ? "Còn hàng" : trangThai === 0 ? "Hết hàng" : "Ngừng hoạt động"; // i18n-giu-nguyen: StatusBadge tự dịch, tra màu theo tên Việt
+
+// Sản phẩm đã ngừng kinh doanh (trạng thái 2): không ngừng lần nữa
+const daNgungKinhDoanh = (product) => Number(product?.trangThai) === 2;
+
+// Sản phẩm đã ngừng nhưng hàng quay về kho (khách trả, nhập trễ): máy chủ gắn tonKhoKhiNgung ở danh sách
+function TonKhiNgung({ product, className = "" }) {
+    const ton = Number(product?.tonKhoKhiNgung);
+    if (!daNgungKinhDoanh(product) || !(ton > 0)) return null;
+    return (
+        <span
+            className={`block text-xs font-medium text-amber-700 ${className}`}
+            title={t("Hàng quay về sau khi ngừng kinh doanh. Cho kinh doanh lại để bán, hoặc chuyển trả số hàng này.")}
+        >
+            {t("Còn {{soLuong}} trong kho", { soLuong: formatNumber(ton) })}
+        </span>
+    );
+}
 
 // Ô khoảng giá trong sheet "Bộ lọc" (điện thoại): nhãn nằm trong khung như ô ngày của các màn danh sách khác
 const O_GIA_DIEN_THOAI =
@@ -205,6 +227,10 @@ export default function ProductList() {
     // Lý do máy chủ không cho ngừng kinh doanh (409: còn tồn, chứng từ dở dang, đang kiểm kê) hoặc lỗi khác — hiện trong hộp
     const [loiNgung, setLoiNgung] = useState(null);
     const [khoaNgung, setKhoaNgung] = useState(false);
+    // Kinh doanh lại sản phẩm đã ngừng (SRS 4.4 "Activate"): máy chủ tự chọn Còn hàng / Hết hàng theo tồn kho
+    const [spKinhDoanhLai, setSpKinhDoanhLai] = useState(null);
+    const [dangKinhDoanhLai, setDangKinhDoanhLai] = useState(false);
+    const [loiKinhDoanhLai, setLoiKinhDoanhLai] = useState(null);
     const coTheSua = hasAnyRole(VAI_TRO_SUA_SAN_PHAM);
 
     // Điện thoại: thương hiệu + khoảng giá vào sheet "Bộ lọc"; nút ⋯ của thẻ / dòng (cảm ứng) mở sheet thao tác
@@ -254,13 +280,7 @@ export default function ProductList() {
                 return; // vẫn đang tải: lần gọi cho trang cuối sẽ tắt loading
             }
 
-            const statusOrder = { 1: 0, 0: 1, 2: 2 };
-            const sortedContent = [...content].sort((a, b) => {
-                const orderA = statusOrder[a?.trangThai] ?? 99;
-                const orderB = statusOrder[b?.trangThai] ?? 99;
-                return orderA - orderB;
-            });
-            setProducts(sortedContent);
+            setProducts(content);
             setTotal(totalElements);
             setLoadError(null);
             setIsLoading(false);
@@ -346,6 +366,7 @@ export default function ProductList() {
 
     const handleDeleteClick = useCallback((product) => {
         // Mở hộp xác nhận ngừng kinh doanh (xóa mềm: trạng thái 2, không xóa dữ liệu).
+        if (!product || daNgungKinhDoanh(product)) return;
         setProductToDelete(product);
         setLoiNgung(null);
         setKhoaNgung(false);
@@ -369,11 +390,42 @@ export default function ProductList() {
             console.error("Lỗi khi ngừng kinh doanh sản phẩm:", error);
             // Không đóng hộp: hiện lý do ngay trong hộp; 409 thì khóa nút (thử lại vẫn bị chặn tới khi xử lý xong)
             setLoiNgung(getApiErrorMessage(error, t("Không ngừng kinh doanh được sản phẩm. Vui lòng thử lại.")));
-            setKhoaNgung(getApiErrorStatus(error) === 409);
+            const biChan = getApiErrorStatus(error) === 409;
+            setKhoaNgung(biChan);
+            // Bị chặn có thể vì danh sách đang xem đã cũ (người khác vừa ngừng, vừa nhập hàng): tải lại ngầm cho đúng trạng thái
+            if (biChan) {
+                fetchProducts({ silent: true });
+                taiLaiSoTab();
+            }
         } finally {
             setIsDeleting(false);
         }
     }, [productToDelete, closeConfirm, fetchProducts, taiLaiSoTab]);
+
+    const moKinhDoanhLai = useCallback((product) => {
+        if (!product || !daNgungKinhDoanh(product)) return;
+        setLoiKinhDoanhLai(null);
+        setSpKinhDoanhLai(product);
+    }, []);
+
+    const xacNhanKinhDoanhLai = useCallback(async () => {
+        if (!spKinhDoanhLai) return;
+        try {
+            setDangKinhDoanhLai(true);
+            setLoiKinhDoanhLai(null);
+            // PATCH /status?status=1 → máy chủ tính lại Còn hàng / Hết hàng theo tồn thật, không nhận nguyên số 1
+            await productService.updateStatus(spKinhDoanhLai.id, 1);
+            toast.success(t("Đã cho kinh doanh lại {{sanPham}}", { sanPham: spKinhDoanhLai.tenSanPham }));
+            setSpKinhDoanhLai(null);
+            fetchProducts();
+            taiLaiSoTab();
+        } catch (error) {
+            console.error("Lỗi khi cho kinh doanh lại sản phẩm:", error);
+            setLoiKinhDoanhLai(getApiErrorMessage(error, t("Không cho kinh doanh lại được sản phẩm. Vui lòng thử lại.")));
+        } finally {
+            setDangKinhDoanhLai(false);
+        }
+    }, [spKinhDoanhLai, fetchProducts, taiLaiSoTab]);
 
     const handleCancelDelete = useCallback(() => {
         if (!isDeleting) { setProductToDelete(null); setLoiNgung(null); setKhoaNgung(false); closeConfirm(); }
@@ -658,6 +710,7 @@ export default function ProductList() {
                                             <span className="truncate text-[13px] text-bo-muted">
                                                 {product.thuongHieu?.tenThuongHieu || t("Chưa có thương hiệu")} · {t("{{count}} phân loại", { count: soPhanLoai })}
                                             </span>
+                                            <TonKhiNgung product={product} />
                                             <span className="flex items-baseline justify-between gap-3 text-[13px] text-bo-muted">
                                                 <span className="shrink-0 tabular-nums">{formatDate(product.ngayTao)}</span>
                                                 <span className="min-w-0 truncate text-right text-[15px] font-semibold tabular-nums text-bo-foreground">
@@ -779,7 +832,10 @@ export default function ProductList() {
                                     ) : product.trangThai === 0 ? (
                                         <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ label="Hết hàng" />
                                     ) : (
-                                        <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ label="Ngừng hoạt động" />
+                                        <>
+                                            <StatusBadge /* i18n-giu-nguyen: StatusBadge tự dịch */ label="Ngừng hoạt động" />
+                                            <TonKhiNgung product={product} className="mt-1" />
+                                        </>
                                     )}
                                 </td>
 
@@ -803,12 +859,21 @@ export default function ProductList() {
                                                     label={t("Chỉnh sửa")}
                                                     onClick={() => { setSelectedProductId(product.id); openEditModal(); }}
                                                 />
-                                                <RowActionButton
-                                                    icon={Ban}
-                                                    label={t("Ngừng kinh doanh")}
-                                                    tone="danger"
-                                                    onClick={() => handleDeleteClick(product)}
-                                                />
+                                                {/* Cùng một ô: sản phẩm đang kinh doanh → Ngừng kinh doanh; đã ngừng → Kinh doanh lại */}
+                                                {daNgungKinhDoanh(product) ? (
+                                                    <RowActionButton
+                                                        icon={RotateCcw}
+                                                        label={t("Kinh doanh lại")}
+                                                        onClick={() => moKinhDoanhLai(product)}
+                                                    />
+                                                ) : (
+                                                    <RowActionButton
+                                                        icon={Ban}
+                                                        label={t("Ngừng kinh doanh")}
+                                                        tone="danger"
+                                                        onClick={() => handleDeleteClick(product)}
+                                                    />
+                                                )}
                                             </>
                                         ) : null}
                                     </RowActions>
@@ -840,7 +905,10 @@ export default function ProductList() {
                     ...(coTheSua
                         ? [
                             { khoa: "sua", icon: Edit, nhan: t("Chỉnh sửa"), onChon: () => { setSelectedProductId(spThaoTac?.id); openEditModal(); } },
-                            { khoa: "ngung", icon: Ban, nhan: t("Ngừng kinh doanh"), nguyHiem: true, onChon: () => handleDeleteClick(spThaoTac) },
+                            // Sản phẩm đã ngừng kinh doanh: Kinh doanh lại thay cho Ngừng kinh doanh
+                            daNgungKinhDoanh(spThaoTac)
+                                ? { khoa: "kinh-doanh-lai", icon: RotateCcw, nhan: t("Kinh doanh lại"), onChon: () => moKinhDoanhLai(spThaoTac) }
+                                : { khoa: "ngung", icon: Ban, nhan: t("Ngừng kinh doanh"), nguyHiem: true, onChon: () => handleDeleteClick(spThaoTac) },
                         ]
                         : []),
                 ]}
@@ -865,7 +933,7 @@ export default function ProductList() {
                 mo={isConfirmOpen}
                 onDoiMo={(mo) => { if (!mo) handleCancelDelete(); }}
                 tieuDe={t("Ngừng kinh doanh sản phẩm")}
-                moTa={t("{{sanPham}} sẽ chuyển sang Ngừng hoạt động, không bị xóa: thông tin và lịch sử chứng từ vẫn giữ nguyên. Chỉ ngừng được khi đã hết tồn kho và không còn đơn bán, đơn mua, phiếu chuyển kho đang xử lý.", { sanPham: productToDelete ? `"${productToDelete.tenSanPham}"` : t("Sản phẩm") })}
+                moTa={t("{{sanPham}} sẽ chuyển sang Ngừng hoạt động, không bị xóa: thông tin và lịch sử chứng từ vẫn giữ nguyên. Chỉ ngừng được khi đã hết tồn kho và không còn đơn bán chưa giao xong, yêu cầu nhập hàng, đơn mua hay phiếu chuyển kho đang xử lý. Sau khi ngừng, sản phẩm không bán được ở quầy và các sàn nhận số tồn 0.", { sanPham: productToDelete ? `"${productToDelete.tenSanPham}"` : t("Sản phẩm") })}
                 nhanXacNhan={t("Ngừng kinh doanh")}
                 iconXacNhan={Ban}
                 kieu="nguyHiem"
@@ -873,6 +941,18 @@ export default function ProductList() {
                 khoaXacNhan={khoaNgung}
                 loi={loiNgung}
                 onXacNhan={handleConfirmDelete}
+            />
+
+            <HopXacNhanChungTu
+                mo={Boolean(spKinhDoanhLai)}
+                onDoiMo={(mo) => { if (!mo && !dangKinhDoanhLai) { setSpKinhDoanhLai(null); setLoiKinhDoanhLai(null); } }}
+                tieuDe={t("Kinh doanh lại sản phẩm")}
+                moTa={t("\"{{sanPham}}\" sẽ được kinh doanh lại. Trạng thái Còn hàng hay Hết hàng tính theo tồn kho hiện tại; các sàn đã liên kết nhận lại số tồn thật ở lượt đồng bộ kế tiếp.", { sanPham: spKinhDoanhLai?.tenSanPham ?? "" })}
+                nhanXacNhan={t("Kinh doanh lại")}
+                iconXacNhan={RotateCcw}
+                dangChay={dangKinhDoanhLai}
+                loi={loiKinhDoanhLai}
+                onXacNhan={xacNhanKinhDoanhLai}
             />
 
         </PageContainer>
