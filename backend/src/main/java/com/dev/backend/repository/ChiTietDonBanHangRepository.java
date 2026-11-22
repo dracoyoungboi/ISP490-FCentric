@@ -69,4 +69,14 @@ public interface ChiTietDonBanHangRepository extends JpaRepository<ChiTietDonBan
             @Param("bienTheId") Integer bienTheId,
             @Param("trangThais") List<Integer> trangThais
     );
+
+    /** Mã SKU (kèm tổng số đặt) của dòng thuộc sản phẩm Ngừng hoạt động trong một đơn — báo đơn sàn có sản phẩm đã ngừng. */
+    @Query(value = """
+        SELECT bt.ma_sku, SUM(ct.so_luong_dat) FROM chi_tiet_don_ban_hang ct
+        JOIN bien_the_san_pham bt ON bt.id = ct.bien_the_san_pham_id
+        JOIN san_pham_quan_ao sp ON sp.id = bt.san_pham_id
+        WHERE ct.don_ban_hang_id = :donId AND sp.trang_thai = 2
+        GROUP BY bt.ma_sku ORDER BY bt.ma_sku
+    """, nativeQuery = true)
+    List<Object[]> skuSanPhamNgungTrongDon(@Param("donId") Integer donId);
 }

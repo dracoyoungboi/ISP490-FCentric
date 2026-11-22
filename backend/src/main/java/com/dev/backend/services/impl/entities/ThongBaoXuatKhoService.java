@@ -329,6 +329,46 @@ public class ThongBaoXuatKhoService {
         }
     }
 
+    /** Một đơn sàn mới có dòng thuộc sản phẩm đã ngừng kinh doanh: số đơn và SKU → số lượng đặt. */
+    public record DonCoSanPhamNgung(String soDon, Map<String, Integer> sku) {}
+
+    /**
+     * Lượt lấy đơn của kênh có đơn chứa sản phẩm đã ngừng kinh doanh (liên kết sàn còn, khách đặt trước khi tồn về 0) →
+     * quản trị viên kiểm tra trước khi gửi sang kho hoặc cho kinh doanh lại. Một dòng mỗi kênh mỗi ngày như đơn thiếu dòng.
+     */
+    public void donSanCoSanPhamNgung(KenhBanHang kenh, List<DonCoSanPhamNgung> cacDon) {
+        if (kenh == null || cacDon == null || cacDon.isEmpty()) return;
+        try {
+            String ma = maKenh(kenh);
+            String ten = tenKenh(kenh);
+            Map<String, Integer> tongSku = new LinkedHashMap<>();
+            List<String> soDon = new ArrayList<>();
+            for (DonCoSanPhamNgung d : cacDon) {
+                if (d == null) continue;
+                if (d.soDon() != null && !d.soDon().isBlank()) soDon.add(d.soDon().trim());
+                if (d.sku() != null) d.sku().forEach((sku, sl) -> {
+                    if (sku != null && sl != null) tongSku.merge(sku, sl, Integer::sum);
+                });
+            }
+            if (tongSku.isEmpty()) return;
+            List<String> ds = new ArrayList<>();
+            tongSku.entrySet().stream().limit(3).forEach(e -> ds.add(e.getKey() + " ×" + e.getValue()));
+            String dsSku = String.join(", ", ds) + (tongSku.size() > 3 ? ", …" : "");
+            String moTa = soDon.size() > 3
+                    ? tb("spNgungMoTaNhieuDon", String.join(", ", soDon.stream().limit(3).toList()), soDon.size() - 3, dsSku)
+                    : tb("spNgungMoTa", String.join(", ", soDon), dsSku);
+            String khoa = "SPNGUNG:" + ma + ":" + NGAY_KHOA.format(Instant.now());
+            NoiDung nd = new NoiDung(ThongBaoService.LOAI_KENH_BAN_HANG, ThongBaoService.TONE_WARNING,
+                    tb("donSanCoSanPhamNgung", cacDon.size(), ten), moTa,
+                    "/products?trangThai=ngung-hoat-dong",
+                    ThongBaoService.LOAI_KENH_BAN_HANG, kenh.getId(), null, khoa);
+            thongBaoService.capNhatTomTatSauCommit("Thông báo đơn " + ten + " có sản phẩm đã ngừng",
+                    () -> new ThongBaoService.TomTat(khoa, nguoiNhan.quanTriVien(), null, nd, true));
+        } catch (RuntimeException e) {
+            log.warn("[THONG-BAO] Không chuẩn bị được thông báo đơn sàn có sản phẩm đã ngừng: {}", e.getMessage());
+        }
+    }
+
     /**
      * B2: khách yêu cầu hủy đơn trên sàn (TikTok) → quản trị viên (xử lý trên sàn); thêm quản lý kho xuất khi đơn đã sang
      * kho (chờ nhặt / đóng gói) vì đơn đang bị chặn nhặt và xuất. Đơn đã hủy / đã xuất thì không báo. Gắn cờ một lần nên
