@@ -653,6 +653,9 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 if (!cungTenSanPham(tenMoi, sanPhamQuanAo.getTenSanPham())) {
                         kiemTraTenKhongTrung(tenMoi, sanPhamQuanAo.getId());
                 }
+                if (updating.getTrangThai() != null && !laTrangThaiHopLe(updating.getTrangThai())) {
+                        throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("sanPhamMuaHang.trangThaiKhongHopLeCham"));
+                }
                 // Form Sửa gửi lại trạng thái đang có; gọi thẳng API đổi sang 2 thì kiểm như nút Ngừng kinh doanh
                 if (laNgungKinhDoanh(sanPhamQuanAo.getTrangThai(), updating.getTrangThai())) {
                         kiemTraTruocKhiNgung(sanPhamQuanAo);
@@ -669,7 +672,8 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 sanPhamQuanAo.setMaVach(blankToNull(updating.getMaVach()));
                 sanPhamQuanAo.setGiaVonMacDinh(updating.getGiaVonMacDinh());
                 sanPhamQuanAo.setMucTonToiThieu(updating.getMucTonToiThieu());
-                sanPhamQuanAo.setTrangThai(updating.getTrangThai());
+                // Không gửi trạng thái thì giữ trạng thái đang có (không để trống cột trạng thái)
+                if (updating.getTrangThai() != null) sanPhamQuanAo.setTrangThai(updating.getTrangThai());
                 // Thay đổi thương hiệu chỉ áp dụng khi FE gửi cờ capNhatThuongHieu = true
                 if (updating.isCapNhatThuongHieu()) {
                         applyThuongHieu(sanPhamQuanAo, updating.getThuongHieuId());
@@ -1327,22 +1331,41 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 return dto;
         }
 
-        /** READ_COMMITTED: xem {@link #kiemTraTruocKhiNgung}. */
+        /**
+         * Đổi trạng thái sản phẩm: 2 = ngừng kinh doanh (kiểm như {@link #kiemTraTruocKhiNgung}); 0 / 1 = đang kinh doanh,
+         * nhưng Còn hàng / Hết hàng do tồn kho quyết định nên tính lại theo tồn, không nhận nguyên số gửi lên.
+         * Sản phẩm đã ngừng mà bấm ngừng nữa (danh sách cũ, hai người cùng thao tác) → 409, không ghi nhật ký 2 → 2.
+         * READ_COMMITTED: xem {@link #kiemTraTruocKhiNgung}.
+         */
         @Transactional(isolation = Isolation.READ_COMMITTED)
         public SanPhamQuanAo changeStatus(Integer id, Integer status) {
-                // Đổi trạng thái nhanh cho sản phẩm (1/0/2).
+                if (!laTrangThaiHopLe(status)) {
+                        throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("sanPhamMuaHang.trangThaiKhongHopLeCham"));
+                }
                 SanPhamQuanAo sanPhamQuanAo = getOne(id).orElseThrow(
                         () -> new CommonException(ThongDiep.of("sanPhamMuaHang.sanPhamKhongTimThay", id)));
                 Integer trangThaiCu = sanPhamQuanAo.getTrangThai();
+                if (Objects.equals(status, TRANG_THAI_NGUNG_KINH_DOANH)
+                        && Objects.equals(trangThaiCu, TRANG_THAI_NGUNG_KINH_DOANH)) {
+                        throw new CommonException(HttpStatus.CONFLICT,
+                                ThongDiep.of("sanPhamMuaHang.ngungDaNgungRoi", sanPhamQuanAo.getTenSanPham()));
+                }
                 if (laNgungKinhDoanh(trangThaiCu, status)) {
                         kiemTraTruocKhiNgung(sanPhamQuanAo);
                 }
-                sanPhamQuanAo.setTrangThai(status);
+                // Đang kinh doanh: tạm đặt 0 (khác 2) để bước tính lại tự chọn Còn hàng / Hết hàng theo tồn thật
+                sanPhamQuanAo.setTrangThai(Objects.equals(status, TRANG_THAI_NGUNG_KINH_DOANH) ? status : 0);
                 SanPhamQuanAo daLuu = repository.save(sanPhamQuanAo);
-                ghiNhatKy(NhatKyNghiepVu.dong(ITable.san_pham_quan_ao, daLuu.getId(), IHanhDong.cap_nhat_san_pham)
-                        .ma(daLuu.getMaSanPham())
-                        .thayDoi(NhatKyNghiepVu.anh("trangThai", trangThaiCu), NhatKyNghiepVu.anh("trangThai", status))
-                        .ghiChu("Đổi trạng thái sản phẩm"));
+                if (!Objects.equals(status, TRANG_THAI_NGUNG_KINH_DOANH)) {
+                        recalculatePriceAndStatus(daLuu.getId());
+                        status = daLuu.getTrangThai();
+                }
+                if (!Objects.equals(trangThaiCu, status)) {
+                        ghiNhatKy(NhatKyNghiepVu.dong(ITable.san_pham_quan_ao, daLuu.getId(), IHanhDong.cap_nhat_san_pham)
+                                .ma(daLuu.getMaSanPham())
+                                .thayDoi(NhatKyNghiepVu.anh("trangThai", trangThaiCu), NhatKyNghiepVu.anh("trangThai", status))
+                                .ghiChu("Đổi trạng thái sản phẩm"));
+                }
                 return daLuu;
         }
 
@@ -1350,6 +1373,11 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
 
         /** Trạng thái 2 = Ngừng hoạt động (ngừng kinh doanh), do người dùng đặt. */
         static final int TRANG_THAI_NGUNG_KINH_DOANH = 2;
+
+        /** Trạng thái sản phẩm chỉ có 0 (Hết hàng), 1 (Còn hàng), 2 (Ngừng hoạt động). */
+        static boolean laTrangThaiHopLe(Integer trangThai) {
+                return trangThai != null && trangThai >= 0 && trangThai <= TRANG_THAI_NGUNG_KINH_DOANH;
+        }
         /** Ghép vào câu báo kiểm kê: "Tạm dừng việc ngừng kinh doanh sản phẩm tới khi đợt được duyệt hoặc hủy." */
         private static final String THAO_TAC_NGUNG = "việc ngừng kinh doanh sản phẩm";
 
