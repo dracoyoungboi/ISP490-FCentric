@@ -21,9 +21,11 @@ function chuNoiLamViec(dsKho) {
  * - noiLamViec: các kho (có tenKho) mà danh sách bị giới hạn theo; null / không truyền = không giới hạn (quản trị viên)
  *   hoặc chưa tải xong. Một tên cho mọi trang: "Nơi làm việc: …", khớp ô ở đáy menu (PQ-17, 08/11/2026). Nhân viên
  *   chỉ có một kho thì không hiện vì đáy menu (điện thoại: đầu trang) đã ghi; mảng rỗng: "Chưa có nơi làm việc".
+ * - giaiThich: nút giải thích nằm sát sau tiêu đề (thường là `NutGiaiThich`), cho quy tắc của danh sách mà người dùng
+ *   cần biết khi thắc mắc (vd. màn Khách hàng chỉ có khách cửa hàng).
  * - actions: nút chính của trang (Thêm…, Tạo…).
  */
-export default function ListPageHeader({ title, scope: scopeTruyen, noiLamViec, actions, className }) {
+export default function ListPageHeader({ title, scope: scopeTruyen, noiLamViec, giaiThich, actions, className }) {
   const { title: layoutTitle } = usePageTitle();
   const heading = title ?? layoutTitle;
   useClaimPageTitle(Boolean(heading));
@@ -33,7 +35,14 @@ export default function ListPageHeader({ title, scope: scopeTruyen, noiLamViec, 
   return (
     <div className={cn("flex min-h-9 flex-wrap items-center justify-between gap-3", className)}>
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-        {heading ? <PageHeading>{heading}</PageHeading> : null}
+        {heading && giaiThich ? (
+          <span className="flex min-w-0 items-center gap-1">
+            <PageHeading>{heading}</PageHeading>
+            {giaiThich}
+          </span>
+        ) : heading ? (
+          <PageHeading>{heading}</PageHeading>
+        ) : null}
         {scope ? (
           <span
             className="inline-flex h-6 min-w-0 max-w-full items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-xs font-medium text-slate-600"
