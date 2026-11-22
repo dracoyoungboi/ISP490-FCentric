@@ -14,6 +14,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";
+import NutGiaiThich from "@/components/shared/NutGiaiThich";
 import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusTabs from "@/components/shared/StatusTabs";
@@ -104,6 +105,21 @@ function ChipNgung() {
         <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[11px] font-semibold leading-4 text-slate-500">
             {t("Ngừng")}
         </span>
+    );
+}
+
+/**
+ * Nút "i" cạnh tiêu đề (PA C, chốt 22/11): danh sách chỉ có khách cửa hàng (máy chủ lọc, xem buildKhachHangFilters),
+ * nên nói rõ khách đặt qua sàn không nằm ở đây (vẫn mở được hồ sơ từ đơn bán).
+ */
+function GiaiThichKhachCuaHang() {
+    return (
+        <NutGiaiThich label={t("Danh sách này gồm những khách nào")} tieuDe={t("Danh sách khách cửa hàng")}>
+            <p className="text-bo-muted">
+                {t("Gồm khách mua tại cửa hàng và khách được thêm ở màn này.")}{" "}
+                {t("Khách đặt qua Shopee, TikTok Shop, Lazada, Shopify không hiện ở đây.")}
+            </p>
+        </NutGiaiThich>
     );
 }
 
@@ -334,6 +350,7 @@ export default function KhachHangPage() {
         <PageContainer fill className="space-y-4">
             {/* ── Hàng tiêu đề: tên trang + nút chính ── */}
             <ListPageHeader
+                giaiThich={<GiaiThichKhachCuaHang />}
                 actions={
                     coTheSua ? (
                         <Button
