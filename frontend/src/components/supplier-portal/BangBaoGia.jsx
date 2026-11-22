@@ -1,5 +1,5 @@
 import { useImperativeHandle, useState } from 'react';
-import { AlertCircle, ChevronDown, ChevronRight, ChevronUp, ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Info, X } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronRight, ChevronUp, ChevronsDownUp, ChevronsUpDown, Info, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { SWITCH_CLASS } from '@/components/channel/SettingsCard';
@@ -8,26 +8,19 @@ import SearchInput from '@/components/shared/SearchInput';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/utils/formatters';
 import { hienTien } from '@/pages/product/components/product/logicBienThe';
-import HopDanGia from './HopDanGia';
 import { idOGia, idOGiaNhom, idOGiaNhomThe, idOGiaThe, loiDonGia, thanhTienDong } from './baoGiaUtils';
 import {
-    LOI_KHONG_KHOP_MA,
-    LOI_NHIEU_COT,
     apGiaNhom,
-    apNoiDungDan,
     batMotGia,
     congTacBanDau,
     docGiaDan,
     giaChung,
     khoiPhucGia,
     NGU_CANH_LOAI,
-    nhomCanTatSauKhiDan,
     nhomKhopTuKhoa,
     noiTenNhom,
-    phanTichNoiDungDan,
     tenLoaiPhanLoai,
     tenNhomChua,
-    thuTuHienThi,
 } from './nhomBaoGia';
 import { t } from "@/i18n";
 
@@ -78,7 +71,7 @@ function ThongBaoThieuGia({ soDong, donVi, tenNhom, className }) {
 }
 
 /**
- * Báo kết quả một thao tác (bật công tắc khi khác giá, dán giá), kèm Hoàn tác nếu có.
+ * Báo kết quả bật công tắc khi các phân loại đang khác giá, kèm Hoàn tác.
  * Trình đọc màn hình đọc nội dung qua vùng `role="status"` luôn có sẵn trong BangBaoGia (vùng mới gắn vào thường không được đọc).
  */
 function ThongBaoThaoTac({ tb, onHoanTac, onDong, className }) {
@@ -86,8 +79,7 @@ function ThongBaoThaoTac({ tb, onHoanTac, onDong, className }) {
         <div
             data-thong-bao=""
             className={cn(
-                'flex items-start gap-2 px-4 py-2.5 text-[13px] leading-5',
-                tb.loi ? 'border-orange-200 bg-bo-warning-soft text-bo-warning' : 'border-blue-200 bg-bo-primary-soft text-blue-700',
+                'flex items-start gap-2 border-blue-200 bg-bo-primary-soft px-4 py-2.5 text-[13px] leading-5 text-blue-700',
                 className,
             )}
         >
@@ -137,7 +129,7 @@ function BoLoc({ dangLoc, tongDong, soThieu, onTatCa, onThieu, nutClassName }) {
 
 /**
  * Bảng đơn giá (PA3): lưới kiểu Excel gom theo sản phẩm, công tắc "Một giá cho cả nhóm", tìm kiếm,
- * lọc "Chưa có giá", Enter xuống ô kế tiếp, dán nhiều giá từ Excel. Dưới 768px: mỗi sản phẩm một thẻ.
+ * lọc "Chưa có giá", Enter xuống ô kế tiếp. Dưới 768px: mỗi sản phẩm một thẻ.
  *
  * - `dong` giữ nguyên thứ tự orderData.chiTietDonMuaHangs (máy chủ ghép đơn giá theo id dòng). Gom nhóm chỉ để hiển thị;
  *   bật công tắc nghĩa là điền cùng một số vào donGia của từng dòng trong nhóm.
@@ -157,9 +149,8 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
     const [tuKhoa, setTuKhoa] = useState('');
     // null = Tất cả. Bấm "Chưa có giá": chụp danh sách nhóm đang thiếu để nhóm không biến mất khi vừa gõ xong.
     const [locThieu, setLocThieu] = useState(null);
-    // { noiDung, khoa?: nhóm hiện thông báo ngay bên dưới, hoanTac?: { cu, motGia }, loi?: boolean }
+    // { noiDung, khoa?: nhóm hiện thông báo ngay bên dưới, hoanTac?: { cu, motGia } }
     const [thongBao, setThongBao] = useState(null);
-    const [hopDan, setHopDan] = useState(false);
 
     const dangBat = (n) => n.viTri.length > 1 && Boolean(motGia[n.khoa]);
     const nhomThieuGia = (n) => n.viTri.some((i) => coLoi(dong[i]));
@@ -258,57 +249,6 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
         if (h.cu.length) datConTro(h.cu[0].viTri);
     };
 
-    /**
-     * Dán nhiều giá. Một cột: điền lần lượt theo thứ tự dòng đang hiện, bắt đầu ở `batDau` (mặc định dòng đầu).
-     * Hai cột Mã SKU + Đơn giá: ghép theo mã. Nhóm đang bật mà giá dán vào khác nhau thì tự tắt và báo, kèm Hoàn tác.
-     * @returns {boolean} đã điền được ít nhất một giá
-     */
-    const apDan = (phanTich, batDau, khoa) => {
-        if (chiXem) return false;
-        if (phanTich.cheDo === 'nhieu-cot') {
-            setThongBao({ khoa, loi: true, noiDung: LOI_NHIEU_COT });
-            return false;
-        }
-        const thuTu = thuTuHienThi(nhomHien.map((x) => x.n));
-        const kq = apNoiDungDan(dong, phanTich, thuTu, batDau ?? thuTu[0]);
-        if (!kq.daDien.length) {
-            setThongBao({
-                khoa,
-                loi: true,
-                noiDung: phanTich.coMaLa ? LOI_KHONG_KHOP_MA : t("Không đọc được đơn giá nào trong nội dung vừa dán. Kiểm tra lại cột giá trong Excel."),
-            });
-            return false;
-        }
-        const canTat = nhomCanTatSauKhiDan(kq.dong, nhom, motGia);
-        const cu = kq.daDien.map((i) => ({ viTri: i, gia: dong[i].donGia }));
-        onCapNhatDong(kq.dong);
-        if (canTat.length) {
-            setMotGia((m) => ({ ...m, ...Object.fromEntries(canTat.map((k) => [k, false])) }));
-            moThemNhom(canTat);
-        }
-        const tenTat = nhom.filter((n) => canTat.includes(n.khoa)).map((n) => n.tenSanPham);
-        setThongBao({
-            khoa,
-            noiDung: (
-                <>
-                    {t("Đã dán {{count}} đơn giá từ Excel.", { count: kq.daDien.length })}
-                    {tenTat.length > 0 && (
-                        <>
-                            {' '}
-                            <strong className="font-semibold">{noiTenNhom(tenTat, 3)}</strong> {t("có giá khác nhau giữa các phân loại nên đã chuyển sang nhập từng phân loại.")}
-                        </>
-                    )}
-                    {kq.boQua > 0 && ` ${t("{{count}} dòng không đọc được hoặc không khớp mã nên bỏ qua.", { count: kq.boQua })}`}
-                    {kq.thua > 0 && ` ${t("{{count}} giá dư so với số dòng trong bảng nên không dùng.", { count: kq.thua })}`}
-                </>
-            ),
-            hoanTac: { cu, motGia: Object.fromEntries(canTat.map((k) => [k, true])) },
-        });
-        // Dán vào ô giá chung làm nhóm tự tắt thì ô đó biến mất: đưa con trỏ về ô của dòng bắt đầu dán
-        if (batDau != null) datConTro(batDau);
-        return true;
-    };
-
     // ── Bàn phím và dán trong ô giá ──
     const diChuyen = (e) => {
         if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
@@ -325,9 +265,9 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
     };
     const xuLyDan = (e, batDau, n) => {
         const van = e.clipboardData?.getData('text/plain') ?? '';
+        // Nhiều ô (cột, dòng chép từ bảng tính): không điền, tránh ô tiền ghép chữ số các ô thành một số sai
         if (/[\r\n\t]/.test(van.trim())) {
             e.preventDefault();
-            apDan(phanTichNoiDungDan(van, dong), batDau, n.khoa);
             return;
         }
         // Một ô: đọc đúng kiểu "1,250,000.00" / "185.000 ₫" (ô tiền thường chỉ lấy chữ số nên sẽ đọc sai phần lẻ).
@@ -347,7 +287,7 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
     const roiKhung = (e) => {
         if (!e.currentTarget.contains(e.relatedTarget)) xemLaiBoLoc();
     };
-    /** Thuộc tính chung của mọi ô giá: Enter đi tiếp, dán nhiều dòng. */
+    /** Thuộc tính chung của mọi ô giá: Enter đi tiếp, dán một giá. */
     const oGia = (batDau, n) => ({
         'data-o-gia': '',
         enterKeyHint: 'next',
@@ -445,25 +385,17 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                         nutClassName="h-[30px]"
                     />
                 )}
-                <div className="ml-auto flex flex-wrap gap-2">
-                    {coNhieuDong && (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setMoNhom(moHet ? new Set() : new Set(nhomNhieuDong.map((n) => n.khoa)))}
-                            className={NUT_PHU}
-                        >
-                            {moHet ? <ChevronsDownUp aria-hidden="true" /> : <ChevronsUpDown aria-hidden="true" />}
-                            {moHet ? t("Thu gọn hết") : t("Mở hết nhóm")}
-                        </Button>
-                    )}
-                    {!chiXem && (
-                        <Button type="button" variant="outline" onClick={() => setHopDan(true)} className={NUT_PHU}>
-                            <ClipboardPaste aria-hidden="true" />
-                            {t("Dán giá từ Excel")}
-                        </Button>
-                    )}
-                </div>
+                {coNhieuDong && (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setMoNhom(moHet ? new Set() : new Set(nhomNhieuDong.map((n) => n.khoa)))}
+                        className={cn(NUT_PHU, 'ml-auto')}
+                    >
+                        {moHet ? <ChevronsDownUp aria-hidden="true" /> : <ChevronsUpDown aria-hidden="true" />}
+                        {moHet ? t("Thu gọn hết") : t("Mở hết nhóm")}
+                    </Button>
+                )}
             </div>
             {!chiXem && (
                 <p className="m-0 border-b border-bo-border bg-bo-surface-subtle px-4 py-2 text-[13px] leading-5 text-slate-600">
@@ -472,7 +404,7 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                             {t("Bật")} <strong className="font-semibold">{t("Một giá cho cả nhóm")}</strong> {t("để nhập một lần cho mọi phân loại của sản phẩm.")}{' '}
                         </>
                     )}
-                    {t("Ô trắng nhập được, ô xám chỉ xem.")} <strong className="font-semibold">Enter</strong> {t("xuống ô kế tiếp. Dán được cả cột giá chép từ Excel.")}
+                    {t("Ô trắng nhập được, ô xám chỉ xem.")} <strong className="font-semibold">Enter</strong> {t("xuống ô kế tiếp.")}
                 </p>
             )}
             <ThongBaoThieuGia soDong={soDongLoi} donVi={donVi} tenNhom={tenNhomLoi} className="border-b" />
@@ -870,16 +802,6 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
             {bang}
             {the}
             <div role="status" className="sr-only">{thongBaoHien?.noiDung}</div>
-            {!chiXem && (
-                <HopDanGia
-                    mo={hopDan}
-                    dong={dong}
-                    soDongHien={thuTuHienThi(nhomHien.map((x) => x.n)).length}
-                    dangLoc={Boolean(locThieu) || Boolean(tuKhoa.trim())}
-                    onDong={() => setHopDan(false)}
-                    onApDung={(phanTich) => apDan(phanTich)}
-                />
-            )}
         </>
     );
 }
