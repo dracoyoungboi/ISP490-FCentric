@@ -1490,6 +1490,37 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 }
         }
 
+        /**
+         * Danh sách sản phẩm: gắn tồn ở kho thật (cùng cách đếm với {@link #kiemTraTruocKhiNgung}) cho các sản phẩm Ngừng hoạt
+         * động trong trang, để màn hiện "còn … trong kho" khi hàng quay về sau lúc ngừng. Một câu truy vấn cho cả trang.
+         */
+        @Transactional(readOnly = true)
+        public void ganTonChoSanPhamNgung(List<SanPhamQuanAoDto> ds) {
+                if (ds == null || ds.isEmpty()) return;
+                Map<Integer, SanPhamQuanAoDto> ngung = new HashMap<>();
+                for (SanPhamQuanAoDto dto : ds) {
+                        if (dto != null && dto.getId() != null && Objects.equals(dto.getTrangThai(), TRANG_THAI_NGUNG_KINH_DOANH)) {
+                                ngung.put(dto.getId(), dto);
+                        }
+                }
+                if (ngung.isEmpty()) return;
+                @SuppressWarnings("unchecked")
+                List<Object[]> rows = entityManager.createNativeQuery(
+                                "SELECT bt.san_pham_id, SUM(t.so_luong_ton) FROM ton_kho_theo_lo t "
+                                        + "JOIN lo_hang l ON l.id = t.lo_hang_id "
+                                        + "JOIN bien_the_san_pham bt ON bt.id = l.bien_the_san_pham_id "
+                                        + "JOIN kho k ON k.id = t.kho_id "
+                                        + "WHERE bt.san_pham_id IN (:ids) AND t.so_luong_ton > 0 AND k.ma_kho <> :khoAo "
+                                        + "GROUP BY bt.san_pham_id")
+                        .setParameter("ids", ngung.keySet())
+                        .setParameter("khoAo", IKiemKe.MA_KHO_AO)
+                        .getResultList();
+                for (Object[] r : rows) {
+                        SanPhamQuanAoDto dto = r[0] == null ? null : ngung.get(((Number) r[0]).intValue());
+                        if (dto != null && r[1] != null) dto.setTonKhoKhiNgung(new BigDecimal(r[1].toString()));
+                }
+        }
+
         private long demChungTu(String sql, Integer sanPhamId, Collection<?> trangThai) {
                 Object kq = entityManager.createNativeQuery(sql)
                         .setParameter("id", sanPhamId)

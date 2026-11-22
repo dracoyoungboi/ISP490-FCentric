@@ -144,6 +144,7 @@ public class SanPhamQuanAoController {
         public ResponseEntity<ResponseData<Page<SanPhamQuanAoDto>>> filter(@RequestBody BaseFilterRequest filter) {
                 // Luồng chính cho màn danh sách: lọc + sort + phân trang.
                 Page<SanPhamQuanAoDto> trang = sanPhamQuanAoMapper.toDtoPage(sanPhamQuanAoService.filter(filter));
+                sanPhamQuanAoService.ganTonChoSanPhamNgung(trang.getContent());
                 anThongTinNoiBo(trang);
                 return ResponseEntity.ok(
                         ResponseData.<Page<SanPhamQuanAoDto>>builder()

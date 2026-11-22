@@ -35,4 +35,6 @@ public class SanPhamQuanAoDto implements Serializable {
     ThuongHieuDto thuongHieu;
     List<AnhQuanAoDto> anhQuanAos;
     List<BienTheSanPhamDto> bienTheSanPhams;
+    // Chỉ có ở danh sách (POST /filter) với sản phẩm Ngừng hoạt động: tồn ở kho thật (hàng quay về sau khi ngừng)
+    BigDecimal tonKhoKhiNgung;
 }
