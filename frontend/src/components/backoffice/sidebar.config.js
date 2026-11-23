@@ -8,7 +8,6 @@ import {
   BarChart3,
   Settings,
   Store,
-  Activity,
 } from "lucide-react";
 import {
   LazadaMenuIcon,
@@ -311,6 +310,13 @@ export const SIDEBAR_MENU = [
         roles: VAI_TRO_BAO_CAO_NHAP_XUAT,
       },
       {
+        // Độ trễ, tỷ lệ đồng bộ tồn lên sàn và đề xuất giữ tồn. Trang nằm ở /channels/analytics (trang tổng quan
+        // từng sàn cũng có nút mở). Quản lý kho chỉ xem; nút áp dụng đề xuất máy chủ chỉ cho quản trị viên
+        label: t("Báo cáo đồng bộ kênh"),
+        to: "/channels/analytics",
+        roles: VAI_TRO_DANH_SACH_KHO,
+      },
+      {
         // Xuất sang AMIS Kế toán doanh nghiệp: KeToanController chỉ cho quản trị viên
         label: t("Xuất dữ liệu kế toán"),
         to: "/reports/accounting-export",
@@ -356,13 +362,6 @@ export const SIDEBAR_MENU = [
     section: "channels",
     to: "/pos",
     roles: VAI_TRO_BAN_TAI_QUAY,
-  },
-  {
-    label: t("Hiệu năng đồng bộ"),
-    icon: Activity,
-    section: "channels",
-    to: "/channels/analytics",
-    roles: VAI_TRO_DANH_SACH_KHO,
   },
   // Sinh từ SAN_BAN_HANG; `maKenh`: BackofficeSidebar chỉ hiện sàn đã kết nối (danh sách tải ở BackofficeLayout)
   ...SAN_BAN_HANG.filter((san) => san.hoTro && !san.anTam).map((san) => ({

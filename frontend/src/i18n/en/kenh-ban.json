@@ -993,7 +993,7 @@
   "Giữ tồn đệm ở kho nhiều hàng nhất (Waterfall):": "Waterfall buffer (largest-stock warehouse first):",
   "Hệ thống ưu tiên trừ phần giữ lại ở kho có tồn lớn nhất trước và giữ nguyên số tồn ở các kho ít hàng để tránh khóa tồn ở chi nhánh nhỏ. Nếu mọi kho đều nhỏ hơn mức giữ lại, phần giữ lại sẽ được rút dần từ kho lớn xuống kho nhỏ để vẫn bảo toàn tổng đệm.": "The system deducts the reserve from the highest-stock warehouse first and keeps lower-stock branch quantities unchanged to prevent artificial stockouts. When all warehouses are below the reserve, the buffer is drawn down from largest to smallest so the total reserve is still preserved.",
   "Tất cả kênh": "All channels",
-  "Hiệu năng đồng bộ": "Sync analytics",
+  "Báo cáo đồng bộ kênh": "Channel sync report",
   "Hiệu năng & Đề xuất đồng bộ": "Performance & buffer tuning",
   "Không tải được dữ liệu hiệu năng đồng bộ đa kênh.": "Could not load omnichannel sync performance data.",
   "Chọn ít nhất 1 liên kết SKU để áp dụng cấu hình.": "Select at least 1 SKU mapping to apply settings.",

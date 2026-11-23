@@ -418,7 +418,7 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
         {
             key: "CHANNELS_ANALYTICS",
             match: (path) => path === "/channels/analytics",
-            title: t("Hiệu năng đồng bộ"),
+            title: t("Báo cáo đồng bộ kênh"),
         },
         // Trang của từng sàn (Shopify, Lazada, TikTok Shop) và trang quay về sau ủy quyền. Sàn chờ cấp API (Shopee) chỉ dùng
         // tiêu đề Tổng quan: trang con của sàn đó chuyển ngay về màn giới thiệu (KenhHopLe)
