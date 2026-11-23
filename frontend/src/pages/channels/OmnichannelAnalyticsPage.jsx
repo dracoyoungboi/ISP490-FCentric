@@ -5,6 +5,7 @@ import PageContainer from "@/components/backoffice/PageContainer";
 import PageHeader from "@/components/backoffice/PageHeader";
 import KhungBieuDo from "@/components/shared/KhungBieuDo";
 import MetricStrip from "@/components/shared/MetricStrip";
+import NutGiaiThich from "@/components/shared/NutGiaiThich";
 import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,27 @@ function chuanHoaGianHangVaSan(it) {
   const rawName = String(it.tenKenh || "").trim();
   const tenGianHang = rawName || tenSan;
   return { tenGianHang, tenSan };
+}
+
+/**
+ * Nút "i" cạnh tiêu đề (chốt 23/11): báo cáo đo mọi lần gọi API sàn (OmnichannelTelemetryInterceptor, cả đẩy tồn,
+ * lấy đơn, sản phẩm) nên không nói "tỷ lệ cập nhật tồn". Nút áp dụng gợi ý chỉ hiện cho quản trị viên (isAdmin),
+ * máy chủ cũng chỉ cho quản trị viên gọi apply-recommendations.
+ */
+function GiaiThichBaoCao() {
+  return (
+    <NutGiaiThich label={t("Báo cáo này cho biết gì")} tieuDe={t("Báo cáo đồng bộ kênh")}>
+      <p className="text-bo-muted">
+        {t("Theo dõi các lần FCentric trao đổi dữ liệu với sàn: đẩy tồn, lấy đơn, cập nhật sản phẩm.")}
+      </p>
+      <ul className="mt-2 list-disc space-y-0.5 pl-[18px] text-bo-muted">
+        <li>{t("Sàn phản hồi nhanh hay chậm, bao nhiêu lần thành công")}</li>
+        <li>{t("Kênh nào đang lỗi và lỗi loại gì")}</li>
+        <li>{t("Gợi ý giữ lại một phần tồn cho bán tại quầy")}</li>
+      </ul>
+      <p className="mt-2 text-xs text-bo-muted">{t("Chỉ quản trị viên áp dụng được gợi ý.")}</p>
+    </NutGiaiThich>
+  );
 }
 
 export default function OmnichannelAnalyticsPage() {
@@ -195,7 +217,8 @@ export default function OmnichannelAnalyticsPage() {
   return (
     <PageContainer className="space-y-4">
       <PageHeader
-        title={t("Hiệu năng đồng bộ & Đề xuất giữ tồn sàn")}
+        title={t("Báo cáo đồng bộ kênh")}
+        giaiThich={<GiaiThichBaoCao />}
         actions={
           <>
             <select
