@@ -8,6 +8,7 @@ import ErrorState from "@/components/shared/ErrorState";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";
 import LoadingState from "@/components/shared/LoadingState";
+import NutGiaiThich from "@/components/shared/NutGiaiThich";
 import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -28,6 +29,38 @@ const TH = "h-10 whitespace-nowrap bg-bo-surface-subtle px-4 text-left text-[11p
 const TD = "px-4 py-3 align-middle";
 const NUT_PHU = "gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle";
 const tien = (v) => (Number(v) ? formatCurrency(v) : "—");
+
+const TIEU_DE_NHOM = "mt-3 text-xs font-semibold text-bo-foreground";
+const DS_Y = "mt-1 list-disc space-y-0.5 pl-[18px] text-bo-muted";
+
+/**
+ * Nút "i" cạnh tiêu đề (chốt 23/11), từng ý khớp XuatKeToanService: lô lấy mọi chứng từ chưa giao từ ngày mốc đến hết
+ * ngày chọn (không theo khoảng ngày nên chứng từ để lại / mở khóa vẫn vào lô sau); đơn bán chỉ trạng thái đã xuất toàn
+ * bộ / hoàn thành; danh mục đi kèm mọi lô có chứng từ; tồn đầu kỳ chỉ lô đầu. Thứ tự nhập, ghi sổ, ghép cột nằm ở
+ * 00_HUONG_DAN.txt của lô nên không nhắc lại ở đây.
+ */
+function GiaiThichXuatKeToan() {
+  return (
+    <NutGiaiThich label={t("Màn này dùng để làm gì")} tieuDe={t("Xuất dữ liệu kế toán")} classNameHop="w-96">
+      <p className="text-bo-muted">
+        {t("Đưa chứng từ phát sinh trên FCentric sang MISA AMIS Kế toán doanh nghiệp theo từng lô. Mỗi lô là một tệp nén gồm các tệp Excel đúng mẫu nhập của AMIS, đánh số theo thứ tự nhập, kèm hướng dẫn và bảng đối chiếu.")}
+      </p>
+      <p className={TIEU_DE_NHOM}>{t("Lô gồm")}</p>
+      <ul className={DS_Y}>
+        <li>{t("Danh mục kho, khách hàng, nhà cung cấp, hàng hóa")}</li>
+        <li>{t("Mua hàng, chuyển kho, nhập và xuất kho khác")}</li>
+        <li>{t("Bán hàng (đơn đã xuất kho), hàng bán trả lại")}</li>
+        <li>{t("Tồn đầu kỳ, chỉ ở lô đầu tiên")}</li>
+      </ul>
+      <p className={TIEU_DE_NHOM}>{t("Cần biết")}</p>
+      <ul className={DS_Y}>
+        <li>{t("Lô lấy mọi chứng từ chưa giao tính đến hết ngày chọn, nên không sót và không trùng. Chứng từ có lỗi được để lại lô sau.")}</li>
+        <li>{t("Tạo lô là đã giao: chứng từ trong lô bị khóa. Muốn sửa thì xóa trên AMIS, mở khóa chứng từ hoặc hủy lô mới nhất, rồi tạo lô mới.")}</li>
+        <li>{t("Giá vốn để AMIS tự tính. Số hóa đơn điện tử để trống, kế toán phát hành trên MISA meInvoice.")}</li>
+      </ul>
+    </NutGiaiThich>
+  );
+}
 
 /**
  * Xuất dữ liệu kế toán sang AMIS Kế toán doanh nghiệp: danh sách lô đã tạo (như các trang danh sách chứng từ).
@@ -219,6 +252,7 @@ export default function XuatDuLieuKeToan() {
   return (
     <PageContainer fill className="space-y-4">
       <ListPageHeader
+        giaiThich={<GiaiThichXuatKeToan />}
         actions={
           <>
             <Button asChild variant="outline" className={NUT_PHU}>

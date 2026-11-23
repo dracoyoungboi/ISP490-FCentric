@@ -8,8 +8,9 @@ import { cn } from "@/lib/utils";
  * (vd. màn Khách hàng chỉ có khách cửa hàng). Bấm được cả trên điện thoại, khác `title` chỉ hiện khi rê chuột.
  * - label: đọc cho trình đọc màn hình (nút chỉ có biểu tượng).
  * - tieuDe: dòng đậm đầu hộp; children: nội dung hộp.
+ * - classNameHop: đổi độ rộng hộp khi nội dung dài (mặc định 320px), vd. "w-96".
  */
-export default function NutGiaiThich({ label, tieuDe, children, className }) {
+export default function NutGiaiThich({ label, tieuDe, children, className, classNameHop }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -32,7 +33,10 @@ export default function NutGiaiThich({ label, tieuDe, children, className }) {
         align="start"
         sideOffset={6}
         collisionPadding={16}
-        className="w-80 max-w-[calc(100vw-2rem)] rounded-lg border-bo-border bg-bo-surface p-4 text-bo-foreground shadow-lg"
+        className={cn(
+          "w-80 max-w-[calc(100vw-2rem)] rounded-lg border-bo-border bg-bo-surface p-4 text-bo-foreground shadow-lg",
+          classNameHop,
+        )}
       >
         {tieuDe ? <p className="text-sm font-semibold text-bo-foreground">{tieuDe}</p> : null}
         <div className={cn("text-[13px] leading-5", tieuDe && "mt-1.5")}>{children}</div>
