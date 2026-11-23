@@ -30,6 +30,8 @@ const MUC_MENU =
 /**
  * Đầu khối của màn Chi tiết đơn mua hàng: nút quay lại, mã đơn + trạng thái, dòng phụ
  * (tổng tiền · nhà cung cấp · kho · ngày tạo) và các nút In đơn hàng, ⋯, Tạo phiếu nhập kho.
+ * `tongTien`: số tiền hiện ở dòng phụ (đã giảm trừ hàng lỗi trừ tiền nếu có, `giamTru` là phần đã trừ); trống thì
+ * lấy tổng của đơn.
  * Màn tự vẽ tiêu đề nên phải "nhận" tiêu đề để layout không vẽ thêm tiêu đề dự phòng.
  *
  * `taoPhieu`: `{ hien, khoa, lyDo, nhan, moPhieu }` — ẩn khi không có quyền; khóa kèm lý do khi đã đủ hàng
@@ -40,10 +42,10 @@ const MUC_MENU =
  * và bật thông báo "Đã sao chép mã đơn"; "tai-cho" thì mục đổi thành "Đã sao chép" rồi menu tự đóng.
  *
  * `ketThuc`: `{ dong, huy, khoa, lyDoKhoa }` (tinhNhanHang.thaoTacKetThuc) — mục cuối menu ⋯ "Đóng đơn (nhận thiếu)"
- * (đã nhận ít nhất một đợt) hoặc "Hủy đơn" (chưa nhận gì), chữ đỏ có vạch ngăn; chọn thì `onKetThuc("dong" | "huy")`
+ * (đã có phiếu nhập hoàn tất) hoặc "Hủy đơn" (chưa có), chữ đỏ có vạch ngăn; chọn thì `onKetThuc("dong" | "huy")`
  * mở hộp nhập lý do. `khoa`: máy chủ còn đang xử lý thao tác trước (mục vẫn hiện, chọn không làm gì).
  */
-export default function DauTrangDonMua({ don, taoPhieu, ketThuc, onQuayLai, onIn, onTaoPhieu, onMoYeuCau, onKetThuc }) {
+export default function DauTrangDonMua({ don, tongTien, giamTru = 0, taoPhieu, ketThuc, onQuayLai, onIn, onTaoPhieu, onMoYeuCau, onKetThuc }) {
   useClaimPageTitle(true);
   const [moMenu, setMoMenu] = useState(false);
   const { daChep, saoChep, quenDaChep, taiCho } = useSaoChep();
@@ -114,7 +116,16 @@ export default function DauTrangDonMua({ don, taoPhieu, ketThuc, onQuayLai, onIn
             <StatusBadge quyTrinh="donMua" size="lg" label={trangThai.label} />
           </div>
           <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">
-            <span className="font-semibold tabular-nums text-bo-foreground">{formatCurrency(don.tongTien)}</span>
+            <span
+              className="font-semibold tabular-nums text-bo-foreground"
+              title={giamTru > 0 ? t("Đã giảm trừ hàng lỗi {{tien}}", { tien: formatCurrency(giamTru) }) : undefined}
+            >
+              {formatCurrency(tongTien ?? don.tongTien)}
+            </span>
+            {/* Nói rõ số tiền đầu trang đã giảm trừ hàng lỗi */}
+            {giamTru > 0 ? (
+              <span className="text-bo-muted">{" "}{t("(đã giảm {{tien}} hàng lỗi)", { tien: formatCurrency(giamTru) })}</span>
+            ) : null}
             {ncc ? (
               <>
                 {" · "}

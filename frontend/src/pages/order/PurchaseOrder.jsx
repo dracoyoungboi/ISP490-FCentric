@@ -21,6 +21,9 @@ import EmptyState from '@/components/shared/EmptyState';
 import ErrorState from '@/components/shared/ErrorState';
 import ListPageHeader from '@/components/shared/ListPageHeader';
 import ListToolbar from '@/components/shared/ListToolbar';
+import AttentionBar from '@/components/shared/AttentionBar';
+import FilterSelect from '@/components/shared/FilterSelect';
+import useHangLoiCho from '@/components/nhap-kho/tra-hang/useHangLoiCho';
 import LoadingState from '@/components/shared/LoadingState';
 import { RowActionButton, RowActions } from '@/components/shared/RowActions';
 import SearchInput from '@/components/shared/SearchInput';
@@ -108,6 +111,11 @@ export default function PurchaseOrderList() {
     const [searchText, setSearchText] = useState('');
     const [keyword, setKeyword] = useState('');
     const [dateRange, setDateRange] = useState({ from: '', to: '' });
+    // Việc hàng lỗi còn treo của mua hàng: dòng chú ý + lọc (thay cho màn Trả hàng nhà cung cấp riêng)
+    const theoDoiHangLoi = hasAnyRole([ROLE.QUAN_TRI_VIEN, ROLE.NHAN_VIEN_MUA_HANG]);
+    const hangLoi = useHangLoiCho(theoDoiHangLoi);
+    const [locHangLoi, setLocHangLoi] = useState(false);
+    const idIn = locHangLoi ? hangLoi.donChoChot : null;
 
     // Quyền thao tác
     const canCreateReceipt = userRoles.includes(ROLE.QUAN_TRI_VIEN) || userRoles.includes(ROLE.QUAN_LY_KHO) || userRoles.includes(ROLE.NHAN_VIEN_KHO);
@@ -160,8 +168,13 @@ export default function PurchaseOrderList() {
     }, []);
 
     // ── Điều kiện lọc dùng chung cho danh sách và số trên tab (R2) ──
-    const buildFilterArray = useCallback(({ trangThai, tuKhoa, kho, ngay }) => {
+    const buildFilterArray = useCallback(({ trangThai, tuKhoa, kho, ngay, idIn }) => {
         const filterArray = [];
+
+        // Ô lọc "Hàng lỗi chờ xác nhận": lọc theo mã đơn (bộ lọc IN sẵn có của API, không sửa máy chủ)
+        if (idIn) {
+            filterArray.push({ fieldName: 'id', operation: idIn.length ? 'IN' : 'EQUALS', value: idIn.length ? idIn : -1, logicType: 'AND' });
+        }
 
         // Trạng thái của tab đang chọn (DON_MUA_HANG_TABS ở constants/donMuaHang; tab Tất cả = mọi trạng thái của trang)
         if (trangThai.length === 1) {
@@ -203,7 +216,7 @@ export default function PurchaseOrderList() {
         if (!silent) setLoading(true);
         try {
             const res = await apiClient.post(API_FILTER, {
-                filters: buildFilterArray({ trangThai: tabTrangThai, tuKhoa: keyword, kho: khoId, ngay: dateRange }),
+                filters: buildFilterArray({ trangThai: tabTrangThai, tuKhoa: keyword, kho: khoId, ngay: dateRange, idIn }),
                 sorts: [{ fieldName: 'ngayCapNhat', direction: 'DESC' }],
                 page, size,
             });
@@ -237,7 +250,7 @@ export default function PurchaseOrderList() {
             if (requestId === requestIdRef.current) setLoading(false);
         }
         // tabTrangThai là mảng hằng trong DON_MUA_HANG_TABS, chỉ đổi khi đổi tab
-    }, [buildFilterArray, tabTrangThai, keyword, khoId, dateRange]);
+    }, [buildFilterArray, tabTrangThai, keyword, khoId, dateRange, idIn]);
 
     useEffect(() => {
         // Hoãn qua microtask để tránh setState đồng bộ trong effect
@@ -253,8 +266,9 @@ export default function PurchaseOrderList() {
             tuKhoa: keyword,
             kho: khoId,
             ngay: dateRange,
+            idIn,
         })),
-        `${phamViKho}|${keyword}|${khoId}|${dateRange.from}|${dateRange.to}`,
+        `${phamViKho}|${keyword}|${khoId}|${dateRange.from}|${dateRange.to}|${idIn ? idIn.join(',') : ''}`,
         { enabled: !loadingInitial }
     );
 
@@ -303,13 +317,14 @@ export default function PurchaseOrderList() {
         toFirstPage();
     };
 
-    const hasActiveFilters = Boolean(searchText.trim() || keyword || khoId || dateRange.from || dateRange.to);
+    const hasActiveFilters = Boolean(searchText.trim() || keyword || khoId || dateRange.from || dateRange.to || locHangLoi);
 
     // "Xóa lọc": bỏ mã đơn + kho + ngày, giữ tab đang chọn
     const clearFilters = () => {
         setSearchText('');
         setKeyword('');
         setDateRange(prev => (prev.from || prev.to ? { from: '', to: '' } : prev));
+        setLocHangLoi(false);
         setTab(tab, { kho: null });
         toFirstPage();
     };
@@ -358,6 +373,23 @@ export default function PurchaseOrderList() {
                     </Button>
                 ) : null}
             />
+
+            {/* Dòng chú ý cho mua hàng: đơn có hàng lỗi đã nhập kho mà nhà cung cấp chưa chọn giao bù / trừ tiền */}
+            <AttentionBar
+                count={theoDoiHangLoi && !locHangLoi ? hangLoi.donChoChot.length : 0}
+                actionLabel={t("Xem đơn")}
+                onAction={() => {
+                    setSearchText('');
+                    setKeyword('');
+                    setDateRange({ from: '', to: '' });
+                    setLocHangLoi(true);
+                    setTab('tat-ca', { kho: null });
+                    toFirstPage();
+                }}
+            >
+                <strong className="font-semibold">{t("{{count}} đơn", { count: hangLoi.donChoChot.length })}</strong>{" "}
+                {t("có hàng lỗi chờ nhà cung cấp chọn giao bù hay trừ tiền.")}
+            </AttentionBar>
 
             {/* ── Table (nhấn vào dòng để xem chi tiết đơn mua hàng) ── */}
             <TableShell
@@ -446,6 +478,22 @@ export default function PurchaseOrderList() {
                                 />
                             </label>
                         ))}
+
+                        {/* Ô lọc hàng lỗi chỉ hiện khi đang lọc (mở từ dòng chú ý), để hàng công cụ không thêm ô */}
+                        {theoDoiHangLoi && locHangLoi ? (
+                            <FilterSelect
+                                label={t("Hàng lỗi")}
+                                value={locHangLoi ? 'cho-chot' : 'tat-ca'}
+                                options={[
+                                    { value: 'tat-ca', label: t("Mọi đơn") },
+                                    { value: 'cho-chot', label: t("Hàng lỗi chờ xác nhận") },
+                                ]}
+                                onChange={(v) => { setLocHangLoi(v === 'cho-chot'); toFirstPage(); }}
+                                onClear={() => { setLocHangLoi(false); toFirstPage(); }}
+                                clearLabel={t("Bỏ lọc hàng lỗi")}
+                                className="sm:w-[200px]"
+                            />
+                        ) : null}
                     </ListToolbar>
                 }
                 footer={

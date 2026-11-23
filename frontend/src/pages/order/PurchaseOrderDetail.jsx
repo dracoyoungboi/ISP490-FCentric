@@ -27,8 +27,11 @@ import { locCauMayChuMuaHang } from "@/components/order/chi-tiet-yeu-cau/tinhYeu
 import {
     LY_DO_KET_THUC_TOI_DA,
     TRANG_THAI_DON_MUA,
+    bienBanHieuLuc,
     daKetThucSom,
     dungBangDotNhan,
+    hangLoiChuyenKhiDongDon,
+    nhanBuTheoBienThe,
     thaoTacKetThuc,
     tinhBuocDonMua,
     tinhTienDoNhan,
@@ -41,12 +44,14 @@ import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import useQuayLai from "@/hooks/useQuayLai";
 import { toast } from "@/lib/thongBaoNhanh";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
+import { bienBanTraHangService } from "@/services/bienBanTraHangService";
+import HopXemBienBanTraHang from "@/components/nhap-kho/tra-hang/HopXemBienBanTraHang";
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatDateTime } from "@/utils/formatters";
 import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
-import { VAI_TRO_XEM_PHIEU_NHAP } from "@/constants/vaiTroTheoNghiepVu";
+import { VAI_TRO_TRA_HANG_NCC, VAI_TRO_XEM_PHIEU_NHAP } from "@/constants/vaiTroTheoNghiepVu";
 import { moTrangIn } from "@/lib/moTrangIn";
 
 // Ai được tạo phiếu nhập kho từ đơn mua (giữ như trước): quản trị viên, quản lý kho, nhân viên kho.
@@ -68,8 +73,10 @@ const LOI_DA_DOI_NOI_KHAC = [403, 404, 409];
  * Chi tiết đơn mua hàng · bản "một khối" (chốt 16/10/2026): đầu khối, tiến trình 6 bước,
  * bảng sản phẩm theo từng đợt nhận (mỗi phiếu nhập kho là một cột) và cột thông tin bên phải.
  * Bỏ phần thanh toán cho nhà cung cấp: kế toán thanh toán ngoài hệ thống.
- * Đơn đang vận chuyển kết thúc sớm ở menu ⋯ (quản trị viên, nhân viên mua hàng): "Đóng đơn (nhận thiếu)" khi đã nhận
- * ít nhất một đợt, "Hủy đơn" khi chưa nhận gì — hộp xác nhận bắt buộc lý do; đơn đã đóng / hủy hiện lý do dưới tiến trình.
+ * Đơn đang vận chuyển kết thúc sớm ở menu ⋯ (quản trị viên, nhân viên mua hàng): "Đóng đơn (nhận thiếu)" khi đã có
+ * phiếu nhập hoàn tất (kể cả đợt toàn hàng lỗi), "Hủy đơn" khi chưa có — hộp xác nhận bắt buộc lý do; đơn đã đóng / hủy
+ * hiện lý do dưới tiến trình. Biên bản trả hàng nhà cung cấp của đơn hiện ở cột phải; hàng lỗi chưa chốt / chờ hàng bù
+ * hiện dưới ô Còn thiếu và được báo trong hộp Đóng đơn (máy chủ chuyển sang trừ tiền khi đóng).
  */
 export default function PurchaseOrderDetail() {
     const navigate = useNavigate();
@@ -89,6 +96,12 @@ export default function PurchaseOrderDetail() {
     const xemDotNhan = hasAnyRole(VAI_TRO_XEM_PHIEU_NHAP);
     const taiDot = useCallback(() => phieuNhapKhoService.layTheoDonMua(id), [id]);
     const dotQ = useTaiDuLieu(taiDot, `dot-nhan-${id}`, { enabled: Boolean(id) && xemDotNhan });
+
+    // ── Biên bản trả hàng nhà cung cấp của đơn (không chặn trang; lỗi thì coi như không có) ─────────────────
+    const xemBienBan = hasAnyRole(VAI_TRO_TRA_HANG_NCC);
+    const taiBienBan = useCallback(() => bienBanTraHangService.danhSach({ donMuaHangId: id }), [id]);
+    const bienBanQ = useTaiDuLieu(taiBienBan, `bien-ban-tra-hang-don-${id}`, { enabled: Boolean(id) && xemBienBan });
+    const [bienBanMo, setBienBanMo] = useState(null); // id biên bản đang mở hộp xem
 
     // ── Đóng / hủy đơn (hộp nhập lý do) ────────────────────────────────────
     const [hop, setHop] = useState(""); // "" | "dong" | "huy"
@@ -113,6 +126,7 @@ export default function PurchaseOrderDetail() {
         () => {
             donQ.reload();
             if (xemDotNhan) dotQ.reload();
+            if (xemBienBan) bienBanQ.reload();
         },
         { bat: Boolean(id) && !donQ.loading && !dangChay, lanCuoi: donQ.capNhatLuc },
     );
@@ -139,6 +153,20 @@ export default function PurchaseOrderDetail() {
     const tienDo = useMemo(() => tinhTienDoNhan(don?.chiTietDonMuaHangs), [don]);
     const bang = useMemo(() => dungBangDotNhan(don?.chiTietDonMuaHangs, phieus), [don, phieus]);
     const buoc = useMemo(() => tinhBuocDonMua(don, tienDo, bang.cot), [don, tienDo, bang.cot]);
+    // Số phiếu nhập đã hoàn tất (đợt toàn hàng lỗi cũng tính): quyết định Đóng đơn hay Hủy đơn. Chưa có danh sách phiếu
+    // (vai trò không xem, đang tải, lỗi) thì null: thaoTacKetThuc đoán theo số của đơn
+    const soPhieuHoanTat = xemDotNhan && Array.isArray(phieus) && !dotQ.error
+        ? bang.cot.filter((c) => !c.choNhap).length
+        : null;
+    // Biên bản trả hàng hiệu lực của đúng đơn này (đổi đơn trong cùng trang thì danh sách cũ còn giữ tới khi tải xong)
+    const bienBans = useMemo(
+        () => bienBanHieuLuc(bienBanQ.data?.items).filter((bb) => don && String(bb.donMuaHangId) === String(don.id)),
+        [bienBanQ.data, don],
+    );
+    const nhanBu = useMemo(() => nhanBuTheoBienThe(bienBans), [bienBans]);
+    const chuyenKhiDong = useMemo(() => hangLoiChuyenKhiDongDon(bienBans, don?.chiTietDonMuaHangs), [bienBans, don]);
+    // Số tiền đầu trang: có hàng lỗi trừ tiền thì giá trị đã giảm trừ (máy chủ giữ tổng theo số đặt)
+    const tongTienHienThi = bang.tong.giamTru > 0 ? bang.tong.thanhTien : don?.tongTien;
     // Phần các phiếu nhập Nháp đang giữ và số còn tạo phiếu được (máy chủ trừ phần giữ khi tạo phiếu mới). Chỉ lấy phiếu
     // của đúng đơn này: đổi sang đơn khác trong cùng trang thì danh sách phiếu cũ còn giữ tới khi tải xong.
     const phanGiu = useMemo(
@@ -166,7 +194,8 @@ export default function PurchaseOrderDetail() {
     // tạo phiếu mới sẽ bị máy chủ từ chối
     const phieuNhapCanMo = !tienDo.daDu && conTaoDuoc === 0 ? phieuNenMo(phanGiu.phieu, dongGiu) : null;
     const taoPhieu = {
-        hien: Boolean(don) && hasAnyRole(VAI_TRO_TAO_PHIEU_NHAP) && TRANG_THAI_TAO_PHIEU_NHAP.includes(Number(don?.trangThai)),
+        // Đơn đã nhận đủ thì ẩn hẳn nút (không hiện mờ)
+        hien: Boolean(don) && hasAnyRole(VAI_TRO_TAO_PHIEU_NHAP) && TRANG_THAI_TAO_PHIEU_NHAP.includes(Number(don?.trangThai)) && !tienDo.daDu,
         khoa: tienDo.daDu || saiKho,
         lyDo: tienDo.daDu
             ? t("Đã nhập đủ số lượng")
@@ -179,7 +208,7 @@ export default function PurchaseOrderDetail() {
 
     // ── Đóng / hủy đơn ──────────────────────────────────────────────────────
     const ketThuc = {
-        ...thaoTacKetThuc(don, tienDo, hasAnyRole(VAI_TRO_KET_THUC_DON)),
+        ...thaoTacKetThuc(don, tienDo, hasAnyRole(VAI_TRO_KET_THUC_DON), soPhieuHoanTat),
         khoa: choGoc,
         lyDoKhoa: LY_DO_CHO_GOC,
     };
@@ -202,6 +231,7 @@ export default function PurchaseOrderDetail() {
             huyChoGocRef.current = null;
             setChoGoc(false);
             donQ.reload();
+            if (xemBienBan) bienBanQ.reload();
         });
     };
     const ketThucDon = async (loai) => {
@@ -224,6 +254,8 @@ export default function PurchaseOrderDetail() {
                 lyDoKetThuc: lyDoGui,
             } : cu));
             donQ.reload();
+            // Đóng đơn chuyển hàng lỗi chưa xong sang trừ tiền: tải lại biên bản
+            if (xemBienBan) bienBanQ.reload();
         } catch (error) {
             if (laLoiHetThoiHan(error)) {
                 if (daGoRef.current) return;
@@ -233,6 +265,7 @@ export default function PurchaseOrderDetail() {
                 setLyDo("");
                 toast.error(CAU_HET_THOI_HAN, { description: MO_TA_HET_THOI_HAN });
                 donQ.reload();
+                if (xemBienBan) bienBanQ.reload();
                 khoaToiKhiGocXong(error);
                 return;
             }
@@ -244,6 +277,7 @@ export default function PurchaseOrderDetail() {
                 toast.error(cau);
                 donQ.reload();
                 if (xemDotNhan) dotQ.reload();
+                if (xemBienBan) bienBanQ.reload();
             } else {
                 setLoiHop(cau);
             }
@@ -318,6 +352,8 @@ export default function PurchaseOrderDetail() {
             <article className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm">
                 <DauTrangDonMua
                     don={don}
+                    tongTien={tongTienHienThi}
+                    giamTru={bang.tong.giamTru}
                     taoPhieu={taoPhieu}
                     ketThuc={ketThuc}
                     onQuayLai={quayLai}
@@ -344,6 +380,7 @@ export default function PurchaseOrderDetail() {
                     <BangDotNhan
                         bang={bang}
                         tongTien={don.tongTien}
+                        nhanBu={nhanBu}
                         xemDot={xemDotNhan}
                         // Tự tải lại ngầm: giữ các đợt nhận đang hiện, không bật chữ đang tải / dòng báo lỗi
                         dangTaiDot={dotQ.initialLoading}
@@ -354,9 +391,24 @@ export default function PurchaseOrderDetail() {
                         don={don}
                         giao={giao}
                         soDonCuaNcc={xemSoDonNcc && !soDonQ.error ? soDonQ.data ?? null : null}
+                        bienBans={bienBans}
+                        onMoBienBan={setBienBanMo}
                     />
                 </div>
             </article>
+
+            <HopXemBienBanTraHang
+                open={bienBanMo != null}
+                onOpenChange={(mo) => {
+                    if (!mo) setBienBanMo(null);
+                }}
+                bienBanId={bienBanMo}
+                onDaDoi={() => {
+                    // Ghi ký, giao trả, tiêu hủy có thể đổi số trừ tiền / còn thiếu của đơn: tải lại cả đơn và danh sách biên bản
+                    bienBanQ.reload();
+                    donQ.reload();
+                }}
+            />
 
             <HopXacNhanChungTu
                 mo={hop === "dong"}
@@ -371,6 +423,15 @@ export default function PurchaseOrderDetail() {
                 loi={loiHop}
                 onXacNhan={() => ketThucDon("dong")}
             >
+                {chuyenKhiDong.soLuong > 0 ? (
+                    <DongThongBao tone="warn">
+                        {t("{{n}} sản phẩm lỗi chưa xong ({{bienBan}}) sẽ chuyển sang trừ tiền hàng, ghi là chuyển do đóng đơn.", {
+                            count: chuyenKhiDong.soLuong,
+                            n: chuyenKhiDong.soLuong,
+                            bienBan: chuyenKhiDong.soBienBan.join(", "),
+                        })}
+                    </DongThongBao>
+                ) : null}
                 {oLyDo("ly-do-dong-don", t("Ví dụ: Nhà cung cấp hết hàng, không giao phần còn lại"))}
                 <p className={GHI_CHU_HOP}>{t("Hệ thống không gửi email cho nhà cung cấp. Báo nhà cung cấp theo cách thường dùng.")}</p>
             </HopXacNhanChungTu>

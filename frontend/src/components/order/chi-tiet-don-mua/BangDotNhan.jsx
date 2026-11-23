@@ -25,21 +25,56 @@ function ConThieu({ conThieu, vuot }) {
   return <span className="font-medium text-bo-success">{t("Đủ")}</span>;
 }
 
+/**
+ * Số lỗi của đợt nằm ở DÒNG PHỤ dưới số hàng đạt (chữ nhỏ cam), không còn chip đỏ "+1 lỗi" cạnh số —
+ * đọc rõ "9 đạt, 1 lỗi" thay vì tưởng "9 cộng thêm 1".
+ */
+function DongLoi({ soLoi }) {
+  if (!(soLoi > 0)) return null;
+  return (
+    <span
+      title={t("{{soLoi}} sản phẩm lỗi ở đợt này, không tính vào số đã nhận. Xem biên bản trả hàng ở phiếu nhập.", { soLoi: formatNumber(soLoi) })}
+      className="block whitespace-nowrap text-[11px] font-medium not-italic leading-4 text-bo-warning"
+    >
+      {t("{{n}} lỗi", { n: formatNumber(soLoi) })}
+    </span>
+  );
+}
+
+/** Nhãn phụ dưới ô Còn thiếu theo việc bù của biên bản trả hàng. */
+const NHAN_BU = {
+  choChot: t("lỗi chờ nhà cung cấp chọn"),
+  choHangBu: t("chờ hàng bù"),
+};
+
 const O_DOT = "border-x border-slate-100 bg-bo-surface-subtle";
 // Cột Sản phẩm dính trái: rộng tối thiểu để tên không bị bẻ từng chữ khi có nhiều đợt, có vạch ngăn khi cuộn
 const COT_DINH = "sticky left-0 z-[1] min-w-[220px] shadow-[1px_0_0_var(--color-bo-border)]";
 
 /**
  * Bảng "Sản phẩm và các đợt nhận" (dữ liệu từ `dungBangDotNhan`): mỗi phiếu nhập là một cột.
- * - Phiếu đã nhập kho: số đã nhập theo lô. Phiếu đang chờ nhập: số dự kiến, chữ mờ, không trừ vào Còn thiếu.
+ * - Phiếu đã nhập kho: số hàng đạt đã nhập theo lô, dòng phụ "n lỗi" (cam) khi đợt có hàng lỗi. Phiếu đang chờ nhập:
+ *   số dự kiến, chữ mờ, không trừ vào Còn thiếu.
+ * - Cột "Đã nhận" (tổng hàng đạt các đợt) khi có đợt; cột "Lỗi trừ tiền" (hàng lỗi nhà cung cấp chọn trừ tiền)
+ *   chỉ hiện khi đơn có trừ tiền — mỗi dòng: Đặt = Đã nhận + Lỗi trừ tiền + Còn thiếu. Thành tiền theo số đã giảm trừ;
+ *   khối tiền dưới bảng: tiền theo số đặt, giảm trừ, phải trả nhà cung cấp (và giá trị hàng đạt khi mới nhận một phần).
+ * - `nhanBu`: `{ [bienTheSanPhamId]: "choChot" | "choHangBu" }` từ các biên bản trả hàng của đơn — dòng phụ dưới ô
+ *   Còn thiếu ("lỗi chờ nhà cung cấp chọn" / "chờ hàng bù").
  * - Cột Sản phẩm dính bên trái khi bảng cuộn ngang (nhiều đợt nhận).
  * - Tải phiếu lỗi: bảng vẫn hiện từ dữ liệu đơn, kèm dòng báo (lời nhắn của máy chủ nếu có) và nút Thử lại.
  * - `xemDot = false` (vai trò không xem được phiếu nhập): không có cột theo đợt, chỉ số đặt và còn thiếu của đơn.
  * - `loiDot`: `null` khi không lỗi; chuỗi (có thể rỗng) khi lỗi.
  */
-export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot, loiDot, onThuLai }) {
+export default function BangDotNhan({ bang, tongTien, nhanBu, xemDot = true, dangTaiDot, loiDot, onThuLai }) {
   const { cot, dong, tong } = bang;
   const coCot = cot.length > 0;
+  const coTruTien = tong.truTien > 0;
+  const coGiamTru = tong.giamTru > 0;
+  // Cột "Đã nhận" (tổng hàng đạt các đợt) khi có đợt, để thấy ngay Đặt = Đã nhận + Lỗi trừ tiền + Còn thiếu
+  const coDaNhan = coCot;
+  // Sản phẩm, Đơn giá, Đặt, các đợt, [Đã nhận], [Lỗi trừ tiền], Còn thiếu, Thành tiền
+  const soCot = 5 + cot.length + (coDaNhan ? 1 : 0) + (coTruTien ? 1 : 0);
+  const tongThanhTien = coGiamTru ? tong.thanhTien : tongTien ?? tong.thanhTien;
 
   return (
     <section aria-labelledby="bang-dot-nhan-title" className="flex min-w-0 flex-col">
@@ -102,6 +137,16 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
                   </span>
                 </th>
               ))}
+              {coDaNhan ? (
+                <th scope="col" className="px-3 py-2.5 text-right font-medium" title={t("Tổng hàng đạt đã nhập kho của các đợt")}>
+                  {t("Đã nhận")}
+                </th>
+              ) : null}
+              {coTruTien ? (
+                <th scope="col" className="px-3 py-2.5 text-right font-medium" title={t("Hàng lỗi đã chốt trừ tiền với nhà cung cấp, không giao lại")}>
+                  {t("Lỗi trừ tiền")}
+                </th>
+              ) : null}
               <th scope="col" className="px-3 py-2.5 text-right font-medium">{t("Còn thiếu")}</th>
               <th scope="col" className="py-2.5 pl-3 pr-4 text-right font-medium sm:pr-6">{t("Thành tiền")}</th>
             </tr>
@@ -125,11 +170,33 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
                 <td className="px-3 py-3 text-right text-bo-foreground">{formatNumber(d.dat)}</td>
                 {cot.map((c, i) => (
                   <td key={c.id} className={cn("px-3 py-3 text-right", O_DOT, c.choNhap ? "italic text-slate-400" : "text-bo-foreground")}>
-                    {d.theoDot[i] == null ? <span className="text-slate-300">—</span> : formatNumber(d.theoDot[i])}
+                    {d.theoDot[i] == null ? (
+                      <span className="text-slate-300">—</span>
+                    ) : (
+                      <>
+                        {formatNumber(d.theoDot[i])}
+                        <DongLoi soLoi={d.theoDotLoi?.[i]} />
+                      </>
+                    )}
                   </td>
                 ))}
+                {coDaNhan ? (
+                  <td className="px-3 py-3 text-right font-semibold text-bo-foreground">{formatNumber(d.daNhan)}</td>
+                ) : null}
+                {coTruTien ? (
+                  <td className="px-3 py-3 text-right">
+                    {d.truTien > 0 ? (
+                      <span className="text-bo-foreground">{formatNumber(d.truTien)}</span>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
+                  </td>
+                ) : null}
                 <td className="px-3 py-3 text-right">
                   <ConThieu conThieu={d.conThieu} vuot={d.vuot} />
+                  {d.conThieu > 0 && nhanBu?.[d.bienTheId] ? (
+                    <span className="block whitespace-nowrap text-[11px] leading-4 text-bo-muted">{NHAN_BU[nhanBu[d.bienTheId]]}</span>
+                  ) : null}
                 </td>
                 <td className="py-3 pl-3 pr-4 text-right font-medium text-bo-foreground sm:pr-6">
                   {d.thanhTien != null ? formatCurrency(d.thanhTien) : "—"}
@@ -138,7 +205,7 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
             ))}
             {dong.length === 0 ? (
               <tr>
-                <td colSpan={5 + cot.length} className="px-6 py-10 text-center text-sm text-bo-muted">
+                <td colSpan={soCot} className="px-6 py-10 text-center text-sm text-bo-muted">
                   {t("Đơn mua hàng chưa có sản phẩm nào.")}
                 </td>
               </tr>
@@ -155,19 +222,48 @@ export default function BangDotNhan({ bang, tongTien, xemDot = true, dangTaiDot,
                 {cot.map((c, i) => (
                   <td key={c.id} className={cn("px-3 py-3.5 text-right font-semibold", O_DOT, c.choNhap ? "italic text-slate-400" : "text-bo-foreground")}>
                     {formatNumber(tong.theoDot[i])}
+                    <DongLoi soLoi={tong.theoDotLoi?.[i]} />
                   </td>
                 ))}
+                {coDaNhan ? (
+                  <td className="px-3 py-3.5 text-right font-semibold text-bo-foreground">{formatNumber(tong.daNhan)}</td>
+                ) : null}
+                {coTruTien ? (
+                  <td className="px-3 py-3.5 text-right font-semibold text-bo-foreground">{formatNumber(tong.truTien)}</td>
+                ) : null}
                 <td className="px-3 py-3.5 text-right">
                   <ConThieu conThieu={tong.conThieu} vuot={tong.conThieu > 0 ? 0 : tong.vuot} />
                 </td>
                 <td className="py-3.5 pl-3 pr-4 text-right text-base font-bold text-bo-foreground sm:pr-6">
-                  {formatCurrency(tongTien ?? tong.thanhTien)}
+                  {formatCurrency(tongThanhTien)}
                 </td>
               </tr>
             </tfoot>
           ) : null}
         </table>
       </div>
+
+      {/* Khối tiền như hóa đơn: tiền theo số đặt, giảm trừ hàng lỗi, phải trả; giá trị hàng đạt khi mới nhận một phần */}
+      {dong.length > 0 && (coGiamTru || (tong.conThieu > 0 && tong.daNhan > 0)) ? (
+        <dl className="ml-auto grid w-full max-w-[380px] grid-cols-[1fr_auto] gap-x-6 gap-y-1.5 px-4 py-3.5 text-[13px] leading-5 tabular-nums sm:px-6">
+          {coGiamTru ? (
+            <>
+              <dt className="text-bo-muted">{t("Tiền theo số đặt")}</dt>
+              <dd className="text-right text-bo-foreground">{formatCurrency(tong.thanhTienTheoDat)}</dd>
+              <dt className="text-bo-muted">{t("Giảm trừ {{n}} sản phẩm lỗi", { n: formatNumber(tong.truTien) })}</dt>
+              <dd className="text-right text-bo-foreground">−{formatCurrency(tong.giamTru)}</dd>
+              <dt className="border-t border-bo-border pt-1.5 font-semibold text-bo-foreground">{t("Phải trả nhà cung cấp")}</dt>
+              <dd className="border-t border-bo-border pt-1.5 text-right font-semibold text-bo-foreground">{formatCurrency(tong.thanhTien)}</dd>
+            </>
+          ) : null}
+          {tong.conThieu > 0 && tong.daNhan > 0 ? (
+            <>
+              <dt className="text-bo-muted">{t("Giá trị hàng đạt đã nhận")}</dt>
+              <dd className="text-right text-bo-foreground">{formatCurrency(tong.giaTriDaNhan)}</dd>
+            </>
+          ) : null}
+        </dl>
+      ) : null}
 
       <p className="mt-auto flex items-center gap-2 border-t border-slate-100 px-4 py-3 text-[13px] leading-5 text-bo-muted sm:px-6">
         <Info className="size-3.5 shrink-0" aria-hidden="true" />

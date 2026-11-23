@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import NutSaoChep from "@/components/shared/NutSaoChep";
-import { formatDate } from "@/utils/formatters";
+import { NhanTrangThaiTraHang } from "@/components/nhap-kho/tra-hang/NhanTraHang";
+import { formatCurrency, formatDate } from "@/utils/formatters";
 import { t } from "@/i18n";
 import { hasAnyRole } from "@/utils/roles";
 import { VAI_TRO_NHA_CUNG_CAP } from "@/constants/vaiTroTheoNghiepVu";
+import { tomTatPhuongAn } from "./tinhNhanHang";
 
 function NhanNhom({ children }) {
   return <div className="text-xs font-medium leading-4 text-bo-muted">{children}</div>;
@@ -31,10 +33,41 @@ function HanGiao({ giao }) {
 }
 
 /**
- * Cột thuộc tính bên phải (kiểu Linear): nhà cung cấp, kho nhận, yêu cầu gốc, người tạo, hạn giao.
+ * Một biên bản trả hàng trong khối "Hàng lỗi trả nhà cung cấp": số biên bản (mở hộp xem), trạng thái, dòng phụ
+ * "phiếu nhập · số lỗi · phương án" (nhà cung cấp trả lời trên Cổng nhà cung cấp, không ai chốt thay).
+ */
+function TheBienBan({ bb, onMo }) {
+  const soLoi = Number(bb.tongSoLuongLoi) || 0;
+  const phu = [
+    bb.soPhieuNhap,
+    t("{{count}} sản phẩm lỗi", { count: soLoi }),
+    tomTatPhuongAn(bb, formatCurrency),
+  ].filter(Boolean).join(" · ");
+  const soBienBan = bb.soBienBan || `#${bb.id}`;
+  return (
+    <li className="rounded-md border border-bo-border bg-bo-surface px-3 py-2.5">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <button
+          type="button"
+          onClick={onMo}
+          title={t("Xem biên bản {{soBienBan}}", { soBienBan })}
+          className="min-w-0 truncate rounded text-[13px] font-semibold text-bo-primary hover:text-bo-primary-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+        >
+          {soBienBan}
+        </button>
+        <NhanTrangThaiTraHang ma={bb.trangThaiHienThi} />
+      </div>
+      {phu ? <div className="mt-0.5 text-xs leading-4 text-bo-muted">{phu}</div> : null}
+    </li>
+  );
+}
+
+/**
+ * Cột thuộc tính bên phải (kiểu Linear): nhà cung cấp, kho nhận, yêu cầu gốc, người tạo, hạn giao, và khối "Hàng lỗi trả
+ * nhà cung cấp" khi đơn có biên bản trả hàng còn hiệu lực (`bienBans`; `onMoBienBan(id)` mở hộp xem biên bản).
  * Dưới 1280px: xuống dưới bảng, các nhóm xếp 2 cột (từ 640px).
  */
-export default function ThuocTinhDonMua({ don, giao, soDonCuaNcc }) {
+export default function ThuocTinhDonMua({ don, giao, soDonCuaNcc, bienBans = [], onMoBienBan }) {
   const ncc = don.nhaCungCap;
   const kho = don.khoNhap;
   const yeuCau = don.yeuCauMuaHang;
@@ -105,6 +138,17 @@ export default function ThuocTinhDonMua({ don, giao, soDonCuaNcc }) {
           )}
         </dd>
       </dl>
+
+      {bienBans.length > 0 ? (
+        <section className="mt-4 border-t border-slate-200/70 pt-4 sm:col-span-2 xl:col-span-1">
+          <NhanNhom>{t("Hàng lỗi trả nhà cung cấp")}</NhanNhom>
+          <ul className="mt-2 grid gap-2">
+            {bienBans.map((bb) => (
+              <TheBienBan key={bb.id} bb={bb} onMo={() => onMoBienBan?.(bb.id)} />
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </aside>
   );
 }
