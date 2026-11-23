@@ -49,8 +49,12 @@ class BienBanTraHangServiceTest {
     private ChiTietPhieuNhapKhoRepository chiTietPhieuNhapKhoRepository;
     @Mock
     private ChiTietLoiLoHangRepository chiTietLoiLoHangRepository;
+    @Mock
+    private ChiTietDonMuaHangRepository chiTietDonMuaHangRepository;
 
     private BienBanTraHangServiceImpl service;
+    /** Nhật ký thật trên lich_su_thay_doi giả (lập / hủy biên bản đọc lại được). */
+    private NhatKyTraHangGia gia;
 
     private PhieuNhapKho phieu;
     private NguoiDung nguoiDung;
@@ -62,19 +66,21 @@ class BienBanTraHangServiceTest {
 
     @BeforeEach
     void setUp() {
+        NhaCungCap ncc = NhaCungCap.builder().id(5).tenNhaCungCap("NCC Việt").build();
+        nguoiDung = NguoiDung.builder().id(99).hoTen("Trần Kho").build();
+        gia = new NhatKyTraHangGia(nguoiDung);
         service = new BienBanTraHangServiceImpl(
                 bienBanTraHangNccRepository,
                 chiTietTraHangNccRepository,
                 phieuNhapKhoRepository,
                 nguoiDungRepository,
                 chiTietPhieuNhapKhoRepository,
-                chiTietLoiLoHangRepository
+                chiTietLoiLoHangRepository,
+                chiTietDonMuaHangRepository,
+                gia.nhatKy
         );
-
-        NhaCungCap ncc = NhaCungCap.builder().id(5).tenNhaCungCap("NCC Việt").build();
-        nguoiDung = NguoiDung.builder().id(99).hoTen("Trần Kho").build();
         phieu = PhieuNhapKho.builder().id(1).soPhieuNhap("PN2026101701").nhaCungCap(ncc).trangThai(0)
-                .kho(Kho.builder().id(1).build()).build();
+                .kho(Kho.builder().id(1).build()).donMuaHang(DonMuaHang.builder().id(70).soDonMua("PO-70").build()).build();
 
         SanPhamQuanAo sp = SanPhamQuanAo.builder().id(1).tenSanPham("Áo Polo").build();
         bienThe = BienTheSanPham.builder().id(10).maSku("POLO-01").sanPham(sp).build();
@@ -120,17 +126,31 @@ class BienBanTraHangServiceTest {
     }
 
     @Test
-    @DisplayName("Phát hành: dòng lấy từ chi tiết lỗi đã lưu, gắn đúng lô theo id; bỏ qua items gửi lên")
+    @DisplayName("Phát hành: phiếu nhập không thuộc đơn mua thì 400 (nhà cung cấp trả lời theo đơn mua trên cổng), không lưu gì")
+    void testPhatHanh_PhieuKhongCoDonMua() {
+        phieu.setDonMuaHang(null);
+        when(phieuNhapKhoRepository.khoaTheoId(1)).thenReturn(Optional.of(phieu));
+        CommonException ex = assertThrows(CommonException.class, () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 3));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+        verify(bienBanTraHangNccRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    @DisplayName("Phát hành: dòng lấy từ chi tiết lỗi đã lưu, gắn đúng lô theo id; luôn chờ nhà cung cấp chọn")
     void testPhatHanhBienBan_ThanhCong() {
-        PhatHanhBienBanRequest.ItemLoiRequest itemGia = PhatHanhBienBanRequest.ItemLoiRequest.builder()
-                .bienTheSanPhamId(10).maLo("LO-KHAC").lyDo("Khác").soLuong(99).build();
-        PhatHanhBienBanRequest req = PhatHanhBienBanRequest.builder()
-                .phuongAn("TRU_CONG_NO").ghiChu("  Trừ vào kỳ thanh toán  ").items(List.of(itemGia)).build();
+        PhatHanhBienBanRequest req = PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài")
+                .ghiChu("  Trừ vào kỳ thanh toán  ").build();
 
         BienBanTraHangDto res = service.phatHanh(1, req, 99);
 
         assertEquals("RTV-" + java.time.LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE) + "-007", res.getSoBienBan());
-        assertEquals("TRU_CONG_NO", res.getPhuongAn());
+        assertEquals(BienBanTraHangNcc.PA_CHO_CHOT, res.getPhuongAn(), "cách bù do mua hàng chốt sau nhập kho, phương án gửi lên bị bỏ qua");
+        assertEquals(BienBanTraHangNcc.GIU_KHO, res.getCachXuLyHang(), "mặc định để hàng lỗi ở kho chờ trả");
+        assertEquals(BienBanTraHangNcc.HANG_O_KHO, res.getTrangThaiHang());
+        assertEquals(BienBanTraHangServiceImpl.TT_CHO_KY, res.getTrangThaiHienThi(), "có tài xế: chờ ghi kết quả ký");
+        assertEquals("CHO_KY", res.getKyBienBan());
+        assertEquals("Lê Văn Tài", res.getNguoiGiao(), "người giao hàng ký biên bản (mặc định đại diện NCC)");
+        assertNull(res.getNguoiNhanHang(), "giữ ở kho: chưa ai nhận hàng lỗi");
         assertEquals("Trừ vào kỳ thanh toán", res.getGhiChu());
         assertEquals(5, res.getTongSoLuongLoi(), "3 (lô 01) + 2 (lô 02), không tính items gửi lên");
         assertEquals(3, dongDaLuu.size());
@@ -141,6 +161,17 @@ class BienBanTraHangServiceTest {
         assertSame(loB, dongDaLuu.get(2).getLoHang());
         assertEquals("LO-PN2026101701-02", dongDaLuu.get(2).getMaLo());
         dongDaLuu.forEach(d -> assertEquals(200, d.getBienBanTraHangNcc().getId()));
+
+        // Chi tiết lần lập nằm ở nhật ký (không thêm cột): cách xử lý, tổng lỗi, lần đầu
+        List<com.dev.backend.entities.LichSuThayDoi> lap = gia.theo(200, com.dev.backend.constant.variables.IHanhDong.lap_bien_ban_tra_hang);
+        assertEquals(1, lap.size());
+        assertEquals("GIU_KHO", gia.moi(lap.get(0)).get("cachXuLy"));
+        assertEquals(5, gia.moi(lap.get(0)).get("tongSoLuongLoi"));
+        assertEquals(false, gia.moi(lap.get(0)).get("lapLai"));
+        assertEquals("Lê Văn Tài", gia.moi(lap.get(0)).get("nguoiNhan"), "giữ ở kho vẫn ghi tài xế ký biên bản");
+        assertEquals("DAI_DIEN_NCC", gia.moi(lap.get(0)).get("benKy"));
+        assertEquals("Trừ vào kỳ thanh toán", lap.get(0).getGhiChu());
+        assertFalse(res.getDuLieuCu());
     }
 
     @Test
@@ -149,16 +180,16 @@ class BienBanTraHangServiceTest {
         when(chiTietLoiLoHangRepository.findByLoHangIds(anyCollection())).thenReturn(List.of(
                 ChiTietLoiLoHang.builder().loHang(loA).lyDo("Bung chỉ").soLuong(1).build()));
 
-        BienBanTraHangDto res = service.phatHanh(1, PhatHanhBienBanRequest.builder().build(), 99);
+        BienBanTraHangDto res = service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99);
 
         assertEquals(5, res.getTongSoLuongLoi());
-        assertEquals("DOI_HANG", res.getPhuongAn(), "mặc định Đổi hàng mới");
+        assertEquals(BienBanTraHangNcc.PA_CHO_CHOT, res.getPhuongAn(), "biên bản mới luôn chờ chốt");
         assertEquals(List.of("Bung chỉ", "Chưa ghi lý do", "Chưa ghi lý do"), dongDaLuu.stream().map(ChiTietTraHangNcc::getLyDoLoi).toList());
         assertEquals(List.of(1, 2, 2), dongDaLuu.stream().map(ChiTietTraHangNcc::getSoLuongLoi).toList());
     }
 
     @Test
-    @DisplayName("Lập lại biên bản: giữ số biên bản, thay toàn bộ dòng cũ")
+    @DisplayName("Lập lại biên bản: giữ số biên bản, thay toàn bộ dòng cũ, phương án về chờ chốt (phương án gửi lên bị bỏ qua)")
     void testLapLai_GiuSoBienBan() {
         BienBanTraHangNcc cu = BienBanTraHangNcc.builder().id(200).maBienBan("RTV-20261018-003").phieuNhapKho(phieu)
                 .nhaCungCap(phieu.getNhaCungCap()).nguoiTao(nguoiDung).tongSoLuongLoi(9).phuongAnXuLy("DOI_HANG").build();
@@ -166,31 +197,36 @@ class BienBanTraHangServiceTest {
         when(bienBanTraHangNccRepository.findByPhieuNhapKho_Id(1)).thenReturn(Optional.of(cu));
         when(chiTietTraHangNccRepository.findByBienBanTraHangNcc_Id(200)).thenReturn(dongCu);
 
-        BienBanTraHangDto res = service.phatHanh(1, PhatHanhBienBanRequest.builder().phuongAn("TRA_TAI_XE").build(), 99);
+        BienBanTraHangDto res = service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99);
 
         verify(chiTietTraHangNccRepository).deleteAll(dongCu);
         assertEquals("RTV-20261018-003", res.getSoBienBan());
         assertEquals(5, res.getTongSoLuongLoi());
-        assertEquals("TRA_TAI_XE", res.getPhuongAn());
+        assertEquals(BienBanTraHangNcc.PA_CHO_CHOT, res.getPhuongAn());
+        assertEquals(BienBanTraHangNcc.PA_CHO_CHOT, cu.getPhuongAnXuLy());
+        assertEquals(true, gia.moi(gia.theo(200, com.dev.backend.constant.variables.IHanhDong.lap_bien_ban_tra_hang).get(0))
+                .get("lapLai"), "nhật ký đánh dấu lập lại");
     }
 
     @Test
     @DisplayName("Không còn hàng lỗi: có biên bản thì hủy (giữ dòng, trạng thái DA_HUY để số không bị cấp lại), chưa có thì 400")
     void testKhongConHangLoi() {
         when(chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(1)).thenReturn(List.of(ct(loDat)));
-        CommonException ex = assertThrows(CommonException.class, () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().build(), 99));
+        CommonException ex = assertThrows(CommonException.class, () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99));
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
 
         BienBanTraHangNcc cu = BienBanTraHangNcc.builder().id(200).maBienBan("RTV-20261018-003").phieuNhapKho(phieu).build();
         when(bienBanTraHangNccRepository.findByPhieuNhapKho_Id(1)).thenReturn(Optional.of(cu));
-        assertNull(service.phatHanh(1, PhatHanhBienBanRequest.builder().build(), 99));
+        assertNull(service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99));
         assertEquals(BienBanTraHangNcc.DA_HUY, cu.getTrangThai());
         verify(bienBanTraHangNccRepository).save(cu);
         verify(bienBanTraHangNccRepository, never()).delete(any(BienBanTraHangNcc.class));
+        assertEquals("Phiếu nhập không còn hàng lỗi",
+                gia.theo(200, com.dev.backend.constant.variables.IHanhDong.huy_bien_ban_tra_hang).get(0).getGhiChu());
 
         // Đã hủy rồi mà vẫn không có hàng lỗi: 400 như chưa có biên bản
         assertEquals(HttpStatus.BAD_REQUEST,
-                assertThrows(CommonException.class, () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().build(), 99)).getStatus());
+                assertThrows(CommonException.class, () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99)).getStatus());
         // Đã hủy thì không còn hiện theo phiếu
         assertNull(service.layTheoPhieuNhap(1));
     }
@@ -202,7 +238,7 @@ class BienBanTraHangServiceTest {
                 .nhaCungCap(phieu.getNhaCungCap()).nguoiTao(nguoiDung).trangThai(BienBanTraHangNcc.DA_HUY).build();
         when(bienBanTraHangNccRepository.findByPhieuNhapKho_Id(1)).thenReturn(Optional.of(daHuy));
 
-        BienBanTraHangDto res = service.phatHanh(1, PhatHanhBienBanRequest.builder().build(), 99);
+        BienBanTraHangDto res = service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99);
 
         assertEquals("RTV-20261018-003", res.getSoBienBan());
         assertEquals(BienBanTraHangNcc.CHO_TRA_HANG, daHuy.getTrangThai());
@@ -210,15 +246,18 @@ class BienBanTraHangServiceTest {
     }
 
     @Test
-    @DisplayName("Phương án không hợp lệ: 400 (câu báo không lộ mã kỹ thuật); phiếu không còn Nháp: 400")
+    @DisplayName("Cách xử lý hàng lỗi không hợp lệ: 400 (câu báo không lộ mã kỹ thuật); phiếu không còn Nháp: 400")
     void testKiemTraDauVao() {
         CommonException ex = assertThrows(CommonException.class,
-                () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().phuongAn("XYZ").build(), 99));
+                () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").cachXuLy("XYZ").build(), 99));
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
-        assertFalse(ex.getMessage().contains("TRU_CONG_NO"), ex.getMessage());
+        assertFalse(ex.getMessage().contains("GIU_KHO") || ex.getMessage().contains("TRA_NGAY"), ex.getMessage());
+        // Phương án cũ sai không còn bị kiểm (bị bỏ qua)
+        assertDoesNotThrow(() -> service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99));
+        clearInvocations(bienBanTraHangNccRepository);
 
         phieu.setTrangThai(3);
-        ex = assertThrows(CommonException.class, () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().build(), 99));
+        ex = assertThrows(CommonException.class, () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99));
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
         verify(bienBanTraHangNccRepository, never()).saveAndFlush(any());
     }
@@ -226,7 +265,7 @@ class BienBanTraHangServiceTest {
     @Test
     @DisplayName("Lập biên bản khóa dòng phiếu trước (cùng thứ tự với khóa lô / nhập kho), không đọc phiếu thường")
     void testPhatHanh_KhoaDongPhieuTruoc() {
-        service.phatHanh(1, PhatHanhBienBanRequest.builder().build(), 99);
+        service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99);
         org.mockito.InOrder thuTu = inOrder(phieuNhapKhoRepository, chiTietPhieuNhapKhoRepository, bienBanTraHangNccRepository);
         thuTu.verify(phieuNhapKhoRepository).khoaTheoId(1);
         thuTu.verify(chiTietPhieuNhapKhoRepository).findAllByPhieuNhapKhoIdAndCoLo(1);
@@ -238,7 +277,7 @@ class BienBanTraHangServiceTest {
     @DisplayName("Lập biên bản cho phiếu không tồn tại: 404")
     void testPhatHanh_PhieuKhongTonTai_404() {
         when(phieuNhapKhoRepository.khoaTheoId(77)).thenReturn(Optional.empty());
-        CommonException ex = assertThrows(CommonException.class, () -> service.phatHanh(77, PhatHanhBienBanRequest.builder().build(), 99));
+        CommonException ex = assertThrows(CommonException.class, () -> service.phatHanh(77, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99));
         assertEquals(HttpStatus.NOT_FOUND, ex.getStatus());
     }
 
@@ -246,7 +285,7 @@ class BienBanTraHangServiceTest {
     @DisplayName("Phát hành biên bản RTV báo lỗi khi phiếu nhập không có NCC")
     void testPhatHanhBienBan_KhongCoNcc_BaoLoi() {
         phieu.setNhaCungCap(null);
-        CommonException ex = assertThrows(CommonException.class, () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().build(), 99));
+        CommonException ex = assertThrows(CommonException.class, () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99));
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
         assertTrue(ex.getMessage().contains("không có thông tin Nhà cung cấp"));
     }
@@ -257,7 +296,7 @@ class BienBanTraHangServiceTest {
         SecurityContextHolder.setUser(com.dev.backend.dto.response.entities.NguoiDungAuthInfo.builder()
                 .id(99).vaiTro(java.util.Set.of("nhan_vien_kho")).phanQuyenNguoiDungKhos(List.of()).build());
         SecurityContextHolder.setKhoId(2);
-        CommonException ex = assertThrows(CommonException.class, () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().build(), 99));
+        CommonException ex = assertThrows(CommonException.class, () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99));
         assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
         ArgumentCaptor<BienBanTraHangNcc> cap = ArgumentCaptor.forClass(BienBanTraHangNcc.class);
         verify(bienBanTraHangNccRepository, never()).saveAndFlush(cap.capture());
@@ -327,7 +366,7 @@ class BienBanTraHangServiceTest {
         when(bienBanTraHangNccRepository.findByPhieuNhapKho_Id(1)).thenReturn(Optional.of(cu));
         when(chiTietTraHangNccRepository.findByBienBanTraHangNcc_Id(200)).thenReturn(dongCu);
 
-        BienBanTraHangDto res = service.phatHanh(1, PhatHanhBienBanRequest.builder().phuongAn("DOI_HANG").build(), 99);
+        BienBanTraHangDto res = service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99);
 
         verify(chiTietTraHangNccRepository).deleteAll(dongCu);
         assertEquals("RTV-20261018-003", res.getSoBienBan());
@@ -360,14 +399,14 @@ class BienBanTraHangServiceTest {
         when(chiTietTraHangNccRepository.findByBienBanTraHangNcc_Id(200)).thenReturn(List.of(
                 ChiTietTraHangNcc.builder().id(7).bienTheSanPham(bienThe).loHang(loB).lyDoLoi("Rách vải").soLuongLoi(2).build()));
 
-        service.phatHanh(1, PhatHanhBienBanRequest.builder().build(), 99);
+        service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99);
         assertEquals(List.of("Bung chỉ", "Chưa ghi lý do"), dongDaLuu.stream().map(ChiTietTraHangNcc::getLyDoLoi).toList(), "biên bản đã hủy");
 
         // Biên bản còn hiệu lực (vừa lập lại) nhưng dòng cũ của lô 02 chỉ có 1 trong 2 cái lỗi
         assertEquals(BienBanTraHangNcc.CHO_TRA_HANG, cu.getTrangThai());
         when(chiTietTraHangNccRepository.findByBienBanTraHangNcc_Id(200)).thenReturn(List.of(
                 ChiTietTraHangNcc.builder().id(8).bienTheSanPham(bienThe).loHang(loB).lyDoLoi("Rách vải").soLuongLoi(1).build()));
-        service.phatHanh(1, PhatHanhBienBanRequest.builder().build(), 99);
+        service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99);
         assertEquals(List.of("Bung chỉ", "Chưa ghi lý do"), dongDaLuu.stream().map(ChiTietTraHangNcc::getLyDoLoi).toList(),
                 "dòng cũ không đủ số lỗi của lô");
         assertEquals(List.of(3, 2), dongDaLuu.stream().map(ChiTietTraHangNcc::getSoLuongLoi).toList());
@@ -392,7 +431,7 @@ class BienBanTraHangServiceTest {
                 ChiTietTraHangNcc.builder().id(7).bienBanTraHangNcc(cu).bienTheSanPham(bienThe).loHang(null)
                         .maLo("  lo-pn2026101701-02 ").lyDoLoi("Rách vải").soLuongLoi(2).ghiChu("góc trái").build()));
 
-        service.phatHanh(1, PhatHanhBienBanRequest.builder().phuongAn("DOI_HANG").build(), 99);
+        service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99);
 
         assertEquals(List.of("Bung chỉ", "Rách vải"), dongDaLuu.stream().map(ChiTietTraHangNcc::getLyDoLoi).toList(),
                 "mã lô khác hoa thường / khoảng trắng vẫn là lô 02 của cùng biến thể");
@@ -417,7 +456,7 @@ class BienBanTraHangServiceTest {
                 .maLo("LO-PN2026101701-02").lyDoLoi("Sai màu").soLuongLoi(2).build();
         when(chiTietTraHangNccRepository.findByBienBanTraHangNcc_Id(200)).thenReturn(List.of(dongBienThe1, dongBienThe2));
 
-        BienBanTraHangDto res = service.phatHanh(1, PhatHanhBienBanRequest.builder().phuongAn("DOI_HANG").build(), 99);
+        BienBanTraHangDto res = service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99);
 
         assertEquals(7, res.getTongSoLuongLoi());
         assertEquals(List.of("Bung chỉ", "Rách vải", "Sai màu"), dongDaLuu.stream().map(ChiTietTraHangNcc::getLyDoLoi).toList());
@@ -426,16 +465,18 @@ class BienBanTraHangServiceTest {
 
         // Lô của biến thể 2 không có dòng riêng: không lấy dòng của biến thể 1 (dù dòng đó gắn lô này và đúng tổng 2)
         when(chiTietTraHangNccRepository.findByBienBanTraHangNcc_Id(200)).thenReturn(List.of(dongBienThe1));
-        service.phatHanh(1, PhatHanhBienBanRequest.builder().phuongAn("DOI_HANG").build(), 99);
+        service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99);
         assertEquals(List.of("Bung chỉ", "Rách vải", "Chưa ghi lý do"), dongDaLuu.stream().map(ChiTietTraHangNcc::getLyDoLoi).toList());
         assertSame(loC, dongDaLuu.get(2).getLoHang());
     }
 
     @Test
-    @DisplayName("Mã phương án cũ DOI_HANG_MOI (biên bản lập trước khi đổi tên) được nhận như Đổi hàng khi lập lại / hủy")
+    @DisplayName("Máy cũ còn gửi mã phương án (DOI_HANG_MOI, TRU_CONG_NO): không lỗi, biên bản vẫn chờ chốt")
     void testPhuongAnCu() {
-        BienBanTraHangDto res = service.phatHanh(1, PhatHanhBienBanRequest.builder().phuongAn("DOI_HANG_MOI").build(), 99);
-        assertEquals("DOI_HANG", res.getPhuongAn());
+        BienBanTraHangDto res = service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99);
+        assertEquals(BienBanTraHangNcc.PA_CHO_CHOT, res.getPhuongAn());
+        res = service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99);
+        assertEquals(BienBanTraHangNcc.PA_CHO_CHOT, res.getPhuongAn());
     }
 
     @Test
@@ -443,7 +484,7 @@ class BienBanTraHangServiceTest {
     void testSoBienBanKhongTrung() {
         when(bienBanTraHangNccRepository.findMaBienBanTheoTienTo(anyString()))
                 .thenAnswer(inv -> List.of(inv.<String>getArgument(0) + "001", inv.<String>getArgument(0) + "009", "RTV-khac-mau"));
-        BienBanTraHangDto res = service.phatHanh(1, PhatHanhBienBanRequest.builder().build(), 99);
+        BienBanTraHangDto res = service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99);
         assertTrue(res.getSoBienBan().endsWith("-010"), res.getSoBienBan());
     }
 
@@ -452,7 +493,7 @@ class BienBanTraHangServiceTest {
     void testTrungSoCungLuc() {
         when(bienBanTraHangNccRepository.saveAndFlush(any(BienBanTraHangNcc.class)))
                 .thenThrow(new org.springframework.dao.DataIntegrityViolationException("Duplicate entry"));
-        CommonException ex = assertThrows(CommonException.class, () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().build(), 99));
+        CommonException ex = assertThrows(CommonException.class, () -> service.phatHanh(1, PhatHanhBienBanRequest.builder().nguoiNhanHang("Lê Văn Tài").build(), 99));
         assertEquals(HttpStatus.CONFLICT, ex.getStatus());
         assertTrue(ex.getMessage().contains("lập biên bản lại"), ex.getMessage());
     }
@@ -463,13 +504,13 @@ class BienBanTraHangServiceTest {
         BienBanTraHangNcc bb = BienBanTraHangNcc.builder().id(200).maBienBan("RTV-20261019-001").phieuNhapKho(phieu)
                 .nhaCungCap(phieu.getNhaCungCap()).build();
         when(bienBanTraHangNccRepository.findById(200)).thenReturn(Optional.of(bb));
-        when(bienBanTraHangNccRepository.findByNhaCungCap_IdOrderByNgayTaoDesc(any())).thenReturn(List.of(bb));
+        when(bienBanTraHangNccRepository.timChoDanhSach(any(), any())).thenReturn(List.of(bb));
         SecurityContextHolder.setUser(com.dev.backend.dto.response.entities.NguoiDungAuthInfo.builder()
                 .id(98).vaiTro(java.util.Set.of("nhan_vien_kho")).phanQuyenNguoiDungKhos(List.of()).build());
         SecurityContextHolder.setKhoId(2);
 
         CommonException ex = assertThrows(CommonException.class, () -> service.chiTiet(200));
         assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
-        assertTrue(service.dsTheoNhaCungCap(5).isEmpty());
+        assertTrue(service.danhSach(5, null, null, null).getItems().isEmpty());
     }
 }

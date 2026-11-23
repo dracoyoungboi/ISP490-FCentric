@@ -214,7 +214,7 @@ class PhieuNhapKhoQcGuardTest {
         lenient().when(repository.findById(1)).thenReturn(Optional.of(phieu));
         lenient().when(repository.khoaTheoId(1)).thenReturn(Optional.of(phieu));
         when(chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(1)).thenReturn(List.of(ctLo));
-        // ĐÃ CÓ RTV khớp số lỗi, phương án Trừ công nợ: đơn mua coi như đã xử lý cả phần lỗi
+        // ĐÃ CÓ RTV khớp số lỗi (biên bản cũ ghi Trừ công nợ): đơn mua vẫn chỉ cộng hàng đạt, phần lỗi chờ chốt
         when(bienBanTraHangNccRepository.findByPhieuNhapKho_Id(1)).thenReturn(Optional.of(
                 BienBanTraHangNcc.builder().id(9).maBienBan("RTV-1").tongSoLuongLoi(10).phuongAnXuLy("TRU_CONG_NO").build()));
         when(bienBanTraHangService.khopHangLoiHienTai(any())).thenReturn(true);
@@ -232,8 +232,11 @@ class PhieuNhapKhoQcGuardTest {
         // 2. Ghi nhận số lượng ĐẠT vào ton_kho_vi_tri
         verify(tonKhoViTriRepository).save(argThat(tkvt -> tkvt.getSoLuong() == 90));
 
-        // 3. Bảo toàn 4 trạng thái tồn kho: Incoming -= Q_PO (100), On Hand += Q_ĐẠT (90)
-        assertEquals(0, poItem.getSoLuongDaNhan().compareTo(new BigDecimal("100.000"))); // Incoming giải phóng trọn vẹn 100
+        // 3. "Đã nhận" của đơn chỉ cộng hàng đạt (90); 10 cái lỗi còn thiếu tới khi mua hàng chốt trừ tiền / hàng bù về
+        assertEquals(0, poItem.getSoLuongDaNhan().compareTo(new BigDecimal("90.000")));
+        assertEquals(0, poItem.conThieu().compareTo(BigDecimal.TEN));
+        assertEquals(3, po.getTrangThai(), "đơn chưa nhận đủ");
+        verify(bienBanTraHangService).khiNhapKho(any(), eq(phieu), eq(1));
         verify(tonKhoTheoLoRepository).save(argThat(t -> t.getSoLuongTon().compareTo(new BigDecimal("90.000")) == 0));
 
         // 4. Phiếu chuyển trạng thái COMPLETED (3)

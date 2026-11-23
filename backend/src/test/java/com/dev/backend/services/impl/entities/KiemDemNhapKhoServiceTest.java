@@ -783,10 +783,10 @@ class KiemDemNhapKhoServiceTest {
             verify(chiTietTraHangNccRepository).boLienKetLo(60);
             verify(chiTietPhieuNhapKhoRepository).delete(ct);
             verify(loHangRepository).delete(a);
-            // Biên bản hủy nhưng giữ lại: số biên bản đã cấp không được cấp lại cho phiếu khác
-            assertEquals(BienBanTraHangNcc.DA_HUY, bb.getTrangThai());
-            verify(bienBanTraHangNccRepository).save(bb);
+            // Biên bản hủy (giữ lại số, ghi nhật ký, M6 nếu đã gửi E7) do BienBanTraHangService làm, không xóa ở đây
+            verify(bienBanTraHangService).huyTheoPhieuNhap(same(phieu), any());
             verify(bienBanTraHangNccRepository, never()).delete(any(BienBanTraHangNcc.class));
+            verify(bienBanTraHangNccRepository, never()).save(any());
             assertEquals(4, phieu.getTrangThai());
             assertEquals(0, dongDraft.getSoLuongDatQc());
             assertEquals("CHO_KIEM_DEM", dongDraft.getTrangThaiKiemDem());
@@ -916,7 +916,6 @@ class KiemDemNhapKhoServiceTest {
             assertFalse(khop.getBienBanLech());
             assertFalse(khop.getSafetyLock());
             assertTrue(khop.getCoTheNhapKho());
-            assertEquals("DOI_HANG", khop.getPhuongAnBienBan());
 
             bb.setTongSoLuongLoi(5);
             when(bienBanTraHangService.khopHangLoiHienTai(bb)).thenReturn(false);
@@ -925,6 +924,30 @@ class KiemDemNhapKhoServiceTest {
             assertTrue(lech.getSafetyLock());
             assertFalse(lech.getCoTheNhapKho());
             assertEquals(5, lech.getTongLoiBienBan());
+        }
+
+        @Test
+        @DisplayName("Biên bản khớp nhưng chưa ghi người giao hàng đã ký: khóa nhập kho; lệch thì chỉ báo lệch")
+        void bienBanChoKy() {
+            coLo(loDaKhoa(60, "LO-1", 37, 3));
+            BienBanTraHangNcc bb = BienBanTraHangNcc.builder().id(9).maBienBan("RTV-1").tongSoLuongLoi(3).build();
+            when(bienBanTraHangNccRepository.findByPhieuNhapKho_Id(1)).thenReturn(Optional.of(bb));
+            when(bienBanTraHangService.khopHangLoiHienTai(bb)).thenReturn(true);
+            when(bienBanTraHangService.choNguoiGiaoKy(bb)).thenReturn(true);
+
+            ChiTietPhieuNhapKhoDto cho = service.getDetail(1);
+            assertFalse(cho.getBienBanLech());
+            assertTrue(cho.getSafetyLock());
+            assertFalse(cho.getCoTheNhapKho());
+
+            when(bienBanTraHangService.khopHangLoiHienTai(bb)).thenReturn(false);
+            ChiTietPhieuNhapKhoDto lech = service.getDetail(1);
+            assertTrue(lech.getBienBanLech());
+
+            when(bienBanTraHangService.khopHangLoiHienTai(bb)).thenReturn(true);
+            when(bienBanTraHangService.choNguoiGiaoKy(bb)).thenReturn(false);
+            ChiTietPhieuNhapKhoDto daKy = service.getDetail(1);
+            assertTrue(daKy.getCoTheNhapKho());
         }
 
         @Test
@@ -977,6 +1000,19 @@ class KiemDemNhapKhoServiceTest {
         }
 
         @Test
+        @DisplayName("Biên bản chưa ghi kết quả tài xế ký (chưa gửi nhà cung cấp): 409, không ghi tồn, không gọi khiNhapKho")
+        void bienBanChoKy() {
+            bienBan(3, null);
+            when(bienBanTraHangService.choNguoiGiaoKy(any())).thenReturn(true);
+            CommonException ex = loi(() -> service.completePhieuNhap(1, 9));
+            assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+            assertTrue(ex.getMessage().contains("chưa ghi người giao hàng đã ký"), ex.getMessage());
+            verify(tonKhoTheoLoRepository, never()).save(any());
+            verify(bienBanTraHangService, never()).khiNhapKho(any(), any(), any());
+            assertEquals(0, phieu.getTrangThai());
+        }
+
+        @Test
         @DisplayName("Đổi hàng mới: đơn mua chỉ tính hàng đạt đã nhận, còn chờ giao bù phần lỗi")
         void doiHangChiTinhDat() {
             bienBan(3, "DOI_HANG");
@@ -988,13 +1024,83 @@ class KiemDemNhapKhoServiceTest {
         }
 
         @Test
-        @DisplayName("Trừ công nợ: đơn mua tính cả hàng lỗi là đã xử lý, đơn hoàn thành")
+        @DisplayName("Phiếu nhập chỉ cộng hàng đạt vào đã nhận; phần lỗi do biên bản xử lý (khiNhapKho), chưa trừ tiền thì đơn chưa nhận đủ")
         void truCongNoTinhCaLoi() {
             bienBan(3, "TRU_CONG_NO");
             service.completePhieuNhap(1, 9);
 
+            assertEquals(0, poItem.getSoLuongDaNhan().compareTo(new BigDecimal("37")), "đã nhận chỉ cộng 37 hàng đạt");
+            assertEquals(0, poItem.conThieu().compareTo(new BigDecimal("3")), "3 cái lỗi vẫn là còn thiếu");
+            assertEquals(3, po.getTrangThai(), "đơn còn Đang vận chuyển cho tới khi trừ tiền / giao bù");
+            assertEquals(3, phieu.getTrangThai());
+            verify(bienBanTraHangService).khiNhapKho(argThat(b -> b.getId() == 9), same(phieu), eq(9));
+        }
+
+        @Test
+        @DisplayName("NCC đã chọn trừ tiền trước nhập kho: khiNhapKho cộng số lỗi vào đã nhận TRƯỚC khi xét nhận đủ → đơn Nhận đủ (5)")
+        void nccChonTruTienTruocThiNhanDu() {
+            bienBan(3, "TRU_CONG_NO");
+            ThongBaoMuaHangService thongBaoMuaHangService = mock(ThongBaoMuaHangService.class);
+            ReflectionTestUtils.setField(service, "thongBaoMuaHangService", thongBaoMuaHangService);
+            java.util.concurrent.atomic.AtomicInteger trangThaiPhieuLucApDung = new java.util.concurrent.atomic.AtomicInteger(-1);
+            doAnswer(inv -> {
+                trangThaiPhieuLucApDung.set(inv.<PhieuNhapKho>getArgument(1).getTrangThai());
+                // Giả lập BienBanTraHangServiceImpl.khiNhapKho: cộng 3 cái lỗi trừ tiền vào đã nhận
+                poItem.setSoLuongDaNhan(poItem.getSoLuongDaNhan().add(new BigDecimal("3")));
+                return null;
+            }).when(bienBanTraHangService).khiNhapKho(any(), any(), any());
+
+            service.completePhieuNhap(1, 9);
+
+            assertEquals(3, trangThaiPhieuLucApDung.get(), "áp trừ tiền khi phiếu đã là Đã nhập kho (số lỗi đã khóa)");
             assertEquals(0, poItem.getSoLuongDaNhan().compareTo(new BigDecimal("40")));
+            assertEquals(0, poItem.conThieu().signum());
             assertEquals(5, po.getTrangThai(), "nhận đủ là 5 \"Đã nhận đủ\" (4 là \"Không chấp nhận báo giá\")");
+            verify(thongBaoMuaHangService).donMuaDaNhanDu(same(po), same(phieu), any());
+        }
+
+        @Test
+        @DisplayName("Dòng đơn đã trừ tiền phần lỗi trước (đợt khác, đã nằm trong đã nhận): hàng đạt lấp nốt còn thiếu → đơn Nhận đủ (5)")
+        void daTruTienTruocThiNhanDu() {
+            bienBan(3, "CHO_CHOT");
+            poItem.setSoLuongDaNhan(new BigDecimal("3"));
+            service.completePhieuNhap(1, 9);
+
+            assertEquals(0, poItem.getSoLuongDaNhan().compareTo(new BigDecimal("40")));
+            assertEquals(0, poItem.conThieu().signum());
+            assertEquals(5, po.getTrangThai());
+        }
+
+        @Test
+        @DisplayName("Kiểm vượt số đặt tính cả phần đã trừ tiền (nằm trong đã nhận): đã nhận + đạt mới > đặt thì 409")
+        void vuotSoDatTinhCaTruTien() {
+            bienBan(3, "CHO_CHOT");
+            poItem.setSoLuongDaNhan(new BigDecimal("4"));
+            CommonException ex = loi(() -> service.completePhieuNhap(1, 9));
+            assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+            assertTrue(ex.getMessage().contains("sẽ vượt số đặt"), ex.getMessage());
+            assertEquals(0, poItem.getSoLuongDaNhan().compareTo(new BigDecimal("4")));
+            assertEquals(0, phieu.getTrangThai());
+            verify(bienBanTraHangService, never()).khiNhapKho(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("Phiếu toàn hàng lỗi: không cộng đã nhận, vẫn hoàn tất phiếu và báo mua hàng chốt")
+        void phieuToanHangLoi() {
+            LoHang chiLoi = loDaKhoa(62, "LO-3", 0, 40);
+            when(chiTietPhieuNhapKhoRepository.findAllByPhieuNhapKhoIdAndCoLo(1)).thenReturn(List.of(ctLo(chiLoi)));
+            when(bienBanTraHangNccRepository.findByPhieuNhapKho_Id(1)).thenReturn(Optional.of(
+                    BienBanTraHangNcc.builder().id(9).maBienBan("RTV-20261019-001").tongSoLuongLoi(40).build()));
+            when(bienBanTraHangService.khopHangLoiHienTai(any())).thenReturn(true);
+
+            service.completePhieuNhap(1, 9);
+
+            assertEquals(0, poItem.getSoLuongDaNhan().signum());
+            assertEquals(3, po.getTrangThai());
+            assertEquals(3, phieu.getTrangThai());
+            verify(tonKhoTheoLoRepository, never()).save(any());
+            verify(chiTietDonMuaHangRepository, never()).save(any());
+            verify(bienBanTraHangService).khiNhapKho(any(), same(phieu), eq(9));
         }
 
         @Test
@@ -1057,6 +1163,93 @@ class KiemDemNhapKhoServiceTest {
             dangNhap("quan_ly_kho", 2, 1, 2);
             assertEquals(HttpStatus.FORBIDDEN, loi(() -> service.completePhieuNhap(1, 9)).getStatus());
             assertEquals(0, phieu.getTrangThai());
+        }
+    }
+
+    // ── Biên bản trả ngay cho tài xế khóa phiếu Nháp ──
+
+    @Nested
+    @DisplayName("Phiếu có biên bản trả ngay cho tài xế")
+    class TraNgayKhoaPhieu {
+
+        @BeforeEach
+        void coBienBanTraNgay() {
+            when(bienBanTraHangService.bienBanTraNgayCuaPhieu(1)).thenReturn(BienBanTraHangNcc.builder().id(9)
+                    .maBienBan("RTV-20261122-001").trangThai(BienBanTraHangNcc.DA_TRA_HANG).build());
+        }
+
+        @Test
+        @DisplayName("Khóa lô mới: 409 nêu số biên bản, không lưu lô")
+        void khaiBaoLoBiChan() {
+            CommonException ex = loi(() -> service.khaiBaoLo(1, lo("LO-1", 40, 0).build()));
+            assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+            assertTrue(ex.getMessage().contains("RTV-20261122-001"), ex.getMessage());
+            verify(loHangRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Xóa lô và bấm hoàn tất kiểm đếm: 409")
+        void xoaLoVaHoanTatBiChan() {
+            LoHang a = loDaKhoa(60, "LO-1", 40, 0);
+            when(chiTietPhieuNhapKhoRepository.findByIdAndPhieuNhapKho_Id(1060, 1)).thenReturn(Optional.of(ctLo(a)));
+            assertEquals(HttpStatus.CONFLICT, loi(() -> service.xoaLo(1, 1060)).getStatus());
+            verify(loHangRepository, never()).delete(any(LoHang.class));
+            assertEquals(HttpStatus.CONFLICT, loi(() -> service.hoanTatKiemDemBienThe(1, 100)).getStatus());
+        }
+
+        @Test
+        @DisplayName("Hủy phiếu: 409, phiếu vẫn Nháp")
+        void huyPhieuBiChan() {
+            CommonException ex = loi(() -> service.huyPhieuNhap(1, "Nhà cung cấp giao sai"));
+            assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+            assertTrue(ex.getMessage().contains("không hủy phiếu được"), ex.getMessage());
+            assertEquals(0, phieu.getTrangThai());
+        }
+
+        @Test
+        @DisplayName("Không có biên bản trả ngay (giữ kho): khóa lô bình thường")
+        void giuKhoKhongChan() {
+            when(bienBanTraHangService.bienBanTraNgayCuaPhieu(1)).thenReturn(null);
+            service.khaiBaoLo(1, lo("LO-1", 40, 0).build());
+            verify(loHangRepository).save(any(LoHang.class));
+        }
+    }
+
+    // ── Tạo phiếu nháp: phần còn lại của đơn ──
+
+    @Nested
+    @DisplayName("Tạo phiếu nháp (createDraft)")
+    class TaoPhieuNhap {
+
+        @BeforeEach
+        void donDangVanChuyen() {
+            dangNhap("quan_tri_vien", 1, 1);
+            when(donMuaHangRepository.findById(50)).thenReturn(Optional.of(po));
+            when(repository.save(any(PhieuNhapKho.class))).thenAnswer(inv -> inv.getArgument(0));
+            when(chiTietPhieuNhapKhoRepository.sumDuKienPhieuNhapCungDon(50, 100)).thenReturn(new BigDecimal("5"));
+            when(chiTietPhieuNhapKhoRepository.soPhieuNhapGiuCungDon(50, 100)).thenReturn(List.of("PN202611220001"));
+        }
+
+        private com.dev.backend.dto.request.PhieuNhapKhoCreating yeuCau(String soLuong) {
+            return com.dev.backend.dto.request.PhieuNhapKhoCreating.builder().donMuaHangId(50)
+                    .chiTietPhieuNhapKhos(List.of(com.dev.backend.dto.request.ChiTietPhieuNhapKhoCreating.builder()
+                            .bienTheSanPhamId(100).soLuongDuKienNhap(new BigDecimal(soLuong)).build()))
+                    .build();
+        }
+
+        @Test
+        @DisplayName("Còn lại = đặt − đã nhận (gồm 3 trừ tiền) − đang giữ: 40 − 23 − 5 = 12; 13 thì chặn, 12 thì tạo được")
+        void conLaiTruCaTruTien() {
+            poItem.setSoLuongDaNhan(new BigDecimal("23")); // 20 đạt + 3 lỗi đã trừ tiền
+
+            CommonException ex = loi(() -> service.createDraft(yeuCau("13")));
+            assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+            assertTrue(ex.getMessage().contains("12"), ex.getMessage());
+            verify(chiTietPhieuNhapKhoRepository, never()).save(any(ChiTietPhieuNhapKho.class));
+
+            PhieuNhapKho moi = service.createDraft(yeuCau("12"));
+            assertEquals(0, moi.getTongTien().compareTo(new BigDecimal("1800000")));
+            verify(chiTietPhieuNhapKhoRepository).save(argThat(ct -> ct.getSoLuongNhap().compareTo(new BigDecimal("12")) == 0));
         }
     }
 

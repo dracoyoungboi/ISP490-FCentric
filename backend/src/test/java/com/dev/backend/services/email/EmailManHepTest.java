@@ -69,7 +69,7 @@ class EmailManHepTest {
         for (BanThu ma : List.of(
                 f.dung(s -> s.guiMaDatLaiMatKhau(MauEmailFixture.nhanSu("nhan_vien_kho"), "482913",
                         MauEmailFixture.BAY_GIO, MauEmailFixture.BAY_GIO.plusSeconds(300)), MauEmailFixture.cuaHang()),
-                f.dung(s -> s.guiMaXacNhanBaoGia(MauEmailFixture.don(false), MauEmailFixture.EMAIL_NCC, "771204",
+                f.dung(s -> s.guiMaDangNhapCong(MauEmailFixture.EMAIL_NCC, MauEmailFixture.TEN_NCC, "771204",
                         MauEmailFixture.BAY_GIO.plusSeconds(300)), MauEmailFixture.cuaHang()))) {
             assertTrue(ma.html().contains("class=\"o-ma\""), "ô mã thu nhỏ khoảng cách chữ ở màn hẹp");
         }

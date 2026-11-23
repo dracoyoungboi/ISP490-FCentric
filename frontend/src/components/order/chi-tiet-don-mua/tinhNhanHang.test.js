@@ -2,8 +2,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  conThieuDong,
   docSo,
   dungBangDotNhan,
+  hangLoiChuyenKhiDongDon,
+  nhanBuTheoBienThe,
+  thaoTacKetThuc,
+  tomTatPhuongAn,
   tinhBuocDonMua,
   tinhTienDoNhan,
   trangThaiGiao,
@@ -43,7 +48,7 @@ test("docSo đọc BigDecimal dạng số và chuỗi", () => {
 
 test("tinhTienDoNhan: chưa nhận gì", () => {
   const td = tinhTienDoNhan([dongDon(1, 30, 80, 0, "30"), dongDon(2, 32, 70, 0, "32")]);
-  assert.deepEqual(td, { dat: 150, daNhan: 0, conThieu: 150, vuot: 0, phanTram: 0, daDu: false, chuaNhan: true });
+  assert.deepEqual(td, { dat: 150, daNhan: 0, truTien: 0, conThieu: 150, vuot: 0, phanTram: 0, daDu: false, chuaNhan: true });
 });
 
 test("tinhTienDoNhan: nhận một phần, số dạng chuỗi", () => {
@@ -126,39 +131,105 @@ test("dungBangDotNhan: hai đợt hoàn tất xếp theo ngày nhập", () => {
   assert.equal(bang.dong[0].conThieu, 0);
 });
 
-test("dungBangDotNhan: hàng lỗi Trừ công nợ / Trả tài xế tính vào đợt đã nhập (khớp số đã nhận của máy chủ), Đổi hàng thì không", () => {
-  // Đơn đặt 80 mỗi dòng. Máy chủ: Đổi hàng chỉ cộng đạt; phương án khác cộng đạt + lỗi vào soLuongDaNhan
-  const chiTiets = [dongDon(1, 30, 80, 45 + 5 + 18, "30"), dongDon(2, 32, 80, 30, "32")];
+test("dungBangDotNhan: phiếu đã nhập có hàng lỗi hiện số đạt, số lỗi để riêng; phiếu chờ nhập giữ số dự kiến", () => {
+  // Máy chủ chỉ cộng hàng đạt vào soLuongDaNhan: 45 + 18
+  const chiTiets = [dongDon(1, 30, 80, 45 + 18, "30"), dongDon(2, 32, 80, 30, "32")];
   const phieus = [
     phieu(31, 3, [
       { bienTheSanPhamId: 30, soLuongCanNhap: 50, soLuongDaKhaiBao: 45, soLuongLoiQc: 5 },
       { bienTheSanPhamId: 32, soLuongCanNhap: 30, soLuongDaKhaiBao: 30, soLuongLoiQc: 0 },
-    ], { ngayNhap: "2026-10-14T08:40:00Z", phuongAnBienBan: "TRU_CONG_NO" }),
+    ], { ngayNhap: "2026-10-14T08:40:00Z" }),
     phieu(40, 3, [{ bienTheSanPhamId: 30, soLuongCanNhap: 20, soLuongDaKhaiBao: 18, soLuongLoiQc: 2 }], {
       ngayNhap: "2026-10-18T03:00:00Z",
-      phuongAnBienBan: "DOI_HANG",
     }),
-    // Phiếu chờ nhập vẫn chỉ hiện số dự kiến, không cộng lỗi
-    phieu(45, 0, [{ bienTheSanPhamId: 30, soLuongCanNhap: 10, soLuongDaKhaiBao: 3, soLuongLoiQc: 1 }], { phuongAnBienBan: "TRA_TAI_XE" }),
+    // Phiếu chờ nhập vẫn chỉ hiện số dự kiến, không có số lỗi
+    phieu(45, 0, [{ bienTheSanPhamId: 30, soLuongCanNhap: 10, soLuongDaKhaiBao: 3, soLuongLoiQc: 1 }]),
   ];
   const bang = dungBangDotNhan(chiTiets, phieus);
-  assert.deepEqual(bang.dong[0].theoDot, [50, 18, 10]);
+  assert.deepEqual(bang.dong[0].theoDot, [45, 18, 10]);
+  assert.deepEqual(bang.dong[0].theoDotLoi, [5, 2, 0]);
   assert.deepEqual(bang.dong[1].theoDot, [30, null, null]);
+  assert.deepEqual(bang.dong[1].theoDotLoi, [0, 0, 0]);
+  assert.deepEqual(bang.tong.theoDotLoi, [5, 2, 0]);
+  // Hàng lỗi chưa chốt vẫn là còn thiếu
+  assert.equal(bang.dong[0].conThieu, 80 - 63);
   assert.deepEqual(bang.lechSo, []);
 });
 
-test("dungBangDotNhan: biên bản mã cũ DOI_HANG_MOI và phiếu không có biên bản chỉ tính hàng đạt", () => {
-  const chiTiets = [dongDon(1, 30, 80, 45 + 20, "30")];
-  const phieus = [
-    phieu(31, 3, [{ bienTheSanPhamId: 30, soLuongDaKhaiBao: 45, soLuongLoiQc: 5 }], {
-      ngayNhap: "2026-10-14T08:40:00Z",
-      phuongAnBienBan: "DOI_HANG_MOI",
-    }),
-    phieu(40, 3, [{ bienTheSanPhamId: 30, soLuongDaKhaiBao: 20, soLuongLoiQc: 0 }], { ngayNhap: "2026-10-18T03:00:00Z" }),
+test("conThieuDong / tinhTienDoNhan: hàng lỗi đã chốt trừ tiền làm dòng đủ", () => {
+  const dong = { ...dongDon(1, 30, 80, 80, "30"), soLuongTruTien: "5.000" };
+  assert.equal(conThieuDong(dong), 0);
+  const td = tinhTienDoNhan([dong, dongDon(2, 32, 70, 70, "32")]);
+  assert.equal(td.truTien, 5);
+  assert.equal(td.conThieu, 0);
+  assert.equal(td.daDu, true);
+  assert.equal(td.phanTram, 100);
+  assert.equal(td.chuaNhan, false);
+});
+
+test("tinhTienDoNhan: trừ tiền một phần, tiến độ tính cả trừ tiền", () => {
+  const td = tinhTienDoNhan([{ ...dongDon(1, 30, 100, 50, "30"), soLuongTruTien: 10 }]);
+  assert.equal(td.conThieu, 50);
+  assert.equal(td.phanTram, 50);
+  assert.equal(td.daDu, false);
+});
+
+test("dungBangDotNhan: thành tiền theo số đã giảm trừ, tổng có giảm trừ và giá trị hàng đạt đã nhận", () => {
+  const chiTiets = [
+    { ...dongDon(1, 30, 80, 80, "30"), soLuongTruTien: 5 },
+    dongDon(2, 32, 70, 30, "32"),
   ];
-  const bang = dungBangDotNhan(chiTiets, phieus);
-  assert.deepEqual(bang.dong[0].theoDot, [45, 20]);
-  assert.deepEqual(bang.lechSo, []);
+  const bang = dungBangDotNhan(chiTiets, []);
+  const [d0, d1] = bang.dong;
+  assert.equal(d0.truTien, 5);
+  assert.equal(d0.conThieu, 0);
+  assert.equal(d0.thanhTien, 75 * 165000);
+  assert.equal(d0.giamTru, 5 * 165000);
+  assert.equal(d1.thanhTien, 70 * 165000);
+  assert.equal(bang.tong.truTien, 5);
+  assert.equal(bang.tong.thanhTienTheoDat, 150 * 165000);
+  assert.equal(bang.tong.giamTru, 5 * 165000);
+  assert.equal(bang.tong.thanhTien, 145 * 165000);
+  assert.equal(bang.tong.giaTriDaNhan, (75 + 30) * 165000);
+});
+
+test("thaoTacKetThuc: theo số phiếu nhập hoàn tất", () => {
+  const don = donMau();
+  // Có phiếu hoàn tất, còn thiếu: đóng
+  assert.deepEqual(thaoTacKetThuc(don, undefined, true, 1), { dong: true, huy: false });
+  // Chưa có phiếu hoàn tất: hủy
+  assert.deepEqual(thaoTacKetThuc(donMau({ chiTietDonMuaHangs: [dongDon(1, 30, 80, 0, "30")] }), undefined, true, 0), { dong: false, huy: true });
+  // Không có quyền / không đang vận chuyển
+  assert.deepEqual(thaoTacKetThuc(don, undefined, false, 1), { dong: false, huy: false });
+  assert.deepEqual(thaoTacKetThuc(donMau({ trangThai: 6 }), undefined, true, 1), { dong: false, huy: false });
+  // Đủ hàng (kể cả nhờ trừ tiền): không đóng, không hủy
+  const du = donMau({ chiTietDonMuaHangs: [{ ...dongDon(1, 30, 80, 80, "30"), soLuongTruTien: 10 }] });
+  assert.deepEqual(thaoTacKetThuc(du, undefined, true, 1), { dong: false, huy: false });
+  // Chưa biết số phiếu: đoán theo số đã nhận
+  assert.deepEqual(thaoTacKetThuc(don, undefined, true, null), { dong: true, huy: false });
+});
+
+test("thaoTacKetThuc: đơn có đợt đầu toàn hàng lỗi thì đóng được, không hủy được", () => {
+  // Phiếu 31 hoàn tất, 20 sản phẩm đều lỗi: đã nhận 0, còn thiếu 80
+  const don = donMau({ chiTietDonMuaHangs: [dongDon(1, 30, 80, 0, "30")] });
+  const bang = dungBangDotNhan(don.chiTietDonMuaHangs, [
+    phieu(31, 3, [{ bienTheSanPhamId: 30, soLuongCanNhap: 20, soLuongDaKhaiBao: 0, soLuongLoiQc: 20 }], { ngayNhap: "2026-10-14T08:40:00Z" }),
+  ]);
+  assert.deepEqual(bang.dong[0].theoDot, [0]);
+  assert.deepEqual(bang.dong[0].theoDotLoi, [20]);
+  const soPhieuHoanTat = bang.cot.filter((c) => !c.choNhap).length;
+  assert.deepEqual(thaoTacKetThuc(don, undefined, true, soPhieuHoanTat), { dong: true, huy: false });
+  // Bước Nhận hàng không còn ghi "Chưa nhận"
+  const buoc = tinhBuocDonMua(don, undefined, bang.cot, new Date(2026, 9, 14));
+  assert.equal(buoc[4].phu, "0/80");
+});
+
+test("tinhBuocDonMua: có trừ tiền thì bước Nhận hàng ghi kèm số trừ tiền", () => {
+  const don = donMau({ chiTietDonMuaHangs: [{ ...dongDon(1, 30, 80, 80, "30"), soLuongTruTien: 5 }] });
+  const buoc = tinhBuocDonMua(don, undefined, [{ id: 31, choNhap: false, ngay: "2026-10-14T08:40:00Z" }], new Date(2026, 9, 20));
+  assert.equal(buoc[4].trangThai, "xong");
+  assert.equal(buoc[4].phu, "75 đạt + 5 trừ tiền / 80");
+  assert.equal(buoc[5].trangThai, "xong");
 });
 
 test("trangThaiGiao: quá hạn, hôm nay, còn lại, đã đủ, không có hạn", () => {
@@ -255,4 +326,50 @@ test("dungBangDotNhan: dòng có màu, mã màu, kích cỡ để vẽ chấm m�
   assert.equal(d.kichCo, "30");
   const [khong] = dungBangDotNhan([dongDon(2, 31, 1, 0, "32")], []).dong;
   assert.equal(khong.maMauHex, "");
+});
+
+const bienBan = (id, phuongAn, theoBienThe, extra = {}) => ({
+  id,
+  soBienBan: `BBTH-${id}`,
+  trangThai: "CHO_TRA_HANG",
+  phieuDaNhap: true,
+  phuongAn,
+  theoBienThe,
+  ...extra,
+});
+
+test("nhanBuTheoBienThe: chờ chốt, chờ hàng bù; bỏ biên bản đã hủy, chưa nhập kho, giao bù đã đủ, trừ tiền", () => {
+  const ds = [
+    bienBan(1, "CHO_CHOT", [{ bienTheSanPhamId: 30, soLuongLoi: 5 }]),
+    bienBan(2, "DOI_HANG", [{ bienTheSanPhamId: 30, soLuongLoi: 2 }, { bienTheSanPhamId: 32, soLuongLoi: 3 }]),
+    bienBan(3, "DOI_HANG", [{ bienTheSanPhamId: 34, soLuongLoi: 1 }], { buXong: true }),
+    bienBan(4, "TRU_CONG_NO", [{ bienTheSanPhamId: 36, soLuongLoi: 1 }]),
+    bienBan(5, "CHO_CHOT", [{ bienTheSanPhamId: 38, soLuongLoi: 1 }], { trangThai: "DA_HUY" }),
+    bienBan(6, "CHO_CHOT", [{ bienTheSanPhamId: 40, soLuongLoi: 1 }], { phieuDaNhap: false }),
+  ];
+  assert.deepEqual(nhanBuTheoBienThe(ds), { 30: "choChot", 32: "choHangBu" });
+  assert.deepEqual(nhanBuTheoBienThe(undefined), {});
+});
+
+test("hangLoiChuyenKhiDongDon: tối đa phần còn thiếu dòng đơn, trừ dần qua các biên bản", () => {
+  const chiTiets = [dongDon(1, 30, 80, 72, "30"), dongDon(2, 32, 70, 70, "32")]; // còn thiếu 8 và 0
+  const ds = [
+    bienBan(1, "CHO_CHOT", [{ bienTheSanPhamId: 30, soLuongLoi: 5 }]),
+    bienBan(2, "DOI_HANG", [{ bienTheSanPhamId: 30, soLuongLoi: 5 }, { bienTheSanPhamId: 32, soLuongLoi: 2 }]),
+    bienBan(3, "TRU_CONG_NO", [{ bienTheSanPhamId: 30, soLuongLoi: 4 }]),
+  ];
+  assert.deepEqual(hangLoiChuyenKhiDongDon(ds, chiTiets), { soLuong: 8, soBienBan: ["BBTH-1", "BBTH-2"] });
+  // Không có dòng đơn: dùng còn thiếu biên bản trả về
+  const khongDong = [bienBan(7, "CHO_CHOT", [{ bienTheSanPhamId: 50, soLuongLoi: 6, conThieuDongDon: "4.000" }])];
+  assert.deepEqual(hangLoiChuyenKhiDongDon(khongDong, []), { soLuong: 4, soBienBan: ["BBTH-7"] });
+  assert.deepEqual(hangLoiChuyenKhiDongDon([], chiTiets), { soLuong: 0, soBienBan: [] });
+});
+
+test("tomTatPhuongAn: chưa chốt, trừ tiền, giao bù", () => {
+  const tien = (n) => `${n} đ`;
+  assert.equal(tomTatPhuongAn(bienBan(1, "CHO_CHOT", []), tien), "chờ nhà cung cấp chọn");
+  assert.equal(tomTatPhuongAn(bienBan(1, "TRU_CONG_NO", [], { tienTruTien: "825000.00" }), tien), "trừ tiền 825000 đ");
+  assert.equal(tomTatPhuongAn(bienBan(1, "DOI_HANG", []), tien), "giao bù");
+  assert.equal(tomTatPhuongAn(bienBan(1, "DOI_HANG", [], { buXong: true }), tien), "giao bù, đã đủ");
+  assert.equal(tomTatPhuongAn(bienBan(1, "CHO_CHOT", [], { phieuDaNhap: false }), tien), "");
 });

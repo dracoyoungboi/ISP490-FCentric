@@ -399,7 +399,7 @@ class IRoleTypeTest {
         }
 
         @Test
-        @DisplayName("Chứng từ kho: nhân viên mua hàng, nhân viên bán hàng chỉ có API đọc")
+        @DisplayName("Chứng từ kho: nhân viên mua hàng, nhân viên bán hàng chỉ có API đọc (trừ chốt cách bù hàng lỗi với NCC)")
         void chungTuKho_nguoiMuaNguoiBanChiDoc() {
             for (Class<?> c : List.of(PhieuNhapKhoController.class, PhieuXuatKhoController.class,
                     PhieuChuyenKhoController.class, KiemKeController.class, NhatHangController.class,
@@ -407,9 +407,24 @@ class IRoleTypeTest {
                     LichSuGiaoDichKhoController.class, MaVachNhaCungCapController.class)) {
                 for (Method m : api(c)) {
                     Set<String> vt = vaiTro(m);
+                    if (c == BienBanTraHangController.class && "POST".equals(dongTu(m))
+                            && duongDan(m, "POST").contains("/api/v1/bien-ban-tra-hang-ncc/{id}/gui-lai-email")) continue;
                     if (vt.contains(NVMH) || vt.contains(NVBH)) assertTrue(chiDoc(m), "ghi chứng từ kho: " + ten(m));
                 }
             }
+        }
+
+        @Test
+        @DisplayName("Trả hàng NCC: không còn API chốt thay nhà cung cấp (NCC tự trả lời trên cổng); gửi lại email chỉ quản trị viên + mua hàng; giao trả / tiêu hủy chỉ phía kho")
+        void traHangNcc_khongChotThay_giaoTraLaKho() {
+            Class<?> c = BienBanTraHangController.class;
+            assertThrows(AssertionError.class, () -> yeuCau(c, "POST", "/api/v1/bien-ban-tra-hang-ncc/{id}/chot"),
+                    "không ai bên mua chốt cách bù thay nhà cung cấp");
+            assertEquals(Set.of(QT, NVMH), vaiTro(c, "POST", "/api/v1/bien-ban-tra-hang-ncc/{id}/gui-lai-email"));
+            assertEquals(Set.of(QT, QLK, NVK), vaiTro(c, "POST", "/api/v1/bien-ban-tra-hang-ncc/{id}/giao-tra"));
+            assertEquals(Set.of(QT, QLK), vaiTro(c, "POST", "/api/v1/bien-ban-tra-hang-ncc/{id}/tieu-huy"));
+            assertFalse(vaiTro(c, "POST", "/api/v1/phieu-nhap-kho/{phieuNhapKhoId}/bien-ban-tra-hang").contains(NVMH),
+                    "lập biên bản ở phiếu nhập là việc của kho");
         }
 
         @Test
