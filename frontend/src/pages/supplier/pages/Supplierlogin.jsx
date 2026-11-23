@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, CheckCircle2, Info, Link2, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, FileWarning, Info, Link2, Loader2 } from 'lucide-react';
 import AuthShell from '@/components/auth/AuthShell';
 import AuthProgress from '@/components/auth/AuthProgress';
 import OtpInputs from '@/components/auth/OtpInputs';
-import supplierQuotationService from '@/services/supplierQuotationService';
+import congNhaCungCapService from '@/services/congNhaCungCapService';
+import { cungEmail, dichSauDangNhap, docPhien, loaiLienKet, luuPhien, phienDaHetHan } from '@/components/supplier-portal/phienCong';
+import { datSoViec, useTieuDeCong } from '@/components/supplier-portal/useCongNcc';
 import {
     boThongBaoVaoTrang,
     cauDaGuiMa,
@@ -51,7 +53,7 @@ const ANH_NEN_NCC = [
     },
 ];
 
-const CAC_BUOC = [t("Thông tin đơn"), t("Mã xác nhận")];
+const CAC_BUOC = [t("Email"), t("Mã xác nhận")];
 const OTP_TRONG = ['', '', '', '', '', ''];
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Thời hạn mã và thời gian chờ gửi lại lấy từ máy chủ (hetHanGiay, guiLaiSauGiay), không viết cứng ở trang
@@ -76,15 +78,20 @@ function LoiO({ id, children }) {
     );
 }
 
+/**
+ * Đăng nhập cổng nhà cung cấp theo EMAIL (không theo từng đơn): nhập email → nhận mã 6 số → phiên 60 phút cho mọi đơn,
+ * biên bản của nhà cung cấp có email đó.
+ * Tham số địa chỉ: `?email=` điền sẵn; `?bienBan=ID` (email biên bản trả hàng) / `?id=ID` (email yêu cầu báo giá) mở
+ * thẳng biên bản / đơn đó sau khi xác nhận; `?tiep=` trang đang xem lúc phiên hết hạn (xem phienCong.dichSauDangNhap).
+ */
 export default function SupplierLoginPage() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const location = useLocation();
-    const orderId = searchParams.get('id');
     const emailParam = searchParams.get('email');
+    const lienKet = loaiLienKet(searchParams);
 
     const [email, setEmail] = useState(emailParam || '');
-    const [manualSoDonMua, setManualSoDonMua] = useState('');
     const [otp, setOtp] = useState(OTP_TRONG);
     const [buoc, setBuoc] = useState('thong-tin');
     // false | 'gui-ma' | 'gui-lai' | 'xac-thuc'
@@ -97,9 +104,20 @@ export default function SupplierLoginPage() {
     const [bayGio, setBayGio] = useState(() => Date.now());
 
     const emailRef = useRef(null);
-    const maDonRef = useRef(null);
 
-    // Trang báo giá chuyển về đây khi chưa xác thực (không có dữ liệu đơn)
+    useTieuDeCong(buoc === 'otp' ? t("Nhập mã xác nhận") : t("Đăng nhập"));
+
+    // Đang có phiên còn hạn của đúng email (vd. bấm liên kết trong email khi đã đăng nhập): mở thẳng trang cần tới
+    useEffect(() => {
+        const phien = docPhien();
+        if (phien && !phienDaHetHan(phien) && cungEmail(phien, emailParam)) {
+            navigate(dichSauDangNhap(searchParams), { replace: true });
+        }
+        // Chỉ xét lúc vào trang
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Trang trong cổng chuyển về đây khi phiên hết hạn (kèm câu báo)
     const thongBaoVao = location.state?.thongBao;
     const conLaiGiay = Math.max(0, Math.ceil((guiLaiLuc - bayGio) / 1000));
 
@@ -122,17 +140,6 @@ export default function SupplierLoginPage() {
         tieuDiemSauRef.current = null;
     }, [buoc, dangXuLy]);
 
-    /*
-     * Đơn cần đăng nhập: theo id nếu mở từ liên kết có ?id=, ngược lại theo mã đơn nhà cung cấp tự nhập.
-     * Không tra mã đơn qua /don-mua-hang/filter: API đó chỉ dành cho nhân viên đã đăng nhập (trả 403 cho nhà cung cấp);
-     * backend tự tìm đơn theo mã ở API nhận mã và chỉ nhận khi email khớp nhà cung cấp của đơn.
-     */
-    const thamChieuDon = () => {
-        if (orderId) return { donMuaHangId: Number(orderId) };
-        const maDon = manualSoDonMua.trim();
-        return maDon ? { soDonMua: maDon } : null;
-    };
-
     /** Đếm ngược nút "Gửi lại mã" theo số giây máy chủ trả (guiLaiSauGiay); 0 hoặc không có thì gửi lại được ngay. */
     const datDemNguoc = (giay) => {
         const luc = Date.now();
@@ -154,7 +161,7 @@ export default function SupplierLoginPage() {
         }
     };
 
-    /** Về bước 1 kèm câu báo (đơn không còn nhận báo giá, hoặc phải chờ mới nhận được mã mới). */
+    /** Về bước 1 kèm câu báo (phải chờ mới nhận được mã mới). */
     const veBuocDau = (cau) => {
         setBuoc('thong-tin');
         setOtp(OTP_TRONG);
@@ -169,18 +176,16 @@ export default function SupplierLoginPage() {
         const emailGon = email.trim();
         if (!emailGon) loiMoi.email = t("Vui lòng nhập email");
         else if (!EMAIL_REGEX.test(emailGon)) loiMoi.email = t("Email không hợp lệ");
-        const don = thamChieuDon();
-        if (!don) loiMoi.maDon = t("Vui lòng nhập mã đơn mua hàng");
-        if (loiMoi.email || loiMoi.maDon) {
+        if (loiMoi.email) {
             setLoi(loiMoi);
-            (loiMoi.email ? emailRef : maDonRef).current?.focus();
+            emailRef.current?.focus();
             return;
         }
 
         setLoi({});
         await chayMotLan('gui-ma', async () => {
             try {
-                const res = await supplierQuotationService.requestOtp({ email: emailGon, ...don });
+                const res = await congNhaCungCapService.layMa(emailGon);
                 const { hetHanGiay, guiLaiSauGiay } = docThoiHanMa(res?.data);
                 setThongBao({ loai: 'thanh-cong', noiDung: cauDaGuiMa(hetHanGiay) });
                 datDemNguoc(guiLaiSauGiay);
@@ -210,13 +215,11 @@ export default function SupplierLoginPage() {
     };
 
     const handleResendOtp = async () => {
-        const don = thamChieuDon();
-        if (!don) return;
         setLoi({});
         tieuDiemSauRef.current = 'ncc-otp-0';
         await chayMotLan('gui-lai', async () => {
             try {
-                const res = await supplierQuotationService.requestOtp({ email: email.trim(), ...don });
+                const res = await congNhaCungCapService.layMa(email.trim());
                 const { hetHanGiay, guiLaiSauGiay } = docThoiHanMa(res?.data);
                 setThongBao({ loai: 'thanh-cong', noiDung: cauDaGuiMa(hetHanGiay, { guiLai: true }) });
                 datDemNguoc(guiLaiSauGiay);
@@ -226,7 +229,7 @@ export default function SupplierLoginPage() {
                 if (kq.loai === 'cho-gui-lai') {
                     setThongBao({ loai: 'thong-tin', noiDung: kq.cau });
                     datDemNguoc(kq.guiLaiSauGiay);
-                } else if (kq.loai === 'khong-con-nhan' || kq.loai === 'phai-cho') {
+                } else if (kq.loai === 'phai-cho') {
                     // 'phai-cho': mã cũ đã hết hạn, chưa nhận được mã mới -> không còn mã để nhập, về bước 1 (R10)
                     veBuocDau(kq.cau);
                 } else {
@@ -244,40 +247,22 @@ export default function SupplierLoginPage() {
             setLoi({ otp: t("Vui lòng nhập đủ 6 số của mã xác nhận") });
             return;
         }
-        const don = thamChieuDon();
-        if (!don) {
-            setLoi({ chung: t("Không tìm thấy thông tin đơn hàng.") });
-            return;
-        }
 
         setLoi({});
         tieuDiemSauRef.current = 'ncc-otp-0';
         await chayMotLan('xac-thuc', async () => {
             try {
-                const res = await supplierQuotationService.verifyOtp({ email: email.trim(), otp: maOtp, ...don });
-                const kq = res?.data;
-                if (kq?.donMua && kq.phienBaoGia) {
+                const res = await congNhaCungCapService.xacNhanMa(email.trim(), maOtp);
+                // Phiên lưu trong sessionStorage của thẻ này (một khóa); mọi API sau đăng nhập gửi kèm
+                if (luuPhien(res?.data)) {
                     tieuDiemSauRef.current = null;
-                    // Phiên báo giá chỉ nằm trong state của lịch sử trình duyệt (không lưu localStorage)
-                    navigate('/supplier/quotation', {
-                        state: {
-                            orderData: kq.donMua,
-                            supplierEmail: email.trim(),
-                            orderId: kq.donMua.id ?? don.donMuaHangId,
-                            phienBaoGia: kq.phienBaoGia,
-                            hetHanPhien: kq.hetHanPhien ?? null,
-                            cuaHang: kq.cuaHang ?? null,
-                        },
-                    });
+                    datSoViec(undefined);
+                    navigate(dichSauDangNhap(searchParams), { replace: true });
                     return;
                 }
-                setLoi({ chung: t("Không lấy được thông tin đơn mua hàng. Vui lòng thử lại.") });
+                setLoi({ chung: t("Chưa đăng nhập được. Vui lòng thử lại.") });
             } catch (err) {
                 const kq = xuLyLoiXacNhan(err);
-                if (kq.loai === 'khong-con-nhan') {
-                    veBuocDau(kq.cau);
-                    return;
-                }
                 if (kq.loai === 'ma-sai' || kq.loai === 'ma-het-han') {
                     setOtp(OTP_TRONG);
                     setLoi({ otp: kq.cau });
@@ -296,8 +281,6 @@ export default function SupplierLoginPage() {
         setLoi({});
         setThongBao(null);
     };
-
-    const maDonHienThi = orderId ? '' : manualSoDonMua.trim();
 
     return (
         <AuthShell slides={ANH_NEN_NCC}>
@@ -322,17 +305,15 @@ export default function SupplierLoginPage() {
                             {t("Mã 6 chữ số đã được gửi tới")}{' '}
                             <strong className="font-semibold break-words text-gray-900">{email}</strong>.
                         </>
-                    ) : orderId ? (
-                        t("Nhập email nhận yêu cầu báo giá để nhận mã xác nhận.")
                     ) : (
-                        t("Nhập email và mã đơn mua hàng để nhận mã xác nhận.")
+                        t("Nhập email công ty đã đăng ký với chúng tôi. Mã xác nhận gửi về email này, dùng để xem và xử lý mọi đơn, biên bản của Quý công ty.")
                     )}
                 </p>
             </div>
 
             <AuthProgress steps={CAC_BUOC} currentStep={buoc === 'otp' ? 2 : 1} />
 
-            {/* ── BƯỚC 1: EMAIL + MÃ ĐƠN ── */}
+            {/* ── BƯỚC 1: EMAIL ── */}
             {buoc === 'thong-tin' && (
                 <>
                     <form className="space-y-5 fade-in-up delay-4" onSubmit={handleSendOtp} noValidate>
@@ -363,40 +344,20 @@ export default function SupplierLoginPage() {
                             <LoiO id="ncc-email-loi">{loi.email}</LoiO>
                         </div>
 
-                        {orderId ? (
-                            <div className="flex items-center gap-2.5 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
-                                <Link2 size={16} className="shrink-0 text-gray-500" aria-hidden="true" />
-                                <span>{t("Đơn mua hàng đã lấy từ liên kết trong email")}</span>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                <label htmlFor="ncc-ma-don" className={LABEL}>{t("Mã đơn mua hàng")}</label>
-                                <input
-                                    ref={maDonRef}
-                                    id="ncc-ma-don"
-                                    type="text"
-                                    autoComplete="off"
-                                    spellCheck={false}
-                                    placeholder={t("VD: {{viDu}}", { viDu: "PO202610115101" })}
-                                    className={`${INPUT_BASE} ${loi.maDon ? INPUT_ERROR : INPUT_NORMAL}`}
-                                    value={manualSoDonMua}
-                                    onChange={(e) => {
-                                        setManualSoDonMua(e.target.value);
-                                        setLoi((p) => ({ ...p, maDon: '', chung: '' }));
-                                    }}
-                                    disabled={Boolean(dangXuLy)}
-                                    aria-invalid={Boolean(loi.maDon)}
-                                    aria-describedby={loi.maDon ? 'ncc-ma-don-loi' : 'ncc-ma-don-goi-y'}
-                                />
-                                {loi.maDon ? (
-                                    <LoiO id="ncc-ma-don-loi">{loi.maDon}</LoiO>
+                        {lienKet ? (
+                            <div className="flex items-start gap-2.5 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+                                {lienKet === 'bien-ban' ? (
+                                    <FileWarning size={16} className="mt-0.5 shrink-0 text-gray-500" aria-hidden="true" />
                                 ) : (
-                                    <p id="ncc-ma-don-goi-y" className="text-sm text-gray-500">
-                                        {t("Mã đơn có trong email yêu cầu báo giá.")}
-                                    </p>
+                                    <Link2 size={16} className="mt-0.5 shrink-0 text-gray-500" aria-hidden="true" />
                                 )}
+                                <span>
+                                    {lienKet === 'bien-ban'
+                                        ? t("Xác nhận xong sẽ mở thẳng biên bản trả hàng từ liên kết trong email.")
+                                        : t("Xác nhận xong sẽ mở thẳng đơn cần báo giá từ liên kết trong email.")}
+                                </span>
                             </div>
-                        )}
+                        ) : null}
 
                         <button type="submit" className={`${PRIMARY_BTN} mt-4`} disabled={Boolean(dangXuLy)}>
                             {dangXuLy === 'gui-ma' ? (
@@ -408,7 +369,7 @@ export default function SupplierLoginPage() {
                     </form>
 
                     <p className="mt-8 text-sm text-gray-500 fade-in-up delay-5">
-                        {t("Chưa nhận được email yêu cầu báo giá? Hãy liên hệ nhân viên mua hàng đã mời Quý công ty báo giá.")}
+                        {t("Email chưa đăng ký hoặc đã đổi? Liên hệ nhân viên mua hàng phụ trách Quý công ty để cập nhật.")}
                     </p>
                 </>
             )}
@@ -472,12 +433,6 @@ export default function SupplierLoginPage() {
                         </button>
                     </form>
 
-                    {maDonHienThi && (
-                        <div className="mt-8 flex justify-between gap-3 border-t border-gray-200 pt-4 text-sm fade-in-up delay-5">
-                            <span className="text-gray-500">{t("Đơn mua hàng")}</span>
-                            <span className="min-w-0 text-right font-semibold break-words tabular-nums text-gray-900">{maDonHienThi}</span>
-                        </div>
-                    )}
                 </>
             )}
         </AuthShell>

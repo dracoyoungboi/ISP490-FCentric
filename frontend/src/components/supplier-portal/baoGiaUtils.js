@@ -1,6 +1,6 @@
 import { t } from "../../i18n/t.js";
 /**
- * Hàm thuần cho trang báo giá của nhà cung cấp (/supplier/quotation).
+ * Hàm thuần cho trang báo giá của nhà cung cấp (/supplier/portal/quotation/:id).
  *
  * Máy chủ ghép đơn giá vào dòng theo id dòng (`chiTietDonMuaHangId`, HOP-DONG 2.2), không theo vị trí; dòng đơn mua
  * đến từ máy chủ đã xếp theo id tăng dần (cùng số thứ tự với email yêu cầu báo giá).
@@ -87,7 +87,7 @@ export const loaiNhanTrangThaiCong = ({ daGui, chiXem, daBaoGiaTruoc, donConNhan
 };
 
 /**
- * Dữ liệu gửi POST /don-mua-hang/bao-gia. Mỗi dòng gửi cả `chiTietDonMuaHangId` và `id` (cùng giá trị: id dòng
+ * Dữ liệu gửi POST /cong-ncc/don-mua/{id}/bao-gia. Mỗi dòng gửi cả `chiTietDonMuaHangId` và `id` (cùng giá trị: id dòng
  * chi_tiet_don_mua_hang, HOP-DONG 6.13) để máy chủ ghép giá theo id. Ghi chú chung đã cắt khoảng trắng.
  */
 export const taoPayloadBaoGia = (orderData, dong, ghiChu) => ({
@@ -95,23 +95,6 @@ export const taoPayloadBaoGia = (orderData, dong, ghiChu) => ({
     ghiChu: String(ghiChu ?? '').trim(),
     chiTietDonMuaHangBaoGias: dong.map(({ id, donGia }) => ({ id, chiTietDonMuaHangId: id, donGia: Number(donGia) })),
 });
-
-/**
- * Bản sao orderData mang đơn giá, ghi chú và giờ nhận báo giá của máy chủ vừa gửi, chỉ để lưu vào lịch sử trình duyệt
- * (tải lại trang vẫn thấy báo giá đã gửi). Ghép theo id dòng. Không gửi lên máy chủ.
- */
-export const capNhatDonSauKhiGui = (orderData, dong, ghiChu, ngayBaoGia) => {
-    const giaTheoId = new Map(dong.map((d) => [d.id, Number(d.donGia) || 0]));
-    return {
-        ...orderData,
-        ghiChuNCC: String(ghiChu ?? '').trim(),
-        ngayBaoGia: ngayBaoGia ?? orderData?.ngayBaoGia ?? null,
-        chiTietDonMuaHangs: (orderData?.chiTietDonMuaHangs ?? []).map((ct) => ({
-            ...ct,
-            donGia: giaTheoId.has(ct.id) ? giaTheoId.get(ct.id) : ct.donGia,
-        })),
-    };
-};
 
 /** Có thay đổi chưa gửi so với lúc mở trang (đơn giá, ghi chú chung). */
 export const coThayDoiChuaGui = (dongBanDau, dong, ghiChuBanDau, ghiChu) =>

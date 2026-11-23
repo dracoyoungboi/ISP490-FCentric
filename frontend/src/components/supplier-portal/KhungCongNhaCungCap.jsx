@@ -1,5 +1,7 @@
 import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import ChanTrangVanHanh from '@/components/auth/ChanTrangVanHanh';
+import ThanhTabCong from './ThanhTabCong';
 import { t } from "@/i18n";
 
 /**
@@ -7,8 +9,21 @@ import { t } from "@/i18n";
  * nhập, nút Thoát) và vùng nội dung nền bo-canvas. Thanh trên không có logo: FCentric chỉ là tên phần mềm, logo cửa hàng
  * chưa có trong đặc tả (đặc tả 6.2).
  * Dưới 768px: thanh trên thu gọn, nút Thoát chỉ còn biểu tượng (vùng bấm 44px).
+ *
+ * Thanh tab "Cần xử lý" / "Lịch sử" (ThanhTabCong) nằm ngay dưới thanh trên ở mọi trang sau đăng nhập:
+ * `tab` = tab đang mở (null ở trang biên bản / báo giá), `tuTaiSoViec`, `onRoiTrang` truyền thẳng cho ThanhTabCong.
+ * `chanTrang`: vẽ chân trang đơn vị vận hành ở cuối (trang báo giá tự đặt chân trang trước thanh Gửi báo giá).
  */
-export default function KhungCongNhaCungCap({ tenNhaCungCap, email, onThoat, children }) {
+export default function KhungCongNhaCungCap({
+    tenNhaCungCap,
+    email,
+    onThoat,
+    tab = null,
+    tuTaiSoViec = true,
+    onRoiTrang,
+    chanTrang = true,
+    children,
+}) {
     return (
         <div className="flex min-h-dvh flex-col bg-bo-canvas font-backoffice text-bo-foreground">
             <header className="shrink-0 border-b border-bo-border bg-bo-surface">
@@ -44,7 +59,12 @@ export default function KhungCongNhaCungCap({ tenNhaCungCap, email, onThoat, chi
                 </div>
             </header>
 
+            <ThanhTabCong tab={tab} tuTaiSoViec={tuTaiSoViec} onRoiTrang={onRoiTrang} />
+
             {children}
+
+            {/* Nền xám bo-canvas nên chữ đậm hơn một bậc để đủ tương phản 4.5:1 */}
+            {chanTrang ? <ChanTrangVanHanh className="mt-auto pt-0 text-slate-600" /> : null}
         </div>
     );
 }

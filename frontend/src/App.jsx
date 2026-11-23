@@ -41,6 +41,7 @@ import ManHinhKhachPage from "./pages/pos/ManHinhKhachPage";
 import GuiBaoGiaCuRedirect from "./pages/order/GuiBaoGiaCuRedirect.jsx";
 import VungTaiTrang, { ThanhTaiTrang } from "@/components/shared/VungTaiTrang";
 import { ghiNhanCayDuongDan, taiTrang, taiTruocDuongDan } from "@/lib/taiTrang";
+import { DUONG_DAN_CONG, duongDanBaoGia } from "@/components/supplier-portal/phienCong";
 
 /*
  * Mỗi trang là một tệp mã riêng, chỉ tải khi mở tới (taiTrang). Tải ngay cùng gói đầu: các khung, Đăng nhập, 404,
@@ -74,6 +75,9 @@ const PhieuXuatKhoView = taiTrang(() => import("./pages/issue/PhieuXuatKhoView.j
 const PickLot = taiTrang(() => import("./pages/issue/PickLot.jsx"));
 const SupplierQuotation = taiTrang(() => import("./pages/supplier/pages/Supplierquotation.jsx"));
 const SupplierLogin = taiTrang(() => import("./pages/supplier/pages/Supplierlogin.jsx"));
+const CongCanXuLy = taiTrang(() => import("./pages/supplier/pages/CongCanXuLy.jsx"));
+const CongBienBan = taiTrang(() => import("./pages/supplier/pages/CongBienBan.jsx"));
+const CongLichSu = taiTrang(() => import("./pages/supplier/pages/CongLichSu.jsx"));
 const KhachHangPage = taiTrang(() => import("./pages/customer/KhachHangPage"));
 const DanhMucQuanAoTree = taiTrang(() => import("./pages/danh-muc-quan-ao/DanhMucQuanAoTree.jsx"));
 const PhieuChuyenKhoList = taiTrang(() => import("./pages/chuyenKhoNoiBo/PhieuChuyenKhoList"));
@@ -144,6 +148,16 @@ const OmnichannelAnalyticsPage = taiTrang(() => import("./pages/channels/Omnicha
 const ChannelOrdersPage = taiTrang(() => import("./pages/channels/ChannelOrdersPage"));
 const ChannelSettingsPage = taiTrang(() => import("./pages/channels/ChannelSettingsPage"));
 const OAuthCallbackPage = taiTrang(() => import("./pages/channels/OAuthCallbackPage"));
+
+/**
+ * Đường dẫn cũ của trang báo giá (/supplier/quotation[?id=]): nay trang báo giá nằm trong cổng nhà cung cấp
+ * (/supplier/portal/quotation/:id, cần phiên cổng); không có id thì về Cần xử lý.
+ */
+function SupplierQuotationRedirect() {
+  const [thamSo] = useSearchParams();
+  const id = thamSo.get("id");
+  return <Navigate to={id && /^\d+$/.test(id) ? duongDanBaoGia(id) : DUONG_DAN_CONG.canXuLy} replace />;
+}
 
 /*
  * Vai trò chặn đường dẫn lấy từ constants/vaiTroTheoNghiepVu.js (ma trận phân quyền SRS 4.4), cùng nguồn với menu,
@@ -233,7 +247,12 @@ const CAY_DUONG_DAN = (
     <Route path="/forgot-password" element={<ForgotPassword />} />
     {/* Liên kết trong email tạo tài khoản / cấp lại mật khẩu: /set-password#t=<mã dùng một lần> */}
     <Route path="/set-password" element={<SetPassword />} />
-    <Route path="/supplier/quotation" element={<SupplierQuotation />} />
+    {/* Cổng nhà cung cấp (công khai, phiên riêng theo email nhà cung cấp — không dùng tài khoản nhân viên) */}
+    <Route path="/supplier/quotation" element={<SupplierQuotationRedirect />} />
+    <Route path="/supplier/portal" element={<CongCanXuLy />} />
+    <Route path="/supplier/portal/history" element={<CongLichSu />} />
+    <Route path="/supplier/portal/returns/:id" element={<CongBienBan />} />
+    <Route path="/supplier/portal/quotation/:id" element={<SupplierQuotation />} />
     {/* Trang cũ sau khi gửi báo giá: nay báo thành công ngay trên trang báo giá; giữ đường dẫn để link cũ không hỏng */}
     <Route path="/quote-success" element={<Navigate to="/supplier/login" replace />} />
     <Route path="/supplier/login" element={<SupplierLogin />} />

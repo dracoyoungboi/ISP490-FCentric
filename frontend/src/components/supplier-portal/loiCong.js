@@ -1,6 +1,7 @@
 /**
- * Lỗi và thông báo của 3 API cổng nhà cung cấp (lay-otp, xac-nhan-otp, bao-gia).
- * Cổng xử lý theo MÃ LỖI máy chủ trả (`data.code`, rồi `error`), không dò câu chữ (HOP-DONG 2.1, 2.2; đặc tả L15).
+ * Lỗi và thông báo của API cổng nhà cung cấp (/api/v1/cong-ncc: đăng nhập theo email, việc cần làm, báo giá, biên bản
+ * trả hàng, lịch sử).
+ * Cổng xử lý theo MÃ LỖI máy chủ trả (`data.code`, rồi `error`), không dò câu chữ.
  * Thời hạn mã và thời gian chờ gửi lại lấy từ máy chủ (`hetHanGiay`, `guiLaiSauGiay`), không viết cứng ở đây.
  * Hàm thuần, chạy được bằng `node --test`.
  */
@@ -8,6 +9,8 @@ import { getApiErrorCode } from "../../utils/apiError.js";
 import { t } from "../../i18n/t.js";
 
 export const MA_LOI_CONG = Object.freeze({
+  // Email không thuộc nhà cung cấp nào đang hoạt động (máy chủ có thể dùng lại DON_HOAC_EMAIL_SAI)
+  EMAIL_KHONG_CO: "EMAIL_KHONG_CO",
   DON_HOAC_EMAIL_SAI: "DON_HOAC_EMAIL_SAI",
   DON_KHONG_CON_NHAN: "DON_KHONG_CON_NHAN",
   MA_CU_CON_HIEU_LUC: "MA_CU_CON_HIEU_LUC",
@@ -16,16 +19,21 @@ export const MA_LOI_CONG = Object.freeze({
   PHIEN_HET_HAN: "PHIEN_HET_HAN",
   CHUA_GUI_DUOC_MA: "CHUA_GUI_DUOC_MA",
   BAO_GIA_KHONG_HOP_LE: "BAO_GIA_KHONG_HOP_LE",
+  // Đơn / biên bản không thuộc nhà cung cấp của phiên, hoặc không còn
+  KHONG_TIM_THAY: "KHONG_TIM_THAY",
+  // Biên bản đã hủy / đã chốt sau nhập kho / đơn đã kết thúc: không nhận trả lời nữa
+  BIEN_BAN_KHONG_CON_NHAN: "BIEN_BAN_KHONG_CON_NHAN",
+  // Trả lời biên bản sai một ô (data.o = "phuongAn" | "nguoiXacNhan" | "ghiChu")
+  TRA_LOI_KHONG_HOP_LE: "TRA_LOI_KHONG_HOP_LE",
 });
 
-// Câu chép đúng HOP-DONG 2.1 (máy chủ cũng trả đúng câu này trong `message`)
 export const CAU_DON_KHONG_CON_NHAN =
   t("Đơn mua hàng này không còn nhận báo giá. Vui lòng liên hệ nhân viên mua hàng đã gửi yêu cầu cho Quý công ty.");
-export const CAU_PHIEN_HET_HAN = t("Phiên báo giá đã hết hạn. Vui lòng nhận mã mới.");
+export const CAU_PHIEN_HET_HAN = t("Phiên làm việc đã hết hạn. Vui lòng nhận mã mới để tiếp tục.");
 
 export const LOI_MAT_KET_NOI = t("Không kết nối được máy chủ. Vui lòng kiểm tra mạng và thử lại.");
 export const CAU_MA_CU_CON_HIEU_LUC = t("Mã xác nhận gửi trước đó vẫn còn hiệu lực. Hãy dùng mã trong email gần nhất.");
-export const CAU_CHO_GUI_LAI = t("Đã gửi nhiều mã xác nhận cho đơn này. Vui lòng chờ rồi nhận mã mới.");
+export const CAU_CHO_GUI_LAI = t("Đã gửi nhiều mã xác nhận tới email này. Vui lòng chờ rồi nhận mã mới.");
 export const CAU_CHUA_GUI_DUOC_MA = t("Chưa gửi được mã xác nhận. Vui lòng thử lại.");
 export const CAU_LOI_NHAN_MA = t("Có lỗi khi gửi mã xác nhận. Vui lòng thử lại.");
 export const CAU_MA_SAI = t("Mã xác nhận không đúng. Vui lòng nhập lại hoặc gửi lại mã.");
@@ -34,6 +42,10 @@ export const CAU_MA_HET_HAN =
 export const CAU_LOI_XAC_NHAN = t("Không xác nhận được mã. Vui lòng thử lại.");
 export const LOI_GUI_MAC_DINH =
   t("Không gửi được báo giá. Đơn giá bạn đã nhập vẫn còn trên trang. Kiểm tra kết nối mạng rồi thử lại.");
+export const CAU_LOI_TAI = t("Không tải được dữ liệu. Kiểm tra kết nối mạng rồi thử lại.");
+export const CAU_BIEN_BAN_KHONG_CON_NHAN =
+  t("Biên bản vừa thay đổi nên lựa chọn của bạn chưa được ghi nhận. Trang đã tải lại thông tin mới nhất, vui lòng xem lại.");
+export const LOI_XAC_NHAN_BIEN_BAN = t("Chưa gửi được lựa chọn. Kiểm tra kết nối mạng rồi thử lại.");
 
 /** `data` kèm theo lỗi (vd. `guiLaiSauGiay`, `conLaiLanThu`, `dong`); không có thì {}. */
 export function duLieuLoi(err) {
@@ -86,9 +98,8 @@ export const dinhDangDemNguoc = (giay) => {
  * - `cho-gui-lai` (429 MA_CU_CON_HIEU_LUC, mã cũ còn hiệu lực): sang bước nhập mã, đếm ngược `guiLaiSauGiay`;
  * - `phai-cho` (429 MA_CU_CON_HIEU_LUC với `hetHanGiay` = 0: mã cũ đã hết hạn, vd. quá số mã trong giờ): không có mã
  *   nào để nhập nên ở lại bước 1 (soát chéo R10), báo câu máy chủ, đếm ngược `guiLaiSauGiay`;
- * - `khong-con-nhan` (409 DON_KHONG_CON_NHAN): về bước 1, báo đơn không còn nhận báo giá;
  * - `chua-gui-duoc` (503 CHUA_GUI_DUOC_MA): máy chủ đã xóa mã, cho bấm lại ngay;
- * - `loi`: còn lại (đơn/email sai, mất mạng…), hiện câu máy chủ.
+ * - `loi`: còn lại (email chưa đăng ký, mất mạng…), hiện câu máy chủ.
  */
 export function xuLyLoiNhanMa(err) {
   if (!err?.response) return { loai: "loi", cau: LOI_MAT_KET_NOI };
@@ -100,8 +111,6 @@ export function xuLyLoiNhanMa(err) {
       if (soGiay(d.hetHanGiay) === 0) return { loai: "phai-cho", guiLaiSauGiay, cau: cauMayChu(err) || CAU_CHO_GUI_LAI };
       return { loai: "cho-gui-lai", guiLaiSauGiay, cau: CAU_MA_CU_CON_HIEU_LUC };
     }
-    case MA_LOI_CONG.DON_KHONG_CON_NHAN:
-      return { loai: "khong-con-nhan", cau: CAU_DON_KHONG_CON_NHAN };
     case MA_LOI_CONG.CHUA_GUI_DUOC_MA:
       return { loai: "chua-gui-duoc", cau: cauMayChu(err) || CAU_CHUA_GUI_DUOC_MA };
     default:
@@ -113,20 +122,21 @@ export function xuLyLoiNhanMa(err) {
  * Lỗi của Xác nhận mã → việc trang phải làm:
  * - `ma-sai` (400 MA_SAI): xóa ô, nhập lại; có `conLaiLanThu` thì nói số lần còn lại;
  * - `ma-het-han` (400 MA_HET_HAN): xóa ô, mở nút Gửi lại mã ngay;
- * - `khong-con-nhan` (409 DON_KHONG_CON_NHAN): về bước 1;
+ * - EMAIL_KHONG_CO / DON_HOAC_EMAIL_SAI: cùng câu với sai mã (không cho dò email nào đã đăng ký);
  * - `loi`: còn lại.
  */
 export function xuLyLoiXacNhan(err) {
   if (!err?.response) return { loai: "loi", cau: LOI_MAT_KET_NOI };
   switch (getApiErrorCode(err)) {
+    case MA_LOI_CONG.EMAIL_KHONG_CO:
+    case MA_LOI_CONG.DON_HOAC_EMAIL_SAI:
+      return { loai: "ma-sai", cau: CAU_MA_SAI };
     case MA_LOI_CONG.MA_SAI: {
       const conLai = soGiay(duLieuLoi(err).conLaiLanThu);
       return { loai: "ma-sai", cau: conLai ? t("Mã xác nhận không đúng. Còn {{count}} lần nhập.", { count: conLai }) : CAU_MA_SAI };
     }
     case MA_LOI_CONG.MA_HET_HAN:
       return { loai: "ma-het-han", cau: CAU_MA_HET_HAN };
-    case MA_LOI_CONG.DON_KHONG_CON_NHAN:
-      return { loai: "khong-con-nhan", cau: CAU_DON_KHONG_CON_NHAN };
     default:
       return { loai: "loi", cau: cauMayChu(err) || CAU_LOI_XAC_NHAN };
   }
@@ -134,7 +144,7 @@ export function xuLyLoiXacNhan(err) {
 
 /**
  * Lỗi của Gửi báo giá → việc trang phải làm:
- * - `phien-het-han` (403 PHIEN_HET_HAN): về trang nhận mã, giữ ?id=&email=;
+ * - `phien-het-han` (403 PHIEN_HET_HAN): lưu nháp, về trang nhận mã rồi quay lại đúng đơn;
  * - `khong-con-nhan` (409 DON_KHONG_CON_NHAN): chuyển trang sang chỉ xem;
  * - `du-lieu-sai` (400 BAO_GIA_KHONG_HOP_LE): câu máy chủ, `dong` = id dòng sai (nếu có);
  * - `loi`: còn lại (mất mạng: câu nhắc đơn giá vẫn còn trên trang).
@@ -165,12 +175,47 @@ export function boThongBaoVaoTrang(location) {
   return [`${location.pathname ?? ""}${location.search ?? ""}`, { replace: true, state: null }];
 }
 
-/** Đường dẫn trang nhận mã của đúng đơn và email (mã hóa "@"…), như liên kết trong email yêu cầu báo giá. */
-export function diaChiDangNhapLai(id, email) {
-  const thamSo = new URLSearchParams();
-  if (id !== null && id !== undefined && id !== "") thamSo.set("id", String(id));
-  const e = String(email ?? "").trim();
-  if (e) thamSo.set("email", e);
-  const chuoi = thamSo.toString();
-  return chuoi ? `/supplier/login?${chuoi}` : "/supplier/login";
+/** Máy chủ báo phiên cổng đã hết hạn / không còn (PHIEN_HET_HAN): xóa phiên, về trang nhận mã. */
+export const laPhienHetHan = (err) => getApiErrorCode(err) === MA_LOI_CONG.PHIEN_HET_HAN;
+
+/**
+ * Lỗi khi tải dữ liệu một trang của cổng (việc cần làm, đơn, biên bản, lịch sử):
+ * - `phien-het-han`: về trang nhận mã;
+ * - `khong-tim-thay` (404 KHONG_TIM_THAY, hoặc 404 không mã): đơn / biên bản không thuộc Quý công ty;
+ * - `loi`: còn lại (câu máy chủ, mất mạng thì câu chung) — trang hiện nút Thử lại.
+ */
+export function xuLyLoiTai(err) {
+  if (laPhienHetHan(err)) return { loai: "phien-het-han", cau: CAU_PHIEN_HET_HAN };
+  if (!err?.response) return { loai: "loi", cau: CAU_LOI_TAI };
+  const ma = getApiErrorCode(err);
+  if (ma === MA_LOI_CONG.KHONG_TIM_THAY || (!ma && err.response.status === 404)) {
+    return { loai: "khong-tim-thay", cau: cauMayChu(err) };
+  }
+  return { loai: "loi", cau: cauMayChu(err) || CAU_LOI_TAI };
+}
+
+/**
+ * Lỗi khi xác nhận cách xử lý biên bản trả hàng:
+ * - `phien-het-han`: về trang nhận mã;
+ * - `khong-con-nhan` (409 BIEN_BAN_KHONG_CON_NHAN): tải lại biên bản, báo không còn nhận trả lời;
+ * - `khong-tim-thay`: biên bản không thuộc Quý công ty;
+ * - `du-lieu-sai` (400 TRA_LOI_KHONG_HOP_LE): `o` = ô sai ("phuongAn" | "nguoiXacNhan" | "ghiChu", có thể null),
+ *   câu máy chủ để hiện ngay dưới ô đó;
+ * - `loi`: còn lại (câu máy chủ; mất mạng: câu chung).
+ */
+export function xuLyLoiXacNhanBienBan(err) {
+  if (laPhienHetHan(err)) return { loai: "phien-het-han", cau: CAU_PHIEN_HET_HAN };
+  if (!err?.response) return { loai: "loi", cau: LOI_XAC_NHAN_BIEN_BAN };
+  switch (getApiErrorCode(err)) {
+    case MA_LOI_CONG.BIEN_BAN_KHONG_CON_NHAN:
+      return { loai: "khong-con-nhan", cau: CAU_BIEN_BAN_KHONG_CON_NHAN };
+    case MA_LOI_CONG.KHONG_TIM_THAY:
+      return { loai: "khong-tim-thay", cau: cauMayChu(err) };
+    case MA_LOI_CONG.TRA_LOI_KHONG_HOP_LE: {
+      const o = duLieuLoi(err).o;
+      return { loai: "du-lieu-sai", o: typeof o === "string" ? o : null, cau: cauMayChu(err) || LOI_XAC_NHAN_BIEN_BAN };
+    }
+    default:
+      return { loai: "loi", cau: cauMayChu(err) || LOI_XAC_NHAN_BIEN_BAN };
+  }
 }

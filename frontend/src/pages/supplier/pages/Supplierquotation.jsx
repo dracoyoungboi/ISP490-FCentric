@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, Info, Plus, Send, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ChanTrangVanHanh from '@/components/auth/ChanTrangVanHanh';
@@ -11,7 +11,6 @@ import BangBaoGia from '@/components/supplier-portal/BangBaoGia';
 import HopGuiBaoGia, { HopXacNhanThoat } from '@/components/supplier-portal/HopGuiBaoGia';
 import {
     GHI_CHU_TOI_DA,
-    capNhatDonSauKhiGui,
     coThayDoiChuaGui,
     daCoBaoGiaTruoc,
     gioVaNgay,
@@ -22,14 +21,16 @@ import {
     timDongThieuGia,
     tinhTong,
 } from '@/components/supplier-portal/baoGiaUtils';
-import { CAU_PHIEN_HET_HAN, diaChiDangNhapLai, xuLyLoiGuiBaoGia } from '@/components/supplier-portal/loiCong';
+import { xuLyLoiGuiBaoGia, xuLyLoiTai } from '@/components/supplier-portal/loiCong';
+import { KhungKhongTimThay, KhungLoiTai, KhungXuongCong } from '@/components/supplier-portal/TrangThaiTaiCong';
+import { taiLaiSoViec, useCongNcc, useTieuDeCong } from '@/components/supplier-portal/useCongNcc';
 import { NGU_CANH_LOAI, noiTenNhom, nhomTheoSanPham, tenNhomChua } from '@/components/supplier-portal/nhomBaoGia';
 import { getDonMuaHangStatus } from '@/constants/donMuaHang';
 import { formatCurrency } from '@/utils/formatters';
-import supplierQuotationService from '@/services/supplierQuotationService';
+import congNhaCungCapService from '@/services/congNhaCungCapService';
+import useTaiDuLieu from '@/hooks/useTaiDuLieu';
 import { t } from "@/i18n";
 
-const TB_CAN_DANG_NHAP = t("Vui lòng nhận mã xác nhận để xem và gửi báo giá.");
 // Trang cũ không cho gửi khi đơn chưa có ngày giao dự kiến (ô ngày chỉ đọc) — giữ nguyên điều kiện này
 const LOI_THIEU_NGAY_GIAO = t("Đơn mua hàng chưa có ngày cần giao nên chưa gửi được báo giá. Vui lòng liên hệ người phụ trách đơn.");
 // Tên trạng thái hiển thị cho nhà cung cấp (phía nhà cung cấp, khác tên trạng thái đơn ở phần quản trị)
@@ -72,11 +73,12 @@ const O_GHI_CHU_CHUNG =
     'block min-h-[84px] w-full resize-y rounded-md border border-bo-border bg-white px-3 py-2.5 text-base leading-[22px] text-bo-foreground placeholder:text-bo-muted/70 focus-visible:border-bo-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/15 md:text-sm';
 
 /**
- * `phienBaoGia`, `cuaHang`: máy chủ trả ở bước xác nhận mã (HOP-DONG 2.2), nằm trong state của lịch sử trình duyệt.
- * `daGuiLuc`: giờ máy chủ nhận báo giá của lần gửi trong phiên này (tải lại trang vẫn ở khung đã gửi).
- * Sau khi gửi, trang chỉ xem như trước; muốn sửa đơn giá thì vào lại cổng (nhận mã mới) rồi gửi lại.
+ * `orderData`, `cuaHang`: GET /cong-ncc/don-mua/{id} (đơn của nhà cung cấp đang đăng nhập).
+ * `daGuiLuc`: giờ máy chủ nhận báo giá của lần gửi vừa rồi (ghi vào state của lịch sử: tải lại trang vẫn ở khung đã gửi).
+ * Sau khi gửi, trang chỉ xem như trước; muốn sửa đơn giá thì mở lại đơn từ Cần xử lý / Lịch sử rồi gửi lại.
+ * `nhaCungCap` (phiên): tên và email hiện ở thanh trên. `hetPhien`, `thoat`: từ useCongNcc.
  */
-function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
+function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat: thoatCong }) {
     const location = useLocation();
     const navigate = useNavigate();
 
@@ -107,7 +109,8 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
     const [loiGui, setLoiGui] = useState('');
     // Đơn chưa có ngày cần giao thì báo ngay khi mở trang (không đợi tới lúc bấm Gửi mới biết)
     const [loiChung, setLoiChung] = useState(() => (orderData.ngayGiaoDuKien ? '' : LOI_THIEU_NGAY_GIAO));
-    const [hoiThoat, setHoiThoat] = useState(false);
+    // null | { dich: null } (bấm Thoát) | { dich: "/supplier/portal…" } (bấm tab khi còn đơn giá chưa gửi)
+    const [hoiThoat, setHoiThoat] = useState(null);
     // Giờ máy chủ nhận báo giá của lần gửi trong phiên này (dùng ngay cho hộp thành công, không chờ router cập nhật state)
     const [guiLuc, setGuiLuc] = useState(null);
     // Địa chỉ máy chủ xếp gửi email Đã nhận báo giá (null: không nói gì về email)
@@ -138,8 +141,8 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
     const chiXem = !conNhan || Boolean(daGui);
     const tong = useMemo(() => tinhTong(dong), [dong]);
     const daBaoGiaTruoc = !chiXem && daCoBaoGiaTruoc(orderData);
-    const tenNhaCungCap = orderData.nhaCungCap?.tenNhaCungCap;
-    const email = location.state?.supplierEmail || orderData.nhaCungCap?.email;
+    const tenNhaCungCap = orderData.nhaCungCap?.tenNhaCungCap || nhaCungCap?.ten;
+    const email = nhaCungCap?.email || orderData.nhaCungCap?.email;
     const tenCuaHang = String(cuaHang?.ten ?? '').trim();
 
     const coBienThe = nhom.length < dong.length;
@@ -148,10 +151,6 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
     // Chỉ nêu tên khi đã nhập được ít nhất một giá (đơn mới thì mọi sản phẩm đều thiếu, nêu tên không giúp gì)
     const conThieu = tong.daNhapGia > 0 && viTriThieu.length ? noiTenNhom(tenNhomChua(nhom, viTriThieu)) : '';
     const phanTram = tong.soSanPham ? Math.round((tong.daNhapGia / tong.soSanPham) * 100) : 0;
-
-    /** Phiên báo giá hết hạn: về trang nhận mã của đúng đơn và email, kèm câu báo. */
-    const veNhanMaMoi = () =>
-        navigate(diaChiDangNhapLai(orderData.id, email), { replace: true, state: { thongBao: CAU_PHIEN_HET_HAN } });
 
     const bamGui = () => {
         if (!orderData.ngayGiaoDuKien) {
@@ -177,7 +176,7 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
         dangGuiRef.current = true;
         setHop('dang-gui');
         try {
-            const res = await supplierQuotationService.submitQuote(taoPayloadBaoGia(orderData, dong, ghiChu), phienBaoGia);
+            const res = await congNhaCungCapService.guiBaoGia(orderData.id, taoPayloadBaoGia(orderData, dong, ghiChu));
             if (!conMoRef.current) return;
             const kq = res?.data ?? {};
             // Giờ hiện là giờ máy chủ ghi nhận (ngayBaoGia), như email Đã nhận báo giá
@@ -186,21 +185,19 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
             setEmailXacNhan(kq.emailXacNhan || null);
             setDongLoi([]);
             setHop('thanh-cong');
-            // Ghi vào lịch sử: tải lại trang vẫn ở chế độ chỉ xem với đơn giá vừa gửi
+            // Ghi vào lịch sử: tải lại trang (đọc lại đơn từ máy chủ) vẫn ở chế độ chỉ xem với đơn giá vừa gửi
             navigate(location.pathname, {
                 replace: true,
-                state: {
-                    ...location.state,
-                    orderData: capNhatDonSauKhiGui(orderData, dong, ghiChu, luc),
-                    daGuiLuc: luc,
-                },
+                state: { ...location.state, daGuiLuc: luc },
             });
+            taiLaiSoViec();
         } catch (err) {
             if (!conMoRef.current) return;
             const kq = xuLyLoiGuiBaoGia(err);
             if (kq.loai === 'phien-het-han') {
+                // Nhận mã mới xong quay lại đúng đơn này (?tiep=) và điền lại đơn giá vừa nhập
                 luuNhapChuaGui(orderData.id, dong, ghiChu);
-                veNhanMaMoi();
+                hetPhien();
                 return;
             }
             if (kq.loai === 'khong-con-nhan') {
@@ -223,7 +220,7 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
         if (hop !== 'dang-gui') setHop(null);
     };
 
-    const thoat = () => navigate('/supplier/login', { replace: true });
+    const coThayDoi = () => !chiXem && coThayDoiChuaGui(dongBanDau, dong, ghiChuBanDau, ghiChu);
     const moGhiChu = () => {
         setMoGhiChuChung(true);
         setVuaMoGhiChuChung(true);
@@ -237,8 +234,20 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
     };
 
     const bamThoat = () => {
-        if (!chiXem && coThayDoiChuaGui(dongBanDau, dong, ghiChuBanDau, ghiChu)) setHoiThoat(true);
-        else thoat();
+        if (coThayDoi()) setHoiThoat({ dich: null });
+        else thoatCong();
+    };
+    /** Bấm tab Cần xử lý / Lịch sử khi còn đơn giá chưa gửi: hỏi lại trước khi rời trang. */
+    const roiTrang = (dich) => {
+        if (!coThayDoi()) return false;
+        setHoiThoat({ dich });
+        return true;
+    };
+    const dongYRoi = () => {
+        const dich = hoiThoat?.dich;
+        setHoiThoat(null);
+        if (dich) navigate(dich);
+        else thoatCong();
     };
 
     // Đã gửi (trong phiên này hoặc trước đó) / chờ báo giá / tên trạng thái chung của đơn khi không còn nhận báo giá;
@@ -260,7 +269,7 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
     const tieuDeGhiChu = tenCuaHang ? t("Ghi chú cho {{tenCuaHang}}", { tenCuaHang }) : t("Ghi chú");
 
     return (
-        <KhungCongNhaCungCap tenNhaCungCap={tenNhaCungCap} email={email} onThoat={bamThoat}>
+        <KhungCongNhaCungCap tenNhaCungCap={tenNhaCungCap} email={email} onThoat={bamThoat} onRoiTrang={roiTrang} chanTrang={false}>
             <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-4 p-4 md:gap-5 md:p-6">
                 <div className="flex flex-col gap-1.5">
                     <div className="flex flex-col gap-1.5 md:flex-row md:flex-wrap md:items-center md:gap-3">
@@ -437,36 +446,70 @@ function TrangBaoGia({ orderData, daGuiLuc, phienBaoGia, cuaHang }) {
                 onGui={guiBaoGia}
                 onDong={dongHop}
             />
-            <HopXacNhanThoat mo={hoiThoat} onO={() => setHoiThoat(false)} onThoat={thoat} />
+            <HopXacNhanThoat mo={Boolean(hoiThoat)} onO={() => setHoiThoat(null)} onThoat={dongYRoi} />
         </KhungCongNhaCungCap>
     );
 }
 
+/** GET đơn của cổng; máy chủ trả thiếu đơn thì coi như không tìm thấy. */
+async function taiDonMua(id) {
+    const kq = await congNhaCungCapService.donMua(id);
+    if (!kq?.donMua) throw Object.assign(new Error('khong-co-don'), { response: { status: 404, data: {} } });
+    return kq;
+}
+
 /**
- * Trang báo giá của nhà cung cấp. Dữ liệu đơn và phiên báo giá chỉ đến từ bước xác nhận mã (location.state);
- * mở thẳng đường dẫn khi chưa xác nhận thì về trang nhận mã, không gọi API nào.
+ * Trang báo giá của nhà cung cấp: /supplier/portal/quotation/:id. Đọc đơn bằng GET /cong-ncc/don-mua/{id} với phiên
+ * cổng; chưa đăng nhập / phiên hết hạn thì về trang nhận mã rồi quay lại đúng đơn.
  */
 export default function SupplierQuotation() {
+    const { id } = useParams();
     const location = useLocation();
-    const navigate = useNavigate();
-    const st = location.state;
-    const orderData = st?.orderData;
-    const coPhien = Boolean(orderData && st?.phienBaoGia);
+    const { phien, hetPhien, thoat } = useCongNcc();
+    const { data, error, dungKhoa, reload } = useTaiDuLieu(() => taiDonMua(id), String(id), { enabled: Boolean(phien) });
+    // Đơn vừa gửi báo giá trong thẻ này (state của lịch sử): giữ khung "Đã gửi" và chỉ xem khi tải lại trang
+    const daGuiLuc = location.state?.daGuiLuc ?? null;
+    const kq = dungKhoa ? data : undefined;
+    const loiTai = error && !kq ? xuLyLoiTai(error) : null;
+    const tai = kq ? { trangThai: 'xong', donMua: kq.donMua, cuaHang: kq.cuaHang ?? null } : loiTai ? { trangThai: loiTai.loai, cau: loiTai.cau } : { trangThai: 'dang-tai' };
+
+    useTieuDeCong(tai.donMua?.soDonMua ? t("Báo giá đơn {{soDon}}", { soDon: tai.donMua.soDonMua }) : t("Báo giá"));
 
     useEffect(() => {
-        if (coPhien) return;
-        const dich = orderData ? diaChiDangNhapLai(orderData.id, st?.supplierEmail) : '/supplier/login';
-        navigate(dich, { replace: true, state: { thongBao: TB_CAN_DANG_NHAP } });
-    }, [coPhien, orderData, st?.supplierEmail, navigate]);
+        if (loiTai?.loai === 'phien-het-han') hetPhien();
+    }, [loiTai?.loai, hetPhien]);
 
-    if (!coPhien) return null;
+    if (!phien) return null;
+
+    if (tai.trangThai === 'xong') {
+        const orderData = tai.donMua;
+        return (
+            <TrangBaoGia
+                key={orderData.id}
+                orderData={orderData}
+                daGuiLuc={daGuiLuc}
+                cuaHang={tai.cuaHang}
+                nhaCungCap={phien.nhaCungCap}
+                hetPhien={hetPhien}
+                thoat={thoat}
+            />
+        );
+    }
+
     return (
-        <TrangBaoGia
-            key={orderData.id}
-            orderData={orderData}
-            daGuiLuc={st.daGuiLuc}
-            phienBaoGia={st.phienBaoGia}
-            cuaHang={st.cuaHang}
-        />
+        <KhungCongNhaCungCap tenNhaCungCap={phien.nhaCungCap?.ten} email={phien.nhaCungCap?.email} onThoat={thoat}>
+            <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-4 p-4 md:gap-5 md:p-6">
+                {tai.trangThai === 'dang-tai' ? (
+                    <KhungXuongCong />
+                ) : tai.trangThai === 'khong-tim-thay' ? (
+                    <KhungKhongTimThay
+                        tieuDe={t("Không tìm thấy đơn mua hàng")}
+                        moTa={t("Đơn này không thuộc Quý công ty hoặc liên kết không đúng. Các đơn cần báo giá luôn có ở trang Cần xử lý.")}
+                    />
+                ) : (
+                    <KhungLoiTai cau={tai.cau} onThuLai={reload} />
+                )}
+            </main>
+        </KhungCongNhaCungCap>
     );
 }
