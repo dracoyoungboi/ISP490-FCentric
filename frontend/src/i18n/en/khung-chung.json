@@ -493,7 +493,6 @@
   "Đang tải trang": "Loading page",
   "Đang mở trang": "Opening page",
   "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.": "Your account has been locked. Please contact an administrator.",
-  "Chưa lập được biên bản trả hàng vì máy chủ chưa hỗ trợ.": "Can't create a return to supplier report because the server doesn't support it yet.",
   "Dữ liệu cấu hình trả về không hợp lệ.": "The returned settings data is invalid.",
   "Máy chủ không trả bảng thuế suất": "The server did not return the tax rate table",
   "ID khách hàng không hợp lệ.": "Invalid customer ID.",

@@ -145,5 +145,10 @@
   "Lô đã hủy": "Batch cancelled",
   "Nhận hóa đơn": "Receive invoice",
   "Lập tay": "Enter manually",
-  "Lưu ý": "Note"
+  "Lưu ý": "Note",
+  "Chờ kết quả": "Awaiting decision",
+  "Ở kho chờ lấy": "Awaiting pickup",
+  "Chờ bạn xác nhận": "Awaiting your confirmation",
+  "Chờ tiêu hủy": "Awaiting disposal",
+  "Không chấp nhận_trang_thai": "Not accepted"
 }
