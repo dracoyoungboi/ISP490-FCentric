@@ -9,34 +9,71 @@
  */
 export const LY_DO_LOI = ["Bung chỉ", "Rách vải", "Ố bẩn", "Sai màu / kích cỡ", "Lỗi phụ liệu", "Khác"];
 
-/** Phương án xử lý trong biên bản trả hàng nhà cung cấp (FO-099). */
-export const PHUONG_AN_TRA_HANG = [
-  { ma: "DOI_HANG", ten: "Đổi hàng mới", moTa: "Nhà cung cấp giao bù hàng đạt ở đợt sau." },
-  { ma: "TRU_CONG_NO", ten: "Trừ công nợ", moTa: "Giảm số tiền phải trả theo giá nhập." },
-  { ma: "TRA_TAI_XE", ten: "Trả cho tài xế", moTa: "Giao hàng lỗi lại cho tài xế tại kho." },
+/*
+ * Biên bản trả hàng nhà cung cấp (FO-099): hai việc tách riêng.
+ *  1. Hàng lỗi đi đâu: kho chọn CACH_XU_LY_HANG lúc lập; hàng giữ ở kho thì nhà cung cấp chọn nhận lại / tiêu hủy trên
+ *     cổng, kho ghi giao trả / tiêu hủy theo lựa chọn đó.
+ *  2. Nhà cung cấp bù gì (TEN_CACH_BU): nhà cung cấp chọn trên Cổng nhà cung cấp cho cả biên bản.
+ * Mã khớp BienBanTraHangNcc / BienBanTraHangServiceImpl ở máy chủ.
+ */
+
+/** Cách xử lý hàng lỗi kho chọn lúc lập biên bản. */
+export const CACH_XU_LY_HANG = [
+  { ma: "GIU_KHO", ten: "Giữ ở kho, trả sau", moTa: "Hàng lỗi để ở khu chờ trả. Nhà cung cấp đến lấy hoặc kho gửi trả sau." },
+  // Chỉ khi người ký là đại diện nhà cung cấp: bên vận chuyển không nhận hàng lỗi thay nhà cung cấp
+  { ma: "TRA_NGAY", ten: "Trả ngay cho người giao hàng", moTa: "Người của nhà cung cấp mang hàng lỗi về ngay, hàng không vào kho." },
+];
+export const CACH_XU_LY_MAC_DINH = "GIU_KHO";
+
+/** Ai ký biên bản bên giao hàng lúc kiểm. Người của bên vận chuyển chỉ xác nhận số lỗi lúc giao, không thay nhà cung cấp. */
+export const BEN_KY = [
+  { ma: "DAI_DIEN_NCC", ten: "Đại diện nhà cung cấp", moTa: "Nhân viên hoặc tài xế của nhà cung cấp." },
+  { ma: "VAN_CHUYEN", ten: "Bên vận chuyển", moTa: "Tài xế nhà xe, bưu tá: chỉ xác nhận số lỗi lúc giao, nhà cung cấp vẫn xác nhận trên cổng." },
+];
+export const BEN_KY_MAC_DINH = "DAI_DIEN_NCC";
+
+/** Tên cách bù của biên bản (nhà cung cấp chọn trên Cổng nhà cung cấp, một phương án cho cả biên bản). */
+export const TEN_CACH_BU = { CHO_CHOT: "Chờ nhà cung cấp chọn", DOI_HANG: "Giao bù hàng", TRU_CONG_NO: "Trừ tiền hàng" };
+
+/** Nhà cung cấp chọn cho hàng lỗi còn ở kho (trên Cổng nhà cung cấp). */
+export const TEN_HANG_LOI_NCC = { NHAN_LAI: "Nhận lại hàng lỗi", TIEU_HUY: "Đồng ý tiêu hủy" };
+
+/** Cách giao trả hàng lỗi sau khi nhập kho (nhà cung cấp đã chọn nhận lại). */
+export const CACH_GIAO_TRA = [
+  { ma: "NCC_LAY", ten: "Nhà cung cấp đến lấy", moTa: "Người của nhà cung cấp nhận tại kho và ký biên bản." },
+  { ma: "VAN_CHUYEN", ten: "Gửi đơn vị vận chuyển", moTa: "Kho đóng gói gửi trả, ghi mã vận đơn." },
 ];
 
-/** Mã phương án Đổi hàng mới (nhà cung cấp giao bù): nhập kho chỉ tính hàng đạt là đã nhận. */
-export const PHUONG_AN_DOI_HANG = "DOI_HANG";
-/** Phương án mặc định khi lập biên bản. */
-export const PHUONG_AN_MAC_DINH = PHUONG_AN_DOI_HANG;
-
-/** Biên bản lập trước khi đổi tên phương án mang mã cũ DOI_HANG_MOI (cùng là Đổi hàng mới). */
-const MA_PHUONG_AN_CU = { DOI_HANG_MOI: PHUONG_AN_DOI_HANG };
-
-/** Mã phương án theo tên hiện hành (đổi mã cũ sang mã mới); trống thì null. */
-export function chuanHoaPhuongAn(ma) {
-  if (!ma) return null;
-  return MA_PHUONG_AN_CU[ma] ?? ma;
-}
+/** Hàng lỗi của biên bản đang ở đâu. */
+export const TRANG_THAI_HANG_LOI = {
+  O_KHO: { label: "Đang ở kho chờ trả" },
+  DA_TRA: { label: "Đã giao trả" },
+  DA_TIEU_HUY: { label: "Đã tiêu hủy" },
+  KHONG_RO: { label: "Không rõ (dữ liệu cũ)" },
+};
 
 /**
- * Đổi hàng: nhập kho chỉ cộng hàng đạt vào "đã nhận" của đơn mua (phần lỗi chờ giao bù).
- * Chưa có biên bản (không có hàng lỗi) cũng tính như Đổi hàng: không có phần lỗi nào được trừ.
+ * Trạng thái hiển thị của biên bản (máy chủ tính): chờ người giao hàng ký (chưa gửi nhà cung cấp), chờ nhà cung cấp trả lời trên
+ * cổng, rồi việc kho làm theo lựa chọn của nhà cung cấp (giao trả / tiêu hủy), rồi chờ hàng bù.
  */
-export function laDoiHang(ma) {
-  return !ma || chuanHoaPhuongAn(ma) === PHUONG_AN_DOI_HANG;
+export const TRANG_THAI_TRA_HANG = {
+  CHO_KY: { label: "Chờ ký biên bản" },
+  CHO_CHOT: { label: "Chờ nhà cung cấp xác nhận" },
+  CHO_GIAO_TRA: { label: "Chờ giao trả hàng" },
+  CHO_TIEU_HUY: { label: "Chờ tiêu hủy" },
+  CHO_HANG_BU: { label: "Chờ hàng bù" },
+  HOAN_TAT: { label: "Hoàn tất" },
+  MOI_LAP: { label: "Chưa nhập kho" },
+  DA_HUY: { label: "Đã hủy" },
+};
+
+/** Trạng thái biên bản (mã máy chủ) → { label }; mã lạ thì hiện nguyên mã (màu tra theo tên ở constants/trangThai.js). */
+export function trangThaiTraHang(ma) {
+  return TRANG_THAI_TRA_HANG[ma] ?? { label: ma || "—" };
 }
+
+/** Độ dài tối đa các ô của biên bản trả hàng, khớp máy chủ. */
+export const GIOI_HAN_TRA_HANG = { ten: 100, bienSo: 20, maVanDon: 50, ghiChu: 255 };
 
 /** Trạng thái kiểm đếm của một biến thể trong phiếu nhập, tính từ số đã kiểm so với số đặt. */
 export const TRANG_THAI_KIEM_DEM = {

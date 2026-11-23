@@ -65,6 +65,9 @@ export const NHAN_THEO_NHOM = {
     "Dữ liệu mẫu",
     "Chưa có trạng thái",
     "Chưa có hạn giao",
+    // Biên bản trả hàng nhà cung cấp: phiếu nhập chưa nhập kho; biên bản cũ không rõ hàng lỗi đã đi chưa
+    "Chưa nhập kho",
+    "Không rõ (dữ liệu cũ)",
   ],
   canChuY: [
     "Đã mở khóa",
@@ -97,6 +100,14 @@ export const NHAN_THEO_NHOM = {
     "Chưa đăng ký",
     "Chưa có ảnh",
     "Chưa có video",
+    // Biên bản trả hàng nhà cung cấp: chờ người giao hàng ký (chưa gửi), chờ nhà cung cấp trả lời trên cổng; hàng lỗi còn nằm ở kho
+    "Chờ ký biên bản",
+    "Chờ nhà cung cấp xác nhận",
+    "Đang ở kho chờ trả",
+    // Cổng nhà cung cấp: biên bản trả hàng đến lượt nhà cung cấp chọn cách xử lý; hàng lỗi còn ở kho chờ họ lấy
+    "Chờ bạn xác nhận",
+    "Chờ bạn chọn",
+    "Ở kho chờ lấy",
   ],
   dang: [
     "Nhận hóa đơn",
@@ -113,6 +124,12 @@ export const NHAN_THEO_NHOM = {
     "Đang xử lý",
     "Đang kiểm tra...",
     "Đang giữ",
+    // Biên bản trả hàng nhà cung cấp: nhà cung cấp đã chọn, chờ kho giao trả / tiêu hủy hàng lỗi, chờ hàng bù
+    "Chờ giao trả hàng",
+    "Chờ tiêu hủy",
+    "Chờ hàng bù",
+    // Cổng nhà cung cấp: đã gửi báo giá, chờ cửa hàng chọn
+    "Chờ kết quả",
   ],
   xong: [
     "Đã giao kế toán",
@@ -131,7 +148,14 @@ export const NHAN_THEO_NHOM = {
     "Hoàn thành",
     "Hoàn tất",
     "Hoàn tất (có chênh lệch)",
+    // Hàng lỗi của biên bản trả hàng nhà cung cấp đã rời kho
+    "Đã giao trả",
+    "Đã tiêu hủy",
     "Đã gửi báo giá",
+    // Cổng nhà cung cấp: báo giá được chọn; biên bản đã chọn cách xử lý; hàng lỗi đã giao lại nhà cung cấp
+    "Được chấp nhận",
+    "Đã xác nhận",
+    "Đã trả",
     "Đã thanh toán",
     "Đã bán cho khách",
     "Khớp SKU",
@@ -155,6 +179,8 @@ export const NHAN_THEO_NHOM = {
     "Bị từ chối",
     "Từ chối báo giá",
     "Không chấp nhận báo giá",
+    // Cổng nhà cung cấp: báo giá không được chọn
+    "Không chấp nhận",
     "Bị hoàn trả",
     "Ngừng hoạt động",
     "Không hoạt động",
@@ -188,6 +214,23 @@ export const BIEU_TUONG_THEO_NHAN = {
   "Nháp": "PencilLine",
   "Chờ": "Clock",
   "Chờ duyệt": "Hourglass",
+  "Chờ nhà cung cấp xác nhận": "Hourglass",
+  // Biên bản trả hàng nhà cung cấp
+  "Chờ ký biên bản": "PencilLine",
+  "Chưa nhập kho": "Package",
+  "Chờ giao trả hàng": "PackageMinus",
+  "Chờ tiêu hủy": "Trash2",
+  "Chờ hàng bù": "Truck",
+  "Đang ở kho chờ trả": "PackageX",
+  "Đã giao trả": "Undo2",
+  "Đã tiêu hủy": "Trash2",
+  "Không rõ (dữ liệu cũ)": "CircleHelp",
+  // Cổng nhà cung cấp (tên phía nhà cung cấp)
+  "Chờ bạn xác nhận": "Hourglass",
+  "Chờ bạn chọn": "Hourglass",
+  "Đã xác nhận": "BadgeCheck",
+  "Ở kho chờ lấy": "Warehouse",
+  "Đã trả": "Undo2",
   "Đã duyệt": "BadgeCheck",
   "Hoàn thành": "CircleCheckBig",
   // Phiếu chuyển kho nội bộ dùng đúng tên trong đặc tả BA
@@ -254,6 +297,9 @@ export const BIEU_TUONG_THEO_NHAN = {
   "Đã chuyển thành đơn mua hàng": "CircleCheckBig",
   "Từ chối báo giá": "Ban",
   "Không chấp nhận báo giá": "Ban",
+  "Chờ kết quả": "Send",
+  "Được chấp nhận": "CircleCheckBig",
+  "Không chấp nhận": "Ban",
   "Còn thiếu": "TriangleAlert",
   "Đã nhận đủ": "PackageCheck",
   "Đã đóng (nhận thiếu)": "PackageMinus",
@@ -412,6 +458,12 @@ export const QUY_TRINH = {
     },
     // Đơn mua của báo giá đã kết thúc sớm (đóng nhận thiếu / hủy): kết thúc không trọn
     huy: ["Từ chối báo giá", "Không chấp nhận báo giá", "Đã xóa", "Đã đóng (nhận thiếu)", "Đã hủy"],
+  },
+  traHangNcc: {
+    ten: "Biên bản trả hàng nhà cung cấp",
+    tong: 3,
+    buoc: { "Chờ ký biên bản": 0, "Chưa nhập kho": 0, "Chờ nhà cung cấp xác nhận": 1, "Chờ giao trả hàng": 2, "Chờ tiêu hủy": 2, "Chờ hàng bù": 2, "Hoàn tất": 3 },
+    huy: ["Đã hủy"],
   },
   donMua: {
     ten: "Đơn mua hàng",

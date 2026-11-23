@@ -9,6 +9,8 @@ import {
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import AttentionBar from "@/components/shared/AttentionBar";
+import FilterSelect from "@/components/shared/FilterSelect";
+import useHangLoiCho from "@/components/nhap-kho/tra-hang/useHangLoiCho";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import ListPageHeader from "@/components/shared/ListPageHeader";
@@ -81,6 +83,12 @@ function buildFilterPayload(filters) {
     filterList.push({ fieldName: "ngayNhap", operation: "GREATER_THAN_OR_EQUAL", value: filters.ngayNhap });
     filterList.push({ fieldName: "ngayNhap", operation: "LESS_THAN_OR_EQUAL", value: `${filters.ngayNhap}T23:59:59` });
   }
+  // Ô lọc "Hàng lỗi chờ trả": lọc theo mã phiếu (bộ lọc IN sẵn có của API); không có phiếu nào thì lọc rỗng
+  if (filters.idIn) {
+    filterList.push(filters.idIn.length
+      ? { fieldName: "id", operation: "IN", value: filters.idIn }
+      : { fieldName: "id", operation: "EQUALS", value: -1 });
+  }
   return {
     page: filters.page,
     size: filters.size,
@@ -114,6 +122,11 @@ export default function PhieuNhapKhoList() {
 
   // Quản lý kho / Nhân viên kho thấy dòng "N phiếu đang chờ nhập kho"
   const [xuLyNhapKho, setXuLyNhapKho] = useState(false);
+  // Việc hàng lỗi còn treo của kho: dòng chú ý + lọc (thay cho màn Trả hàng nhà cung cấp riêng)
+  const laKho = hasAnyRole(VAI_TRO_KHO);
+  const hangLoi = useHangLoiCho(laKho);
+  const [locHangLoi, setLocHangLoi] = useState(false);
+  const idIn = locHangLoi ? hangLoi.phieuChoGiaoTra : null;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -147,7 +160,7 @@ export default function PhieuNhapKhoList() {
     const requestId = ++requestIdRef.current;
     if (!silent) setLoading(true);
     try {
-      const res = await phieuNhapKhoService.filter(buildFilterPayload({ ...filters, trangThai: tabTrangThai }));
+      const res = await phieuNhapKhoService.filter(buildFilterPayload({ ...filters, trangThai: tabTrangThai, idIn }));
       if (requestId !== requestIdRef.current) return;
       // Trang đang xem vượt số trang thật (vd. dòng cuối vừa được xử lý ở nơi khác) → lùi về trang cuối còn dữ liệu
       const trangCuoi = trangCuoiNeuVuot({ trang: filters.page, kichThuoc: filters.size, soDong: res?.content?.length ?? 0, tong: res?.totalElements });
@@ -169,7 +182,7 @@ export default function PhieuNhapKhoList() {
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
-  }, [filters, tabTrangThai]);
+  }, [filters, tabTrangThai, idIn]);
 
   // Hoãn qua microtask để tránh setState đồng bộ trong effect
   // (react-hooks/set-state-in-effect); dữ liệu vẫn được tải ngay khi mount.
@@ -180,8 +193,8 @@ export default function PhieuNhapKhoList() {
   // ── Số trên tab: cùng từ khóa + nhà cung cấp đang lọc, chỉ thay trạng thái (R1) ──
   const tabCounts = useDemTheoTrangThai(
     TAB_MAS,
-    (ma) => demPhieu({ ...filters, trangThai: trangThaiCuaTab(ma) }),
-    `${filters.keyword}|${filters.nhaCungCap}|${filters.ngayNhap}`
+    (ma) => demPhieu({ ...filters, trangThai: trangThaiCuaTab(ma), idIn }),
+    `${filters.keyword}|${filters.nhaCungCap}|${filters.ngayNhap}|${idIn ? idIn.join(",") : ""}`
   );
 
   // ── Dòng chú ý: phiếu chờ nhập kho trong phạm vi danh sách, bỏ qua các bộ lọc khác (R4) ──
@@ -198,12 +211,13 @@ export default function PhieuNhapKhoList() {
     setFilters(p => (p.page === 0 ? p : { ...p, page: 0 }));
   };
 
-  const hasActiveFilters = Boolean(keywordInput.trim() || nhaCungCapInput.trim() || filters.ngayNhap);
+  const hasActiveFilters = Boolean(keywordInput.trim() || nhaCungCapInput.trim() || filters.ngayNhap || locHangLoi);
 
   // "Xóa lọc": bỏ từ khóa, nhà cung cấp, ngày nhập; giữ tab đang chọn
   const clearFilters = () => {
     setKeywordInput("");
     setNhaCungCapInput("");
+    setLocHangLoi(false);
     setFilters(p => ({ ...DEFAULT_FILTERS, size: p.size }));
   };
 
@@ -264,6 +278,20 @@ export default function PhieuNhapKhoList() {
         <strong className="font-semibold">{pendingCount?.toLocaleString("vi-VN")} {t("phiếu", { count: Number(pendingCount) || 0 })}</strong> {t("đang chờ nhập kho.")}
       </AttentionBar>
 
+      {/* Dòng chú ý cho kho: phiếu đã nhập kho còn hàng lỗi nằm ở kho chờ giao trả nhà cung cấp */}
+      <AttentionBar
+        count={laKho && !locHangLoi ? hangLoi.phieuChoGiaoTra.length : 0}
+        actionLabel={t("Xem phiếu có hàng lỗi")}
+        onAction={() => {
+          clearFilters();
+          setLocHangLoi(true);
+          setTab("tat-ca");
+        }}
+      >
+        <strong className="font-semibold">{t("{{count}} phiếu", { count: hangLoi.phieuChoGiaoTra.length })}</strong>{" "}
+        {t("còn hàng lỗi ở kho chờ giao trả hoặc tiêu hủy theo lựa chọn của nhà cung cấp.")}
+      </AttentionBar>
+
       {/* ── TABLE ── */}
       <TableShell
         fill
@@ -309,6 +337,22 @@ export default function PhieuNhapKhoList() {
                 onChange={e => setFilters(p => ({ ...p, ngayNhap: e.target.value, page: 0 }))}
               />
             </label>
+
+            {/* Ô lọc hàng lỗi chỉ hiện khi đang lọc (mở từ dòng chú ý) */}
+            {laKho && locHangLoi ? (
+              <FilterSelect
+                label={t("Hàng lỗi")}
+                value={locHangLoi ? "cho-giao-tra" : "tat-ca"}
+                options={[
+                  { value: "tat-ca", label: t("Mọi phiếu") },
+                  { value: "cho-giao-tra", label: t("Hàng lỗi chờ trả") },
+                ]}
+                onChange={(v) => { setLocHangLoi(v === "cho-giao-tra"); setFilters(p => ({ ...p, page: 0 })); }}
+                onClear={() => { setLocHangLoi(false); setFilters(p => ({ ...p, page: 0 })); }}
+                clearLabel={t("Bỏ lọc hàng lỗi")}
+                className="sm:w-[200px]"
+              />
+            ) : null}
           </ListToolbar>
         }
         footer={

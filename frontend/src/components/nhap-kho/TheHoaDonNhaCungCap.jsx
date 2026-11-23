@@ -6,6 +6,8 @@ import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import { keToanService } from "@/services/keToanService";
 import { getApiErrorMessage } from "@/utils/apiError";
+import { formatCurrency, formatNumber } from "@/utils/formatters";
+import DongThongBao from "@/components/nhap-kho/DongThongBao";
 import {
   THUE_SUAT,
   formHoaDon,
@@ -44,8 +46,12 @@ function O({ id, nhan, loi, children, className }) {
 /**
  * Hóa đơn của nhà cung cấp cho phiếu nhập mua hàng đã hoàn tất. Đơn giá đơn mua đã gồm thuế, nên khi xuất sang kế
  * toán thuế tách theo thuế suất trên hóa đơn này. Sửa được tới khi phiếu được xuất sang kế toán (máy chủ khóa).
+ *
+ * Tùy chọn: `bienBanTraHang` (biên bản trả hàng của phiếu hoặc null), `tongDat` (số sản phẩm đạt của phiếu),
+ * `giaTriDat` (tiền hàng đạt của phiếu). Biên bản đã chốt trừ tiền thì nhắc hóa đơn chỉ ghi hàng đạt, kèm số tiền nhà
+ * cung cấp phải điều chỉnh giảm nếu hóa đơn gồm cả hàng lỗi.
  */
-export default function TheHoaDonNhaCungCap({ phieuNhapKhoId, coTheSua }) {
+export default function TheHoaDonNhaCungCap({ phieuNhapKhoId, coTheSua, bienBanTraHang = null, tongDat, giaTriDat }) {
   const idGoc = useId();
   const [data, setData] = useState(null);
   const [dangTai, setDangTai] = useState(true);
@@ -111,6 +117,8 @@ export default function TheHoaDonNhaCungCap({ phieuNhapKhoId, coTheSua }) {
   // Ô đang lỗi: đánh dấu và trỏ tới câu báo lỗi (id do O tạo: `${id}-loi`) cho trình đọc màn hình
   const moTaLoi = (ten, coLoi) => (coLoi ? { "aria-invalid": true, "aria-describedby": `${fid(ten)}-loi` } : {});
   const coHoaDon = form.coHoaDon === "co";
+  // Hàng lỗi đã chốt trừ tiền: hóa đơn chỉ được ghi hàng đạt nhập ở phiếu
+  const soLoiTru = bienBanTraHang?.phuongAn === "TRU_CONG_NO" ? Number(bienBanTraHang.soLuongTruTien) || 0 : 0;
 
   return (
     <section aria-labelledby={fid("tieu-de")} className="rounded-lg border border-bo-border bg-white">
@@ -132,6 +140,20 @@ export default function TheHoaDonNhaCungCap({ phieuNhapKhoId, coTheSua }) {
           </Button>
         ) : null}
       </div>
+
+      {soLoiTru > 0 ? (
+        <div className="px-4 pb-3">
+          <DongThongBao tone="warn">
+            {t("Phiếu này có {{soLoi}} sản phẩm lỗi trừ tiền ({{soBienBan}}). Hóa đơn chỉ được ghi hàng đạt nhập ở phiếu: {{soDat}} sản phẩm, {{tienDat}}. Nếu nhà cung cấp đã xuất hóa đơn gồm cả hàng lỗi, đề nghị họ lập hóa đơn điều chỉnh giảm {{tienTru}} trước khi nhập.", {
+              soLoi: formatNumber(soLoiTru),
+              soBienBan: bienBanTraHang.soBienBan || `#${bienBanTraHang.id}`,
+              soDat: formatNumber(Number(tongDat) || 0),
+              tienDat: formatCurrency(Number(giaTriDat) || 0),
+              tienTru: formatCurrency(Number(bienBanTraHang.tienTruTien) || 0),
+            })}
+          </DongThongBao>
+        </div>
+      ) : null}
 
       {dangTai ? (
         <p className="flex items-center gap-2 px-4 pb-4 text-sm text-bo-muted">

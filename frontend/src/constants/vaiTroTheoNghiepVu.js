@@ -59,6 +59,8 @@ export const VAI_TRO_XEM_YEU_CAU_BAO_GIA = Object.freeze([QTV, QLK, NVMH]);
 export const VAI_TRO_DON_MUA = Object.freeze([QTV, QLK, NVMH, NVK]);
 /** "Purchase Order – Approve" = chốt báo giá thành đơn mua (PUT /nghiep-vu/don-mua-hang/duyet-don). */
 export const VAI_TRO_TAO_DON_MUA = Object.freeze([QTV, QLK, NVMH]);
+/** Trả hàng nhà cung cấp (GET /bien-ban-tra-hang-ncc): kho lo hàng lỗi, mua hàng theo dõi câu trả lời của nhà cung cấp. */
+export const VAI_TRO_TRA_HANG_NCC = Object.freeze([QTV, QLK, NVK, NVMH]);
 
 // ─── Bán hàng ───
 /** "Customer – View / Add / Edit". */

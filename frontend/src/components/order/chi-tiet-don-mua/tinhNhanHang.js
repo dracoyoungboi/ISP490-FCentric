@@ -3,16 +3,15 @@
  * các bước của đơn và hạn giao. Không gọi API, không phụ thuộc React, chạy được bằng `node --test`.
  *
  * Quy ước dữ liệu (đọc từ backend nhánh Khang):
- * - Số đã nhận của từng dòng đơn (`soLuongDaNhan`) chỉ được cộng khi phiếu nhập HOÀN TẤT (trạng thái 3),
- *   theo các dòng đã khai báo lô. Đây là số hệ thống ghi nhận nên "Còn thiếu" luôn tính từ số này.
+ * - Số đã nhận của từng dòng đơn (`soLuongDaNhan`) là số ĐÃ XONG: hàng đạt (cộng khi phiếu nhập HOÀN TẤT, trạng
+ *   thái 3) + hàng lỗi đã chốt trừ tiền với nhà cung cấp (`soLuongTruTien`, chỉ có ở API chi tiết đơn). Màn này tách
+ *   hàng đạt = đã nhận − trừ tiền. "Còn thiếu" = max(0, đặt − đã nhận). Hàng lỗi chờ nhà cung cấp xác nhận / chờ giao
+ *   bù vẫn là còn thiếu.
  * - Chi tiết phiếu nhập (`/phieu-nhap-kho/{id}/detail`) trả `items[]` theo biến thể:
- *   `soLuongCanNhap` = số dự kiến nhập đợt này, `soLuongDaKhaiBao` = số đã khai báo lô.
- *   Phiếu hoàn tất: số đã nhập của đợt = `soLuongDaKhaiBao` (hàng đạt), cộng `soLuongLoiQc` khi phương án biên bản
- *   (`phuongAnBienBan`) không phải Đổi hàng — máy chủ cộng cả hàng lỗi vào `soLuongDaNhan` với Trừ công nợ / Trả tài xế
- *   (PhieuNhapKhoService.completePhieuNhap). Phiếu chưa hoàn tất: chỉ là số dự kiến.
+ *   `soLuongCanNhap` = số dự kiến nhập đợt này, `soLuongDaKhaiBao` = số đạt đã khai báo lô, `soLuongLoiQc` = số lỗi.
+ *   Phiếu hoàn tất: số đã nhập của đợt = số đạt, số lỗi hiện riêng. Phiếu chưa hoàn tất: chỉ là số dự kiến.
  * - Phiếu đã hủy (4) không thành cột.
  */
-import { laDoiHang } from "../../../constants/nhapKho.js";
 import { t } from "../../../i18n/t.js";
 
 const TRANG_THAI_PHIEU_HOAN_TAT = 3;
@@ -38,16 +37,21 @@ export function daKetThucSom(trangThai) {
 
 /**
  * Mục "Đóng đơn (nhận thiếu)" / "Hủy đơn" ở menu ⋯ của Chi tiết đơn mua (cùng điều kiện máy chủ kiểm, trừ phiếu nhập
- * nháp — máy chủ báo 409 kèm số phiếu). Chỉ đơn đang vận chuyển: đã nhận ít nhất một đợt thì đóng, chưa nhận gì thì hủy.
+ * nháp — máy chủ báo 409 kèm số phiếu). Chỉ đơn đang vận chuyển:
+ * - Đóng: đã có ít nhất một phiếu nhập hoàn tất (kể cả đợt toàn hàng lỗi, "đã nhận" vẫn 0) và còn thiếu > 0.
+ * - Hủy: chưa có phiếu nhập hoàn tất nào.
  * @param duocThaoTac vai trò được đóng / hủy (quản trị viên, nhân viên mua hàng)
  * @param tienDo `tinhTienDoNhan(don.chiTietDonMuaHangs)`
+ * @param soPhieuHoanTat số phiếu nhập đã hoàn tất của đơn (cột không chờ nhập của `dungBangDotNhan`); `null` khi chưa
+ *   biết (vai trò không xem được phiếu nhập, đang tải, tải lỗi) thì đoán theo số của đơn: đã nhận hoặc trừ tiền > 0
  * @returns `{ dong, huy }` (boolean)
  */
-export function thaoTacKetThuc(don, tienDo, duocThaoTac) {
+export function thaoTacKetThuc(don, tienDo, duocThaoTac, soPhieuHoanTat = null) {
   const dangVe = Boolean(don) && docSo(don.trangThai) === TRANG_THAI_DON_MUA.DANG_VAN_CHUYEN;
   if (!duocThaoTac || !dangVe) return { dong: false, huy: false };
   const td = tienDo ?? tinhTienDoNhan(don.chiTietDonMuaHangs);
-  return { dong: !td.chuaNhan && !td.daDu, huy: td.chuaNhan };
+  const coDotNhan = soPhieuHoanTat == null ? !td.chuaNhan : soPhieuHoanTat > 0;
+  return { dong: coDotNhan && !td.daDu, huy: !coDotNhan };
 }
 
 /** Đọc số từ BigDecimal của backend (số hoặc chuỗi "80.00"); sai hoặc trống thì 0. */
@@ -66,36 +70,55 @@ function dauNgay(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
+/** Trừ tiền và hàng đạt của một dòng đơn: "đã nhận" của máy chủ gồm cả hàng lỗi đã chốt trừ tiền. */
+function tachDaNhan(ct) {
+  const xong = Math.max(0, docSo(ct?.soLuongDaNhan));
+  const tru = Math.min(xong, Math.max(0, docSo(ct?.soLuongTruTien)));
+  return { dat: xong - tru, tru };
+}
+
+/** Còn thiếu của một dòng đơn: đặt − đã nhận (hàng đạt + hàng lỗi đã chốt trừ tiền), không âm. */
+export function conThieuDong(ct) {
+  const d = Math.max(0, docSo(ct?.soLuongDat));
+  const { dat: n, tru } = tachDaNhan(ct);
+  return Math.max(0, d - n - tru);
+}
+
 /**
  * Tiến độ nhận hàng của cả đơn.
- * - `conThieu` cộng phần thiếu của TỪNG dòng (dòng nhận vượt không bù cho dòng còn thiếu).
+ * - `conThieu` cộng phần thiếu của TỪNG dòng (đặt − đã nhận − trừ tiền; dòng nhận vượt không bù cho dòng còn thiếu).
+ * - `truTien`: hàng lỗi đã chốt trừ tiền (không giao lại, đơn giảm số này).
  * - `vuot` cộng phần nhận vượt số đặt (dữ liệu bất thường, cần hiện cho người dùng thấy).
- * - `daDu`: đơn có ít nhất một dòng và mọi dòng đã nhận đủ (giống điều kiện khóa nút Tạo phiếu nhập trước đây).
+ * - `phanTram`: (đã nhận + trừ tiền) / đặt, mỗi dòng tính trong mức số đặt.
+ * - `daDu`: đơn có ít nhất một dòng và mọi dòng không còn thiếu (giống điều kiện khóa nút Tạo phiếu nhập).
  */
 export function tinhTienDoNhan(chiTiets) {
   const dong = Array.isArray(chiTiets) ? chiTiets : [];
   let dat = 0;
   let daNhan = 0;
-  let daNhanTrongMuc = 0;
+  let truTien = 0;
+  let xongTrongMuc = 0;
   let conThieu = 0;
   let vuot = 0;
   for (const ct of dong) {
     const d = Math.max(0, docSo(ct?.soLuongDat));
-    const n = Math.max(0, docSo(ct?.soLuongDaNhan));
+    const { dat: n, tru } = tachDaNhan(ct);
     dat += d;
     daNhan += n;
-    daNhanTrongMuc += Math.min(n, d);
-    conThieu += Math.max(0, d - n);
-    vuot += Math.max(0, n - d);
+    truTien += tru;
+    xongTrongMuc += Math.min(n + tru, d);
+    conThieu += Math.max(0, d - n - tru);
+    vuot += Math.max(0, n + tru - d);
   }
   return {
     dat,
     daNhan,
+    truTien,
     conThieu,
     vuot,
-    phanTram: dat > 0 ? Math.min(100, Math.round((daNhanTrongMuc / dat) * 100)) : 0,
+    phanTram: dat > 0 ? Math.min(100, Math.round((xongTrongMuc / dat) * 100)) : 0,
     daDu: dong.length > 0 && conThieu === 0,
-    chuaNhan: daNhan === 0,
+    chuaNhan: daNhan === 0 && truTien === 0,
   };
 }
 
@@ -114,23 +137,29 @@ function sapXepPhieu(a, b) {
  * @param phieus    chi tiết các phiếu nhập của đơn (kết quả `getDetail`, có thể kèm `ngayTao` từ danh sách)
  * @returns `{ cot, dong, tong, lechSo }`
  *   - `cot[i]`: `{ id, soPhieu, ngay, choNhap, nguoiNhap }`
- *   - `dong[j].theoDot[i]`: số của dòng j trong đợt i, `null` nếu phiếu không có sản phẩm này
- *   - `lechSo`: các dòng mà tổng các đợt đã nhập khác `soLuongDaNhan` (dữ liệu cũ hoặc lệch)
+ *   - `dong[j].theoDot[i]`: số của dòng j trong đợt i — phiếu đã nhập: số ĐẠT; phiếu chờ nhập: số dự kiến;
+ *     `null` nếu phiếu không có sản phẩm này
+ *   - `dong[j].theoDotLoi[i]`: số hàng lỗi của dòng j ở phiếu đã nhập i (phiếu chờ nhập, không có sản phẩm: 0)
+ *   - `dong[j]`: thêm `truTien`, `thanhTien` = (đặt − trừ tiền) × đơn giá, `thanhTienTheoDat`, `giamTru`, `giaTriDaNhan`
+ *   - `tong`: thêm `truTien`, `thanhTienTheoDat` (đặt × giá), `giamTru` (trừ tiền × giá), `thanhTien` (đã giảm trừ),
+ *     `giaTriDaNhan` (đã nhận × giá), `theoDotLoi`
+ *   - `lechSo`: các dòng mà tổng số đạt các đợt đã nhập khác `soLuongDaNhan` (dữ liệu cũ hoặc lệch)
  */
 export function dungBangDotNhan(chiTiets, phieus) {
   const cot = (Array.isArray(phieus) ? phieus : [])
     .filter((p) => p && docSo(p.trangThai) !== TRANG_THAI_PHIEU_HUY)
     .map((p) => {
       const choNhap = docSo(p.trangThai) !== TRANG_THAI_PHIEU_HOAN_TAT;
-      // Hàng lỗi Trừ công nợ / Trả tài xế không được giao bù: máy chủ tính là đã nhận của đơn
-      const tinhLoi = !choNhap && !laDoiHang(p.phuongAnBienBan);
+      // Phiếu đã nhập: số đạt (máy chủ chỉ cộng hàng đạt vào đã nhận), hàng lỗi để riêng
       const soLuong = new Map();
+      const soLoi = new Map();
       for (const it of Array.isArray(p.items) ? p.items : []) {
         if (it?.bienTheSanPhamId == null) continue;
-        const sl = choNhap
-          ? docSo(it.soLuongCanNhap)
-          : docSo(it.soLuongDaKhaiBao) + (tinhLoi ? docSo(it.soLuongLoiQc) : 0);
+        const sl = choNhap ? docSo(it.soLuongCanNhap) : docSo(it.soLuongDaKhaiBao);
         soLuong.set(it.bienTheSanPhamId, (soLuong.get(it.bienTheSanPhamId) ?? 0) + sl);
+        if (!choNhap) {
+          soLoi.set(it.bienTheSanPhamId, (soLoi.get(it.bienTheSanPhamId) ?? 0) + Math.max(0, docSo(it.soLuongLoiQc)));
+        }
       }
       return {
         id: p.id,
@@ -139,6 +168,7 @@ export function dungBangDotNhan(chiTiets, phieus) {
         choNhap,
         nguoiNhap: p.tenNguoiNhap || null,
         soLuong,
+        soLoi,
       };
     })
     .sort(sapXepPhieu);
@@ -147,8 +177,11 @@ export function dungBangDotNhan(chiTiets, phieus) {
   const dong = (Array.isArray(chiTiets) ? chiTiets : []).map((ct, viTri) => {
     const bt = ct?.bienTheSanPham ?? {};
     const dat = Math.max(0, docSo(ct?.soLuongDat));
-    const daNhan = Math.max(0, docSo(ct?.soLuongDaNhan));
+    const { dat: daNhan, tru: truTien } = tachDaNhan(ct);
+    const donGia = ct?.donGia ?? null;
+    const gia = docSo(donGia);
     const theoDot = cot.map((c) => (c.soLuong.has(bt.id) ? c.soLuong.get(bt.id) : null));
+    const theoDotLoi = cot.map((c) => c.soLoi.get(bt.id) ?? 0);
     const tongDaNhapTheoDot = cot.reduce(
       (tong, c, i) => (c.choNhap || theoDot[i] == null ? tong : tong + theoDot[i]),
       0,
@@ -166,23 +199,34 @@ export function dungBangDotNhan(chiTiets, phieus) {
       maMauHex: bt.mauSac?.maMauHex || "",
       kichCo: bt.size?.tenSize || bt.size?.maSize || "",
       anh: bt.anhBienThe?.tepTin?.duongDan || null,
-      donGia: ct?.donGia ?? null,
-      thanhTien: ct?.thanhTien ?? null,
+      donGia,
+      // Không có đơn giá (dữ liệu lạ): giữ thành tiền của máy chủ khi không có trừ tiền
+      thanhTien: donGia != null ? Math.max(0, dat - truTien) * gia : truTien > 0 ? null : ct?.thanhTien ?? null,
+      thanhTienTheoDat: donGia != null ? dat * gia : ct?.thanhTien ?? null,
+      giamTru: truTien * gia,
+      giaTriDaNhan: daNhan * gia,
       dat,
       daNhan,
-      conThieu: Math.max(0, dat - daNhan),
-      vuot: Math.max(0, daNhan - dat),
+      truTien,
+      conThieu: Math.max(0, dat - daNhan - truTien),
+      vuot: Math.max(0, daNhan + truTien - dat),
       theoDot,
+      theoDotLoi,
     };
   });
 
   const tong = {
     dat: dong.reduce((s, d) => s + d.dat, 0),
     daNhan: dong.reduce((s, d) => s + d.daNhan, 0),
+    truTien: dong.reduce((s, d) => s + d.truTien, 0),
     conThieu: dong.reduce((s, d) => s + d.conThieu, 0),
     vuot: dong.reduce((s, d) => s + d.vuot, 0),
+    thanhTienTheoDat: dong.reduce((s, d) => s + docSo(d.thanhTienTheoDat), 0),
+    giamTru: dong.reduce((s, d) => s + d.giamTru, 0),
     thanhTien: dong.reduce((s, d) => s + docSo(d.thanhTien), 0),
+    giaTriDaNhan: dong.reduce((s, d) => s + d.giaTriDaNhan, 0),
     theoDot: cot.map((_, i) => dong.reduce((s, d) => s + (d.theoDot[i] ?? 0), 0)),
+    theoDotLoi: cot.map((_, i) => dong.reduce((s, d) => s + d.theoDotLoi[i], 0)),
   };
 
   return {
@@ -223,6 +267,12 @@ export function tinhBuocDonMua(don, tienDo, cotDot, homNay = new Date()) {
   const tuChoi = trangThai === 4;
   const td = tienDo ?? tinhTienDoNhan(don?.chiTietDonMuaHangs);
   const giao = trangThaiGiao(don?.ngayGiaoDuKien, td.daDu, homNay);
+  const dotDaNhap = (Array.isArray(cotDot) ? cotDot : []).filter((c) => !c.choNhap);
+  // "đã nhận/đặt"; có trừ tiền thì ghi thành phép cộng "37 đạt + 3 trừ tiền / 40" (hàng lỗi không giao lại cũng là
+  // phần đã xong của đơn) để khỏi đọc "37/40" là còn thiếu
+  const soDaNhan = td.truTien > 0
+    ? t("{{daNhan}} đạt + {{truTien}} trừ tiền / {{dat}}", { daNhan: td.daNhan, dat: td.dat, truTien: td.truTien })
+    : `${td.daNhan}/${td.dat}`;
 
   const buocBaoGia = daChot || tuChoi || trangThai === 2
     ? { trangThai: "xong", phu: t("Đã có giá") }
@@ -241,21 +291,22 @@ export function tinhBuocDonMua(don, tienDo, cotDot, homNay = new Date()) {
     buocNhan = { trangThai: "chua", phu: "", canhBao: "" };
   } else if (daDong) {
     // Đã thôi nhận: các đợt đã nhận là xong, không còn cảnh báo quá hạn
-    buocNhan = { trangThai: "xong", phu: `${td.daNhan}/${td.dat}`, canhBao: "" };
+    buocNhan = { trangThai: "xong", phu: soDaNhan, canhBao: "" };
   } else if (daHuy) {
     buocNhan = { trangThai: "chua", phu: t("Không nhận"), canhBao: "" };
   } else if (td.daDu) {
-    buocNhan = { trangThai: "xong", phu: `${td.daNhan}/${td.dat}`, canhBao: "" };
+    buocNhan = { trangThai: "xong", phu: soDaNhan, canhBao: "" };
   } else {
     buocNhan = {
       trangThai: "dangLam",
-      phu: td.chuaNhan ? t("Chưa nhận") : `${td.daNhan}/${td.dat}`,
+      // Đợt đầu toàn hàng lỗi: đã có phiếu nhập hoàn tất nên không còn là "Chưa nhận"
+      phu: td.chuaNhan && !dotDaNhap.length ? t("Chưa nhận") : soDaNhan,
       canhBao: giao.loai === "quaHan" ? t("quá hạn {{count}} ngày", { count: giao.soNgay }) : "",
     };
   }
 
-  const dotDaNhap = (Array.isArray(cotDot) ? cotDot : []).filter((c) => !c.choNhap && c.ngay);
-  const ngayDotCuoi = dotDaNhap.length ? dotDaNhap[dotDaNhap.length - 1].ngay : null;
+  const dotCoNgay = dotDaNhap.filter((c) => c.ngay);
+  const ngayDotCuoi = dotCoNgay.length ? dotCoNgay[dotCoNgay.length - 1].ngay : null;
 
   return [
     {
@@ -296,4 +347,81 @@ export function tinhBuocDonMua(don, tienDo, cotDot, homNay = new Date()) {
         canhBao: "",
       },
   ];
+}
+
+// ── Biên bản trả hàng của đơn (khối "Hàng lỗi trả nhà cung cấp", nhãn phụ Còn thiếu, hộp Đóng đơn) ────────────────
+// Cách bù nhà cung cấp chọn trên cổng: CHO_CHOT (chưa chọn) | DOI_HANG (giao bù) | TRU_CONG_NO (trừ tiền). `theoBienThe` chỉ để
+// hiển thị: [{ bienTheSanPhamId, sku, soLuongLoi, donGia, conThieuDongDon }].
+
+/** Biên bản còn hiệu lực (bỏ biên bản đã hủy). */
+export function bienBanHieuLuc(dsBienBan) {
+  return (Array.isArray(dsBienBan) ? dsBienBan : []).filter(
+    (bb) => bb && bb.trangThai !== "DA_HUY" && bb.trangThaiHienThi !== "DA_HUY",
+  );
+}
+
+/** Biên bản mà hàng lỗi còn chờ: đã nhập kho và nhà cung cấp chưa chọn, hoặc giao bù mà chưa nhận đủ hàng bù. */
+export function bienBanConCho(bb) {
+  if (!bb?.phieuDaNhap) return false;
+  return bb.phuongAn === "CHO_CHOT" || (bb.phuongAn === "DOI_HANG" && !bb.buXong);
+}
+
+/**
+ * Nhãn phụ dưới ô Còn thiếu theo biến thể: `{ [bienTheSanPhamId]: "choChot" | "choHangBu" }`.
+ * Một biến thể vừa chờ nhà cung cấp chọn ở biên bản này vừa chờ hàng bù ở biên bản khác thì ưu tiên "choChot" (việc mua
+ * hàng còn phải nhắc).
+ */
+export function nhanBuTheoBienThe(dsBienBan) {
+  const kq = {};
+  for (const bb of bienBanHieuLuc(dsBienBan)) {
+    if (!bienBanConCho(bb)) continue;
+    const loai = bb.phuongAn === "CHO_CHOT" ? "choChot" : "choHangBu";
+    for (const d of Array.isArray(bb.theoBienThe) ? bb.theoBienThe : []) {
+      if (d?.bienTheSanPhamId == null || !(docSo(d.soLuongLoi) > 0)) continue;
+      if (kq[d.bienTheSanPhamId] !== "choChot") kq[d.bienTheSanPhamId] = loai;
+    }
+  }
+  return kq;
+}
+
+/**
+ * Hàng lỗi chưa xong sẽ chuyển sang trừ tiền khi đóng đơn (gần đúng như máy chủ): Σ min(số lỗi, còn thiếu dòng đơn) của
+ * các biên bản chờ nhà cung cấp chọn / chờ hàng bù; còn thiếu của dòng đơn trừ dần qua từng biên bản cùng biến thể.
+ * @param chiTiets dòng đơn (để lấy còn thiếu hiện tại); không có dòng thì dùng `conThieuDongDon` của biên bản
+ * @returns `{ soLuong, soBienBan: string[] }`
+ */
+export function hangLoiChuyenKhiDongDon(dsBienBan, chiTiets) {
+  const conLai = new Map();
+  for (const ct of Array.isArray(chiTiets) ? chiTiets : []) {
+    const id = ct?.bienTheSanPham?.id;
+    if (id != null) conLai.set(id, (conLai.get(id) ?? 0) + conThieuDong(ct));
+  }
+  let soLuong = 0;
+  const soBienBan = [];
+  for (const bb of bienBanHieuLuc(dsBienBan)) {
+    if (!bienBanConCho(bb)) continue;
+    let cuaBienBan = 0;
+    for (const d of Array.isArray(bb.theoBienThe) ? bb.theoBienThe : []) {
+      const id = d?.bienTheSanPhamId;
+      if (id == null) continue;
+      const thieu = conLai.has(id) ? conLai.get(id) : Math.max(0, docSo(d.conThieuDongDon));
+      const chuyen = Math.max(0, Math.min(docSo(d.soLuongLoi), thieu));
+      conLai.set(id, thieu - chuyen);
+      cuaBienBan += chuyen;
+    }
+    if (cuaBienBan > 0) {
+      soLuong += cuaBienBan;
+      soBienBan.push(bb.soBienBan || `#${bb.id}`);
+    }
+  }
+  return { soLuong, soBienBan };
+}
+
+/** Tóm tắt phương án của một biên bản cho thẻ nhỏ ở cột phải; phiếu chưa nhập kho thì rỗng (nhãn trạng thái đã nói). */
+export function tomTatPhuongAn(bb, dinhDangTien = String) {
+  if (!bb?.phieuDaNhap) return "";
+  if (bb.phuongAn === "TRU_CONG_NO") return t("trừ tiền {{tien}}", { tien: dinhDangTien(docSo(bb.tienTruTien)) });
+  if (bb.phuongAn === "DOI_HANG") return bb.buXong ? t("giao bù, đã đủ") : t("giao bù");
+  if (bb.phuongAn === "CHO_CHOT") return t("chờ nhà cung cấp chọn");
+  return "";
 }

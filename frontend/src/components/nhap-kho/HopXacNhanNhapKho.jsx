@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DaiO } from "@/components/nhap-kho/ThanhBuoc";
-import { laDoiHang } from "@/constants/nhapKho";
 import { thongKeHeThongService } from "@/services/thongKeHeThongService";
 import { formatNumber } from "@/utils/formatters";
 import { t } from "@/i18n";
@@ -49,11 +48,9 @@ export default function HopXacNhanNhapKho({ open, onOpenChange, phieu, dong, dan
   }, [open, khoId, khoaBienThe]);
 
   const tongDat = (dong ?? []).reduce((tg, d) => tg + Number(d.dat || 0), 0);
-  const tongLoi = (dong ?? []).reduce((tg, d) => tg + Number(d.loi || 0), 0);
-  // Incoming = phần đơn mua chưa nhận. Nhập kho cộng "đã nhận" của đơn: chỉ hàng đạt khi phương án là Đổi hàng
-  // (nhà cung cấp giao bù phần lỗi), cả đạt và lỗi với Trừ công nợ / Trả tài xế.
-  // Free to Use = On Hand + Incoming − Outgoing, nên chỉ giảm phần lỗi không được giao bù.
-  const giamIncoming = tongDat + (laDoiHang(phieu?.phuongAnBienBan) ? 0 : tongLoi);
+  // Incoming = phần đơn mua chưa nhận (đặt − đã nhận − trừ tiền). Nhập kho chỉ cộng hàng đạt vào "đã nhận"; hàng lỗi
+  // vẫn là còn thiếu cho tới khi nhà cung cấp chọn trừ tiền hoặc hàng bù về.
+  const giamIncoming = tongDat;
   const oTon = (nhan, truoc, sau) => (
     <div key={nhan} className="flex min-w-0 flex-col gap-1 bg-bo-surface px-4 py-3">
       <span className="text-xs font-medium text-bo-muted">{nhan}</span>

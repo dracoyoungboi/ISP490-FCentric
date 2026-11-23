@@ -17,7 +17,7 @@ import { t } from "@/i18n";
  * Props:
  * - `label`: tên trạng thái (chuỗi).
  * - `quyTrinh`: loại chứng từ ("donBan", "phieuNhat", "phieuXuat", "chuyenKho", "phieuNhap", "kiemDem", "kiemKe",
- *   "yeuCauNhap", "yeuCauBaoGia", "donMua") — xem QUY_TRINH.
+ *   "yeuCauNhap", "yeuCauBaoGia", "donMua", "traHangNcc") — xem QUY_TRINH.
  * - `doiTuong`: "nguoi" | "kho" — đổi biểu tượng của nhãn dùng chung (vd. "Hoạt động").
  * - `nhom`: ép nhóm màu (cho, dang, canChuY, xong, dong, loi, thuong). Thường không cần truyền.
  * - `tone`: chỉ dùng cho giá trị không phải trạng thái, khi nhãn không có trong bảng.

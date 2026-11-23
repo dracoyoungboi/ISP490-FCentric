@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "@/lib/thongBaoNhanh";
-import { ArrowLeft, Check, FileCheck2, Loader2, MoreHorizontal, Printer, ScanLine, X } from "lucide-react";
+import { ArrowLeft, Check, FileCheck2, Loader2, MoreHorizontal, PenLine, Printer, ScanLine, X } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import { useClaimPageTitle, PAGE_HEADING_TYPE } from "@/components/backoffice/pageTitle";
@@ -24,10 +24,12 @@ import HopXacNhanNhapKho from "@/components/nhap-kho/HopXacNhanNhapKho";
 import TheHoaDonNhaCungCap from "@/components/nhap-kho/TheHoaDonNhaCungCap";
 import { DaiO, OBuoc, ThanhMuc, TienDoSo } from "@/components/nhap-kho/ThanhBuoc";
 import { getGoodsReceiptStatus } from "@/constants/goodsReceipt";
-import { PHUONG_AN_MAC_DINH, PHUONG_AN_TRA_HANG, chuanHoaPhuongAn, trangThaiKiemDem } from "@/constants/nhapKho";
+import { trangThaiKiemDem, trangThaiTraHang } from "@/constants/nhapKho";
+import HopXemBienBanTraHang from "@/components/nhap-kho/tra-hang/HopXemBienBanTraHang";
+import { choKyBienBan, duongDanInBienBan, tenCachXuLy } from "@/components/nhap-kho/tra-hang/traHangUtils";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { cn } from "@/lib/utils";
-import { THONG_BAO_CHUA_HO_TRO_BIEN_BAN, bienBanTraHangService } from "@/services/bienBanTraHangService";
+import { bienBanTraHangService } from "@/services/bienBanTraHangService";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDate, formatNumber } from "@/utils/formatters";
@@ -85,6 +87,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   const [lyDoHuy, setLyDoHuy] = useState("");
   const [moHuyBienBan, setMoHuyBienBan] = useState(false);
   const [moBienBan, setMoBienBan] = useState(false);
+  const [moXemBienBan, setMoXemBienBan] = useState(false);
   const [dangXuLy, setDangXuLy] = useState(false);
   const dangXuLyRef = useRef(false);
 
@@ -102,9 +105,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
     return Object.fromEntries(ketQua);
   }, khoaLo);
 
-  const bienBan = useTaiDuLieu(() => bienBanTraHangService.layTheoPhieuNhap(id), `${id}|${data.tongLoiBienBan ?? ""}|${data.maBienBanRtv ?? ""}`, {
-    enabled: bienBanTraHangService.hoTro,
-  });
+  const bienBan = useTaiDuLieu(() => bienBanTraHangService.layTheoPhieuNhap(id), `${id}|${data.tongLoiBienBan ?? ""}|${data.maBienBanRtv ?? ""}`);
 
   // Số đạt / không đạt lấy từ máy chủ (lô đã khóa), không lấy từ trình duyệt đã kiểm: máy nào mở cũng ra cùng số
   const dong = useMemo(
@@ -206,20 +207,23 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
 
   // huy: bấm "Hủy biên bản" (cùng API phát hành, máy chủ hủy khi không còn hàng lỗi).
   // Trả true khi máy chủ đã xử lý xong, false khi lỗi: hộp gọi chỉ đóng khi thành công
-  const phatHanhBienBan = async ({ phuongAn, ghiChu, huy = false }) => {
+  const phatHanhBienBan = async ({ huy = false, ...payload }) => {
     if (dangXuLyRef.current) return false;
     dangXuLyRef.current = true;
     setDangXuLy(true);
     try {
       // Máy chủ tự lấy dòng biên bản từ hàng không đạt đã lưu theo lô
-      const ketQua = await bienBanTraHangService.phatHanh(id, { phuongAn, ghiChu });
+      const ketQua = await bienBanTraHangService.phatHanh(id, payload);
       if (huy && ketQua) {
         // Trang đã cũ: máy khác vừa khóa thêm lô lỗi nên máy chủ lập lại biên bản thay vì hủy
         toast.warning(t("Biên bản {{soBienBan}} được lập lại, không hủy", { soBienBan: ketQua.soBienBan || data.maBienBanRtv || "" }), {
-          description: t("Phiếu vừa có thêm hàng lỗi nên biên bản được lập lại theo hàng lỗi mới. Mở biên bản để kiểm tra phương án và ghi chú."),
+          description: t("Phiếu vừa có thêm hàng lỗi nên biên bản được lập lại theo hàng lỗi mới. Mở biên bản để kiểm tra lại."),
         });
       } else {
-        toast.success(ketQua ? (bienBanLech ? t("Đã lập lại biên bản trả hàng") : t("Đã phát hành biên bản trả hàng")) : t("Đã hủy biên bản vì không còn hàng lỗi"));
+        let cau = t("Đã hủy biên bản vì không còn hàng lỗi");
+        if (ketQua) cau = bienBanLech ? t("Đã lập lại biên bản trả hàng") : t("Đã lập biên bản trả hàng");
+        // Có người ký: biên bản chờ ghi đã ký mới gửi nhà cung cấp
+        toast.success(cau, choKyBienBan(ketQua) ? { description: t("In biên bản cho người giao hàng ký rồi bấm Ghi đã ký.") } : undefined);
       }
       setMoBienBan(false);
       onReload();
@@ -227,7 +231,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
       bienBan.reload();
       return true;
     } catch (error) {
-      toast.error(getApiErrorMessage(error, huy ? t("Không hủy được biên bản") : t("Không phát hành được biên bản")));
+      toast.error(getApiErrorMessage(error, huy ? t("Không hủy được biên bản") : t("Không lập được biên bản")));
       return false;
     } finally {
       dangXuLyRef.current = false;
@@ -239,13 +243,15 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   const b1 = kiemXong || daNhap ? "xong" : "dang";
   const b2 = daNhap || (kiemXong && xuLyLoiXong) ? "xong" : kiemXong || bienBanLech ? "dang" : "cho";
   const b3 = daNhap ? "xong" : coTheXacNhan ? "dang" : "cho";
-  // Biên bản lập trước khi đổi tên phương án mang mã cũ DOI_HANG_MOI
-  const maPhuongAnHienTai = chuanHoaPhuongAn(bienBan.data?.phuongAn ?? data.phuongAnBienBan) ?? PHUONG_AN_MAC_DINH;
-  const tenPhuongAn = PHUONG_AN_TRA_HANG.find((p) => p.ma === maPhuongAnHienTai)?.ten;
+  const bb = bienBan.data ?? null;
+  // Hàng lỗi đã trả ngay cho người giao hàng (đã ký nhận): máy chủ không cho sửa kiểm đếm, không hủy phiếu (chỉ còn nhập kho)
+  const daTraNgay = bb?.cachXuLyHang === "TRA_NGAY" && bb?.trangThaiHang === "DA_TRA" && bb?.trangThai !== "DA_HUY";
+  // Biên bản lập xong, chưa ghi người giao hàng đã ký: chưa gửi nhà cung cấp, chưa nhập kho được
+  const choKy = choKyBienBan(bb);
 
   let moTa2;
   let nut2 = null;
-  // Nút "Xem biên bản" chỉ đọc: nhân viên mua hàng vẫn xem được biên bản đã phát hành
+  // Nút "Xem biên bản" chỉ đọc: nhân viên mua hàng vẫn xem được biên bản đã lập (ghi đã ký chỉ kho làm)
   let nut2ChiXem = false;
   if (bienBanLech && nhap) {
     moTa2 = !tong.loi
@@ -265,18 +271,40 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   } else if (!kiemXong && !daNhap) moTa2 = tong.loi ? t("Mở sau khi kiểm xong. Đã ghi nhận {{loi}} sản phẩm lỗi.", { count: tong.loi, loi: formatNumber(tong.loi) }) : t("Mở sau khi kiểm xong.");
   else if (tong.loi === 0) moTa2 = t("Không có hàng lỗi, bỏ qua bước này.");
   else if (coBienBan) {
-    moTa2 = t("Biên bản {{maBienBanRtv}} · {{loi}} sản phẩm{{phanPhuongAn}}.{{phanMau}}", { maBienBanRtv: data.maBienBanRtv, count: tong.loi, loi: formatNumber(tong.loi), phanPhuongAn: tenPhuongAn ? ` · ${t(tenPhuongAn)}` : "", phanMau: bienBanTraHangService.mau ? t(" (Dữ liệu mẫu, chưa lưu máy chủ.)") : "" });
-    nut2 = <Button variant="outline" onClick={() => setMoBienBan(true)} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">{t("Xem biên bản")}</Button>;
+    // Trước nhập kho: hàng lỗi đi đâu; sau nhập kho: trạng thái của biên bản (chờ nhà cung cấp chọn, chờ giao trả...)
+    // Hạ chữ đầu, giữ chữ viết tắt (NCC) nguyên dạng
+    const haChuDau = (s) => (s ? s.charAt(0).toLowerCase() + s.slice(1) : s);
+    let phanTrangThai = "";
+    if (bb && choKy) phanTrangThai = t("chờ {{ten}} ký", { ten: bb.nguoiGiao || "" });
+    else if (bb && daNhap) phanTrangThai = haChuDau(t(trangThaiTraHang(bb.trangThaiHienThi).label));
+    else if (bb && daTraNgay) phanTrangThai = t("đã trả người giao hàng {{ten}}", { ten: bb.nguoiNhanHang || "" }).trim();
+    else if (bb) phanTrangThai = haChuDau(tenCachXuLy(bb.cachXuLyHang));
+    moTa2 = t("Biên bản {{maBienBanRtv}} · {{loi}} sản phẩm{{phanTrangThai}}.", { maBienBanRtv: data.maBienBanRtv, count: tong.loi, loi: formatNumber(tong.loi), phanTrangThai: phanTrangThai ? ` · ${phanTrangThai}` : "" });
+    if (choKy) moTa2 = `${moTa2} ${t("In cho người giao hàng ký rồi ghi đã ký để gửi nhà cung cấp và nhập kho.")}`;
+    nut2 = (
+      <>
+        {choKy && xuLyKho ? (
+          <Button onClick={() => setMoXemBienBan(true)} className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
+            <PenLine className="size-4" /> {t("Ghi đã ký")}
+          </Button>
+        ) : (
+          <Button variant="outline" disabled={!bb} onClick={() => setMoXemBienBan(true)} className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">{t("Xem biên bản")}</Button>
+        )}
+        {bb ? (
+          <Button variant="outline" onClick={() => moTrangIn(duongDanInBienBan(bb.id), navigate)} className="gap-2 border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle">
+            <Printer className="size-4" /> {t("In biên bản")}
+          </Button>
+        ) : null}
+      </>
+    );
     nut2ChiXem = true;
-  } else if (bienBanTraHangService.hoTro) {
-    moTa2 = t("{{loi}} sản phẩm lỗi phải lập biên bản trả nhà cung cấp trước khi nhập kho.{{phanMau}}", { count: tong.loi, loi: formatNumber(tong.loi), phanMau: bienBanTraHangService.mau ? t(" (Biên bản là dữ liệu mẫu, chưa lưu máy chủ.)") : "" });
+  } else {
+    moTa2 = t("{{loi}} sản phẩm lỗi phải lập biên bản trả nhà cung cấp trước khi nhập kho.", { count: tong.loi, loi: formatNumber(tong.loi) });
     nut2 = (
       <Button onClick={() => setMoBienBan(true)} className="gap-2 bg-bo-primary text-white hover:bg-bo-primary-hover">
         <FileCheck2 className="size-4" /> {t("Lập biên bản trả hàng")}
       </Button>
     );
-  } else {
-    moTa2 = t("{{loi}} sản phẩm lỗi. {{thongBao}}", { count: tong.loi, loi: formatNumber(tong.loi), thongBao: THONG_BAO_CHUA_HO_TRO_BIEN_BAN });
   }
 
   if (!xuLyKho && !nut2ChiXem) nut2 = null;
@@ -325,7 +353,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
               <Printer className="size-4" /> {t("In phiếu")}
             </Button>
           ) : null}
-          {nhap && xuLyKho ? (
+          {nhap && xuLyKho && !daTraNgay ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label={t("Thao tác khác")} className="text-bo-muted hover:bg-slate-100 hover:text-bo-foreground">
@@ -412,6 +440,9 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
       {daNhap ? (
         <TheHoaDonNhaCungCap
           phieuNhapKhoId={id}
+          bienBanTraHang={bb}
+          tongDat={tong.dat}
+          giaTriDat={Number(data.tongTien) || 0}
           coTheSua={hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_MUA_HANG])}
         />
       ) : null}
@@ -571,12 +602,21 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
         dangXuLy={dangXuLy}
         onPhatHanh={phatHanhBienBan}
       />
+      <HopXemBienBanTraHang
+        open={moXemBienBan}
+        onOpenChange={setMoXemBienBan}
+        bienBan={bb}
+        onDaDoi={() => {
+          bienBan.reload();
+          onReload();
+        }}
+      />
       <ConfirmModal
         isOpen={moHuyBienBan}
         onClose={() => setMoHuyBienBan(false)}
         onConfirm={async () => {
           // Gửi lại ghi chú đang có: máy chủ lỡ lập lại (trang cũ) thì không xóa ghi chú. Lỗi thì giữ hộp mở
-          if (await phatHanhBienBan({ phuongAn: maPhuongAnHienTai, ghiChu: bienBan.data?.ghiChu ?? "", huy: true })) setMoHuyBienBan(false);
+          if (await phatHanhBienBan({ cachXuLy: bb?.cachXuLyHang ?? "GIU_KHO", benKy: bb?.benKy === "VAN_CHUYEN" ? "VAN_CHUYEN" : "DAI_DIEN_NCC", nguoiNhanHang: bb?.nguoiGiao ?? null, bienSoXe: bb?.bienSoXe ?? null, donViVanChuyen: bb?.donViVanChuyen ?? null, ghiChu: bb?.ghiChu ?? "", huy: true })) setMoHuyBienBan(false);
         }}
         title={t("Hủy biên bản trả hàng")}
         description={t("Biên bản {{maBienBanRtv}} không còn hàng lỗi để trả nhà cung cấp. Hủy biên bản để nhập kho được.", { maBienBanRtv: data.maBienBanRtv || "" })}
