@@ -53,7 +53,7 @@ public class SchedulingJob {
     }
 
     /**
-     * Cổng nhà cung cấp: dọn phiên báo giá hết hạn, mốc gửi mã quá 1 giờ, mốc gửi lại email yêu cầu báo giá quá thời
+     * Cổng nhà cung cấp: dọn phiên cổng hết hạn, mốc gửi mã quá 1 giờ, mốc gửi lại email yêu cầu báo giá quá thời
      * gian chặn (tránh phình bộ nhớ). Không dùng bean nào.
      */
     @Scheduled(fixedDelay = 60000)
@@ -62,7 +62,7 @@ public class SchedulingJob {
     }
 
     static void donBoNhoCongNhaCungCap(Instant now) {
-        GlobalCache.PHIEN_BAO_GIA.values().removeIf(phien -> phien.daHetHan(now));
+        GlobalCache.PHIEN_CONG_NCC.values().removeIf(phien -> phien.daHetHan(now));
         Instant motGioTruoc = now.minus(1, ChronoUnit.HOURS);
         synchronized (GlobalCache.OTP_SCHEDULE_OBJS) {
             GlobalCache.LUOT_GUI_MA_NCC.replaceAll((khoa, ds) -> ds.stream().filter(t -> t.isAfter(motGioTruoc)).toList());

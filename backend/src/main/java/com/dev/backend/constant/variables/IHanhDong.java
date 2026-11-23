@@ -69,6 +69,20 @@ public interface IHanhDong {
             xoa_anh_bien_ban = "xoa_anh_bien_ban",
             xu_ly_chenh_lech = "xu_ly_chenh_lech",
             nhap_hoan_tra = "nhap_hoan_tra";
+    //Biên bản trả hàng nhà cung cấp (loai_tham_chieu = bien_ban_tra_hang_ncc, gia_tri_moi = JSON chi tiết việc). Ngoại lệ
+    //của quy định "chỉ master data" bên dưới: BA chốt 23/11/2026 không thêm cột, bảng biên bản chỉ còn trạng thái và
+    //phương án, nên người làm / lúc / chi tiết của từng việc (cả nhà cung cấp trả lời trên cổng) chỉ lưu được ở đây.
+    //Đọc lại qua NhatKyTraHangNcc; không đưa các hành động này vào job dọn nhật ký.
+    String
+            lap_bien_ban_tra_hang = "lap_bien_ban_tra_hang",
+            ky_bien_ban_tra_hang = "ky_bien_ban_tra_hang",
+            gui_email_bien_ban_tra_hang = "gui_email_bien_ban_tra_hang",
+            // Tên cũ giữ nguyên vì đã nằm trong dữ liệu: nay là nhà cung cấp trả lời trên cổng / cách bù đổi
+            chot_tra_hang_ncc = "chot_tra_hang_ncc",
+            tru_tien_tra_hang_ncc = "tru_tien_tra_hang_ncc",
+            giao_tra_hang_loi = "giao_tra_hang_loi",
+            tieu_huy_hang_loi = "tieu_huy_hang_loi",
+            huy_bien_ban_tra_hang = "huy_bien_ban_tra_hang";
     //Mẫu in: mỗi lần lưu một phiên bản (lich_su_thay_doi.loai_tham_chieu = cau_hinh_mau_in,
     //id_tham_chieu = id dòng cau_hinh_mau_in; gia_tri_cu / gia_tri_moi = ảnh chụp JSON cấu hình)
     String

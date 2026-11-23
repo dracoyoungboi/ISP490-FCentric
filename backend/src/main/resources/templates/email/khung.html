@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--/*
-  Khung dùng chung cho 9 email (đặc tả 6.4; làm lại 23/10/2026 theo demo "Bộ email FCentric mới"): đầu email · nội dung ·
+  Khung dùng chung cho các email (đặc tả 6.4; làm lại 23/10/2026 theo demo "Bộ email FCentric mới"): đầu email · nội dung ·
   chân email, rộng 600px, style inline, bảng.
   Biến: cuaHang (CuaHangEmail), nguoiPhuTrach (NguoiPhuTrachEmail, có thể null), tieuDe, coTraLoi, e (dữ liệu).
   Chỉ dùng th:text / th:href / th:attr / th:if / th:each (tự escape). CẤM th:utext và [(…)].
@@ -136,7 +136,7 @@ body{margin:0;padding:0;-webkit-text-size-adjust:100%;}
 <p class="chu-mo" style="margin:8px 0 0;font-size:12px;line-height:18px;color:#5b6b80;">Nút không bấm được? Chép liên kết này vào trình duyệt: <a th:href="${href}" class="lien-ket" style="color:#095fcc;word-break:break-all;" th:text="${href}">liên kết</a></p>
 </td></tr>
 
-<!--/* ===== Ô mã xác nhận (E1, E5). text-indent bù khoảng cách chữ để mã nằm giữa ===== */-->
+<!--/* ===== Ô mã xác nhận (E1, E5 mã đăng nhập Cổng nhà cung cấp). text-indent bù khoảng cách chữ để mã nằm giữa ===== */-->
 <tr th:fragment="o-ma(ma, hetHanLuc)"><td style="padding:0 0 22px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="nen-nhat vien" style="width:100%;background-color:#f7f9fb;border:1px solid #e3e8ef;border-radius:10px;border-collapse:separate;">
 <tr><td align="center" style="padding:22px 16px 20px;text-align:center;">
@@ -194,7 +194,7 @@ body{margin:0;padding:0;-webkit-text-size-adjust:100%;}
 
 <!--/*
   ===== Chân email nhà cung cấp. coKhoiHoaDon (M1): tên, MST, địa chỉ, email đã ở khối Thông tin xuất hóa đơn, chân chỉ còn
-  điện thoại. moiTraLoi false (E5, thư chứa mã): không mời trả lời, ghi người phụ trách để hỏi =====
+  điện thoại. moiTraLoi false (E5, thư chứa mã, không có người phụ trách): không mời trả lời email =====
 */-->
 <th:block th:fragment="chan-nha-cung-cap(coKhoiHoaDon, moiTraLoi)">
 <th:block th:unless="${coKhoiHoaDon}">
@@ -202,11 +202,11 @@ body{margin:0;padding:0;-webkit-text-size-adjust:100%;}
 <p th:if="${cuaHang.maSoThue != null or cuaHang.diaChiDangKy != null}" style="margin:0 0 2px;"><th:block th:if="${cuaHang.maSoThue != null}" th:text="|MST ${cuaHang.maSoThue}|">MST</th:block><th:block th:if="${cuaHang.maSoThue != null and cuaHang.diaChiDangKy != null}"> · </th:block><th:block th:if="${cuaHang.diaChiDangKy != null}" th:text="${cuaHang.diaChiDangKy}">Địa chỉ</th:block></p>
 </th:block>
 <p th:if="${cuaHang.dienThoai != null or (!coKhoiHoaDon and cuaHang.email != null)}" style="margin:0 0 2px;"><th:block th:if="${cuaHang.dienThoai != null}" th:text="|Điện thoại ${cuaHang.dienThoai}|">Điện thoại</th:block><th:block th:if="${!coKhoiHoaDon and cuaHang.dienThoai != null and cuaHang.email != null}"> · </th:block><th:block th:if="${!coKhoiHoaDon and cuaHang.email != null}" th:text="${cuaHang.email}">Email</th:block></p>
-<p th:attr="style=${coKhoiHoaDon and cuaHang.dienThoai == null} ? 'margin:0;' : 'margin:8px 0 0;'">Email gửi tự động qua phần mềm FCentric.<th:block th:if="${moiTraLoi and coTraLoi}"> Trả lời email này để liên hệ trực tiếp người phụ trách đơn.</th:block><th:block th:if="${!moiTraLoi and nguoiPhuTrach != null}"> Cần hỗ trợ, Quý công ty vui lòng liên hệ người phụ trách đơn <th:block th:text="${nguoiPhuTrach.hoTen}">Họ tên</th:block><th:block th:if="${nguoiPhuTrach.dienThoai != null}" th:text="|, ${nguoiPhuTrach.dienThoai}|">, điện thoại</th:block><th:block th:if="${nguoiPhuTrach.dienThoai == null and nguoiPhuTrach.email != null}" th:text="|, ${nguoiPhuTrach.email}|">, email</th:block>.</th:block> Quý công ty nhận email này vì có trong danh sách nhà cung cấp của chúng tôi.</p>
+<p th:attr="style=${coKhoiHoaDon and cuaHang.dienThoai == null} ? 'margin:0;' : 'margin:8px 0 0;'">Email gửi tự động qua phần mềm FCentric.<th:block th:if="${moiTraLoi and coTraLoi}"> Trả lời email này để liên hệ trực tiếp người phụ trách đơn.</th:block> Quý công ty nhận email này vì có trong danh sách nhà cung cấp của chúng tôi.</p>
 </th:block>
 
 <!--/*
-  ===== Phần ký người phụ trách đơn (E4, M3, M1, M2). Không có người phụ trách thì bỏ cả phần ký, trừ M1.
+  ===== Phần ký người phụ trách đơn (E4, M3, M1, M2, E7, M5, M6). Không có người phụ trách thì bỏ cả phần ký, trừ M1.
   thayMat (M1, thư có giá trị như đơn đặt hàng): nêu tư cách ký; tên doanh nghiệp đã có ở khối hóa đơn nên ghi "bên mua" =====
 */-->
 <th:block th:fragment="chu-ky(thayMat)">

@@ -8,7 +8,7 @@ Giao tại: [(${e.tenKho})][# th:if="${e.diaChiKho != null}"], [(${e.diaChiKho})
 [# th:if="${e.ngayCanGiao != null}"]Ngày cần giao: [(${e.ngayCanGiao})]
 [/]
 Gửi báo giá: [(${e.duongDanCong})]
-Bấm vào liên kết, nhận mã xác nhận 6 số qua email, rồi nhập đơn giá cho từng sản phẩm. Hoặc mở [(${e.duongDanCongGoc})], nhập email nhận thư này và mã đơn mua hàng [(${e.maDon})].
+Bấm vào liên kết, nhận mã xác nhận 6 số qua email này, rồi nhập đơn giá cho từng sản phẩm. Hoặc mở [(${e.duongDanCongGoc})] và đăng nhập bằng email nhận thư này.
 
 Sản phẩm cần báo giá
 [# th:each="d : ${e.dong}"][(${d.stt})]. [(${d.tenSanPham})][# th:if="${d.moTa() != null}"] ([(${d.moTa()})])[/]: [(${d.soLuong})]

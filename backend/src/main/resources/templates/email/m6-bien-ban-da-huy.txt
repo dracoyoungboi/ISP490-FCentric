@@ -1,0 +1,10 @@
+[# th:insert="~{khung-dau.txt}" /]Biên bản trả hàng [(${e.maBienBan})] đã hủy
+
+Kính gửi [(${e.tenNhaCungCap})],
+
+Biên bản trả hàng [(${e.maBienBan})][# th:if="${e.ngayLap != null}"] lập ngày [(${e.ngayLap})][/][# th:if="${e.maDon != null}"] cho đơn [(${e.maDon})][/] đã được hủy vì [# th:if="${e.soPhieuNhap != null}"]phiếu nhập [(${e.soPhieuNhap})] bị hủy hoặc không còn hàng lỗi.[/][# th:unless="${e.soPhieuNhap != null}"]phiếu nhập bị hủy hoặc không còn hàng lỗi.[/]
+
+Quý công ty không cần xử lý biên bản này nữa. Cách xử lý đã chọn cho biên bản này (nếu có) không còn hiệu lực.
+
+[# th:insert="~{khung-chu-ky.txt}" /]
+[# th:insert="~{khung-chan-nha-cung-cap.txt}" /]

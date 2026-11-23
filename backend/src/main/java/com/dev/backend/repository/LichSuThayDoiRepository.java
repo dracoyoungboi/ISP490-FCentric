@@ -63,4 +63,8 @@ public interface LichSuThayDoiRepository extends JpaRepository<LichSuThayDoi, In
     @EntityGraph(attributePaths = {"nguoiThucHien"})
     List<LichSuThayDoi> findByLoaiThamChieuAndIdThamChieuInAndHanhDongOrderByNgayThucHienDescIdDesc(
             String loaiThamChieu, Collection<Integer> idThamChieus, String hanhDong, Pageable pageable);
+
+    /** Mọi dòng của nhiều đối tượng cùng loại, cũ trước (nhật ký biên bản trả hàng nhà cung cấp: dựng lại từng việc). */
+    @EntityGraph(attributePaths = {"nguoiThucHien"})
+    List<LichSuThayDoi> findByLoaiThamChieuAndIdThamChieuInOrderByIdAsc(String loaiThamChieu, Collection<Integer> idThamChieus);
 }

@@ -1,0 +1,13 @@
+[# th:insert="~{khung-dau.txt}" /]Mã đăng nhập Cổng nhà cung cấp
+
+Kính gửi [# th:if="${e.tenNhaCungCap != null}"][(${e.tenNhaCungCap})][/][# th:unless="${e.tenNhaCungCap != null}"]Quý công ty[/],
+
+Quý công ty dùng mã dưới đây để đăng nhập Cổng nhà cung cấp bằng email [(${e.emailNhan})]. Trên cổng, Quý công ty xem và gửi báo giá cho các đơn đang chờ, chọn cách xử lý biên bản trả hàng và xem lại lịch sử giao dịch.
+
+Mã xác nhận: [(${e.ma})]
+Hiệu lực đến [(${e.hetHanLuc})] · Chỉ dùng được một lần
+
+Quý công ty không yêu cầu mã này?
+Quý công ty có thể bỏ qua email này: không ai đăng nhập được nếu không có mã. Nhân viên của chúng tôi không bao giờ hỏi mã qua điện thoại hay tin nhắn.
+
+[# th:with="moiTraLoi=false"][# th:insert="~{khung-chan-nha-cung-cap.txt}" /][/]

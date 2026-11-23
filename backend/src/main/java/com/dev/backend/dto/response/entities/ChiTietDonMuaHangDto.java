@@ -21,6 +21,8 @@ public class ChiTietDonMuaHangDto implements Serializable {
     BienTheSanPhamDto bienTheSanPham;
     BigDecimal soLuongDat;
     BigDecimal soLuongDaNhan;
+    /** Đã nhận gồm cả hàng lỗi đã chốt trừ tiền (số này); hàng đạt = đã nhận − trừ tiền. Chỉ có ở API chi tiết đơn. */
+    BigDecimal soLuongTruTien;
     BigDecimal donGia;
     BigDecimal thanhTien;
     String ghiChu;

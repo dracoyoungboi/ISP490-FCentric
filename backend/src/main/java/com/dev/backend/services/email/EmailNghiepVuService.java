@@ -1,17 +1,20 @@
 package com.dev.backend.services.email;
 
+import com.dev.backend.dto.response.inbound.BienBanTraHangDto;
+import com.dev.backend.entities.BienBanTraHangNcc;
 import com.dev.backend.entities.DonMuaHang;
 import com.dev.backend.entities.NguoiDung;
 
 import java.time.Instant;
+import java.util.function.BooleanSupplier;
 
 /**
  * Cửa duy nhất để các nghiệp vụ gửi email. Nơi gọi chỉ truyền entity; lớp cài đặt tự dựng dữ liệu cho mẫu
  * NGAY trong transaction đang mở (đọc các quan hệ LAZY lúc còn phiên), rồi gửi SAU KHI transaction commit.
  * Transaction rollback thì không gửi. Không có transaction thì đưa vào hàng đợi gửi ngay.
  *
- * Mọi hàm trừ {@link #guiMaXacNhanBaoGia} không ném lỗi gửi thư ra nơi gọi: lỗi SMTP được thử lại và ghi log
- * ở lớp cài đặt. Thông tin cửa hàng (tên, logo, tên đăng ký, mã số thuế, địa chỉ, điện thoại, email) do lớp
+ * Mọi hàm trừ {@link #guiMaDangNhapCong} và {@link #guiMaDuyetTraHang} không ném lỗi gửi thư ra nơi gọi: lỗi SMTP
+ * được thử lại và ghi log ở lớp cài đặt. Thông tin cửa hàng (tên, logo, tên đăng ký, mã số thuế, địa chỉ, điện thoại, email) do lớp
  * cài đặt tự đọc từ Thông tin cửa hàng; nơi gọi không truyền.
  */
 public interface EmailNghiepVuService {
@@ -42,11 +45,14 @@ public interface EmailNghiepVuService {
     void guiYeuCauBaoGia(DonMuaHang don);
 
     /**
-     * E5 · Mã xác nhận báo giá. Gửi NGAY, đồng bộ, không chờ commit.
+     * E5 · Mã đăng nhập Cổng nhà cung cấp. Đăng nhập theo email (mọi nhà cung cấp có email đó, kể cả đã ngừng hợp tác
+     * vì còn việc cũ), không theo đơn; thư không có người phụ trách riêng. Gửi NGAY, đồng bộ, không chờ commit.
      *
+     * @param tenNhaCungCap tên in ở "Kính gửi …": email thuộc nhiều nhà cung cấp thì ghép tên ("A, B, C +2"); null hoặc
+     *                      trống thì ghi "Kính gửi Quý công ty"
      * @throws EmailKhongGuiDuocException khi không gửi được (nơi gọi xóa mã và trả CHUA_GUI_DUOC_MA).
      */
-    void guiMaXacNhanBaoGia(DonMuaHang don, String emailNhan, String ma, Instant hetHanLuc);
+    void guiMaDangNhapCong(String emailNhan, String tenNhaCungCap, String ma, Instant hetHanLuc);
 
     /** M3 · Đã nhận báo giá. Gọi sau khi đã ghi đơn giá, tổng tiền, ngayBaoGia, ghiChuNhaCungCap. */
     void guiDaNhanBaoGia(DonMuaHang don);
@@ -66,6 +72,33 @@ public interface EmailNghiepVuService {
      * @throws EmailKhongGuiDuocException khi không gửi được (nơi gọi bỏ mã của người này, thử người khác).
      */
     void guiMaDuyetTraHang(NguoiDung quanLy, MaDuyetTraHangThongTin thongTin, String ma, Instant hetHanLuc);
+
+    // ---------------- Biên bản trả hàng nhà cung cấp ----------------
+
+    /**
+     * E7 · Biên bản trả hàng gửi nhà cung cấp, kèm PDF biên bản: số sản phẩm không đạt, giá trị (đơn giá dòng đơn mua
+     * cùng biến thể), hàng lỗi đang ở đâu, việc nhà cung cấp cần chọn, hạn trả lời, nút tới Cổng nhà cung cấp. Dựng dữ
+     * liệu NGAY trong transaction của nơi gọi, gửi sau commit, có thử lại. Không ném lỗi ra nơi gọi.
+     *
+     * @param ban         biên bản đã dựng (in PDF)
+     * @param loai        GUI (ghi đã ký lần đầu / gửi lại) | CAP_NHAT (ký lại sau khi lập lại, câu trả lời trước không còn
+     *                    hiệu lực) | NHAC
+     * @param hanTraLoi   hạn trả lời in trong thư
+     * @param moTaHangLoi dòng phụ ô "Hàng lỗi" khi hàng đã rời kho (người giao hàng, biển số…); null thì bỏ
+     * @param conHieuLuc  kiểm lúc gửi: biên bản còn hiệu lực và vẫn là lần lập này
+     * @param khiGuiDuoc  ghi nhật ký đã gửi (luồng gửi thư)
+     */
+    void guiBienBanTraHang(BienBanTraHangNcc bienBan, BienBanTraHangDto ban, String loai, Instant hanTraLoi,
+                           String moTaHangLoi, BooleanSupplier conHieuLuc, Runnable khiGuiDuoc);
+
+    /**
+     * M5 · Đã ghi nhận câu trả lời của nhà cung cấp (cách bù, hàng lỗi), hoặc ({@code tuDong}) quá hạn trả lời nên cách
+     * bù đã chuyển trừ tiền. Gửi sau commit, có thử lại.
+     */
+    void guiDaGhiNhanTraLoi(BienBanTraHangNcc bienBan, BienBanTraHangDto ban, boolean tuDong);
+
+    /** M6 · Biên bản trả hàng đã hủy. Gọi sau khi biên bản đã chuyển sang DA_HUY; gửi sau commit, có thử lại. */
+    void guiBienBanDaHuy(BienBanTraHangNcc bienBan);
 
     /** Thông tin yêu cầu in trong thư E6 (đã dựng xong ở nơi gọi, không entity). */
     record MaDuyetTraHangThongTin(String tenCuaHang, String nguoiYeuCau, String soDonHang, Instant thanhToanLuc,

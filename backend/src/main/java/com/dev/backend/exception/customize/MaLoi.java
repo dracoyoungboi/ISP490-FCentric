@@ -11,8 +11,6 @@ public final class MaLoi {
 
     // ---------------- Cổng nhà cung cấp ----------------
 
-    /** 400 · Không có đơn hoặc email không khớp nhà cung cấp của đơn (một câu chung, không lộ đơn nào tồn tại). */
-    public static final String DON_HOAC_EMAIL_SAI = "DON_HOAC_EMAIL_SAI";
     /** 409 · Đơn không ở trạng thái chờ báo giá (2) / đã có kết quả / yêu cầu không còn ở 3. */
     public static final String DON_KHONG_CON_NHAN = "DON_KHONG_CON_NHAN";
     /** 429 · Xin mã lại trong thời gian chờ, hoặc quá số mã mỗi giờ. data: guiLaiSauGiay, hetHanGiay. */
@@ -21,12 +19,20 @@ public final class MaLoi {
     public static final String MA_SAI = "MA_SAI";
     /** 400 · Mã quá hạn, đã dùng, hoặc đã sai đủ số lần. */
     public static final String MA_HET_HAN = "MA_HET_HAN";
-    /** 403 · Thiếu / sai / hết hạn / khác đơn header X-Phien-Bao-Gia. */
+    /** 403 · Thiếu / sai / hết hạn header X-Phien-Cong-Ncc. */
     public static final String PHIEN_HET_HAN = "PHIEN_HET_HAN";
     /** 503 · Email mã xác nhận không gửi được (mã đã bị xóa, xin lại được ngay). */
     public static final String CHUA_GUI_DUOC_MA = "CHUA_GUI_DUOC_MA";
     /** 400 · Dữ liệu báo giá sai. data: dong (id dòng sai, nếu có). */
     public static final String BAO_GIA_KHONG_HOP_LE = "BAO_GIA_KHONG_HOP_LE";
+    /** 400 · Email chưa đăng ký cho nhà cung cấp nào (nhận mã / xác nhận mã); cổng báo để nhà cung cấp kiểm lại email. */
+    public static final String EMAIL_KHONG_CO = "EMAIL_KHONG_CO";
+    /** 404 · Đơn / biên bản không có, hoặc không thuộc nhà cung cấp của phiên cổng. */
+    public static final String KHONG_TIM_THAY = "KHONG_TIM_THAY";
+    /** 409 · Biên bản trả hàng đã hủy, đã chốt sau khi nhập kho, hoặc đơn mua đã kết thúc: không nhận câu trả lời nữa. */
+    public static final String BIEN_BAN_KHONG_CON_NHAN = "BIEN_BAN_KHONG_CON_NHAN";
+    /** 400 · Câu trả lời biên bản trả hàng sai (cách xử lý, người xác nhận, ghi chú). data: o (ô sai). */
+    public static final String TRA_LOI_KHONG_HOP_LE = "TRA_LOI_KHONG_HOP_LE";
 
     // ---------------- Xét báo giá ----------------
 

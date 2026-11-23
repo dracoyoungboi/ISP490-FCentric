@@ -12,5 +12,7 @@ public interface INguonNhatKy {
             shopify = "shopify",
             lazada = "lazada",
             tiktok = "tiktok",
-            shopee = "shopee";
+            shopee = "shopee",
+            // Nhà cung cấp tự làm trên Cổng nhà cung cấp (không có tài khoản nhân viên)
+            nha_cung_cap = "nha_cung_cap";
 }

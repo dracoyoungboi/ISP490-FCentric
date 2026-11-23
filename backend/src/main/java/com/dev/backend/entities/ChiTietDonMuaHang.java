@@ -41,9 +41,21 @@ public class ChiTietDonMuaHang {
     @Column(name = "so_luong_dat", nullable = false, precision = 15, scale = 3)
     BigDecimal soLuongDat;
 
+    /**
+     * Số đã xong của dòng: hàng đạt đã nhập kho + hàng lỗi đã chốt trừ tiền với nhà cung cấp (không giao lại). Hàng lỗi
+     * chờ chốt / chờ giao bù không cộng vào đây nên vẫn là còn thiếu. Số trừ tiền của từng biến thể ghi trong nhật ký biên
+     * bản trả hàng (NhatKyTraHangNcc), giao diện tách "đạt" = đã nhận − trừ tiền.
+     */
     @ColumnDefault("0.000")
     @Column(name = "so_luong_da_nhan", precision = 15, scale = 3)
     BigDecimal soLuongDaNhan;
+
+    /** Còn thiếu = đặt − đã nhận (không âm). */
+    public BigDecimal conThieu() {
+        BigDecimal dat = soLuongDat == null ? BigDecimal.ZERO : soLuongDat;
+        BigDecimal nhan = soLuongDaNhan == null ? BigDecimal.ZERO : soLuongDaNhan;
+        return dat.subtract(nhan).max(BigDecimal.ZERO);
+    }
 
     @NotNull
     @Column(name = "don_gia", nullable = false, precision = 15, scale = 2)

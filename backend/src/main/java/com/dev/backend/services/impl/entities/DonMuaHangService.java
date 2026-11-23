@@ -4,20 +4,17 @@ import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.GlobalCache;
 import com.dev.backend.constant.enums.FilterOperation;
 import org.springframework.data.domain.Page;
-import com.dev.backend.constant.enums.OtpType;
 import com.dev.backend.constant.enums.TrangThaiPhieuNhap;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.dto.ApplicationRequestObj;
-import com.dev.backend.dto.OtpScheduleObj;
-import com.dev.backend.dto.PhienBaoGia;
 import com.dev.backend.dto.request.*;
 import com.dev.backend.dto.response.GuiLaiYeuCauDto;
+import com.dev.backend.dto.response.entities.ChiTietDonMuaHangDto;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.congncc.BaoGiaDaNhanDto;
-import com.dev.backend.dto.response.congncc.MaXacNhanNccDto;
-import com.dev.backend.dto.response.congncc.XacNhanMaNccDto;
+import com.dev.backend.dto.response.congncc.DonMuaHangCongNccDto;
 import com.dev.backend.dto.response.entities.DonMuaHangDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.*;
@@ -29,6 +26,7 @@ import com.dev.backend.mapper.DonMuaHangMapper;
 import com.dev.backend.repository.ChiTietDonMuaHangRepository;
 import com.dev.backend.repository.DonMuaHangRepository;
 import com.dev.backend.repository.LichSuThayDoiRepository;
+import com.dev.backend.repository.PhieuNhapKhoRepository;
 import com.dev.backend.services.CalcService;
 import com.dev.backend.services.email.EmailNghiepVuService;
 import com.dev.backend.services.impl.BaseServiceImpl;
@@ -36,30 +34,22 @@ import com.dev.backend.i18n.ThongDiep;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.LockModeType;
-import org.hibernate.Hibernate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.function.Supplier;
 
 @Service
 public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
@@ -86,23 +76,6 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     /** Lý do đóng / hủy đơn (bắt buộc), nối vào ghi chú đơn. FE chi tiết đơn mua giữ cùng giá trị. */
     public static final int LY_DO_KET_THUC_TOI_DA = 255;
 
-    // ---------------- Cổng nhà cung cấp: thời hạn, giới hạn ----------------
-
-    // Thời hạn mã xác nhận báo giá: OtpType.SUPPLIER_MAIL_SIGN_KEY.thoiHan() (dùng chung cho E5, SchedulingJob,
-    // hetHanGiay), không đặt hằng riêng ở đây.
-
-    /** Sau bao lâu mới xin được mã mới cho cùng (email, đơn). */
-    public static final int MA_NCC_GUI_LAI_SAU_GIAY = 60;
-    /** Tối đa số mã gửi trong một giờ cho cùng (email, đơn): chống dò mã, chống gửi email hàng loạt. */
-    public static final int MA_NCC_TOI_DA_MOI_GIO = 5;
-    /** Nhập sai đến lần này thì mã bị xóa, phải nhận mã mới. */
-    public static final int MA_NCC_SAI_TOI_DA = 5;
-    /** Độ dài mã xác nhận. */
-    private static final long MA_NCC_DO_DAI = 6L;
-    /** K10: phiên báo giá sau khi xác nhận mã đúng. */
-    public static final int PHIEN_BAO_GIA_PHUT = 60;
-    private static final int PHIEN_BAO_GIA_SO_BYTE = 32;
-
     // ---------------- Báo giá: giới hạn dữ liệu ----------------
 
     /** Đơn giá tối đa (số nguyên đồng). FE cổng: baoGiaUtils.loiDonGia. */
@@ -124,18 +97,13 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     /** Chặn bấm Gửi lại liên tục cho cùng một đơn. */
     public static final int GUI_LAI_E4_CHAN_LAP_GIAY = 60;
 
-    /** Báo chung cho "không có mã đơn" và "email không khớp" để API công khai không lộ đơn nào tồn tại. */
-    private static final ThongDiep LOI_MA_DON_HOAC_EMAIL = ThongDiep.of("sanPhamMuaHang.donMuaEmailHoacMaSai");
     private static final ThongDiep LOI_DON_KHONG_CON_NHAN = ThongDiep.of("sanPhamMuaHang.donMuaKhongConNhanBaoGia");
-    private static final ThongDiep LOI_PHIEN_HET_HAN = ThongDiep.of("sanPhamMuaHang.donMuaPhienBaoGiaHetHan");
-    private static final ThongDiep LOI_MA_HET_HAN = ThongDiep.of("sanPhamMuaHang.donMuaMaXacNhanHetHan");
+    private static final ThongDiep LOI_PHIEN_HET_HAN = ThongDiep.of("sanPhamMuaHang.congPhienHetHan");
     private static final ThongDiep LOI_DON_DA_CO_KET_QUA = ThongDiep.of("sanPhamMuaHang.donMuaDaCoKetQua");
     private static final ThongDiep LOI_CHUA_CO_BAO_GIA = ThongDiep.of("sanPhamMuaHang.donMuaChuaCoBaoGia");
     private static final ThongDiep LOI_BAO_GIA_DA_DOI = ThongDiep.of("sanPhamMuaHang.donMuaBaoGiaDaDoi");
     private static final ThongDiep LOI_YEU_CAU_KHONG_CON_MO = ThongDiep.of("sanPhamMuaHang.donMuaYeuCauKhongConMo");
     private static final ThongDiep LOI_KHONG_TIM_THAY_DON = ThongDiep.of("sanPhamMuaHang.donMuaKhongTimThay");
-
-    private static final SecureRandom NGAU_NHIEN = new SecureRandom();
 
     @Autowired
     private EntityManager entityManager;
@@ -151,6 +119,13 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     private BienTheSanPhamService bienTheSanPhamService;
     @Autowired(required = false)
     private ThongBaoMuaHangService thongBaoMuaHangService;
+    /** Đóng đơn chuyển hàng lỗi chưa xong sang trừ tiền; @Lazy tránh vòng bean, null khi unit test dựng tay. */
+    @Autowired(required = false)
+    @org.springframework.context.annotation.Lazy
+    private com.dev.backend.services.BienBanTraHangService bienBanTraHangService;
+    /** Đơn đã nhận đợt nào chưa tính theo phiếu nhập hoàn tất; null khi unit test dựng tay (dùng tổng đã nhận như cũ). */
+    @Autowired(required = false)
+    private PhieuNhapKhoRepository phieuNhapKhoRepository;
 
     @Autowired
     private DonMuaHangMapper donMuaHangMapper;
@@ -315,16 +290,6 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         this.dongHo = dongHo;
     }
 
-    /** Giao dịch chỉ đọc ngắn của lay-otp (đọc đơn xong mới gửi E5, ngoài giao dịch). */
-    private TransactionTemplate giaoDichChiDoc;
-
-    @Autowired
-    void setTransactionManager(PlatformTransactionManager transactionManager) {
-        TransactionTemplate t = new TransactionTemplate(transactionManager);
-        t.setReadOnly(true);
-        this.giaoDichChiDoc = t;
-    }
-
     @Transactional
     public ResponseEntity<ResponseData<DonMuaHangDto>> create(DonMuaHangCreating creating) {
 
@@ -402,11 +367,12 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     }
 
     // =====================================================================================================
-    // Cổng nhà cung cấp (API công khai, chưa đăng nhập nội bộ): nhận mã, xác nhận mã, gửi báo giá
+    // Cổng nhà cung cấp: xem đơn, gửi báo giá. Đăng nhập (mã qua email, phiên) ở CongNhaCungCapService; ở đây chỉ nhận
+    // email đã xác thực của phiên và các nhà cung cấp của email đó.
     // =====================================================================================================
 
     /** Email so không phân biệt hoa thường, bỏ khoảng trắng hai đầu. null/trống -> null. */
-    static String chuanHoaEmail(String email) {
+    public static String chuanHoaEmail(String email) {
         if (email == null || email.isBlank()) return null;
         return email.trim().toLowerCase(Locale.ROOT);
     }
@@ -414,10 +380,6 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     private static boolean emailKhop(DonMuaHang don, String emailDaChuanHoa) {
         if (emailDaChuanHoa == null || don.getNhaCungCap() == null) return false;
         return emailDaChuanHoa.equals(chuanHoaEmail(don.getNhaCungCap().getEmail()));
-    }
-
-    private static LoiCoMaException loiDonHoacEmail(ThongDiep message) {
-        return new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.DON_HOAC_EMAIL_SAI, message);
     }
 
     private static LoiCoMaException donKhongConNhan() {
@@ -428,29 +390,15 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         return new LoiCoMaException(HttpStatus.FORBIDDEN, MaLoi.PHIEN_HET_HAN, LOI_PHIEN_HET_HAN);
     }
 
-    private static LoiCoMaException maHetHan(ThongDiep message) {
-        return new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.MA_HET_HAN, message);
+    private static LoiCoMaException khongTimThayDon() {
+        return new LoiCoMaException(HttpStatus.NOT_FOUND, MaLoi.KHONG_TIM_THAY, ThongDiep.of("sanPhamMuaHang.congDonKhongTimThay"));
     }
 
-    /**
-     * Đơn mua cho cổng nhà cung cấp: theo id (liên kết trong email có sẵn id) hoặc theo mã đơn nhà cung cấp tự nhập.
-     * Email phải khớp email nhà cung cấp của đơn (không phân biệt hoa thường). Không có đơn, nhà cung cấp không có
-     * email hoặc email khác: cùng một lỗi DON_HOAC_EMAIL_SAI.
-     */
-    private DonMuaHang timDonChoNhaCungCap(Integer donMuaHangId, String soDonMua, String emailDaChuanHoa) {
-        if (emailDaChuanHoa == null) {
-            throw loiDonHoacEmail(ThongDiep.of("sanPhamMuaHang.donMuaNhapEmailNhanYeuCau"));
-        }
-        Optional<DonMuaHang> don;
-        if (donMuaHangId != null) {
-            don = donMuaHangRepository.findById(donMuaHangId);
-        } else if (soDonMua != null && !soDonMua.isBlank()) {
-            don = donMuaHangRepository.findBySoDonMua(soDonMua.trim());
-        } else {
-            throw loiDonHoacEmail(ThongDiep.of("sanPhamMuaHang.donMuaNhapMaDon"));
-        }
-        return don.filter(d -> emailKhop(d, emailDaChuanHoa))
-                .orElseThrow(() -> loiDonHoacEmail(LOI_MA_DON_HOAC_EMAIL));
+    /** Số giây (làm tròn lên, không âm) từ {@code tu} tới {@code den}. Dùng chung với cổng nhà cung cấp. */
+    public static int giayConLai(Instant tu, Instant den) {
+        long ms = Duration.between(tu, den).toMillis();
+        if (ms <= 0) return 0;
+        return (int) Math.min(Integer.MAX_VALUE, (ms + 999) / 1000);
     }
 
     /** Đơn còn nhận báo giá: đơn ở 2 và yêu cầu nhập hàng của đơn ở 3 (đã gửi báo giá, chưa chọn nhà cung cấp). */
@@ -468,218 +416,20 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         }
     }
 
-    private static String khoaLuotGuiMa(String email, Integer donMuaHangId) {
-        return email + "|" + donMuaHangId;
-    }
-
-    private static boolean laMaNccCua(OtpScheduleObj o, String email, Integer donMuaHangId) {
-        return o.getType() == OtpType.SUPPLIER_MAIL_SIGN_KEY
-                && Objects.equals(o.getEmail(), email)
-                && Objects.equals(o.getDonMuaHangId(), donMuaHangId);
-    }
-
-    /** Mã mới nhất của (email, đơn); null nếu không có. */
-    private static OtpScheduleObj timMaNcc(String email, Integer donMuaHangId) {
-        return GlobalCache.OTP_SCHEDULE_OBJS.stream()
-                .filter(o -> laMaNccCua(o, email, donMuaHangId))
-                .max(Comparator.comparing(OtpScheduleObj::getCreatedAt))
-                .orElse(null);
-    }
-
-    /** Số giây (làm tròn lên, không âm) từ {@code tu} tới {@code den}. */
-    private static int giayConLai(Instant tu, Instant den) {
-        long ms = Duration.between(tu, den).toMillis();
-        if (ms <= 0) return 0;
-        return (int) Math.min(Integer.MAX_VALUE, (ms + 999) / 1000);
-    }
-
     /**
-     * Nhận mã xác nhận báo giá (E5 gửi ngay trong request). Mỗi (email, đơn) một mã; xin lại trong 60 giây hoặc quá
-     * 5 mã mỗi giờ thì 429.
-     * <p>Không giữ giao dịch trong lúc chờ máy chủ email: đơn được đọc, kiểm và nạp sẵn mọi quan hệ E5 cần (nhà cung
-     * cấp, người phụ trách) trong một giao dịch chỉ đọc ngắn, rồi E5 gửi ngoài giao dịch, không còn đọc LAZY (chạy
-     * được cả khi tắt open-in-view). Lưu ý: open-in-view đang bật (mặc định) nên EntityManager của request vẫn giữ
-     * kết nối CSDL đã lấy tới hết request; muốn nhả hẳn kết nối trong lúc chờ SMTP phải loại 3 API cổng khỏi
-     * open-in-view.
-     */
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public ResponseEntity<ResponseData<MaXacNhanNccDto>> getOtpForSupplier(OtpDonMuaHangGetting getting) {
-        String email = chuanHoaEmail(getting == null ? null : getting.getEmail());
-        DonMuaHang don = docTrongGiaoDichChiDoc(() -> {
-            DonMuaHang d = timDonChoNhaCungCap(getting == null ? null : getting.getDonMuaHangId(),
-                    getting == null ? null : getting.getSoDonMua(), email);
-            kiemDonConNhanBaoGia(d, d.getYeuCauMuaHang());
-            napQuanHeChoEmailMa(d);
-            return d;
-        });
-
-        Instant now = dongHo.instant();
-        Duration thoiHanMa = OtpType.SUPPLIER_MAIL_SIGN_KEY.thoiHan();
-        String khoa = khoaLuotGuiMa(email, don.getId());
-        OtpScheduleObj ma;
-        synchronized (GlobalCache.OTP_SCHEDULE_OBJS) {
-            OtpScheduleObj cu = timMaNcc(email, don.getId());
-            // R10: mã cũ đã hết hạn (hoặc đã dùng / đã dọn) thì hetHanGiay = 0 để cổng ở lại bước nhận mã
-            int hetHanMaCu = cu == null ? 0 : giayConLai(now, cu.getCreatedAt().plus(thoiHanMa));
-            if (cu != null && now.isBefore(cu.getCreatedAt().plusSeconds(MA_NCC_GUI_LAI_SAU_GIAY))) {
-                int cho = giayConLai(now, cu.getCreatedAt().plusSeconds(MA_NCC_GUI_LAI_SAU_GIAY));
-                throw new LoiCoMaException(HttpStatus.TOO_MANY_REQUESTS, MaLoi.MA_CU_CON_HIEU_LUC,
-                        ThongDiep.of("sanPhamMuaHang.donMuaChoGiayNhanMaMoi", cho),
-                        Map.of("guiLaiSauGiay", cho, "hetHanGiay", hetHanMaCu));
-            }
-            Instant motGioTruoc = now.minus(1, ChronoUnit.HOURS);
-            List<Instant> luot = GlobalCache.LUOT_GUI_MA_NCC.getOrDefault(khoa, List.of()).stream()
-                    .filter(t -> t.isAfter(motGioTruoc))
-                    .sorted()
-                    .toList();
-            if (luot.size() >= MA_NCC_TOI_DA_MOI_GIO) {
-                int cho = Math.max(1, giayConLai(now, luot.get(0).plus(1, ChronoUnit.HOURS)));
-                throw new LoiCoMaException(HttpStatus.TOO_MANY_REQUESTS, MaLoi.MA_CU_CON_HIEU_LUC,
-                        ThongDiep.of("sanPhamMuaHang.donMuaQuaSoMaMoiGio", MA_NCC_TOI_DA_MOI_GIO, ((cho + 59) / 60)),
-                        Map.of("guiLaiSauGiay", cho, "hetHanGiay", hetHanMaCu));
-            }
-            GlobalCache.OTP_SCHEDULE_OBJS.removeIf(o -> laMaNccCua(o, email, don.getId()));
-            ma = OtpScheduleObj.builder()
-                    .email(email)
-                    .otp(calcService.getRandomActiveCode(MA_NCC_DO_DAI))
-                    .type(OtpType.SUPPLIER_MAIL_SIGN_KEY)
-                    .donMuaHangId(don.getId())
-                    .createdAt(now)
-                    .build();
-            GlobalCache.OTP_SCHEDULE_OBJS.add(ma);
-            List<Instant> luotMoi = new ArrayList<>(luot);
-            luotMoi.add(now);
-            GlobalCache.LUOT_GUI_MA_NCC.put(khoa, List.copyOf(luotMoi));
-        }
-
-        try {
-            // Ngoài synchronized (Quên mật khẩu dùng chung khóa này) và ngoài transaction (NOT_SUPPORTED)
-            emailNghiepVuService.guiMaXacNhanBaoGia(don, don.getNhaCungCap().getEmail().trim(), ma.getOtp(),
-                    ma.getCreatedAt().plus(thoiHanMa));
-        } catch (RuntimeException e) {
-            // Gửi lỗi: xóa mã và lượt vừa tính để nhà cung cấp xin lại được ngay. Không ghi mã vào log.
-            synchronized (GlobalCache.OTP_SCHEDULE_OBJS) {
-                GlobalCache.OTP_SCHEDULE_OBJS.remove(ma);
-                GlobalCache.LUOT_GUI_MA_NCC.computeIfPresent(khoa, (k, ds) -> {
-                    List<Instant> conLai = new ArrayList<>(ds);
-                    conLai.remove(now);
-                    return conLai.isEmpty() ? null : List.copyOf(conLai);
-                });
-            }
-            log.warn("Không gửi được email mã xác nhận báo giá đơn {} ({})", don.getSoDonMua(), e.getClass().getSimpleName());
-            throw new LoiCoMaException(HttpStatus.SERVICE_UNAVAILABLE, MaLoi.CHUA_GUI_DUOC_MA,
-                    ThongDiep.of("sanPhamMuaHang.donMuaChuaGuiDuocMa"));
-        }
-
-        return ResponseEntity.ok(
-                ResponseData.<MaXacNhanNccDto>builder()
-                        .status(HttpStatus.OK.value())
-                        .data(MaXacNhanNccDto.builder()
-                                .hetHanGiay((int) thoiHanMa.toSeconds())
-                                .guiLaiSauGiay(MA_NCC_GUI_LAI_SAU_GIAY)
-                                .build())
-                        .message(ThongDiep.dich("sanPhamMuaHang.donMuaDaGuiMa"))
-                        .error(null)
-                        .build()
-        );
-    }
-
-    /** Chạy {@code viec} trong giao dịch chỉ đọc (không có bộ quản lý giao dịch, như test đơn vị: chạy thẳng). */
-    private <T> T docTrongGiaoDichChiDoc(Supplier<T> viec) {
-        return giaoDichChiDoc == null ? viec.get() : giaoDichChiDoc.execute(trangThaiGiaoDich -> viec.get());
-    }
-
-    /** Nạp sẵn các quan hệ LAZY mà E5 đọc (tên, email nhà cung cấp; phần ký người phụ trách) khi còn trong giao dịch. */
-    private static void napQuanHeChoEmailMa(DonMuaHang don) {
-        Hibernate.initialize(don.getNhaCungCap());
-        try {
-            Hibernate.initialize(don.getNguoiTao());
-        } catch (EntityNotFoundException e) {
-            // Người tạo không còn (dữ liệu cũ): E5 tự báo không dựng được thư -> 503 như trước
-        }
-    }
-
-    private static boolean maKhop(String maDung, String maNhap) {
-        if (maDung == null || maNhap == null) return false;
-        return MessageDigest.isEqual(maDung.getBytes(StandardCharsets.UTF_8), maNhap.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static String taoMaPhien() {
-        byte[] b = new byte[PHIEN_BAO_GIA_SO_BYTE];
-        NGAU_NHIEN.nextBytes(b);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(b);
-    }
-
-    /**
-     * Xác nhận mã: khớp đủ loại mã, email, đơn và còn hạn. Sai thì tăng số lần sai, đủ 5 lần thì xóa mã. Đúng thì xóa
-     * mã (chỉ dùng một lần; hai yêu cầu cùng lúc chỉ một yêu cầu qua) và mở phiên báo giá 60 phút cho đúng đơn này.
+     * Đơn mua cho cổng: phải thuộc một trong các nhà cung cấp của phiên và đã được gửi yêu cầu báo giá (từ trạng thái 2);
+     * không thì 404 KHONG_TIM_THAY (không lộ đơn nào tồn tại). Đơn hết nhận báo giá vẫn xem được (cổng chỉ hiện).
      */
     @Transactional(readOnly = true)
-    public ResponseEntity<ResponseData<XacNhanMaNccDto>> confirmOtpForSupplier(OtpDonMuaHangConfirming confirming) {
-        String email = chuanHoaEmail(confirming == null ? null : confirming.getEmail());
-        DonMuaHang don = timDonChoNhaCungCap(confirming == null ? null : confirming.getDonMuaHangId(),
-                confirming == null ? null : confirming.getSoDonMua(), email);
-        kiemDonConNhanBaoGia(don, don.getYeuCauMuaHang());
-
-        Instant now = dongHo.instant();
-        String maNhap = confirming.getOtp() == null ? "" : confirming.getOtp().trim();
-        OtpScheduleObj ma = timMaNcc(email, don.getId());
-        if (ma == null) {
-            throw maHetHan(LOI_MA_HET_HAN);
+    public DonMuaHangCongNccDto layDonChoCong(Integer donMuaHangId, Collection<Integer> nhaCungCapIds) {
+        DonMuaHang don = donMuaHangId == null ? null : donMuaHangRepository.findById(donMuaHangId).orElse(null);
+        if (don == null || don.getNhaCungCap() == null || !nhaCungCapIds.contains(don.getNhaCungCap().getId())
+                || don.getTrangThai() == null || don.getTrangThai() < TRANG_THAI_CHO_BAO_GIA) {
+            throw khongTimThayDon();
         }
-        if (now.isAfter(ma.getCreatedAt().plus(OtpType.SUPPLIER_MAIL_SIGN_KEY.thoiHan()))) {
-            GlobalCache.OTP_SCHEDULE_OBJS.remove(ma);
-            throw maHetHan(LOI_MA_HET_HAN);
-        }
-        if (!maKhop(ma.getOtp(), maNhap)) {
-            int sai = ma.getFailedAttempts().incrementAndGet();
-            if (sai >= MA_NCC_SAI_TOI_DA) {
-                GlobalCache.OTP_SCHEDULE_OBJS.remove(ma);
-                throw maHetHan(ThongDiep.of("sanPhamMuaHang.donMuaNhapSaiQuaSoLan", MA_NCC_SAI_TOI_DA));
-            }
-            int conLai = MA_NCC_SAI_TOI_DA - sai;
-            throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.MA_SAI,
-                    ThongDiep.of("sanPhamMuaHang.donMuaMaSaiConLan", conLai), Map.of("conLaiLanThu", conLai));
-        }
-        if (!GlobalCache.OTP_SCHEDULE_OBJS.remove(ma)) {
-            // Yêu cầu khác vừa dùng (hoặc job vừa dọn) đúng mã này
-            throw maHetHan(LOI_MA_HET_HAN);
-        }
-
-        String maPhien = taoMaPhien();
-        Instant hetHanPhien = now.plus(PHIEN_BAO_GIA_PHUT, ChronoUnit.MINUTES);
-        Integer donId = don.getId();
-        // Mỗi (email, đơn) một phiên: xác nhận lại thì phiên cũ hết dùng
-        GlobalCache.PHIEN_BAO_GIA.values().removeIf(p -> Objects.equals(p.donMuaHangId(), donId) && email.equals(p.email()));
-        GlobalCache.PHIEN_BAO_GIA.put(maPhien, new PhienBaoGia(donId, email, hetHanPhien));
-
-        return ResponseEntity.ok(
-                ResponseData.<XacNhanMaNccDto>builder()
-                        .status(HttpStatus.OK.value())
-                        .data(XacNhanMaNccDto.builder()
-                                .donMua(DonMuaHangCongNccMapper.toDto(don))
-                                .phienBaoGia(maPhien)
-                                .hetHanPhien(hetHanPhien)
-                                .cuaHang(thongTinCuaHangMuaHang.choCongNhaCungCap())
-                                .build())
-                        .message("Success")
-                        .error(null)
-                        .build()
-        );
+        return DonMuaHangCongNccMapper.toDto(don);
     }
 
-    /** Phiên còn hạn của token; không có / hết hạn (xóa luôn) thì PHIEN_HET_HAN. Không ghi token vào log. */
-    private PhienBaoGia layPhien(String maPhien, Instant now) {
-        if (maPhien == null || maPhien.isBlank()) throw phienHetHan();
-        String khoa = maPhien.trim();
-        PhienBaoGia phien = GlobalCache.PHIEN_BAO_GIA.get(khoa);
-        if (phien == null) throw phienHetHan();
-        if (phien.daHetHan(now)) {
-            GlobalCache.PHIEN_BAO_GIA.remove(khoa, phien);
-            throw phienHetHan();
-        }
-        return phien;
-    }
 
     private static LoiCoMaException baoGiaSai(ThongDiep message, Integer dong) {
         Map<String, Object> duLieu = new HashMap<>();
@@ -709,18 +459,17 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     }
 
     /**
-     * Nhà cung cấp gửi (hoặc gửi lại) báo giá. Cần phiên báo giá của đúng đơn (header X-Phien-Bao-Gia). Khóa yêu cầu
-     * rồi mới khóa đơn (cùng thứ tự với xét báo giá), kiểm lại đơn còn nhận báo giá, kiểm dữ liệu, ghép đơn giá theo id
-     * dòng. Ghi tổng tiền tự tính, ghi chú, ngayBaoGia; trạng thái giữ 2. M3 dựng trong transaction, gửi sau commit.
+     * Nhà cung cấp gửi (hoặc gửi lại) báo giá đơn {@code donId} trên cổng ({@code emailPhien}: email đã xác thực của phiên
+     * cổng, đã chuẩn hóa). Khóa yêu cầu rồi mới khóa đơn (cùng thứ tự với xét báo giá), kiểm lại đơn còn nhận báo giá và
+     * email nhà cung cấp của đơn vẫn là email phiên, kiểm dữ liệu, ghép đơn giá theo id dòng. Ghi tổng tiền tự tính, ghi
+     * chú, ngayBaoGia; trạng thái giữ 2. M3 dựng trong transaction, gửi sau commit.
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public ResponseEntity<ResponseData<BaoGiaDaNhanDto>> baoGiaDonMuaHang(String maPhien, DonMuaHangBaoGia baoGia) {
+    public BaoGiaDaNhanDto baoGiaTuCong(Integer donId, String emailPhien, DonMuaHangBaoGia baoGia) {
         Instant now = dongHo.instant();
-        PhienBaoGia phien = layPhien(maPhien, now);
-        if (baoGia == null || baoGia.getId() == null || !Objects.equals(phien.donMuaHangId(), baoGia.getId())) {
-            throw phienHetHan();
+        if (baoGia == null || donId == null || (baoGia.getId() != null && !Objects.equals(baoGia.getId(), donId))) {
+            throw khongTimThayDon();
         }
-        Integer donId = phien.donMuaHangId();
 
         // R13: đơn không thuộc yêu cầu nào (cột NULL) hoặc trỏ tới yêu cầu không còn: 409, không khóa đơn
         int yeuCauId = donMuaHangRepository.layIdYeuCau(donId).orElseThrow(DonMuaHangService::donKhongConNhan);
@@ -730,7 +479,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         DonMuaHang don = khoaDon(donId);
         if (don == null) throw donKhongConNhan();
         kiemDonConNhanBaoGia(don, yeuCau);
-        if (!emailKhop(don, phien.email())) {
+        if (!emailKhop(don, emailPhien)) {
             // Email nhà cung cấp của đơn vừa đổi: phiên mở bằng email cũ không còn dùng được
             throw phienHetHan();
         }
@@ -826,19 +575,12 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         // M3 đi tới email nhà cung cấp của đơn (đã khớp email của phiên ở trên)
         String emailXacNhan = don.getNhaCungCap() == null ? null : blankToNull(don.getNhaCungCap().getEmail());
 
-        return ResponseEntity.ok(
-                ResponseData.<BaoGiaDaNhanDto>builder()
-                        .status(HttpStatus.OK.value())
-                        .data(BaoGiaDaNhanDto.builder()
-                                .ngayBaoGia(ngayBaoGia)
-                                .tongTien(don.getTongTien())
-                                .daGuiEmailXacNhan(emailXacNhan != null)
-                                .emailXacNhan(emailXacNhan)
-                                .build())
-                        .message("Success")
-                        .error(null)
-                        .build()
-        );
+        return BaoGiaDaNhanDto.builder()
+                .ngayBaoGia(ngayBaoGia)
+                .tongTien(don.getTongTien())
+                .daGuiEmailXacNhan(emailXacNhan != null)
+                .emailXacNhan(emailXacNhan)
+                .build();
     }
 
     /**
@@ -1080,15 +822,22 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         chiKhiDangVanChuyen(don, viec);
         ThongDiep ma = tenDonTrongCau(don);
 
-        BigDecimal daNhan = donMuaHangRepository.tongDaNhan(id);
-        boolean coDotNhan = daNhan != null && daNhan.signum() > 0;
+        // Đã nhận ít nhất một đợt = có phiếu nhập hoàn tất (kể cả đợt toàn hàng lỗi: "đã nhận" chỉ cộng hàng đạt nên có
+        // thể bằng 0). Đơn như vậy phải đóng (hàng lỗi chuyển trừ tiền), không được hủy.
+        boolean coDotNhan;
+        if (phieuNhapKhoRepository != null) {
+            coDotNhan = phieuNhapKhoRepository.demPhieuHoanTatCuaDon(id) > 0;
+        } else {
+            BigDecimal daNhan = donMuaHangRepository.tongDaNhan(id);
+            coDotNhan = daNhan != null && daNhan.signum() > 0;
+        }
         if (dong && !coDotNhan) {
             throw new CommonException(HttpStatus.CONFLICT,
                     ThongDiep.of("sanPhamMuaHang.ketThucDonChuaNhanDot", ma));
         }
-        // Đóng là "nhận thiếu": đơn đã nhận đủ mọi dòng thì không có phần nào để đóng (màn chi tiết cũng ẩn nút này)
-        if (dong && cacDongDon.stream().noneMatch(ct -> (ct.getSoLuongDaNhan() == null ? BigDecimal.ZERO : ct.getSoLuongDaNhan())
-                .compareTo(ct.getSoLuongDat() == null ? BigDecimal.ZERO : ct.getSoLuongDat()) < 0)) {
+        // Đóng là "nhận thiếu": đơn hết còn thiếu mọi dòng (đặt − đã nhận − trừ tiền = 0) thì không có phần nào để đóng
+        // (màn chi tiết cũng ẩn nút này). Hàng lỗi chờ chốt / chờ giao bù vẫn là còn thiếu nên đóng được.
+        if (dong && cacDongDon.stream().noneMatch(ct -> ct.conThieu().signum() > 0)) {
             throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("sanPhamMuaHang.ketThucDonDaNhanDuKhongDong", ma));
         }
         if (!dong && coDotNhan) {
@@ -1102,6 +851,12 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         if (!phieuNhap.isEmpty()) {
             String so = phieuNhap.get(0) == null ? "" : " " + phieuNhap.get(0);
             throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("sanPhamMuaHang.ketThucDonConPhieuNhap", ma, so, viec));
+        }
+
+        // Hàng lỗi chờ chốt / chờ giao bù chuyển sang trừ tiền (tối đa phần còn thiếu của dòng đơn); khóa dòng bù sau dòng
+        // đơn và đơn, cùng thứ tự với chốt
+        if (dong && bienBanTraHangService != null) {
+            bienBanTraHangService.chuyenTruTienKhiDongDon(don, nguoi, lyDoChuan);
         }
 
         don.setTrangThai(trangThaiMoi);
@@ -1153,6 +908,7 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     @Transactional(readOnly = true)
     public DonMuaHangDto boSungKetThuc(DonMuaHangDto dto) {
         if (dto == null || dto.getId() == null) return dto;
+        boSungTruTien(dto);
         if (!Objects.equals(dto.getTrangThai(), TRANG_THAI_DA_DONG) && !Objects.equals(dto.getTrangThai(), TRANG_THAI_DA_HUY)) {
             return dto;
         }
@@ -1166,6 +922,19 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
                     dto.setNguoiKetThuc(lichSu.getNguoiThucHien() == null ? null : lichSu.getNguoiThucHien().getHoTen());
                 });
         return dto;
+    }
+
+    /**
+     * Số hàng lỗi đã chốt trừ tiền của từng dòng (đã nằm trong "đã nhận"): màn chi tiết đơn tách hàng đạt = đã nhận − trừ
+     * tiền. Lấy từ nhật ký các biên bản trả hàng của đơn.
+     */
+    private void boSungTruTien(DonMuaHangDto dto) {
+        if (bienBanTraHangService == null || dto.getChiTietDonMuaHangs() == null) return;
+        Map<Integer, Integer> tru = bienBanTraHangService.truTienTheoBienThe(dto.getId());
+        for (ChiTietDonMuaHangDto ct : dto.getChiTietDonMuaHangs()) {
+            Integer btId = ct.getBienTheSanPham() == null ? null : ct.getBienTheSanPham().getId();
+            ct.setSoLuongTruTien(BigDecimal.valueOf(btId == null ? 0 : tru.getOrDefault(btId, 0)));
+        }
     }
 
     // =====================================================================================================

@@ -8,9 +8,6 @@ import com.dev.backend.dto.request.*;
 import com.dev.backend.dto.response.GuiLaiYeuCauDto;
 import com.dev.backend.dto.response.HangNhapKhoTongResponse;
 import com.dev.backend.dto.response.ResponseData;
-import com.dev.backend.dto.response.congncc.BaoGiaDaNhanDto;
-import com.dev.backend.dto.response.congncc.MaXacNhanNccDto;
-import com.dev.backend.dto.response.congncc.XacNhanMaNccDto;
 import com.dev.backend.dto.response.entities.YeuCauMuaHangDto;
 import com.dev.backend.services.impl.entities.DonMuaHangService;
 import com.dev.backend.services.impl.entities.YeuCauMuaHangService;
@@ -91,9 +88,6 @@ public class NghiepVuSanPhamController {
         );
     }
 
-    /** Header mang phiên báo giá của nhà cung cấp (trả về ở xác nhận mã). */
-    public static final String HEADER_PHIEN_BAO_GIA = "X-Phien-Bao-Gia";
-
     // Gửi yêu cầu báo giá đến nhiều nhà cung cấp khác nhau.
     // Danh sách vai trò phải trùng IRoleType.GUI_YEU_CAU_BAO_GIA (annotation không nhận Set; có test đối chiếu).
     // SRS 4.4 "RFQ – Create / View / Process": chỉ nhân viên mua hàng.
@@ -146,28 +140,7 @@ public class NghiepVuSanPhamController {
     }
 
 
-    // ---- Cổng nhà cung cấp: không cần đăng nhập nội bộ, lỗi trả mã ở error / data.code, không dùng 401 ----
-
-    // Nhận mã xác nhận báo giá (gửi email ngay). 200 {hetHanGiay, guiLaiSauGiay}; 429 MA_CU_CON_HIEU_LUC; 503 CHUA_GUI_DUOC_MA
-    @PostMapping("/don-mua-hang/lay-otp")
-    public ResponseEntity<ResponseData<MaXacNhanNccDto>> layOtpDonMuaHang(@RequestBody OtpDonMuaHangGetting getting) {
-        return donMuaHangService.getOtpForSupplier(getting);
-    }
-
-    // Xác nhận mã. 200 {donMua, phienBaoGia, hetHanPhien, cuaHang}; 400 MA_SAI / MA_HET_HAN
-    @PostMapping("/don-mua-hang/xac-nhan-otp")
-    public ResponseEntity<ResponseData<XacNhanMaNccDto>> xacNhanOtpDonMuaHang(@RequestBody OtpDonMuaHangConfirming confirming) {
-        return donMuaHangService.confirmOtpForSupplier(confirming);
-    }
-
-    // Nhà cung cấp gửi (lại) báo giá, cần header X-Phien-Bao-Gia. 200 {ngayBaoGia, tongTien, daGuiEmailXacNhan};
-    // 403 PHIEN_HET_HAN; 409 DON_KHONG_CON_NHAN; 400 BAO_GIA_KHONG_HOP_LE
-    @PostMapping("/don-mua-hang/bao-gia")
-    public ResponseEntity<ResponseData<BaoGiaDaNhanDto>> baoGiaDonMuaHang(
-            @RequestHeader(value = HEADER_PHIEN_BAO_GIA, required = false) String phienBaoGia,
-            @RequestBody DonMuaHangBaoGia baoGia) {
-        return donMuaHangService.baoGiaDonMuaHang(phienBaoGia, baoGia);
-    }
+    // Cổng nhà cung cấp (nhận mã, báo giá, biên bản trả hàng, lịch sử): CongNhaCungCapController (/api/v1/cong-ncc).
 
     // K8: đã gỡ luồng thanh toán đơn mua cũ (thanh-toan/{id}, kiem-tra-thanh-toan/{id}); thanh toán làm ngoài hệ thống.
 }

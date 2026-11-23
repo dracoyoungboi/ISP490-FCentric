@@ -67,4 +67,8 @@ WHERE DATE(p.ngayNhap) = CURRENT_DATE
                                                  @Param("tatCaKho") boolean tatCaKho,
                                                  @Param("khoIds") java.util.Collection<Integer> khoIds,
                                                  org.springframework.data.domain.Pageable pageable);
+
+    /** Số phiếu nhập đã hoàn tất của một đơn mua (đơn đã nhận ít nhất một đợt, kể cả đợt toàn hàng lỗi). */
+    @Query("SELECT COUNT(p) FROM PhieuNhapKho p WHERE p.donMuaHang.id = :donId AND p.trangThai = 3")
+    long demPhieuHoanTatCuaDon(@Param("donId") Integer donId);
 }

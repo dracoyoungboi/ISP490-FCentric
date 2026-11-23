@@ -239,6 +239,13 @@
             <version>5.2.5</version>
         </dependency>
 
+        <!-- PDF biên bản trả hàng đính kèm email (HTML -> PDF, phông nhúng ở resources/fonts) -->
+        <dependency>
+            <groupId>com.openhtmltopdf</groupId>
+            <artifactId>openhtmltopdf-pdfbox</artifactId>
+            <version>1.0.10</version>
+        </dependency>
+
         <!-- Apache Commons Compress: ghim bản. Không ghim thì Maven lấy 1.24.0 theo minio (khai báo trước POI), POI 5.2.5
              ghi xlsx lỗi NoSuchMethodError ZipArchiveOutputStream.putArchiveEntry(ZipArchiveEntry) (cần từ 1.25).
              1.26.2 thay vì 1.25.0 để có bản vá CVE-2024-25710, CVE-2024-26308. -->

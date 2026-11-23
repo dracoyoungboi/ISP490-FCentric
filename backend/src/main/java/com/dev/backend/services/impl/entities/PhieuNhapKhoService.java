@@ -127,9 +127,6 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     /** Ngày sản xuất so theo lịch Việt Nam (FE gửi nửa đêm UTC của ngày được chọn). */
     private static final ZoneId MUI_GIO_VN = ZoneId.of("Asia/Ho_Chi_Minh");
 
-    /** Phương án biên bản trả hàng mà nhà cung cấp giao bù: đơn mua vẫn chờ nhận phần lỗi. */
-    private static final Set<String> PHUONG_AN_DOI_HANG = Set.of("DOI_HANG", "DOI_HANG_MOI");
-
     /**
      * Ngày sản xuất sớm nhất được nhận: chỉ để chặn dữ liệu nhập nhầm (vd. máy quét gõ mã kệ vào ô ngày thành năm 0102),
      * không phải quy tắc nghiệp vụ.
@@ -294,6 +291,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                     BigDecimal daGiu = chiTietPhieuNhapKhoRepository.sumDuKienPhieuNhapCungDon(
                             donMuaHang.getId(), ctPo.getBienTheSanPham().getId());
                     if (daGiu == null) daGiu = BigDecimal.ZERO;
+                    // "Đã nhận" gồm cả hàng lỗi đã chốt trừ tiền (không giao nữa): còn lại = đặt − đã nhận − đang giữ
                     BigDecimal soLuongConLai =
                             soLuongDat.subtract(soLuongDaNhan).subtract(daGiu);
                     if (soLuongNhap.compareTo(soLuongConLai) > 0) {
@@ -429,8 +427,13 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
             throw new CommonException(HttpStatus.CONFLICT,
                     ThongDiep.of("chungTuKho.bienBanRtvKhongKhop", bienBanRtv.getMaBienBan(), loiTrenBienBan, tongLoi));
         }
-        // Đổi hàng mới: nhà cung cấp giao bù phần lỗi, đơn mua vẫn chờ nhận số đó
-        boolean doiHang = bienBanRtv != null && PHUONG_AN_DOI_HANG.contains(bienBanRtv.getPhuongAnXuLy());
+        // Biên bản chưa ghi người giao hàng đã ký là chưa gửi nhà cung cấp: nhập kho thì số lỗi khóa lại khi nhà cung cấp chưa biết
+        if (bienBanRtv != null && bienBanTraHangService.choNguoiGiaoKy(bienBanRtv)) {
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.bienBanChoKyTruocNhapKho", bienBanRtv.getMaBienBan()));
+        }
+        // Hàng lỗi không cộng vào "đã nhận" của đơn mua: nằm trong còn thiếu cho tới khi nhà cung cấp chọn trừ tiền
+        // (BienBanTraHangServiceImpl: lúc trả lời trên cổng, lúc nhập kho, quá hạn hoặc đóng đơn) hoặc hàng bù về ở phiếu
+        // nhập sau
 
         // 2. Kiểm tra hoàn tất kiểm đếm cho toàn bộ dòng dự kiến nhập (draft items)
         for (ChiTietPhieuNhapKho ctDraft : phieu.getChiTietPhieuNhapKhos()) {
@@ -507,12 +510,8 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
             loHang.setTrangThai("HOAT_DONG");
             loHangRepository.save(loHang);
 
-            // Lô chỉ có hàng lỗi: không có gì vào tồn, chỉ tính số đã xử lý của đơn mua
+            // Lô chỉ có hàng lỗi: không có gì vào tồn, không cộng vào "đã nhận" của đơn mua
             if (soLuongNhap == null || soLuongNhap.compareTo(BigDecimal.ZERO) <= 0) {
-                int slLoiLo = loHang.getSoLuongLoi() != null ? loHang.getSoLuongLoi() : 0;
-                if (!doiHang && slLoiLo > 0) {
-                    poQtyHandledPerVariant.merge(ct.getBienTheSanPham().getId(), BigDecimal.valueOf(slLoiLo), BigDecimal::add);
-                }
                 continue;
             }
 
@@ -549,10 +548,9 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
             tonKho.setLanCapNhatCuoi(Instant.now());
             tonKhoTheoLoRepository.save(tonKho);
 
-            // Tích lũy số lượng kiểm đếm (Đạt + Lỗi) của biến thể từ các lô
+            // Tích lũy số lượng ĐẠT của biến thể từ các lô (hàng lỗi xử lý theo biên bản trả hàng)
             int slDatLo = loHang.getSoLuongNhap() != null ? loHang.getSoLuongNhap() : soLuongNhap.intValue();
-            int slLoiLo = loHang.getSoLuongLoi() != null ? loHang.getSoLuongLoi() : 0;
-            poQtyHandledPerVariant.merge(ct.getBienTheSanPham().getId(), BigDecimal.valueOf(slDatLo + (doiHang ? 0 : slLoiLo)), BigDecimal::add);
+            poQtyHandledPerVariant.merge(ct.getBienTheSanPham().getId(), BigDecimal.valueOf(slDatLo), BigDecimal::add);
 
             // Ghi lịch sử giao dịch kho
             String ghiChuLS = donMuaHang != null
@@ -606,6 +604,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                 if (ctPo != null) {
                     BigDecimal daNhanHienTai = ctPo.getSoLuongDaNhan() != null ? ctPo.getSoLuongDaNhan() : BigDecimal.ZERO;
                     BigDecimal sauKhiNhan = daNhanHienTai.add(totalPoHandled);
+                    // Bất biến của dòng đơn: đã nhận (hàng đạt + hàng lỗi đã trừ tiền) không vượt số đặt
                     if (ctPo.getSoLuongDat() != null && sauKhiNhan.compareTo(ctPo.getSoLuongDat()) > 0) {
                         throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.nhanVuotSoDat",
                                 donMuaHang.getSoDonMua(), ctPo.getBienTheSanPham().getMaSku(),
@@ -617,15 +616,6 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                     chiTietDonMuaHangRepository.save(ctPo);
                 }
             }
-            // Chốt trạng thái PO nếu tất cả biến thể đã nhận đủ
-            boolean allDone = donMuaHang.getChiTietDonMuaHangs().stream()
-                    .allMatch(item -> item.getSoLuongDaNhan() != null && item.getSoLuongDaNhan().compareTo(item.getSoLuongDat()) >= 0);
-            // Phiếu nhập thêm cho đơn đã nhận đủ (tạo nháp vẫn cho) thì không báo lại
-            vuaNhanDu = allDone && !Objects.equals(donMuaHang.getTrangThai(), DON_MUA_DA_NHAN_DU);
-            if (allDone) {
-                donMuaHang.setTrangThai(DON_MUA_DA_NHAN_DU);
-            }
-            donMuaHangRepository.save(donMuaHang);
         }
 
         phieu.setTongTien(tongTien);
@@ -633,6 +623,23 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         phieu.setNguoiNhap(nguoiNhap);
         phieu.setNgayNhap(Instant.now());
         repository.save(phieu);
+        // Số lỗi đã khóa: nhà cung cấp đã chọn trừ tiền trên cổng thì áp vào đơn mua ngay (trước khi xét nhận đủ); chưa
+        // trả lời thì báo bộ phận mua hàng
+        if (bienBanRtv != null && donMuaHang != null) {
+            bienBanTraHangService.khiNhapKho(bienBanRtv, phieu, nguoiNhapId);
+        }
+        if (donMuaHang != null) {
+            // Chốt trạng thái PO nếu tất cả biến thể hết còn thiếu; hàng lỗi chờ nhà cung cấp xác nhận / chờ giao bù vẫn là
+            // còn thiếu nên đơn chưa nhận đủ
+            boolean allDone = donMuaHang.getChiTietDonMuaHangs().stream()
+                    .allMatch(item -> item.conThieu().signum() == 0);
+            // Phiếu nhập thêm cho đơn đã nhận đủ (tạo nháp vẫn cho) thì không báo lại
+            vuaNhanDu = allDone && !Objects.equals(donMuaHang.getTrangThai(), DON_MUA_DA_NHAN_DU);
+            if (allDone) {
+                donMuaHang.setTrangThai(DON_MUA_DA_NHAN_DU);
+            }
+            donMuaHangRepository.save(donMuaHang);
+        }
         if (vuaNhanDu && thongBaoMuaHangService != null) {
             thongBaoMuaHangService.donMuaDaNhanDu(donMuaHang, phieu, nguoiNhap);
         }
@@ -658,6 +665,17 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         }
     }
 
+    /**
+     * Hàng lỗi của phiếu đã trả ngay cho người giao hàng: biên bản là chứng từ của hàng đã rời kho nên không sửa
+     * kiểm đếm, không hủy phiếu được nữa, chỉ còn xác nhận nhập kho.
+     */
+    private void chanKhiDaTraNgay(PhieuNhapKho phieu, String khoaThongDiep) {
+        BienBanTraHangNcc traNgay = bienBanTraHangService.bienBanTraNgayCuaPhieu(phieu.getId());
+        if (traNgay != null) {
+            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of(khoaThongDiep, traNgay.getMaBienBan()));
+        }
+    }
+
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void huyPhieuNhap(Integer id, String lyDo) {
         String lyDoHuy = LyDoHuyRequest.batBuoc(lyDo);
@@ -676,6 +694,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         if (phieu.getTrangThai() == TrangThaiPhieuNhap.CANCELLED.getValue()) {
             throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.phieuNhapDaHuyTruocDo"));
         }
+        chanKhiDaTraNgay(phieu, "chungTuKho.phieuDaTraNgayKhongHuy");
 
         // Phiếu từ đơn mua: lô do kiểm đếm tạo (TAM_KHOA) chưa vào tồn kho — bỏ hết để giải phóng mã lô và chỗ
         // "chờ nhập" trên kệ, hủy biên bản trả hàng. Phiếu chuyển kho mang lô THẬT của kho nguồn (đang có tồn,
@@ -691,14 +710,8 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                 loHangRepository.delete(lo);
             }
             // Biên bản hủy theo phiếu nhưng giữ lại (số biên bản đã cấp không được cấp lại cho phiếu khác)
-            bienBanTraHangNccRepository.findByPhieuNhapKho_Id(id).filter(BienBanTraHangNcc::dangHieuLuc).ifPresent(bienBan -> {
-                bienBan.setTrangThai(BienBanTraHangNcc.DA_HUY);
-                bienBanTraHangNccRepository.save(bienBan);
-                if (thongBaoMuaHangService != null) {
-                    com.dev.backend.dto.response.entities.NguoiDungAuthInfo nguoiHuy = SecurityContextHolder.getUser();
-                    thongBaoMuaHangService.bienBanDaHuy(bienBan, phieu, true, nguoiHuy == null ? null : nguoiHuy.getId());
-                }
-            });
+            com.dev.backend.dto.response.entities.NguoiDungAuthInfo nguoiHuy = SecurityContextHolder.getUser();
+            bienBanTraHangService.huyTheoPhieuNhap(phieu, nguoiHuy == null ? null : nguoiHuy.getId());
             for (ChiTietPhieuNhapKho dong : phieu.getChiTietPhieuNhapKhos()) {
                 if (dong.getLoHang() == null) {
                     dong.setSoLuongDatQc(0);
@@ -737,6 +750,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         if (phieu.getTrangThai() != TrangThaiPhieuNhap.DRAFT.getValue()) {
             throw new CommonException(ThongDiep.of("chungTuKho.chiKhaiBaoLoKhiNhap"));
         }
+        chanKhiDaTraNgay(phieu, "chungTuKho.phieuDaTraNgayKhongSuaLo");
 
         String maLo = request.getMaLo() != null ? request.getMaLo().trim() : "";
         if (maLo.isEmpty()) {
@@ -1130,6 +1144,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         if (phieu.getTrangThai() != TrangThaiPhieuNhap.DRAFT.getValue()) {
             throw new CommonException(ThongDiep.of("chungTuKho.chiHoanTatKiemDemKhiNhap"));
         }
+        chanKhiDaTraNgay(phieu, "chungTuKho.phieuDaTraNgayKhongSuaLo");
         ChiTietPhieuNhapKho dongDraft = chiTietPhieuNhapKhoRepository
                 .findFirstByPhieuNhapKho_IdAndBienTheSanPham_IdAndLoHangIsNull(phieuNhapKhoId, bienTheSanPhamId)
                 .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.bienTheKhongThuocPhieuNhap")));
@@ -1215,6 +1230,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         if (phieu.getTrangThai() != TrangThaiPhieuNhap.DRAFT.getValue()) {
             throw new CommonException(ThongDiep.of("chungTuKho.chiXoaLoKhiNhap"));
         }
+        chanKhiDaTraNgay(phieu, "chungTuKho.phieuDaTraNgayKhongSuaLo");
         // Như huyPhieuNhap: phiếu chuyển kho mang lô THẬT của kho gửi (đang có tồn, lịch sử), không phải lô kiểm đếm tạo
         if (phieu.getDonMuaHang() == null) {
             throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.phieuNhapLoTuDongKhongXoa", phieu.getSoPhieuNhap()));
@@ -1382,7 +1398,10 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
         // Lập biên bản xong rồi xóa / khóa lại lô lỗi: biên bản không còn khớp, phải lập lại (chỉ xét khi phiếu còn Nháp)
         boolean bienBanLech = coBienBanRtv && phieu.getTrangThai() == TrangThaiPhieuNhap.DRAFT.getValue()
                 && !bienBanTraHangService.khopHangLoiHienTai(rtvOpt.get());
-        boolean safetyLock = (tongLoi > 0 && !coBienBanRtv) || bienBanLech;
+        // Biên bản chưa ghi người giao hàng đã ký: chưa gửi nhà cung cấp nên chưa nhập kho được
+        boolean bienBanChoKy = coBienBanRtv && !bienBanLech && phieu.getTrangThai() == TrangThaiPhieuNhap.DRAFT.getValue()
+                && bienBanTraHangService.choNguoiGiaoKy(rtvOpt.get());
+        boolean safetyLock = (tongLoi > 0 && !coBienBanRtv) || bienBanLech || bienBanChoKy;
 
         boolean allItemsDone = !items.isEmpty() && items.stream().allMatch(i -> Boolean.TRUE.equals(i.getDaDuLo()) || "DA_HOAN_TAT".equals(i.getTrangThaiKiemDem()));
         boolean coTheNhapKho = (phieu.getTrangThai() == TrangThaiPhieuNhap.DRAFT.getValue()) && allItemsDone && !safetyLock;
@@ -1405,7 +1424,7 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
                 .coTheNhapKho(coTheNhapKho)
                 .tongLoiBienBan(tongLoiBienBan)
                 .bienBanLech(bienBanLech)
-                .phuongAnBienBan(rtvOpt.map(BienBanTraHangNcc::getPhuongAnXuLy).orElse(null))
+                .tongTien(phieu.getTongTien())
                 .cheDoXacNhanChatLuong(cheDoXacNhanChatLuong())
                 .tienToMaLo(tienToMaLo())
                 .tenNguoiNhap(phieu.getNguoiNhap() != null ? phieu.getNguoiNhap().getHoTen() : null)

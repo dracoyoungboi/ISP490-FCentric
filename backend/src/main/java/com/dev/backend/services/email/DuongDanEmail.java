@@ -75,6 +75,19 @@ public class DuongDanEmail {
                 .toUriString();
     }
 
+    /**
+     * "https://fcentric.net/supplier/login?bienBan=12&email=lan.tran%40xuongmay.vn": đăng nhập cổng rồi mở thẳng biên bản
+     * trả hàng (E7, M5).
+     */
+    public String congNhaCungCapBienBan(Integer bienBanId, String email) {
+        return UriComponentsBuilder.fromUriString(goc).path(CONG_NHA_CUNG_CAP)
+                .queryParam("bienBan", "{id}")
+                .queryParam("email", "{email}")
+                .encode()
+                .buildAndExpand(bienBanId, email == null ? "" : email)
+                .toUriString();
+    }
+
     /** "https://fcentric.net/supplier/login" (không kèm mã đơn, email). */
     public String congNhaCungCapGoc() {
         return UriComponentsBuilder.fromUriString(goc).path(CONG_NHA_CUNG_CAP).build().toUriString();

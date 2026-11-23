@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PDF biên bản trả hàng nhà cung cấp (PdfBienBanTraHang), đính kèm email E7. Cùng bố cục và nội dung giấy in
+  GiayBienBanTraHang.jsx (khung GiayChungTu: phông có chân, chữ đen, viền bảng đen), thêm dòng người giao hàng đã ký vì đây là
+  bản gửi đi sau khi ký. XHTML cho bộ dựng PDF: mọi thẻ phải đóng, không dùng thực thể HTML (&nbsp; …), không có flexbox
+  (đầu giấy, ô ký dựng bằng bảng), ô đánh dấu vẽ bằng CSS (phông không có ký tự ☐ ☑). Dữ liệu là biến b (BanIn).
+-->
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<title th:text="|Biên bản trả hàng ${b.soBienBan}|">Biên bản trả hàng</title>
+<style>
+@page { size: A4; margin: 15mm 14mm 16mm 14mm;
+  @bottom-right { content: "Trang " counter(page) "/" counter(pages); font-family: "Noto Serif"; font-size: 7.5pt; color: #555; } }
+body { font-family: "Noto Serif"; font-size: 10pt; line-height: 1.45; color: #111; }
+p { margin: 2pt 0; }
+b { font-weight: 700; }
+i { font-style: italic; }
+table.dau { width: 100%; border-collapse: collapse; font-size: 9.4pt; }
+table.dau td { vertical-align: top; padding: 0; }
+table.dau .ten-cty { font-size: 9.75pt; font-weight: 700; }
+table.dau .so { text-align: right; }
+.ten-giay { text-align: center; margin: 16pt 0 12pt 0; font-size: 13.5pt; font-weight: 700; letter-spacing: 0.3pt; }
+table.hang { width: 100%; border-collapse: collapse; margin: 9pt 0; font-size: 9.4pt; }
+table.hang th, table.hang td { border: 0.75pt solid #333; padding: 3pt 4.5pt; vertical-align: top; }
+table.hang th { font-weight: 700; text-align: center; }
+table.hang td.r { text-align: right; white-space: nowrap; }
+table.hang td.c { text-align: center; }
+table.hang tr.cong td { font-weight: 700; }
+.muc { margin-top: 7pt; }
+.thut { padding-left: 13pt; }
+.chon { margin-right: 16pt; }
+.o { display: inline-block; width: 7.5pt; height: 7.5pt; border: 0.8pt solid #111; margin-right: 3pt; vertical-align: -0.5pt; }
+.o .dau { display: block; width: 4.3pt; height: 4.3pt; margin: 1.6pt; background-color: #111; }
+.dong-cham { border-bottom: 0.75pt dotted #555; height: 14pt; }
+table.ky { width: 100%; border-collapse: collapse; margin-top: 16pt; font-size: 9.4pt; page-break-inside: avoid; }
+table.ky td { width: 33.3%; text-align: center; vertical-align: top; padding: 0 4pt; }
+table.ky .vai { font-weight: 700; }
+table.ky .nhac { font-style: italic; font-size: 8.6pt; }
+table.ky .ten { margin-top: 46pt; font-weight: 700; min-height: 14pt; }
+table.ky .ghi { font-style: italic; font-size: 8.6pt; }
+.chan-giay { margin-top: 20pt; font-size: 8.6pt; font-style: italic; color: #333; border-top: 0.75pt solid #999; padding-top: 6pt; }
+</style>
+</head>
+<body>
+<table class="dau">
+<tr>
+<td>
+<p class="ten-cty" th:text="${b.tenCongTy}">CÔNG TY</p>
+<p th:text="|Mã số thuế: ${b.maSoThue}|">Mã số thuế</p>
+<p th:text="|Địa chỉ: ${b.diaChi}|">Địa chỉ</p>
+</td>
+<td class="so">
+<p>Số: <b th:text="${b.soBienBan}">RTV</b></p>
+<p th:text="|Ngày lập: ${b.ngayLap}|">Ngày lập</p>
+</td>
+</tr>
+</table>
+
+<div class="ten-giay">BIÊN BẢN TRẢ HÀNG NHÀ CUNG CẤP</div>
+
+<p>Căn cứ phiếu nhập kho <b th:text="${b.soPhieuNhap}">PN</b><th:block th:if="${b.soDonMua != null}"> và đơn mua hàng <b th:text="${b.soDonMua}">PO</b></th:block>.</p>
+<p>– Bên mua: <b th:text="${b.benMua}">Công ty</b><th:block th:text="|, ${b.tenKho}, người lập ${b.nguoiLap}.|">, kho, người lập.</th:block></p>
+<p>– Bên bán (nhà cung cấp): <b th:text="${b.tenNcc}">Nhà cung cấp</b><th:block th:if="${b.maNcc != null}" th:text="|, mã ${b.maNcc}|">, mã</th:block><th:block th:text="|, liên hệ ${b.lienHeNcc}|">, liên hệ</th:block><th:block th:if="${b.emailNcc != null}" th:text="|, email ${b.emailNcc}|">, email</th:block>.</p>
+<p th:text="${b.cauDan}">Câu dẫn</p>
+
+<table class="hang">
+<thead>
+<tr><th style="width:20pt;">STT</th><th>Mã SKU</th><th>Tên hàng</th><th>Màu / cỡ</th><th>Lô</th><th>Lý do</th><th style="width:20pt;">SL</th><th>Đơn giá</th><th>Thành tiền</th></tr>
+</thead>
+<tbody>
+<tr th:each="d : ${b.dong}">
+<td class="c" th:text="${d.stt}">1</td>
+<td th:text="${d.sku}">SKU</td>
+<td th:text="${d.ten}">Tên</td>
+<td th:text="${d.mauCo}">Màu</td>
+<td th:text="${d.maLo}">Lô</td>
+<td th:text="${d.lyDo}">Lý do</td>
+<td class="r" th:text="${d.soLuong}">0</td>
+<td class="r" th:text="${d.donGia}">0</td>
+<td class="r" th:text="${d.thanhTien}">0</td>
+</tr>
+<tr class="cong">
+<td></td><td colspan="5">Cộng</td>
+<td class="r" th:text="${b.tongSoLuong}">0</td>
+<td></td>
+<td class="r" th:text="${b.tongTien}">0</td>
+</tr>
+</tbody>
+</table>
+
+<div class="muc">
+<p><b>Hàng lỗi:</b></p>
+<p class="thut">
+<span class="chon"><span class="o"><span th:if="${b.traNgay}" class="dau"></span></span>Trả ngay cho người giao hàng<th:block th:if="${b.traNgay and b.nguoiGiao != null}" th:text="| (${b.nguoiGiao})|"> (người giao)</th:block></span>
+<span class="chon"><span class="o"><span th:if="${b.giuKho}" class="dau"></span></span>Giữ ở kho bên mua</span>
+</p>
+</div>
+
+<div class="muc">
+<p><b>Ghi chú:</b><th:block th:if="${b.ghiChu != null}" th:text="| ${b.ghiChu}|"> ghi chú</th:block></p>
+<th:block th:if="${b.ghiChu == null}"><div class="dong-cham"></div><div class="dong-cham"></div></th:block>
+</div>
+
+<div th:if="${b.cauKy != null}" class="muc">
+<p><b>Ký biên bản:</b> <th:block th:text="${b.cauKy}">Người giao hàng đã ký.</th:block></p>
+</div>
+
+<table class="ky">
+<tr>
+<td><p class="vai">Người lập</p><p class="nhac">(ký, ghi rõ họ tên)</p><p class="ten" th:text="${b.nguoiLap}">Người lập</p></td>
+<td><p class="vai">Người giao hàng</p><p class="nhac">(ký, ghi rõ họ tên)</p><p class="ten" th:text="${b.tenNguoiKy}"></p><p th:if="${b.ghiDuoiTenKy != null}" class="ghi" th:text="${b.ghiDuoiTenKy}">(đại diện nhà cung cấp)</p></td>
+<td><p class="vai">Thủ kho</p><p class="nhac">(ký, ghi rõ họ tên)</p><p class="ten"></p></td>
+</tr>
+</table>
+
+<p class="chan-giay" th:text="|Bản điện tử của biên bản, gửi nhà cung cấp qua email lúc ${b.taoLuc}.|">Bản điện tử.</p>
+</body>
+</html>

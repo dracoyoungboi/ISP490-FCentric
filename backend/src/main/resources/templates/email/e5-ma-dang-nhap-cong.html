@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<!--/*
+  E5 · Mã đăng nhập Cổng nhà cung cấp (đăng nhập theo email, không theo đơn). Không có nút: email chứa mã. Không có người
+  phụ trách riêng (email có thể thuộc nhiều nhà cung cấp): chân email không mời trả lời (trả lời sẽ trích nguyên mã).
+  e.tenNhaCungCap null thì ghi "Kính gửi Quý công ty".
+*/-->
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nha-cung-cap(false, false)}, nhom=null)}">
+<body>
+<th:block th:fragment="xem-truoc">Mã có hiệu lực <th:block th:text="${e.thoiHan}">5 phút</th:block>, đến <th:block th:text="${e.hetHanLuc}">giờ</th:block>. Không đưa mã này cho người khác.</th:block>
+<th:block th:fragment="noi-dung">
+<tr th:replace="~{khung :: tieu-de('Mã đăng nhập Cổng nhà cung cấp')}"></tr>
+<tr><td style="padding:0 0 14px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="${e.tenNhaCungCap != null} ? |Kính gửi ${e.tenNhaCungCap},| : 'Kính gửi Quý công ty,'">Kính gửi,</p></td></tr>
+<tr><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;">Quý công ty dùng mã dưới đây để đăng nhập Cổng nhà cung cấp bằng email <strong style="word-break:break-all;" th:text="${e.emailNhan}">email</strong>. Trên cổng, Quý công ty xem và gửi báo giá cho các đơn đang chờ, chọn cách xử lý biên bản trả hàng và xem lại lịch sử giao dịch.</p></td></tr>
+<tr th:replace="~{khung :: o-ma(${e.ma}, ${e.hetHanLuc})}"></tr>
+<tr><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="hop-trang vien" style="width:100%;background-color:#ffffff;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;">
+<tr><td style="padding:16px 18px;">
+<p class="chu" style="margin:0 0 6px;font-size:14px;line-height:20px;font-weight:600;color:#172233;">Quý công ty không yêu cầu mã này?</p>
+<p class="chu" style="margin:0;font-size:14px;line-height:22px;color:#172233;">Quý công ty có thể bỏ qua email này: không ai đăng nhập được nếu không có mã. Nhân viên của chúng tôi không bao giờ hỏi mã qua điện thoại hay tin nhắn.</p>
+</td></tr>
+</table>
+</td></tr>
+</th:block>
+</body>
+</html>

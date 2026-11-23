@@ -2,7 +2,7 @@ package com.dev.backend.constant;
 
 import com.dev.backend.dto.ApplicationRequestObj;
 import com.dev.backend.dto.OtpScheduleObj;
-import com.dev.backend.dto.PhienBaoGia;
+import com.dev.backend.dto.PhienCongNcc;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -19,10 +19,10 @@ public interface GlobalCache {
 
     // ---- Cổng nhà cung cấp (chỉ trong bộ nhớ: khởi động lại máy chủ thì mất, chạy một máy chủ) ----
 
-    /** Phiên báo giá: token (header X-Phien-Bao-Gia) -> phiên. SchedulingJob dọn phiên hết hạn. */
-    Map<String, PhienBaoGia> PHIEN_BAO_GIA = new ConcurrentHashMap<>();
+    /** Phiên cổng: token (header X-Phien-Cong-Ncc) -> phiên. SchedulingJob dọn phiên hết hạn. */
+    Map<String, PhienCongNcc> PHIEN_CONG_NCC = new ConcurrentHashMap<>();
     /**
-     * Mốc các lần gửi mã xác nhận báo giá trong 1 giờ gần nhất, khóa "email|donMuaHangId" (giới hạn số mã mỗi giờ).
+     * Mốc các lần gửi mã đăng nhập cổng trong 1 giờ gần nhất, khóa là email (giới hạn số mã mỗi giờ).
      * Chỉ đọc/ghi trong synchronized (OTP_SCHEDULE_OBJS); giá trị là danh sách không đổi, thay cả danh sách khi ghi.
      */
     Map<String, List<Instant>> LUOT_GUI_MA_NCC = new ConcurrentHashMap<>();

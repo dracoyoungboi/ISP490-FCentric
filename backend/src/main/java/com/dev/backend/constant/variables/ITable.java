@@ -26,6 +26,7 @@ public interface ITable {
             chi_tiet_phieu_xuat_kho = "chi_tiet_phieu_xuat_kho",
             phieu_chuyen_kho = "phieu_chuyen_kho",
             bien_ban_giao_nhan = "bien_ban_giao_nhan",
+            bien_ban_tra_hang_ncc = "bien_ban_tra_hang_ncc",
             phieu_dieu_chinh_kho = "phieu_dieu_chinh_kho",
             lich_su_giao_dich_kho = "lich_su_giao_dich_kho",
             canh_bao = "canh_bao",

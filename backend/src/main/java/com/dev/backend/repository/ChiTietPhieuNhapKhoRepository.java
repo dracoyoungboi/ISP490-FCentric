@@ -258,4 +258,30 @@ public interface ChiTietPhieuNhapKhoRepository extends JpaRepository<ChiTietPhie
     List<Object[]> sumChoNhapNhieuKeTheoKho(@Param("khoId") Integer khoId);
 
 
+
+    /**
+     * Số lỗi theo (phiếu, biến thể) của các lô đã khóa: [phieuNhapKhoId, bienTheSanPhamId, tổng số lỗi]. Biên bản trả hàng
+     * lấy số lỗi từ đây (lô của phiếu là nơi lưu chuẩn, đã khóa sau khi nhập kho).
+     */
+    @Query("""
+    SELECT ct.phieuNhapKho.id, ct.bienTheSanPham.id, SUM(ct.loHang.soLuongLoi)
+    FROM ChiTietPhieuNhapKho ct
+    WHERE ct.phieuNhapKho.id IN :phieuIds AND ct.loHang IS NOT NULL AND ct.loHang.soLuongLoi > 0
+    GROUP BY ct.phieuNhapKho.id, ct.bienTheSanPham.id
+    """)
+    java.util.List<Object[]> soLoiTheoBienThe(@Param("phieuIds") java.util.Collection<Integer> phieuIds);
+
+    /**
+     * Số hàng đạt của các biến thể nhập ở phiếu hoàn tất của cùng đơn mua SAU một thời điểm (hàng về sau biên bản: có thể
+     * là hàng bù). Dùng để chặn đổi giao bù sang trừ tiền khi đã có hàng về.
+     */
+    @Query("""
+    SELECT COALESCE(SUM(ct.loHang.soLuongNhap), 0)
+    FROM ChiTietPhieuNhapKho ct
+    WHERE ct.phieuNhapKho.donMuaHang.id = :donId AND ct.phieuNhapKho.trangThai = 3
+      AND ct.phieuNhapKho.ngayNhap > :sau AND ct.loHang IS NOT NULL
+      AND ct.bienTheSanPham.id IN :bienTheIds
+    """)
+    Long datNhapSau(@Param("donId") Integer donId, @Param("sau") java.time.Instant sau,
+                    @Param("bienTheIds") java.util.Collection<Integer> bienTheIds);
 }

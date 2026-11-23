@@ -5,11 +5,13 @@ import com.dev.backend.constant.enums.OtpType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.TenVaiTro;
 import com.dev.backend.dto.email.*;
+import com.dev.backend.dto.response.inbound.BienBanTraHangDto;
 import com.dev.backend.entities.*;
 import com.dev.backend.i18n.LoiThamSoException;
 import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.repository.email.DonMuaHangEmailRepository;
+import com.dev.backend.services.impl.entities.NhatKyTraHangNcc;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -30,7 +32,7 @@ import java.util.function.BooleanSupplier;
  *
  * <p>Hợp đồng với nơi gọi (soát chéo 3.5):
  * <ul>
- *   <li>mọi hàm trừ E5 KHÔNG ném bất kỳ ngoại lệ nào ra nơi gọi, kể cả lỗi lúc dựng dữ liệu (chỉ log ERROR): lỗi email
+ *   <li>mọi hàm trừ E5, E6 KHÔNG ném bất kỳ ngoại lệ nào ra nơi gọi, kể cả lỗi lúc dựng dữ liệu (chỉ log ERROR): lỗi email
  *       không được làm rollback việc chấp nhận báo giá hay gửi yêu cầu;</li>
  *   <li>không tiêm NguoiDungService / DonMuaHangService / YeuCauMuaHangService (hai service đầu tiêm lớp này: vòng phụ
  *       thuộc bean);</li>
@@ -40,8 +42,8 @@ import java.util.function.BooleanSupplier;
  *
  * <p>Để không "chính thức hóa" dữ liệu sai qua email:
  * <ul>
- *   <li>mỗi email nhà cung cấp kiểm đúng trạng thái đơn trước khi dựng (E4/M3/E5: chờ báo giá; M1: đã chấp nhận;
- *       M2: không chấp nhận), sai thì không gửi và ghi ERROR;</li>
+ *   <li>mỗi email nhà cung cấp kiểm đúng trạng thái trước khi dựng (E4/M3: đơn chờ báo giá; M1: đã chấp nhận;
+ *       M2: không chấp nhận; E7/M5: biên bản chưa hủy; M6: biên bản đã hủy), sai thì không gửi và ghi ERROR;</li>
  *   <li>trước mỗi lần gửi / thử lại kiểm lại CSDL: đơn đổi trạng thái, nhà cung cấp gửi báo giá mới hơn, mật khẩu
  *       tạm đã bị thay, mã đã bị thay thì bỏ thư cũ;</li>
  *   <li>thành tiền tự tính số lượng × đơn giá (không đọc cột thanh_tien tự sinh).</li>
@@ -56,31 +58,52 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
     static final String TIEU_DE_E2 = "Tài khoản FCentric của bạn đã được tạo";
     static final String TIEU_DE_E3 = "Đặt lại mật khẩu tài khoản FCentric";
     static final String TIEU_DE_M4 = "Mật khẩu FCentric của bạn vừa được thay đổi";
+    static final String TIEU_DE_E5 = "Mã đăng nhập Cổng nhà cung cấp";
 
     static final int DON_CHO_BAO_GIA = 2;
     static final int DON_DA_CHAP_NHAN = 3;
     static final int DON_KHONG_CHAP_NHAN = 4;
 
+    // Trạng thái, phương án của biên bản trả hàng (cột trang_thai, phuong_an_xu_ly) và nguồn câu trả lời: tên ngắn cho
+    // hằng số của entity / nhật ký
+    static final String BB_DA_HUY = BienBanTraHangNcc.DA_HUY;
+    static final String BB_DA_TRA_HANG = BienBanTraHangNcc.DA_TRA_HANG;
+    static final String BB_DA_TIEU_HUY = BienBanTraHangNcc.DA_TIEU_HUY;
+    static final String PA_DOI_HANG = BienBanTraHangNcc.PA_DOI_HANG;
+    static final String PA_TRU_CONG_NO = BienBanTraHangNcc.PA_TRU_CONG_NO;
+    static final String HL_NHAN_LAI = BienBanTraHangNcc.HL_NHAN_LAI;
+    static final String HL_TIEU_HUY = BienBanTraHangNcc.HL_TIEU_HUY;
+    static final String NGUON_CONG_NCC = NhatKyTraHangNcc.NGUON_CONG_NCC;
+    /** Loại thư E7: ghi đã ký lần đầu / gửi lại, ký lại sau khi lập lại (số lỗi đổi), nhắc hạn trả lời. */
+    static final String LOAI_GUI = NhatKyTraHangNcc.EMAIL_GUI;
+    static final String LOAI_CAP_NHAT = NhatKyTraHangNcc.EMAIL_CAP_NHAT;
+    static final String LOAI_NHAC = NhatKyTraHangNcc.EMAIL_NHAC;
+    static final Set<String> LOAI_E7 = Set.of(LOAI_GUI, LOAI_CAP_NHAT, LOAI_NHAC);
+
     private final EmailDispatcher dispatcher;
     private final DuongDanEmail duongDan;
     private final NguoiDungRepository nguoiDungRepository;
     private final DonMuaHangEmailRepository donMuaHangEmailRepository;
+    private final PdfBienBanTraHang pdfBienBan;
     private final Clock clock;
 
     @Autowired
     public EmailNghiepVuServiceImpl(EmailDispatcher dispatcher, DuongDanEmail duongDan,
                                     NguoiDungRepository nguoiDungRepository,
-                                    DonMuaHangEmailRepository donMuaHangEmailRepository) {
-        this(dispatcher, duongDan, nguoiDungRepository, donMuaHangEmailRepository, Clock.systemUTC());
+                                    DonMuaHangEmailRepository donMuaHangEmailRepository,
+                                    PdfBienBanTraHang pdfBienBan) {
+        this(dispatcher, duongDan, nguoiDungRepository, donMuaHangEmailRepository, pdfBienBan, Clock.systemUTC());
     }
 
     EmailNghiepVuServiceImpl(EmailDispatcher dispatcher, DuongDanEmail duongDan,
                              NguoiDungRepository nguoiDungRepository,
-                             DonMuaHangEmailRepository donMuaHangEmailRepository, Clock clock) {
+                             DonMuaHangEmailRepository donMuaHangEmailRepository, PdfBienBanTraHang pdfBienBan,
+                             Clock clock) {
         this.dispatcher = dispatcher;
         this.duongDan = duongDan;
         this.nguoiDungRepository = nguoiDungRepository;
         this.donMuaHangEmailRepository = donMuaHangEmailRepository;
+        this.pdfBienBan = pdfBienBan;
         this.clock = clock;
     }
 
@@ -238,26 +261,29 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
         }
     }
 
-    /** E5. Gửi ngay trong request; không gửi được (kể cả dữ liệu sai) thì ném EmailKhongGuiDuocException. */
+    /**
+     * E5. Mã đăng nhập Cổng nhà cung cấp, gửi ngay trong request; không gửi được (kể cả dữ liệu sai) thì ném
+     * EmailKhongGuiDuocException. Không có người phụ trách (đăng nhập theo email, có thể nhiều nhà cung cấp): Trả lời
+     * tới là email cửa hàng, chân thư không mời trả lời (trả lời sẽ trích nguyên mã).
+     */
     @Override
-    public void guiMaXacNhanBaoGia(DonMuaHang don, String emailNhan, String ma, Instant hetHanLuc) {
-        String maDon = maDon(don);
+    public void guiMaDangNhapCong(String emailNhan, String tenNhaCungCap, String ma, Instant hetHanLuc) {
         EmailGui g;
         try {
-            kiem(Integer.valueOf(DON_CHO_BAO_GIA).equals(don.getTrangThai()), "đơn không ở trạng thái chờ báo giá");
-            kiem(emailNhan != null && !emailNhan.isBlank(), "thiếu email nhận");
+            String den = sach(emailNhan);
+            kiem(den != null, "thiếu email nhận");
             kiem(ma != null && !ma.isBlank() && hetHanLuc != null, "thiếu mã hoặc hạn dùng");
-            MaXacNhanBaoGiaEmail duLieu = new MaXacNhanBaoGiaEmail(tenNhaCungCap(don), maDon, ma,
+            MaDangNhapCongEmail duLieu = new MaDangNhapCongEmail(sach(tenNhaCungCap), den, ma,
                     DinhDangEmail.gioNgay(hetHanLuc), DinhDangEmail.phut(Duration.between(clock.instant(), hetHanLuc)));
             g = EmailGui.builder()
-                    .loai(LoaiEmail.E5).den(emailNhan.trim()).maDon(maDon)
-                    .tieuDe(c -> "Mã xác nhận báo giá đơn " + maDon)
-                    .duLieu(duLieu).nguoiPhuTrach(nguoiPhuTrach(don))
+                    .loai(LoaiEmail.E5).den(den)
+                    .tieuDe(c -> TIEU_DE_E5)
+                    .duLieu(duLieu)
                     .build();
         } catch (Exception e) {
-            loiDung(LoaiEmail.E5, maDon, e);
+            loiDung(LoaiEmail.E5, null, e);
             // i18n-giu-nguyen: lỗi nội bộ, nơi gọi bắt EmailKhongGuiDuocException và trả câu/mã lỗi riêng
-            throw new EmailKhongGuiDuocException("Không dựng được email mã xác nhận báo giá", e);
+            throw new EmailKhongGuiDuocException("Không dựng được email mã đăng nhập Cổng nhà cung cấp", e);
         }
         dispatcher.guiNgay(g);
     }
@@ -352,6 +378,259 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
     }
 
     // =====================================================================================================
+    // Biên bản trả hàng nhà cung cấp (E7, M5, M6)
+    // =====================================================================================================
+
+    /**
+     * E7. Đơn giá lấy từ dòng đơn mua cùng biến thể; một dòng biên bản không tìm được đơn giá thì cả thư bỏ phần tiền
+     * (chỉ số lượng), không đoán giá. Người phụ trách = người tạo đơn mua. Kèm PDF biên bản ({@code ban}).
+     */
+    @Override
+    public void guiBienBanTraHang(BienBanTraHangNcc bienBan, BienBanTraHangDto ban, String loai, Instant hanTraLoi,
+                                  String moTaHangLoi, BooleanSupplier conHieuLuc, Runnable khiGuiDuoc) {
+        String ma = maBienBan(bienBan);
+        try {
+            kiem(bienBan.getId() != null, "biên bản chưa lưu");
+            kiem(!BB_DA_HUY.equals(bienBan.getTrangThai()), "biên bản đã hủy");
+            kiem(loai != null && LOAI_E7.contains(loai), "loại thư biên bản không hợp lệ");
+            String den = emailNhaCungCap(bienBan);
+            PhieuNhapKho phieu = bienBan.getPhieuNhapKho();
+            kiem(phieu != null, "biên bản không có phiếu nhập");
+            DonMuaHang don = phieu.getDonMuaHang();
+            kiem(don != null, "phiếu nhập không thuộc đơn mua");
+            List<ChiTietTraHangNcc> chiTiet = chiTietBienBan(bienBan);
+            List<ChiTietDonMuaHang> dongDon = don.getChiTietDonMuaHangs() == null ? List.of()
+                    : don.getChiTietDonMuaHangs();
+
+            List<BigDecimal> donGia = new ArrayList<>();
+            for (ChiTietTraHangNcc ct : chiTiet) {
+                donGia.add(donGiaCua(ct.getBienTheSanPham(), dongDon));
+            }
+            boolean coGia = donGia.stream().allMatch(Objects::nonNull);
+
+            List<DongTraHangEmail> dong = new ArrayList<>();
+            BigDecimal tong = BigDecimal.ZERO;
+            long soSanPham = 0;
+            Set<String> donVi = new HashSet<>();
+            for (int i = 0; i < chiTiet.size(); i++) {
+                ChiTietTraHangNcc ct = chiTiet.get(i);
+                BienTheSanPham bt = ct.getBienTheSanPham();
+                SanPhamQuanAo sp = bt.getSanPham();
+                BigDecimal soLuong = BigDecimal.valueOf(ct.getSoLuongLoi());
+                soSanPham += ct.getSoLuongLoi();
+                donVi.add(DinhDangEmail.donViTinh(sp.getDonViTinh()));
+                String gia = null;
+                String giaTri = null;
+                if (coGia) {
+                    BigDecimal thanh = soLuong.multiply(donGia.get(i)).setScale(2, RoundingMode.HALF_UP);
+                    tong = tong.add(thanh);
+                    gia = DinhDangEmail.tien(donGia.get(i));
+                    giaTri = DinhDangEmail.tien(thanh);
+                }
+                dong.add(new DongTraHangEmail(i + 1, sach(sp.getTenSanPham()), thuocTinh(bt), sach(bt.getMaSku()),
+                        sach(ct.getLyDoLoi()), DinhDangEmail.soLuong(soLuong, sp.getDonViTinh()), gia, giaTri));
+            }
+            String tongSoLuong = donVi.size() == 1
+                    ? DinhDangEmail.soLuong(BigDecimal.valueOf(soSanPham), donVi.iterator().next()) : null;
+
+            String trangThai = bienBan.getTrangThai();
+            boolean daTra = BB_DA_TRA_HANG.equals(trangThai);
+            boolean daTieuHuy = BB_DA_TIEU_HUY.equals(trangThai);
+            String noiHangLoi;
+            String moTaNoi;
+            if (daTra) {
+                noiHangLoi = "Đã giao trả";
+                moTaNoi = sach(moTaHangLoi);
+            } else if (daTieuHuy) {
+                noiHangLoi = "Đã tiêu hủy";
+                moTaNoi = sach(moTaHangLoi);
+            } else {
+                Kho kho = phieu.getKho();
+                kiem(kho != null && sach(kho.getTenKho()) != null, "phiếu nhập không có kho");
+                noiHangLoi = kho.getTenKho().trim();
+                moTaNoi = sach(kho.getDiaChi());
+            }
+
+            boolean capNhat = LOAI_CAP_NHAT.equals(loai);
+            boolean nhac = LOAI_NHAC.equals(loai);
+            BienBanTraHangEmail duLieu = new BienBanTraHangEmail(tenNhaCungCap(bienBan), ma, sach(don.getSoDonMua()),
+                    sach(phieu.getSoPhieuNhap()), capNhat, nhac, DinhDangEmail.ngay(hanTraLoi),
+                    Boolean.TRUE.equals(ban.getChoNccChonCachBu()), Boolean.TRUE.equals(ban.getChoNccChonHangLoi()),
+                    soSanPham, tongSoLuong, coGia,
+                    coGia ? DinhDangEmail.tien(tong) : null, coGia ? DinhDangEmail.tienDong(tong) : null,
+                    noiHangLoi, moTaNoi, !daTra && !daTieuHuy, daTra, dong, PdfBienBanTraHang.cauKy(ban, true),
+                    duongDan.congNhaCungCapBienBan(bienBan.getId(), den));
+            dispatcher.guiSauCommit(EmailGui.builder()
+                    .loai(LoaiEmail.E7).den(den).maDon(ma)
+                    .tieuDe(c -> (nhac ? "Nhắc trả lời biên bản trả hàng " + ma
+                            : "Biên bản trả hàng " + ma + (capNhat ? " đã cập nhật" : "")) + duoiCuaHang(c))
+                    .duLieu(duLieu).nguoiPhuTrach(nguoiPhuTrach(don))
+                    .conHieuLuc(conHieuLuc)
+                    .khiGuiDuoc(khiGuiDuoc)
+                    .dinhKem(c -> List.of(pdfBienBan.tao(ban, c)))
+                    .build());
+        } catch (Exception e) {
+            loiDung(LoaiEmail.E7, ma, e);
+        }
+    }
+
+    /**
+     * M5. Lúc ghi nhận = lúc gọi. Không kèm PDF: biên bản không đổi theo câu trả lời, chính thư này ghi lại lựa chọn,
+     * người xác nhận và thời điểm.
+     */
+    @Override
+    public void guiDaGhiNhanTraLoi(BienBanTraHangNcc bienBan, BienBanTraHangDto ban, boolean tuDong) {
+        String ma = maBienBan(bienBan);
+        try {
+            kiem(bienBan.getId() != null, "biên bản chưa lưu");
+            kiem(!BB_DA_HUY.equals(bienBan.getTrangThai()), "biên bản đã hủy");
+            String den = emailNhaCungCap(bienBan);
+            PhieuNhapKho phieu = bienBan.getPhieuNhapKho();
+            kiem(phieu != null, "biên bản không có phiếu nhập");
+            DonMuaHang don = phieu.getDonMuaHang();
+            long soSanPham = ban.getTongSoLuongLoi() == null ? 0 : ban.getTongSoLuongLoi();
+            String phuongAn = ban.getPhuongAn();
+            boolean truTien = PA_TRU_CONG_NO.equals(phuongAn);
+            boolean giaoBu = PA_DOI_HANG.equals(phuongAn);
+            kiem(!tuDong || truTien, "quá hạn chỉ chuyển trừ tiền");
+            BigDecimal tien = duong(ban.getTienTruTien()) != null ? ban.getTienTruTien() : duong(ban.getGiaTriLoi());
+            String moTaCachBu = truTien
+                    ? (tien != null ? "Trừ " + DinhDangEmail.tienDong(tien) + " khi thanh toán"
+                    : "Đơn giảm " + soSanPham + " sản phẩm khi thanh toán")
+                    : giaoBu ? "Giao lại " + soSanPham + " sản phẩm đạt" : null;
+            String hangLoi = ban.getHangLoiNcc();
+            String tenHangLoi = HL_NHAN_LAI.equals(hangLoi) ? "Nhận lại hàng lỗi"
+                    : HL_TIEU_HUY.equals(hangLoi) ? "Đồng ý tiêu hủy" : null;
+            String moTaHangLoi = HL_NHAN_LAI.equals(hangLoi)
+                    ? "Quý công ty đến lấy hoặc nhờ chúng tôi gửi vận chuyển"
+                    : HL_TIEU_HUY.equals(hangLoi) ? "Chúng tôi tiêu hủy, Quý công ty không cần lấy về" : null;
+
+            DaGhiNhanCachXuLyEmail duLieu = new DaGhiNhanCachXuLyEmail(tenNhaCungCap(bienBan), ma,
+                    don == null ? null : sach(don.getSoDonMua()), tuDong,
+                    DinhDangEmail.ngay(ban.getHanTraLoi()),
+                    truTien ? "Trừ tiền hàng" : giaoBu ? "Giao bù hàng" : null, moTaCachBu, tenHangLoi, moTaHangLoi,
+                    soSanPham, tuDong ? null : nguoiTraLoi(ban), DinhDangEmail.gioNgay(clock.instant()),
+                    ghiChuDoi(ban), duongDan.congNhaCungCapBienBan(bienBan.getId(), den));
+            dispatcher.guiSauCommit(EmailGui.builder()
+                    .loai(LoaiEmail.M5).den(den).maDon(ma)
+                    .tieuDe(c -> tuDong ? "Biên bản trả hàng " + ma + " quá hạn trả lời: đã chuyển trừ tiền"
+                            : "Đã ghi nhận trả lời biên bản " + ma)
+                    .duLieu(duLieu).nguoiPhuTrach(don == null ? null : nguoiPhuTrach(don))
+                    .build());
+        } catch (Exception e) {
+            loiDung(LoaiEmail.M5, ma, e);
+        }
+    }
+
+    /** Người bên nhà cung cấp vừa trả lời (lần ghi gần nhất trong cách bù / hàng lỗi). */
+    private static String nguoiTraLoi(BienBanTraHangDto ban) {
+        Instant cachBu = NGUON_CONG_NCC.equals(ban.getNguonChot()) ? ban.getThoiDiemChot() : null;
+        Instant hangLoi = ban.getHangLoiNcc() == null ? null : ban.getThoiDiemChonHangLoi();
+        if (hangLoi != null && (cachBu == null || hangLoi.isAfter(cachBu))) return sach(ban.getNguoiChonHangLoi());
+        return cachBu != null ? sach(ban.getNguoiXacNhanNcc()) : null;
+    }
+
+    /** Những gì nhà cung cấp còn đổi / còn phải chọn sau lần ghi nhận này. */
+    private static List<String> ghiChuDoi(BienBanTraHangDto ban) {
+        List<String> cau = new ArrayList<>();
+        boolean daNhap = Boolean.TRUE.equals(ban.getPhieuDaNhap());
+        List<String> cachBuMo = ban.getCachBuMo() == null ? List.of() : ban.getCachBuMo();
+        if (!cachBuMo.isEmpty() && !daNhap) {
+            cau.add(ban.getSoPhieuNhap() == null
+                    ? "Quý công ty còn đổi cách bù trên Cổng nhà cung cấp cho tới khi chúng tôi nhập kho lô hàng này."
+                    : "Quý công ty còn đổi cách bù trên Cổng nhà cung cấp cho tới khi chúng tôi nhập kho phiếu "
+                    + ban.getSoPhieuNhap() + ".");
+        } else if (cachBuMo.contains(PA_TRU_CONG_NO)) {
+            cau.add("Nếu không giao bù được, Quý công ty đổi sang trừ tiền trên Cổng nhà cung cấp khi chưa có hàng bù nào về.");
+        } else if (PA_TRU_CONG_NO.equals(ban.getPhuongAn()) && daNhap) {
+            cau.add("Trừ tiền hàng là lựa chọn cuối, không đổi lại được.");
+        }
+        List<String> hangLoiMo = ban.getHangLoiMo() == null ? List.of() : ban.getHangLoiMo();
+        if (Boolean.TRUE.equals(ban.getChoNccChonHangLoi())) {
+            cau.add("Hàng lỗi vẫn ở kho của chúng tôi. Vui lòng chọn nhận lại hoặc đồng ý tiêu hủy trên Cổng nhà cung cấp;"
+                    + " chúng tôi chỉ tiêu hủy khi Quý công ty đồng ý.");
+        } else if (!hangLoiMo.isEmpty()) {
+            cau.add("Lựa chọn cho hàng lỗi đổi được trên Cổng nhà cung cấp cho tới khi chúng tôi giao trả hoặc tiêu hủy.");
+        }
+        return cau;
+    }
+
+    private static BigDecimal duong(BigDecimal so) {
+        return so != null && so.signum() > 0 ? so : null;
+    }
+
+    /** M6. Chỉ gửi khi biên bản đã ở trạng thái hủy. */
+    @Override
+    public void guiBienBanDaHuy(BienBanTraHangNcc bienBan) {
+        String ma = maBienBan(bienBan);
+        try {
+            kiem(bienBan.getId() != null, "biên bản chưa lưu");
+            kiem(BB_DA_HUY.equals(bienBan.getTrangThai()), "biên bản chưa hủy");
+            String den = emailNhaCungCap(bienBan);
+            PhieuNhapKho phieu = bienBan.getPhieuNhapKho();
+            kiem(phieu != null, "biên bản không có phiếu nhập");
+            DonMuaHang don = phieu.getDonMuaHang();
+            BienBanDaHuyEmail duLieu = new BienBanDaHuyEmail(tenNhaCungCap(bienBan), ma,
+                    don == null ? null : sach(don.getSoDonMua()), sach(phieu.getSoPhieuNhap()),
+                    DinhDangEmail.ngay(bienBan.getNgayTao()));
+            dispatcher.guiSauCommit(EmailGui.builder()
+                    .loai(LoaiEmail.M6).den(den).maDon(ma)
+                    .tieuDe(c -> "Biên bản trả hàng " + ma + " đã hủy")
+                    .duLieu(duLieu).nguoiPhuTrach(don == null ? null : nguoiPhuTrach(don))
+                    .build());
+        } catch (Exception e) {
+            loiDung(LoaiEmail.M6, ma, e);
+        }
+    }
+
+    /** Dòng biên bản có số lỗi dương, xếp theo id dòng tăng dần; không có dòng nào thì không gửi. */
+    private static List<ChiTietTraHangNcc> chiTietBienBan(BienBanTraHangNcc bienBan) {
+        List<ChiTietTraHangNcc> kq = new ArrayList<>();
+        if (bienBan.getChiTiets() != null) {
+            for (ChiTietTraHangNcc ct : bienBan.getChiTiets()) {
+                if (ct.getSoLuongLoi() != null && ct.getSoLuongLoi() > 0) {
+                    kiem(ct.getBienTheSanPham() != null && ct.getBienTheSanPham().getSanPham() != null,
+                            "dòng biên bản không có sản phẩm");
+                    kq.add(ct);
+                }
+            }
+        }
+        kiem(!kq.isEmpty(), "biên bản không có sản phẩm lỗi");
+        kq.sort(Comparator.comparing(ChiTietTraHangNcc::getId, Comparator.nullsLast(Comparator.naturalOrder())));
+        return kq;
+    }
+
+    /** Đơn giá dòng đơn mua cùng biến thể (dòng có giá đầu tiên theo id dòng); không có thì null. */
+    static BigDecimal donGiaCua(BienTheSanPham bt, List<ChiTietDonMuaHang> dongDon) {
+        for (ChiTietDonMuaHang ct : sapXep(dongDon)) {
+            BienTheSanPham b = ct.getBienTheSanPham();
+            boolean cungBienThe = b == bt || (b != null && b.getId() != null && b.getId().equals(bt.getId()));
+            if (cungBienThe && ct.getDonGia() != null) {
+                return ct.getDonGia();
+            }
+        }
+        return null;
+    }
+
+    private static String emailNhaCungCap(BienBanTraHangNcc bienBan) {
+        NhaCungCap ncc = bienBan.getNhaCungCap();
+        kiem(ncc != null, "biên bản không có nhà cung cấp");
+        String email = sach(ncc.getEmail());
+        kiem(email != null, "nhà cung cấp chưa có email");
+        return email;
+    }
+
+    private static String tenNhaCungCap(BienBanTraHangNcc bienBan) {
+        NhaCungCap ncc = bienBan.getNhaCungCap();
+        kiem(ncc != null && sach(ncc.getTenNhaCungCap()) != null, "biên bản không có tên nhà cung cấp");
+        return ncc.getTenNhaCungCap().trim();
+    }
+
+    private static String maBienBan(BienBanTraHangNcc bienBan) {
+        return bienBan == null ? null : bienBan.getMaBienBan();
+    }
+
+    // =====================================================================================================
     // Dựng dữ liệu
     // =====================================================================================================
 
@@ -363,13 +642,6 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
             BienTheSanPham bt = ct.getBienTheSanPham();
             kiem(bt != null && bt.getSanPham() != null, "dòng không có sản phẩm");
             SanPhamQuanAo sp = bt.getSanPham();
-            List<String> thuocTinh = new ArrayList<>();
-            if (bt.getMauSac() != null && sach(bt.getMauSac().getTenMau()) != null) {
-                thuocTinh.add(bt.getMauSac().getTenMau().trim());
-            }
-            if (bt.getSize() != null && sach(bt.getSize().getTenSize()) != null) {
-                thuocTinh.add(bt.getSize().getTenSize().trim());
-            }
             String donGia = null;
             String thanhTien = null;
             if (coGia) {
@@ -379,11 +651,22 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
             }
             // cắt khoảng trắng hai đầu như màu, cỡ, SKU (dữ liệu nhập tay có thể còn dấu cách cuối; bản chữ thường không
             // gộp khoảng trắng như HTML)
-            dong.add(new DongSanPhamEmail(stt++, sach(sp.getTenSanPham()),
-                    thuocTinh.isEmpty() ? null : String.join(" · ", thuocTinh), sach(bt.getMaSku()),
+            dong.add(new DongSanPhamEmail(stt++, sach(sp.getTenSanPham()), thuocTinh(bt), sach(bt.getMaSku()),
                     DinhDangEmail.soLuong(ct.getSoLuongDat(), sp.getDonViTinh()), donGia, thanhTien));
         }
         return dong;
+    }
+
+    /** "Trắng · M" (màu · cỡ, đã cắt khoảng trắng); không có cả hai thì null. */
+    static String thuocTinh(BienTheSanPham bt) {
+        List<String> phan = new ArrayList<>();
+        if (bt.getMauSac() != null && sach(bt.getMauSac().getTenMau()) != null) {
+            phan.add(bt.getMauSac().getTenMau().trim());
+        }
+        if (bt.getSize() != null && sach(bt.getSize().getTenSize()) != null) {
+            phan.add(bt.getSize().getTenSize().trim());
+        }
+        return phan.isEmpty() ? null : String.join(" · ", phan);
     }
 
     /** "360 cái" khi mọi dòng cùng đơn vị tính (so sau khi cắt khoảng trắng, viết thường); khác nhau thì null. */

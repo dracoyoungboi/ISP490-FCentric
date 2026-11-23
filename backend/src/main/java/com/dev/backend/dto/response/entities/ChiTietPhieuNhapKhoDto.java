@@ -41,7 +41,8 @@ public class ChiTietPhieuNhapKhoDto {
     Integer tongLoiBienBan;
     /** Biên bản đã phát hành nhưng số lỗi không còn khớp kiểm đếm hiện tại: phải lập lại trước khi nhập kho. */
     Boolean bienBanLech;
-    String phuongAnBienBan;
+    /** Tiền hàng đạt của phiếu (đạt × đơn giá), có sau khi nhập kho; thẻ hóa đơn nhà cung cấp so với hóa đơn. */
+    java.math.BigDecimal tongTien;
     /** Cấu hình KIEM_DEM_XAC_NHAN: QUET_TIEP_LA_DAT | QUET_THE_TUNG_CAI. */
     String cheDoXacNhanChatLuong;
     /** Cấu hình MA_LO_TIEN_TO: tiền tố mã lô gợi ý (mặc định LO). */

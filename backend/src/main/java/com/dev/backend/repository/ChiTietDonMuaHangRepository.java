@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
@@ -17,4 +18,7 @@ public interface ChiTietDonMuaHangRepository extends JpaRepository<ChiTietDonMua
     @Query("SELECT c FROM ChiTietDonMuaHang c WHERE c.donMuaHang.id = :donMuaHangId ORDER BY c.id")
     List<ChiTietDonMuaHang> khoaTheoDonMua(@Param("donMuaHangId") Integer donMuaHangId);
 
+
+    /** Dòng của nhiều đơn mua (màn Trả hàng nhà cung cấp tính trạng thái giao bù theo còn thiếu của dòng đơn). */
+    List<ChiTietDonMuaHang> findByDonMuaHang_IdIn(Collection<Integer> donMuaHangIds);
 }

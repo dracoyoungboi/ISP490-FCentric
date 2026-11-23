@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<!--/*
+  E7 · Biên bản trả hàng gửi nhà cung cấp, PDF biên bản đính kèm. Ba bản: lập mới / gửi lại, lập lại (e.capNhat: số lỗi
+  đã cập nhật, câu trả lời trước không còn hiệu lực), nhắc hạn (e.nhac). Khối "Quý công ty cần chọn" chỉ liệt kê việc còn
+  chờ: cách bù (e.choCachBu), hàng lỗi còn ở kho (e.choHangLoi). Không có đơn giá (e.coGia false) thì bỏ cột giá trị và số
+  tiền, chỉ số lượng. Bảng sản phẩm hai cột cùng lớp với bang-sp của khung (màn hẹp, chế độ tối).
+*/-->
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nha-cung-cap(false, true)}, nhom=null)}">
+<body>
+<th:block th:fragment="xem-truoc"><th:block th:if="${e.nhac}" th:text="|Biên bản ${e.maBienBan} đang chờ Quý công ty trả lời, hạn hết ngày ${e.hanTraLoi}.|">Nhắc</th:block><th:block th:unless="${e.nhac}"><th:block th:text="${e.soSanPham}">0</th:block> sản phẩm không đạt khi nhận đơn <th:block th:text="${e.maDon}">mã đơn</th:block><th:block th:if="${e.capNhat}"> (biên bản đã cập nhật)</th:block>. Trả lời trên Cổng nhà cung cấp trước hết ngày <th:block th:text="${e.hanTraLoi}">ngày</th:block>.</th:block></th:block>
+<th:block th:fragment="noi-dung">
+<tr th:replace="~{khung :: tieu-de(${e.nhac} ? |Nhắc trả lời biên bản trả hàng ${e.maBienBan}| : (${e.capNhat} ? |Biên bản trả hàng ${e.maBienBan} đã cập nhật| : |Biên bản trả hàng ${e.maBienBan}|))}"></tr>
+<tr><td style="padding:0 0 14px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Kính gửi ${e.tenNhaCungCap},|">Kính gửi,</p></td></tr>
+<tr th:if="${e.nhac}"><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;">Biên bản trả hàng <strong th:text="${e.maBienBan}">mã</strong> (đơn <th:block th:text="${e.maDon}">mã đơn</th:block>, <th:block th:text="|${e.soSanPham} sản phẩm không đạt|">0 sản phẩm không đạt</th:block>) vẫn đang chờ Quý công ty trả lời. Hạn trả lời: <strong th:text="|hết ngày ${e.hanTraLoi}|">hết ngày</strong>. Biên bản đính kèm thư này.</p></td></tr>
+<tr th:if="${!e.nhac and !e.capNhat}"><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;">Khi nhận hàng đơn <strong th:text="${e.maDon}">mã đơn</strong>, chúng tôi kiểm thấy <strong th:text="|${e.soSanPham} sản phẩm không đạt chất lượng|">0 sản phẩm không đạt chất lượng</strong>. Biên bản trả hàng đính kèm thư này. Kính đề nghị Quý công ty trả lời trên Cổng nhà cung cấp trước <strong th:text="|hết ngày ${e.hanTraLoi}|">hết ngày</strong>.</p></td></tr>
+<tr th:if="${!e.nhac and e.capNhat}"><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;">Chúng tôi đã kiểm lại hàng đơn <strong th:text="${e.maDon}">mã đơn</strong> và cập nhật biên bản: nay có <strong th:text="|${e.soSanPham} sản phẩm không đạt chất lượng|">0 sản phẩm không đạt chất lượng</strong>. Câu trả lời trước đây cho biên bản này (nếu có) không còn hiệu lực; biên bản mới đính kèm thư này. Kính đề nghị Quý công ty trả lời lại trước <strong th:text="|hết ngày ${e.hanTraLoi}|">hết ngày</strong>.</p></td></tr>
+<tr th:if="${e.cauKy != null}"><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="${e.cauKy}">Người giao hàng đã ký biên bản.</p></td></tr>
+<tr><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="luoi nen-nhat vien" style="width:100%;background-color:#f7f9fb;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;border-spacing:0;">
+<tr>
+<td width="50%" valign="top" class="o-luoi vien" style="width:50%;padding:12px 16px;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;" th:text="${e.coGia} ? 'Giá trị hàng lỗi' : 'Sản phẩm không đạt'">Giá trị hàng lỗi</p><p class="chu" style="margin:3px 0 0;font-size:15px;line-height:22px;font-weight:600;color:#172233;" th:text="${e.coGia} ? ${e.tongGiaTriDong} : (${e.tongSoLuong != null} ? ${e.tongSoLuong} : |${e.soSanPham} sản phẩm|)">0 ₫</p><p class="chu-mo" style="margin:1px 0 0;font-size:13px;line-height:19px;color:#5b6b80;"><th:block th:if="${e.coGia}" th:text="|${e.soSanPham} sản phẩm|">0 sản phẩm</th:block><th:block th:if="${e.coGia and e.soPhieuNhap != null}"> · </th:block><th:block th:if="${e.soPhieuNhap != null}" th:text="|phiếu nhập ${e.soPhieuNhap}|">phiếu nhập</th:block></p></td>
+<td width="50%" valign="top" class="o-luoi o-luoi-2 vien" style="width:50%;padding:12px 16px;border-left:1px solid #e3e8ef;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;" th:text="${e.hangConOKho} ? 'Hàng lỗi đang ở' : 'Hàng lỗi'">Hàng lỗi đang ở</p><p class="chu" style="margin:3px 0 0;font-size:15px;line-height:22px;font-weight:600;color:#172233;" th:text="${e.noiHangLoi}">Kho</p><p th:if="${e.moTaNoiHangLoi != null}" class="chu-mo" style="margin:1px 0 0;font-size:13px;line-height:19px;color:#5b6b80;" th:text="${e.moTaNoiHangLoi}">Địa chỉ kho</p></td>
+</tr>
+</table>
+</td></tr>
+<tr><td style="padding:0 0 22px;">
+<table th:replace="~{khung :: nut(${e.duongDanCong}, 'Trả lời biên bản')}"></table>
+<p class="chu-mo" style="margin:10px 0 0;font-size:13px;line-height:20px;color:#5b6b80;">Bấm nút, nhận mã xác nhận 6 số qua email này, rồi chọn. Trên Cổng nhà cung cấp, Quý công ty cũng xem được các đơn đã báo giá và biên bản trước đây.</p>
+</td></tr>
+<tr><td style="padding:0 0 22px;">
+<h2 class="chu" style="margin:0 0 10px;font-size:16px;line-height:24px;font-weight:600;color:#172233;">Sản phẩm không đạt</h2>
+<table width="100%" cellpadding="0" cellspacing="0" border="0" class="bang-sp hop-trang vien" style="width:100%;background-color:#ffffff;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;border-spacing:0;">
+<thead>
+<tr>
+<th scope="col" align="left" class="nen-nhat chu-mo vien" style="padding:10px 14px;text-align:left;font-size:11px;line-height:16px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;color:#5b6b80;background-color:#f7f9fb;border-bottom:1px solid #e3e8ef;border-radius:8px 0 0 0;">Sản phẩm · lý do</th>
+<th scope="col" align="right" class="nen-nhat chu-mo vien" style="padding:10px 14px;text-align:right;font-size:11px;line-height:16px;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;color:#5b6b80;background-color:#f7f9fb;border-bottom:1px solid #e3e8ef;border-radius:0 8px 0 0;" th:text="${e.coGia} ? 'Giá trị (₫)' : 'Số lượng'">Giá trị (₫)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="dong-sp" th:each="d : ${e.dong}">
+<th scope="row" align="left" valign="top" class="vien" style="padding:12px 14px;border-bottom:1px solid #e3e8ef;vertical-align:top;text-align:left;font-weight:400;">
+<p class="chu" style="margin:0;font-size:14px;line-height:20px;font-weight:600;color:#172233;" th:text="|${d.stt}. ${d.tenSanPham ?: ''}|">1. Sản phẩm</p>
+<p th:if="${d.thuocTinh != null or d.maSku != null}" class="chu-mo" style="margin:0;font-size:12.5px;line-height:18px;color:#5b6b80;"><th:block th:if="${d.thuocTinh != null}" th:text="${d.thuocTinh}">Màu · Cỡ</th:block><th:block th:if="${d.thuocTinh != null and d.maSku != null}"> · </th:block><span th:if="${d.maSku != null}" class="sku" th:text="${d.maSku}">SKU</span></p>
+<p th:if="${e.coGia or d.lyDo != null}" class="chu-vua" style="margin:3px 0 0;font-size:13px;line-height:19px;color:#2b3a4e;"><th:block th:if="${d.lyDo != null}" th:text="${d.lyDo}">Lý do</th:block><th:block th:if="${e.coGia and d.lyDo != null}"> · </th:block><th:block th:if="${e.coGia}" th:text="|${d.soLuong} × ${d.donGia}|">0 cái × 0</th:block></p>
+</th>
+<td valign="top" align="right" class="vien chu" style="padding:12px 14px;border-bottom:1px solid #e3e8ef;vertical-align:top;text-align:right;white-space:nowrap;font-size:14px;line-height:20px;font-weight:600;color:#172233;" th:text="${e.coGia} ? ${d.giaTri} : ${d.soLuong}">0</td>
+</tr>
+<tr th:if="${e.coGia or e.tongSoLuong != null}">
+<th scope="row" align="left" class="chu" style="padding:14px;text-align:left;font-size:14px;line-height:24px;font-weight:600;color:#172233;"><th:block th:text="${e.coGia} ? 'Tổng cộng' : 'Tổng số lượng'">Tổng cộng</th:block><span th:if="${e.coGia and e.tongSoLuong != null}" class="chu-mo" style="font-weight:400;color:#5b6b80;" th:text="| · ${e.tongSoLuong}|"> · 0 cái</span></th>
+<td align="right" class="chu" style="padding:14px;text-align:right;white-space:nowrap;font-size:17px;line-height:24px;font-weight:700;color:#172233;" th:text="${e.coGia} ? ${e.tongGiaTri} : ${e.tongSoLuong}">0</td>
+</tr>
+</tbody>
+</table>
+</td></tr>
+<tr><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="nen-nhat vien" style="width:100%;background-color:#f7f9fb;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;">
+<tr><td class="chu" style="padding:16px 18px;font-size:14px;line-height:22px;color:#172233;">
+<p class="chu" style="margin:0 0 6px;font-size:14px;line-height:20px;font-weight:600;color:#172233;" th:text="${e.choCachBu or e.choHangLoi} ? 'Quý công ty cần chọn' : 'Hàng lỗi'">Quý công ty cần chọn</p>
+<th:block th:if="${e.choCachBu}">
+<p class="chu" style="margin:6px 0 2px;font-size:14px;line-height:20px;color:#172233;"><strong>Bù hàng lỗi</strong></p>
+<ul style="margin:0 0 0 20px;padding:0;">
+<li style="margin:0 0 4px;"><strong>Giao bù hàng:</strong> <th:block th:text="|Quý công ty giao lại ${e.soSanPham} sản phẩm đạt; đơn ${e.maDon} vẫn chờ nhận số này.|">Quý công ty giao lại hàng đạt.</th:block></li>
+<li style="margin:0;"><strong>Trừ tiền hàng:</strong> <th:block th:text="${e.coGia} ? |không giao lại; đơn giảm ${e.soSanPham} sản phẩm và trừ ${e.tongGiaTriDong} khi thanh toán.| : |không giao lại; đơn giảm ${e.soSanPham} sản phẩm và trừ tiền theo đơn giá của đơn khi thanh toán.|">không giao lại; đơn giảm số sản phẩm và trừ tiền khi thanh toán.</th:block></li>
+</ul>
+</th:block>
+<th:block th:if="${e.choHangLoi}">
+<p class="chu" style="margin:10px 0 2px;font-size:14px;line-height:20px;color:#172233;"><strong>Hàng lỗi đang ở kho của chúng tôi</strong></p>
+<ul style="margin:0 0 0 20px;padding:0;">
+<li style="margin:0 0 4px;"><strong>Nhận lại:</strong> Quý công ty đến lấy hoặc nhờ chúng tôi gửi đơn vị vận chuyển.</li>
+<li style="margin:0;"><strong>Đồng ý tiêu hủy:</strong> chúng tôi tiêu hủy, Quý công ty không cần lấy về.</li>
+</ul>
+</th:block>
+<p th:unless="${e.choHangLoi}" class="chu-mo" style="margin:8px 0 0;font-size:13px;line-height:20px;color:#5b6b80;"><th:block th:if="${e.daTra}">Hàng lỗi đã giao trả cho Quý công ty.</th:block><th:block th:if="${!e.daTra and !e.hangConOKho}">Hàng lỗi đã được tiêu hủy theo đồng ý của Quý công ty.</th:block><th:block th:if="${e.hangConOKho}">Hàng lỗi đang ở kho của chúng tôi, xử lý theo lựa chọn Quý công ty đã gửi.</th:block></p>
+<p th:if="${e.choCachBu or e.choHangLoi}" class="chu-mo" style="margin:10px 0 0;font-size:13px;line-height:20px;color:#5b6b80;"><th:block th:if="${e.choCachBu}">Quá hạn mà chưa chọn cách bù, chúng tôi từ chối nhận số hàng lỗi này và trừ tiền hàng khi thanh toán. </th:block>Hàng lỗi vẫn giữ ở kho của chúng tôi; chúng tôi chỉ tiêu hủy khi Quý công ty đồng ý.</p>
+</td></tr>
+</table>
+</td></tr>
+<th:block th:replace="~{khung :: chu-ky(false)}"></th:block>
+</th:block>
+</body>
+</html>

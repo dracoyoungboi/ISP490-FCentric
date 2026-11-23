@@ -5,7 +5,7 @@ import lombok.experimental.FieldDefaults;
 
 import java.io.Serializable;
 
-/** Kết quả POST /lay-otp: cổng đếm ngược theo máy chủ, không viết cứng thời hạn. */
+/** Kết quả POST /api/v1/cong-ncc/dang-nhap/lay-ma: cổng đếm ngược theo máy chủ, không viết cứng thời hạn. */
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter

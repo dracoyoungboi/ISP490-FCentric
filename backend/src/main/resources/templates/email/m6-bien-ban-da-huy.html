@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<!--/*
+  M6 · Biên bản trả hàng đã hủy: phiếu nhập bị hủy, hoặc không còn hàng lỗi. Nhà cung cấp không cần xử lý biên bản nữa;
+  cách xử lý đã chọn (nếu có) không còn hiệu lực. Không có nút.
+*/-->
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nha-cung-cap(false, true)}, nhom=null)}">
+<body>
+<th:block th:fragment="xem-truoc">Quý công ty không cần xử lý biên bản <th:block th:text="${e.maBienBan}">mã biên bản</th:block> nữa.</th:block>
+<th:block th:fragment="noi-dung">
+<tr th:replace="~{khung :: tieu-de(|Biên bản trả hàng ${e.maBienBan} đã hủy|)}"></tr>
+<tr><td style="padding:0 0 14px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Kính gửi ${e.tenNhaCungCap},|">Kính gửi,</p></td></tr>
+<tr><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;">Biên bản trả hàng <strong th:text="${e.maBienBan}">mã biên bản</strong><th:block th:if="${e.ngayLap != null}" th:text="| lập ngày ${e.ngayLap}|"> lập ngày</th:block><th:block th:if="${e.maDon != null}" th:text="| cho đơn ${e.maDon}|"> cho đơn</th:block> đã được hủy vì <th:block th:text="${e.soPhieuNhap != null} ? |phiếu nhập ${e.soPhieuNhap} bị hủy hoặc không còn hàng lỗi.| : 'phiếu nhập bị hủy hoặc không còn hàng lỗi.'">phiếu nhập bị hủy hoặc không còn hàng lỗi.</th:block></p></td></tr>
+<tr><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="nen-nhat vien" style="width:100%;background-color:#f7f9fb;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;">
+<tr><td class="chu" style="padding:16px 18px;font-size:14px;line-height:22px;color:#172233;">Quý công ty không cần xử lý biên bản này nữa. Cách xử lý đã chọn cho biên bản này (nếu có) không còn hiệu lực.</td></tr>
+</table>
+</td></tr>
+<th:block th:replace="~{khung :: chu-ky(false)}"></th:block>
+</th:block>
+</body>
+</html>

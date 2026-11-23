@@ -4,6 +4,7 @@ import com.dev.backend.dto.email.CuaHangEmail;
 import com.dev.backend.dto.email.NguoiPhuTrachEmail;
 import lombok.Builder;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -19,11 +20,13 @@ import java.util.function.Function;
  * @param khiGuiDuoc    chạy trên luồng gửi, KHÔNG có transaction (ví dụ ghi ngay_gui_yeu_cau qua repository riêng)
  * @param khiThatBai    khi bỏ hẳn (hết lượt thử, lỗi dựng mẫu, hàng đợi đầy)
  * @param conHieuLuc    kiểm trước mỗi lần gửi; false thì bỏ (ví dụ mã đã bị thay bằng mã mới)
+ * @param dinhKem       tệp đính kèm, dựng lúc gửi theo cửa hàng lúc đó (ví dụ PDF biên bản); null là không có
  */
 @Builder(toBuilder = true)
 public record EmailGui(LoaiEmail loai, String den, Function<CuaHangEmail, String> tieuDe, Object duLieu,
                        NguoiPhuTrachEmail nguoiPhuTrach, String maDon, Runnable khiGuiDuoc,
-                       Consumer<Exception> khiThatBai, BooleanSupplier conHieuLuc) {
+                       Consumer<Exception> khiThatBai, BooleanSupplier conHieuLuc,
+                       Function<CuaHangEmail, List<TepDinhKem>> dinhKem) {
 
     public EmailGui {
         Objects.requireNonNull(loai, "loai");

@@ -2,6 +2,7 @@ package com.dev.backend.repository;
 
 import com.dev.backend.entities.DonMuaHang;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
@@ -15,9 +16,6 @@ import java.util.Optional;
 
 @Repository
 public interface DonMuaHangRepository extends JpaRepository<DonMuaHang, Integer>, JpaSpecificationExecutor<DonMuaHang> {
-    /** Mã đơn là duy nhất (UNIQUE so_don_mua), so khớp không phân biệt hoa thường theo collation của cột. */
-    Optional<DonMuaHang> findBySoDonMua(String soDonMua);
-
     /**
      * Đọc đơn mua và khóa dòng (SELECT ... FOR UPDATE) tới hết giao dịch: chốt báo giá (chấp nhận / không chấp nhận)
      * không cho hai lần bấm cùng lúc cùng đọc thấy trạng thái chờ duyệt (tránh chốt trùng, gửi hai email).
@@ -50,6 +48,15 @@ public interface DonMuaHangRepository extends JpaRepository<DonMuaHang, Integer>
     /** Số phiếu nhập của một đơn mua đang ở các trạng thái cho trước, cũ trước (đóng / hủy đơn chặn khi còn phiếu mở). */
     @Query("select p.soPhieuNhap from PhieuNhapKho p where p.donMuaHang.id = :donId and p.trangThai in :trangThais order by p.id")
     List<String> soPhieuNhapTheoTrangThai(@Param("donId") Integer donId, @Param("trangThais") List<Integer> trangThais);
+
+    /**
+     * Đơn đã gửi yêu cầu báo giá (từ trạng thái 2) của các nhà cung cấp, mới trước: Cổng nhà cung cấp (việc cần làm,
+     * lịch sử báo giá). Nạp sẵn dòng đơn, kho nhập, người tạo.
+     */
+    @EntityGraph(attributePaths = {"chiTietDonMuaHangs", "khoNhap", "nguoiTao"})
+    @Query("select distinct d from DonMuaHang d where d.nhaCungCap.id in :nccIds and d.trangThai >= 2 "
+            + "order by d.ngayDatHang desc, d.id desc")
+    List<DonMuaHang> choCongNhaCungCap(@Param("nccIds") java.util.Collection<Integer> nhaCungCapIds);
 
     /** Số đơn mua hàng / yêu cầu báo giá (mọi trạng thái) của một nhà cung cấp — dùng khi kiểm tra xóa nhà cung cấp. */
     long countByNhaCungCap_Id(Integer nhaCungCapId);

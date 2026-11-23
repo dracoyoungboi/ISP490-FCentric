@@ -1,0 +1,18 @@
+[# th:insert="~{khung-dau.txt}" /][# th:if="${e.tuDong}"]Biên bản [(${e.maBienBan})]: đã chuyển trừ tiền[/][# th:unless="${e.tuDong}"]Đã ghi nhận trả lời biên bản [(${e.maBienBan})][/]
+
+Kính gửi [(${e.tenNhaCungCap})],
+
+[# th:unless="${e.tuDong}"]Chúng tôi đã ghi nhận câu trả lời của Quý công ty cho biên bản trả hàng [(${e.maBienBan})][# th:if="${e.maDon != null}"] (đơn [(${e.maDon})])[/].[/][# th:if="${e.tuDong}"]Biên bản trả hàng [(${e.maBienBan})][# th:if="${e.maDon != null}"] (đơn [(${e.maDon})])[/] đã quá hạn trả lời[# th:if="${e.hanTraLoi != null}"] (hết ngày [(${e.hanTraLoi})])[/] mà Quý công ty chưa chọn cách bù. Chúng tôi từ chối nhận [(${e.soSanPham})] sản phẩm lỗi và trừ tiền hàng khi thanh toán.[/]
+
+Bù hàng lỗi: [(${e.cachBu ?: 'Chưa chọn'})][# th:if="${e.moTaCachBu != null}"] ([(${e.moTaCachBu})])[/]
+Hàng lỗi: [(${e.hangLoi ?: 'Chưa chọn'})][# th:if="${e.moTaHangLoi != null}"] ([(${e.moTaHangLoi})])[/]
+[# th:if="${e.nguoiXacNhan != null}"]Người xác nhận: [(${e.nguoiXacNhan})]
+[/]Ghi nhận lúc: [(${e.luc})]
+
+[# th:each="c : ${e.ghiChuDoi}"][(${c})]
+[/][# th:if="${nguoiPhuTrach != null}"]Cần đổi điều đã chốt, xin liên hệ người phụ trách đơn.[/][# th:unless="${nguoiPhuTrach != null}"]Cần đổi điều đã chốt, xin liên hệ chúng tôi.[/]
+
+Mở Cổng nhà cung cấp: [(${e.duongDanCong})]
+
+[# th:insert="~{khung-chu-ky.txt}" /]
+[# th:insert="~{khung-chan-nha-cung-cap.txt}" /]

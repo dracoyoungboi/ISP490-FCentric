@@ -31,6 +31,10 @@ public interface NhaCungCapRepository extends JpaRepository<NhaCungCap, Integer>
             """)
     List<NhaCungCap> timKiem(@Param("tuKhoa") String tuKhoa);
 
+    /** Nhà cung cấp có email này (so không phân biệt hoa thường, bỏ khoảng trắng hai đầu): đăng nhập Cổng nhà cung cấp. */
+    @Query("select n from NhaCungCap n where lower(trim(n.email)) = :email order by n.id")
+    List<NhaCungCap> timTheoEmail(@Param("email") String emailDaChuanHoa);
+
     // Kiểm tra trùng mã khi tạo mới
     boolean existsByMaNhaCungCap(String maNhaCungCap);
     long count();

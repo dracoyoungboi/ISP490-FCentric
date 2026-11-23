@@ -1,0 +1,32 @@
+[# th:insert="~{khung-dau.txt}" /][# th:if="${e.nhac}"]Nhắc trả lời biên bản trả hàng [(${e.maBienBan})][/][# th:unless="${e.nhac}"]Biên bản trả hàng [(${e.maBienBan})][# th:if="${e.capNhat}"] đã cập nhật[/][/]
+
+Kính gửi [(${e.tenNhaCungCap})],
+
+[# th:if="${e.nhac}"]Biên bản trả hàng [(${e.maBienBan})] (đơn [(${e.maDon})], [(${e.soSanPham})] sản phẩm không đạt) vẫn đang chờ Quý công ty trả lời. Hạn trả lời: hết ngày [(${e.hanTraLoi})]. Biên bản đính kèm thư này.[/][# th:if="${!e.nhac and !e.capNhat}"]Khi nhận hàng đơn [(${e.maDon})], chúng tôi kiểm thấy [(${e.soSanPham})] sản phẩm không đạt chất lượng. Biên bản trả hàng đính kèm thư này. Kính đề nghị Quý công ty trả lời trên Cổng nhà cung cấp trước hết ngày [(${e.hanTraLoi})].[/][# th:if="${!e.nhac and e.capNhat}"]Chúng tôi đã kiểm lại hàng đơn [(${e.maDon})] và cập nhật biên bản: nay có [(${e.soSanPham})] sản phẩm không đạt chất lượng. Câu trả lời trước đây cho biên bản này (nếu có) không còn hiệu lực; biên bản mới đính kèm thư này. Kính đề nghị Quý công ty trả lời lại trước hết ngày [(${e.hanTraLoi})].[/][# th:if="${e.cauKy != null}"]
+
+[(${e.cauKy})][/]
+
+[# th:if="${e.coGia}"]Giá trị hàng lỗi: [(${e.tongGiaTriDong})] ([(${e.soSanPham})] sản phẩm)[/][# th:unless="${e.coGia}"]Sản phẩm không đạt: [(${e.soSanPham})] sản phẩm[/][# th:if="${e.soPhieuNhap != null}"] · phiếu nhập [(${e.soPhieuNhap})][/]
+[# th:if="${e.hangConOKho}"]Hàng lỗi đang ở: [/][# th:unless="${e.hangConOKho}"]Hàng lỗi: [/][(${e.noiHangLoi})][# th:if="${e.moTaNoiHangLoi != null}"], [(${e.moTaNoiHangLoi})][/]
+
+Trả lời biên bản: [(${e.duongDanCong})]
+Bấm vào liên kết, nhận mã xác nhận 6 số qua email này, rồi chọn. Trên Cổng nhà cung cấp, Quý công ty cũng xem được các đơn đã báo giá và biên bản trước đây.
+
+Sản phẩm không đạt
+[# th:each="d : ${e.dong}"][(${d.stt})]. [(${d.tenSanPham})][# th:if="${d.moTa() != null}"] ([(${d.moTa()})])[/]: [# th:if="${d.lyDo != null}"][(${d.lyDo})] · [/][(${d.soLuong})][# th:if="${e.coGia}"] × [(${d.donGia})] = [(${d.giaTri})][/]
+[/][# th:if="${e.coGia}"]Tổng cộng: [# th:if="${e.tongSoLuong != null}"][(${e.tongSoLuong})], [/][(${e.tongGiaTriDong})]
+[/][# th:if="${!e.coGia and e.tongSoLuong != null}"]Tổng số lượng: [(${e.tongSoLuong})]
+[/]
+[# th:if="${e.choCachBu or e.choHangLoi}"]Quý công ty cần chọn
+[/][# th:if="${e.choCachBu}"]Bù hàng lỗi:
+- Giao bù hàng: Quý công ty giao lại [(${e.soSanPham})] sản phẩm đạt; đơn [(${e.maDon})] vẫn chờ nhận số này.
+- Trừ tiền hàng: không giao lại; đơn giảm [(${e.soSanPham})] sản phẩm và [# th:if="${e.coGia}"]trừ [(${e.tongGiaTriDong})] khi thanh toán.[/][# th:unless="${e.coGia}"]trừ tiền theo đơn giá của đơn khi thanh toán.[/]
+[/][# th:if="${e.choHangLoi}"]Hàng lỗi đang ở kho của chúng tôi:
+- Nhận lại: Quý công ty đến lấy hoặc nhờ chúng tôi gửi đơn vị vận chuyển.
+- Đồng ý tiêu hủy: chúng tôi tiêu hủy, Quý công ty không cần lấy về.
+[/][# th:unless="${e.choHangLoi}"][# th:if="${e.daTra}"]Hàng lỗi đã giao trả cho Quý công ty.[/][# th:if="${!e.daTra and !e.hangConOKho}"]Hàng lỗi đã được tiêu hủy theo đồng ý của Quý công ty.[/][# th:if="${e.hangConOKho}"]Hàng lỗi đang ở kho của chúng tôi, xử lý theo lựa chọn Quý công ty đã gửi.[/]
+[/][# th:if="${e.choCachBu or e.choHangLoi}"]
+[# th:if="${e.choCachBu}"]Quá hạn mà chưa chọn cách bù, chúng tôi từ chối nhận số hàng lỗi này và trừ tiền hàng khi thanh toán. [/]Hàng lỗi vẫn giữ ở kho của chúng tôi; chúng tôi chỉ tiêu hủy khi Quý công ty đồng ý.
+[/]
+[# th:insert="~{khung-chu-ky.txt}" /]
+[# th:insert="~{khung-chan-nha-cung-cap.txt}" /]

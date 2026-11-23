@@ -10,6 +10,7 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
@@ -242,6 +243,11 @@ public class EmailDispatcher {
         }
         helper.setSubject(thu.tieuDe());
         helper.setText(thu.text(), thu.html());
+        if (g.dinhKem() != null) {
+            for (TepDinhKem tep : g.dinhKem().apply(cuaHang)) {
+                helper.addAttachment(tep.ten(), new ByteArrayResource(tep.noiDung()), tep.loai());
+            }
+        }
         // email tự động: tránh thư trả lời tự động (vắng mặt, chuyển tiếp…) dội về địa chỉ no-reply
         msg.setHeader("Auto-Submitted", "auto-generated");
         msg.setHeader("X-Auto-Response-Suppress", "All");

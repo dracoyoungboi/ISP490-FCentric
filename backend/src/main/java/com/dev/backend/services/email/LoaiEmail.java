@@ -1,7 +1,7 @@
 package com.dev.backend.services.email;
 
 /**
- * Mười loại email: tên mẫu (templates/email/{mau}.html và .txt), có thử lại khi SMTP lỗi tạm thời không,
+ * Mười ba loại email: tên mẫu (templates/email/{mau}.html và .txt), có thử lại khi SMTP lỗi tạm thời không,
  * gửi nhà cung cấp hay nhân sự (quyết định chân email, Trả lời tới).
  */
 public enum LoaiEmail {
@@ -11,13 +11,22 @@ public enum LoaiEmail {
     E3("e3-cap-lai-mat-khau", true, false),
     M4("m4-da-doi-mat-khau", true, false),
     E4("e4-yeu-cau-bao-gia", true, true),
-    /** Gửi thẳng trong request (không qua hàng đợi), lỗi thì báo nhà cung cấp thử lại. */
-    E5("e5-ma-xac-nhan-bao-gia", false, true),
+    /**
+     * Mã đăng nhập Cổng nhà cung cấp (theo email, không theo đơn). Gửi thẳng trong request (không qua hàng đợi), lỗi
+     * thì báo nhà cung cấp thử lại.
+     */
+    E5("e5-ma-dang-nhap-cong", false, true),
     M3("m3-da-nhan-bao-gia", true, true),
     M1("m1-xac-nhan-dat-hang", true, true),
     M2("m2-ket-qua-bao-gia", true, true),
     /** Mã PIN quản lý cửa hàng duyệt trả hàng quá hạn. Không thử lại: thu ngân bấm gửi lại là có mã mới. */
-    E6("e6-ma-duyet-tra-hang", false, false);
+    E6("e6-ma-duyet-tra-hang", false, false),
+    /** Biên bản trả hàng kèm PDF (lập mới, lập lại, gửi lại, nhắc hạn): nhà cung cấp trả lời trên cổng. */
+    E7("e7-bien-ban-tra-hang", true, true),
+    /** Đã ghi nhận câu trả lời của nhà cung cấp cho biên bản trả hàng, hoặc quá hạn đã chuyển trừ tiền. */
+    M5("m5-da-ghi-nhan-cach-xu-ly", true, true),
+    /** Biên bản trả hàng đã hủy (phiếu nhập bị hủy, hoặc không còn hàng lỗi). */
+    M6("m6-bien-ban-da-huy", true, true);
 
     private final String mau;
     private final boolean thuLai;
