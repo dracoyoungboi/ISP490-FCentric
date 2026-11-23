@@ -409,6 +409,15 @@ export function locPhieuNhap(phieus, { tuKhoa = "", kho = "", trangThai = "" } =
   );
 }
 
+/** Tab Trả hàng: số biên bản, phiếu nhập, đơn mua · trạng thái hiển thị của biên bản (CHO_CHOT, HOAN_TAT…). */
+export function locTraHang(ds, { tuKhoa = "", trangThai = "" } = {}) {
+  return (ds ?? []).filter(
+    (b) =>
+      khop(tuKhoa, b?.soBienBan, b?.soPhieuNhap, b?.soDonMua) &&
+      (!trangThai || b?.trangThaiHienThi === trangThai),
+  );
+}
+
 /** Tab Sản phẩm & giá: tên, SKU, màu · cỡ · biến động so với lần trước (tang, giam, khongDoi, lanDau). */
 export function locLichSuGia(dong, { tuKhoa = "", bienDong = "" } = {}) {
   return (dong ?? []).filter(

@@ -33,6 +33,7 @@ import {
 import useQuayLai from "@/hooks/useQuayLai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
+import { bienBanTraHangService } from "@/services/bienBanTraHangService";
 import { getMineKhoList } from "@/services/khoService";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
 import purchaseOrderService from "@/services/purchaseOrderService";
@@ -40,6 +41,7 @@ import { checkSupplierDelete, getSupplierById } from "@/services/supplierService
 import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { getKhoLamViecId } from "@/utils/khoLamViec";
 import { ROLES, hasAnyRole } from "@/utils/roles";
+import { VAI_TRO_TRA_HANG_NCC } from "@/constants/vaiTroTheoNghiepVu";
 import { t } from "@/i18n";
 
 // Khớp quyền ở backend (NhaCungCapController): sửa, đổi trạng thái, xóa. Quản lý kho chỉ xem.
@@ -51,7 +53,7 @@ const QUYEN_PHIEU_NHAP = [ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIE
 // Vai trò xem mọi kho; vai trò kho còn lại chỉ thấy đơn của kho mình phụ trách (như trang Đơn mua hàng).
 const QUYEN_XEM_MOI_KHO = [ROLES.QUAN_TRI_VIEN, ROLES.NHAN_VIEN_MUA_HANG];
 
-const TAB_HOP_LE = ["dang-mo", "don-mua", "bao-gia", "phieu-nhap", "san-pham", "hoat-dong"];
+const TAB_HOP_LE = ["dang-mo", "don-mua", "bao-gia", "phieu-nhap", "tra-hang", "san-pham", "hoat-dong"];
 
 /** Dải báo nằm trong khối, ngay dưới đầu khối: đã ngừng hoạt động (xám) hoặc chưa có email (cam). */
 function DaiBao({ tone, icon, children, nutNhan, onNut }) {
@@ -89,6 +91,7 @@ export default function SupplierDetailView() {
   const coTheQuanLy = hasAnyRole(QUYEN_QUAN_LY_NCC);
   const xemGiaoDich = hasAnyRole(QUYEN_XEM_GIAO_DICH);
   const xemPhieu = hasAnyRole(QUYEN_PHIEU_NHAP);
+  const xemTraHang = hasAnyRole(VAI_TRO_TRA_HANG_NCC);
   const gioiHanKho = xemGiaoDich && !hasAnyRole(QUYEN_XEM_MOI_KHO);
   const laQuanTriVien = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
 
@@ -133,6 +136,22 @@ export default function SupplierDetailView() {
   const taiPhieu = useCallback(() => phieuNhapKhoService.layTheoNhaCungCap(id, { khoIds }), [id, khoIds]);
   const phieuQ = useTaiDuLieu(taiPhieu, `phieu-ncc-${id}-${khoaKho}`, { enabled: Boolean(id) && xemPhieu && duKho });
 
+  // ── Biên bản trả hàng (máy chủ tự lọc theo kho được xem; lỗi chỉ chặn tab Trả hàng) ──
+  const taiTraHang = useCallback(
+    () =>
+      bienBanTraHangService
+        .danhSach({ nhaCungCapId: id })
+        // Mốc tính số ngày hàng lỗi nằm ở kho: lúc tải xong
+        .then((kq) => ({ nhaCungCapId: Number(id), items: Array.isArray(kq?.items) ? kq.items : [], luc: Date.now() })),
+    [id],
+  );
+  const traHangQ = useTaiDuLieu(taiTraHang, `tra-hang-ncc-${id}`, { enabled: Boolean(id) && xemTraHang });
+  const traHangData = traHangQ.data?.nhaCungCapId === Number(id) ? traHangQ.data : undefined;
+  const loiTraHang = xemTraHang && traHangQ.error && !traHangQ.loading
+    ? getApiErrorMessage(traHangQ.error, t("Không tải được biên bản trả hàng của nhà cung cấp"))
+    : null;
+  const dangTaiTraHang = xemTraHang && !loiTraHang && traHangData === undefined;
+
   // ── Tính toán ───────────────────────────────────────────────────────────
   // Chỉ dùng dữ liệu của đúng nhà cung cấp đang xem (lúc chuyển sang nhà cung cấp khác, dữ liệu cũ còn giữ trong lúc tải)
   const donData = donQ.data?.nhaCungCapId === Number(id) ? donQ.data : undefined;
@@ -167,7 +186,9 @@ export default function SupplierDetailView() {
   // ── Tab (lưu trên đường dẫn ?tab=) ──────────────────────────────────────
   const coViec = tinh.viec.length > 0;
   const [tab, setTab] = useTabTrenUrl(
-    TAB_HOP_LE.filter((ma) => (ma === "dang-mo" ? coViec || dangTaiDon : ma === "phieu-nhap" ? xemPhieu : true)),
+    TAB_HOP_LE.filter((ma) =>
+      ma === "dang-mo" ? coViec || dangTaiDon : ma === "phieu-nhap" ? xemPhieu : ma === "tra-hang" ? xemTraHang : true,
+    ),
     coViec || dangTaiDon ? "dang-mo" : "don-mua",
     { ten: "tab" },
   );
@@ -178,6 +199,7 @@ export default function SupplierDetailView() {
     { ma: "don-mua", nhan: t("Đơn mua hàng"), so: tinh.chot.length },
     { ma: "bao-gia", nhan: t("Báo giá"), so: tinh.baoGia.length },
     xemPhieu ? { ma: "phieu-nhap", nhan: t("Phiếu nhập kho"), so: phieus?.length ?? 0 } : null,
+    xemTraHang ? { ma: "tra-hang", nhan: t("Trả hàng"), so: traHangData?.items.length ?? 0 } : null,
     { ma: "san-pham", nhan: t("Sản phẩm & giá"), so: tinh.lichSuGia.length },
     { ma: "hoat-dong", nhan: t("Hoạt động"), so: 0 },
   ].filter(Boolean);
@@ -327,8 +349,19 @@ export default function SupplierDetailView() {
               onThuLaiDon={() => (khoQ.error ? khoQ.reload() : donQ.reload())}
               loiPhieu={loiPhieu}
               onThuLaiPhieu={phieuQ.reload}
+              dangTaiTraHang={dangTaiTraHang}
+              loiTraHang={loiTraHang}
+              onThuLaiTraHang={traHangQ.reload}
               ghiChu={ghiChu}
-              d={{ ...tinh, phieus, suKien, nutCuaDon }}
+              d={{
+                ...tinh,
+                phieus,
+                suKien,
+                nutCuaDon,
+                traHang: traHangData?.items ?? [],
+                lucTraHang: traHangData?.luc,
+                taiLaiTraHang: traHangQ.reload,
+              }}
             />
           ) : (
             <EmptyState

@@ -1,7 +1,11 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Clock, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import StatusBadge from "@/components/shared/StatusBadge";
+import HopXemBienBanTraHang from "@/components/nhap-kho/tra-hang/HopXemBienBanTraHang";
+import { NhanTrangThaiTraHang } from "@/components/nhap-kho/tra-hang/NhanTraHang";
+import { OBu, OHangLoi } from "@/components/supplier/tra-hang/CotTraHangNcc";
 import { getBaoGiaNccStatus, getDonMuaHangStatus } from "@/constants/donMuaHang";
 import { getGoodsReceiptStatus } from "@/constants/goodsReceipt";
 import { tinhTienDoNhan } from "@/components/order/chi-tiet-don-mua/tinhNhanHang";
@@ -337,6 +341,82 @@ export function BangPhieuNhapNcc({ phieus }) {
         })}
       </tbody>
     </Bang>
+  );
+}
+
+/**
+ * Tab "Trả hàng" (vai trò xem được biên bản trả hàng nhà cung cấp): bấm số biên bản mở hộp xem đủ thao tác.
+ * `luc`: thời điểm tải danh sách (tính số ngày hàng lỗi nằm ở kho); `onDaDoi`: sau mỗi thao tác trong hộp.
+ */
+export function BangTraHangNcc({ bienBans, luc, onDaDoi }) {
+  const [moId, setMoId] = useState(null);
+  const [moHop, setMoHop] = useState(false);
+  return (
+    <>
+      <Bang minW={800}>
+        <DauBang
+          cot={[
+            { nhan: t("Số biên bản") },
+            { nhan: t("Phiếu nhập / đơn mua") },
+            { nhan: t("Hàng lỗi") },
+            { nhan: t("Bù") },
+            { nhan: t("Ngày lập") },
+            { nhan: t("Trạng thái") },
+          ]}
+        />
+        <tbody>
+          {bienBans.map((b) => (
+            <tr key={b.id} className={DONG}>
+              <th scope="row" className={O_DAU}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoId(b.id);
+                    setMoHop(true);
+                  }}
+                  className={cn(LIEN_KET, "whitespace-nowrap")}
+                >
+                  {b.soBienBan || `#${b.id}`}
+                </button>
+                {b.tenKho ? <div className="mt-0.5 text-xs leading-4 text-bo-muted">{b.tenKho}</div> : null}
+              </th>
+              <td className={cn(O, "whitespace-nowrap")}>
+                {b.phieuNhapKhoId ? (
+                  <Link to={`/goods-receipts/${b.phieuNhapKhoId}`} className={LIEN_KET}>
+                    {b.soPhieuNhap || `#${b.phieuNhapKhoId}`}
+                  </Link>
+                ) : (
+                  <span className="text-bo-muted">—</span>
+                )}
+                {b.donMuaHangId ? (
+                  <div className="mt-0.5 text-xs leading-4">
+                    <Link to={`/purchase-orders/${b.donMuaHangId}`} className="text-bo-muted hover:text-bo-primary hover:underline">
+                      {b.soDonMua || `#${b.donMuaHangId}`}
+                    </Link>
+                  </div>
+                ) : null}
+              </td>
+              <td className={O}>
+                <OHangLoi bienBan={b} luc={luc} />
+              </td>
+              <td className={O}>
+                <OBu bienBan={b} />
+              </td>
+              <td className={cn(O, "text-slate-700")}>{formatDate(b.ngayLap)}</td>
+              <td className="whitespace-nowrap py-3 pl-3 pr-4 sm:pr-6">
+                <NhanTrangThaiTraHang ma={b.trangThaiHienThi} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </Bang>
+      <HopXemBienBanTraHang
+        open={moHop && moId != null}
+        onOpenChange={setMoHop}
+        bienBanId={moId}
+        onDaDoi={onDaDoi}
+      />
+    </>
   );
 }
 

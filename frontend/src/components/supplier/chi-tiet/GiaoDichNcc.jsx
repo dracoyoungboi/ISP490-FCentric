@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, ChevronDown, FileText, History, Inbox, PackageCheck, SearchX, Tags } from "lucide-react";
+import { AlertCircle, ChevronDown, FileText, History, Inbox, PackageCheck, SearchX, Tags, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
@@ -15,6 +15,7 @@ import {
   BangDonMuaNcc,
   BangPhieuNhapNcc,
   BangSanPhamGiaNcc,
+  BangTraHangNcc,
   DangMoNcc,
 } from "@/components/supplier/chi-tiet/BangGiaoDichNcc";
 import {
@@ -27,12 +28,14 @@ import {
   locHoatDong,
   locLichSuGia,
   locPhieuNhap,
+  locTraHang,
   luaChonGiaoHang,
   luaChonTuDuLieu,
 } from "@/components/supplier/chi-tiet/tinhNhaCungCap";
 import { getBaoGiaNccStatus } from "@/constants/donMuaHang";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { getGoodsReceiptStatus } from "@/constants/goodsReceipt";
+import { trangThaiTraHang } from "@/constants/nhapKho";
 import { formatNumber } from "@/utils/formatters";
 import { t } from "@/i18n";
 
@@ -52,6 +55,11 @@ const TRONG = {
     title: t("Chưa nhập kho lần nào"),
     description: t("Phiếu nhập kho của các đơn mua từ nhà cung cấp này sẽ hiện ở đây."),
   },
+  "tra-hang": {
+    icon: Undo2,
+    title: t("Chưa có biên bản trả hàng"),
+    description: t("Hàng lỗi phát hiện khi kiểm đếm hàng nhập từ nhà cung cấp này sẽ có biên bản trả hàng ở đây."),
+  },
   "san-pham": {
     icon: Tags,
     title: t("Chưa có giá nhập"),
@@ -68,6 +76,7 @@ const KHONG_KHOP = {
   "don-mua": t("Không có đơn phù hợp"),
   "bao-gia": t("Không có báo giá phù hợp"),
   "phieu-nhap": t("Không có phiếu nhập phù hợp"),
+  "tra-hang": t("Không có biên bản phù hợp"),
   "san-pham": t("Không có sản phẩm phù hợp"),
   "hoat-dong": t("Không có hoạt động phù hợp"),
 };
@@ -81,6 +90,7 @@ const DON_VI = {
   "don-mua": t("đơn", DON_VI_DEM),
   "bao-gia": t("báo giá", DON_VI_DEM),
   "phieu-nhap": t("phiếu", DON_VI_DEM),
+  "tra-hang": t("biên bản", DON_VI_DEM),
   "san-pham": t("sản phẩm", DON_VI_DEM),
   "hoat-dong": t("hoạt động", DON_VI_DEM),
 };
@@ -90,6 +100,7 @@ const GHI_CHU_TAB = {
   "dang-mo": t("Việc gấp xếp lên trước"),
   "bao-gia": t("Báo giá đã chốt nằm ở tab Đơn mua hàng"),
   "phieu-nhap": t("Không tính phiếu đã hủy"),
+  "tra-hang": t("Bấm số biên bản để xem, ghi giao trả hoặc in"),
   "san-pham": t("Giá lấy từ các đơn mua đã chốt"),
   "hoat-dong": t("Mới nhất ở trên"),
 };
@@ -161,6 +172,18 @@ function boLocCuaTab(tab, d) {
           },
         ],
       };
+    case "tra-hang":
+      return {
+        tim: t("Tìm theo số biên bản, phiếu, đơn"),
+        chon: [
+          {
+            khoa: "trangThai",
+            nhan: t("Trạng thái"),
+            tatCa: t("Mọi trạng thái"),
+            luaChon: luaChonTuDuLieu(d.traHang, (x) => x?.trangThaiHienThi, (x) => t(trangThaiTraHang(x?.trangThaiHienThi).label)),
+          },
+        ],
+      };
     case "san-pham":
       return {
         tim: t("Tìm theo tên, SKU"),
@@ -202,6 +225,8 @@ function locTheoTab(tab, d, tuKhoa, loc) {
       return locBaoGia(d.baoGia, { tuKhoa, ...loc });
     case "phieu-nhap":
       return locPhieuNhap(d.phieus, { tuKhoa, ...loc });
+    case "tra-hang":
+      return locTraHang(d.traHang, { tuKhoa, ...loc });
     case "san-pham":
       return locLichSuGia(d.lichSuGia, { tuKhoa, ...loc });
     default:
@@ -217,6 +242,7 @@ function soDongGoc(tab, d) {
       "don-mua": d.chot,
       "bao-gia": d.baoGia,
       "phieu-nhap": d.phieus,
+      "tra-hang": d.traHang,
       "san-pham": d.lichSuGia,
       "hoat-dong": d.suKien,
     }[tab]?.length ?? 0
@@ -233,10 +259,26 @@ function soDongGoc(tab, d) {
  * - `tabs`: [{ ma, nhan, so, gap }] — `gap` tô đỏ số trên tab (có việc quá hạn).
  * - `d`: dữ liệu đã tính sẵn ở trang (việc đang mở, đơn chốt, báo giá, phiếu nhập, lịch sử giá, sự kiện).
  * - `loiDon`: lỗi tải đơn mua (chặn cả vùng, có Thử lại); `loiPhieu`: lỗi tải phiếu nhập (chỉ báo một dòng).
+ * - `dangTaiTraHang`, `loiTraHang`, `onThuLaiTraHang`: tab Trả hàng tải riêng; lỗi chỉ chặn vùng bảng của tab đó.
+ *   `d.traHang`, `d.lucTraHang` (lúc tải, tính số ngày hàng lỗi ở kho), `d.taiLaiTraHang` (sau thao tác trong hộp xem).
  * - `ghiChu`: câu phạm vi dữ liệu theo vai trò (kho phụ trách, chỉ tính N đơn gần nhất), hiện ở chân bảng.
  * Trang cha truyền `key` theo nhà cung cấp để đổi nhà cung cấp thì bộ lọc, trang về mặc định.
  */
-export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onThuLaiDon, loiPhieu, onThuLaiPhieu, ghiChu, d }) {
+export default function GiaoDichNcc({
+  tabs,
+  tab,
+  onDoiTab,
+  dangTai: dangTaiDon,
+  loiDon,
+  onThuLaiDon,
+  loiPhieu,
+  onThuLaiPhieu,
+  dangTaiTraHang,
+  loiTraHang,
+  onThuLaiTraHang,
+  ghiChu,
+  d,
+}) {
   const [theoTab, setTheoTab] = useState({});
   const vungBang = useRef(null);
 
@@ -251,6 +293,10 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
   const xoaLoc = () => doiDieuKien({ oTim: "", loc: {} });
 
   const laHoatDong = tab === "hoat-dong";
+  // Tab Trả hàng tải riêng (không phụ thuộc đơn mua): đang tải / lỗi của tab chỉ chặn vùng bảng của tab đó
+  const laTraHang = tab === "tra-hang";
+  const dangTai = laTraHang ? dangTaiTraHang : dangTaiDon;
+  const loiTab = laTraHang && !loiDon ? loiTraHang : null;
   const ds = locTheoTab(tab, d, tuKhoa, st.loc);
   const tong = ds.length;
   const trangHien = laHoatDong
@@ -266,7 +312,7 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
 
   // ── Ô tìm và bộ lọc: chỉ khi tab có từ 10 dòng, hoặc đang lọc ──
   const boLoc = boLocCuaTab(tab, d);
-  const hienLoc = !loiDon && !dangTai && (soDongGoc(tab, d) >= SO_DONG_HIEN_LOC || dangLoc);
+  const hienLoc = !loiDon && !loiTab && !dangTai && (soDongGoc(tab, d) >= SO_DONG_HIEN_LOC || dangLoc);
   const cacBoLoc = boLoc.chon.filter((c) => c.luaChon.length >= 2 || st.loc[c.khoa]);
 
   // ── Nội dung ──
@@ -278,6 +324,15 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
         title={t("Không tải được giao dịch với nhà cung cấp")}
         description={loiDon}
         onRetry={onThuLaiDon}
+      />
+    );
+  } else if (loiTab) {
+    noiDung = (
+      <ErrorState
+        className="ncc-trong min-h-56"
+        title={t("Không tải được biên bản trả hàng")}
+        description={loiTab}
+        onRetry={onThuLaiTraHang}
       />
     );
   } else if (dangTai) {
@@ -307,6 +362,7 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
   else if (tab === "don-mua") noiDung = <BangDonMuaNcc chot={dong} giaoTheoDon={d.giaoTheoDon} />;
   else if (tab === "bao-gia") noiDung = <BangBaoGiaNcc baoGia={dong} />;
   else if (tab === "phieu-nhap") noiDung = <BangPhieuNhapNcc phieus={dong} />;
+  else if (laTraHang) noiDung = <BangTraHangNcc bienBans={dong} luc={d.lucTraHang} onDaDoi={d.taiLaiTraHang} />;
   else if (tab === "san-pham") noiDung = <BangSanPhamGiaNcc dong={dong} />;
   else {
     const conLai = tong - dong.length;
@@ -331,7 +387,7 @@ export default function GiaoDichNcc({ tabs, tab, onDoiTab, dangTai, loiDon, onTh
   }
 
   const ghiChuChan = ghiChu || GHI_CHU_TAB[tab] || "";
-  const hienChan = !loiDon && !dangTai && (tong > 0 || ghiChu);
+  const hienChan = !loiDon && !loiTab && !dangTai && (tong > 0 || ghiChu);
   const ghiChuTong = dangLoc ? t("lọc từ {{so}}", { so: formatNumber(soDongGoc(tab, d)) }) : undefined;
 
   return (
