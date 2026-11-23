@@ -114,7 +114,7 @@ test("quản lý kho – ô số: cửa hàng có doanh thu thay nhập kho; Kho
   const khongDon = theSoQuanLyKho({ ...QLK, chiSo: { ...QLK.chiSo, donChoXuat: { tong: 0, choLau: 0 } } }, CUA_HANG, CAU_HINH, BAY_GIO);
   assert.equal(khongDon[2].chia, null);
   assert.equal(khongDon[2].phu, "Không có đơn nào đang chờ");
-  assert.equal(khongDon[2].ten, "Đơn chưa xuất xong", "khác trang \"Đơn chờ xuất\" (chỉ đơn chưa có phiếu nhặt)");
+  assert.equal(khongDon[2].ten, "Đơn chưa xuất xong", "khác trang \"Đơn chờ nhặt hàng\" (chỉ đơn chưa có phiếu nhặt)");
   assert.deepEqual(theSoQuanLyKho({ chiSo: null, tonKho: null }, CUA_HANG, CAU_HINH, BAY_GIO), []);
 });
 
