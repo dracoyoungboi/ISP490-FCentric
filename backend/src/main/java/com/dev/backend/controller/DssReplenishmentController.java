@@ -44,7 +44,7 @@ public class DssReplenishmentController {
     }
 
     @GetMapping("/recommendations")
-    @Operation(summary = "Tính toán và lấy danh sách đề xuất bổ sung hàng (SS, ROP, Q, DOI, Urgency, ABC)")
+    @Operation(summary = "Tính toán và lấy danh sách đề xuất bổ sung hàng trên tổng tất cả kho đang hoạt động (SS, ROP, Q, DOI, Urgency, ABC)")
     @RequireAuth(roles = {
             IRoleType.quan_tri_vien,
             IRoleType.quan_ly_kho,
@@ -61,7 +61,7 @@ public class DssReplenishmentController {
     }
 
     @PutMapping("/config")
-    @Operation(summary = "Cập nhật tham số và kịch bản DSS rồi đồng bộ lại ngưỡng ROP")
+    @Operation(summary = "Cập nhật tham số và kịch bản DSS rồi đồng bộ lại ngưỡng ROP toàn hệ thống")
     @RequireAuth(roles = {
             IRoleType.quan_tri_vien,
             IRoleType.quan_ly_kho,
@@ -77,7 +77,7 @@ public class DssReplenishmentController {
     }
 
     @PostMapping("/recalculate")
-    @Operation(summary = "Tính toán lại theo thời gian thực và đồng bộ ngưỡng cảnh báo vào bảng canh_bao")
+    @Operation(summary = "Tính toán lại theo thời gian thực trên tổng tất cả kho hoạt động và đồng bộ ngưỡng cảnh báo vào bảng canh_bao")
     @RequireAuth(roles = {
             IRoleType.quan_tri_vien,
             IRoleType.quan_ly_kho,
