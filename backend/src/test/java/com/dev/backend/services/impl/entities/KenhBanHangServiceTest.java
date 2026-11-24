@@ -881,5 +881,19 @@ class KenhBanHangServiceTest {
         String urlPartner = service.getTikTokAuthUrl("https://fcentric.net/channels/tiktok/callback", "tiktok_state_2");
         assertTrue(urlPartner.startsWith("https://services.tiktokshop.com/open/authorize?service_id=73999111222&state=tiktok_state_2"));
     }
+
+    @Test
+    void getKetNoi_shopeeOfficialMacDinhTenLaShopee_vaGiuNguyenLuongUyQuyen() {
+        when(kenhBanHangRepository.findByMaKenh("SHOPEE_OFFICIAL")).thenReturn(Optional.empty());
+        ShopifyConfigResponse emptyOfficial = service.getKetNoi("SHOPEE_OFFICIAL");
+        assertEquals("SHOPEE_OFFICIAL", emptyOfficial.getMaKenh());
+        assertEquals("Shopee", emptyOfficial.getTenKenh());
+        assertEquals("uy_quyen", emptyOfficial.getKieuKetNoi());
+
+        when(kenhBanHangRepository.findByMaKenh("LAZADA")).thenReturn(Optional.empty());
+        ShopifyConfigResponse emptyLazada = service.getKetNoi("LAZADA");
+        assertEquals("LAZADA", emptyLazada.getMaKenh());
+        assertEquals("Gian hàng Lazada", emptyLazada.getTenKenh());
+    }
 }
 

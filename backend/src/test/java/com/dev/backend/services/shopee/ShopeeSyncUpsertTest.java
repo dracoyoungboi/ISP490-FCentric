@@ -225,7 +225,7 @@ public class ShopeeSyncUpsertTest {
     @Test
     @DisplayName("kiemTraHopLeTruocKhiTaoShopee: Tiền kiểm tra tiêu đề, mô tả và làm sạch từ khóa nhạy cảm")
     void testKiemTraHopLeTruocKhiTaoShopee() {
-        KenhBanHang kenh = KenhBanHang.builder().id(10).maKenh("SHOPEE_SANDBOX").trangThai(1).build();
+        KenhBanHang kenh = KenhBanHang.builder().id(10).maKenh("SHOPEE_OFFICIAL").trangThai(1).build();
         SanPhamQuanAo sp = SanPhamQuanAo.builder()
                 .id(1)
                 .tenSanPham("Áo sportware nick giả lông cừu climawarm")

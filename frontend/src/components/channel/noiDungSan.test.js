@@ -15,7 +15,7 @@ test("khoMacDinhSan: chon kho mac dinh tu san va du phong kho hop le dau tien", 
 });
 
 test("noiDungSan: cac san tru Shopify deu chi doc theo kho mac dinh cua san, khong cho chon thu cong", () => {
-  for (const maKenh of ["LAZADA", "LAZADA_SANDBOX", "SHOPEE", "SHOPEE_OFFICIAL", "SHOPEE_SANDBOX", "TIKTOK"]) {
+  for (const maKenh of ["LAZADA", "SHOPEE", "SHOPEE_OFFICIAL", "TIKTOK"]) {
     const nd = noiDungSan(maKenh);
     assert.ok(nd, `Thiếu nội dung cho ${maKenh}`);
     assert.equal(nd.khoSan.moTa.includes("Tải lại từ sàn"), true, `${maKenh} phải hướng dẫn dùng nút Tải lại từ sàn`);
@@ -23,4 +23,6 @@ test("noiDungSan: cac san tru Shopify deu chi doc theo kho mac dinh cua san, kho
     assert.equal(nd.khoSan.moTa.startsWith("Chọn địa chỉ"), false, `${maKenh} không còn câu cho chọn địa chỉ`);
   }
   assert.equal(noiDungSan("SHOPIFY"), null);
+  assert.equal(noiDungSan("SHOPEE_SANDBOX"), null);
+  assert.equal(noiDungSan("LAZADA_SANDBOX"), null);
 });

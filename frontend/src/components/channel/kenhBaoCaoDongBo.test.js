@@ -10,21 +10,20 @@ import {
 
 test("chuanHoaKenhBaoCao: anh xa dung ma san, ma noi bo va slug chu thuong", () => {
   assert.ok(MA_KENH_BAO_CAO.includes("ALL"));
+  assert.equal(MA_KENH_BAO_CAO.includes("SHOPEE_SANDBOX"), false);
   assert.equal(chuanHoaKenhBaoCao("SHOPIFY"), "SHOPIFY");
   assert.equal(chuanHoaKenhBaoCao("shopify"), "SHOPIFY");
   assert.equal(chuanHoaKenhBaoCao("LAZADA"), "LAZADA");
-  assert.equal(chuanHoaKenhBaoCao("LAZADA_SANDBOX"), "LAZADA");
-  assert.equal(chuanHoaKenhBaoCao("lazada-sandbox"), "LAZADA");
   assert.equal(chuanHoaKenhBaoCao("TIKTOK"), "TIKTOK");
   assert.equal(chuanHoaKenhBaoCao("TIKTOK_SHOP"), "TIKTOK");
   assert.equal(chuanHoaKenhBaoCao("tiktok-shop"), "TIKTOK");
   assert.equal(chuanHoaKenhBaoCao("SHOPEE"), "SHOPEE");
   assert.equal(chuanHoaKenhBaoCao("SHOPEE_OFFICIAL"), "SHOPEE");
   assert.equal(chuanHoaKenhBaoCao("shopee-official"), "SHOPEE");
-  assert.equal(chuanHoaKenhBaoCao("SHOPEE_SANDBOX"), "SHOPEE_SANDBOX");
-  assert.equal(chuanHoaKenhBaoCao("shopee-sandbox"), "SHOPEE_SANDBOX");
 
   // Giá trị rỗng, ALL hoặc kênh lạ rơi an toàn về ALL
+  assert.equal(chuanHoaKenhBaoCao("SHOPEE_SANDBOX"), "ALL");
+  assert.equal(chuanHoaKenhBaoCao("LAZADA_SANDBOX"), "ALL");
   assert.equal(chuanHoaKenhBaoCao(null), "ALL");
   assert.equal(chuanHoaKenhBaoCao(""), "ALL");
   assert.equal(chuanHoaKenhBaoCao("all"), "ALL");
@@ -37,16 +36,13 @@ test("duongDanBaoCaoDongBoKenh: gan dung query ?channel=... cho tung kenh va bo 
   assert.equal(duongDanBaoCaoDongBoKenh(null), "/channels/analytics");
   assert.equal(duongDanBaoCaoDongBoKenh("SHOPIFY"), "/channels/analytics?channel=SHOPIFY");
   assert.equal(duongDanBaoCaoDongBoKenh("LAZADA"), "/channels/analytics?channel=LAZADA");
-  assert.equal(duongDanBaoCaoDongBoKenh("LAZADA_SANDBOX"), "/channels/analytics?channel=LAZADA");
   assert.equal(duongDanBaoCaoDongBoKenh("TIKTOK"), "/channels/analytics?channel=TIKTOK");
   assert.equal(duongDanBaoCaoDongBoKenh("SHOPEE_OFFICIAL"), "/channels/analytics?channel=SHOPEE");
-  assert.equal(duongDanBaoCaoDongBoKenh("SHOPEE_SANDBOX"), "/channels/analytics?channel=SHOPEE_SANDBOX");
 });
 
 test("layKenhTuSearchParams: doc ?channel= hoac ?kenh= va fallback ALL", () => {
   assert.equal(layKenhTuSearchParams(new URLSearchParams("channel=SHOPEE_OFFICIAL")), "SHOPEE");
   assert.equal(layKenhTuSearchParams(new URLSearchParams("channel=TIKTOK")), "TIKTOK");
-  assert.equal(layKenhTuSearchParams(new URLSearchParams("kenh=shopee-sandbox")), "SHOPEE_SANDBOX");
   assert.equal(layKenhTuSearchParams(new URLSearchParams("")), "ALL");
   assert.equal(layKenhTuSearchParams(new URLSearchParams("channel=INVALID")), "ALL");
   assert.equal(layKenhTuSearchParams(null), "ALL");

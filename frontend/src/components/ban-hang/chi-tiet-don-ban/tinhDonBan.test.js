@@ -431,7 +431,6 @@ test("laDonTikTok & thongBaoDonBan cho đơn 3 sàn (Shopee, TikTok, Lazada): hi
 
   for (const [maKenh, tenKenh] of [
     ["SHOPEE_OFFICIAL", "Shopee"],
-    ["SHOPEE_SANDBOX", "Shopee Sandbox"],
     ["TIKTOK", "TikTok Shop"],
     ["LAZADA", "Lazada"],
   ]) {

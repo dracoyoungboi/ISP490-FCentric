@@ -125,9 +125,11 @@ test("Shopee: định tuyến /channels/shopee trực tiếp tới kênh chính 
   // Danh sách sàn hiển thị ở menu trái (không bị ẩn tạm):
   assert.deepEqual(
     SAN_BAN_HANG.filter((san) => san.hoTro && !san.anTam).map((san) => san.maKenh),
-    ["SHOPIFY", "LAZADA", "TIKTOK", "SHOPEE_OFFICIAL", "SHOPEE_SANDBOX"],
+    ["SHOPIFY", "LAZADA", "TIKTOK", "SHOPEE_OFFICIAL"],
   );
   assert.equal(timSan("SHOPEE_OFFICIAL"), shopee);
+  assert.equal(timSan("SHOPEE_SANDBOX"), null);
+  assert.equal(timSan("LAZADA_SANDBOX"), null);
 });
 
 test("ô tên miền Shopify chỉ đọc khi đã kết nối và máy chủ ngắt kết nối được; ngắt rồi thì sửa được", () => {

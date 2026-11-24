@@ -1854,12 +1854,12 @@ class KenhBanHangDongBoServiceTest {
     @Test
     @DisplayName("Hướng B - Shopee: getLocations chỉ trả địa chỉ lấy hàng Shopee thật, không tự bơm kho FCentric ảo")
     void getLocations_shopee_chiTraDiaChiShopeeKhongBomKhoFCentricAo() throws Exception {
-        KenhBanHang shopeeKenh = KenhBanHang.builder().id(7).maKenh("SHOPEE_SANDBOX").tenKenh("Shopee Sandbox").trangThai(1).build();
-        when(kenhBanHangRepository.findByMaKenh("SHOPEE_SANDBOX")).thenReturn(Optional.of(shopeeKenh));
-        when(kenhBanHangService.getShopeePartnerId("SHOPEE_SANDBOX")).thenReturn(12345L);
-        when(kenhBanHangService.getDecryptedShopeePartnerKey("SHOPEE_SANDBOX")).thenReturn("mock_partner_key");
-        when(kenhBanHangService.getDecryptedShopeeAccessToken("SHOPEE_SANDBOX")).thenReturn("tok_shp");
-        when(kenhBanHangService.getShopeeShopId("SHOPEE_SANDBOX")).thenReturn(8888L);
+        KenhBanHang shopeeKenh = KenhBanHang.builder().id(7).maKenh("SHOPEE_OFFICIAL").tenKenh("Shopee").trangThai(1).build();
+        when(kenhBanHangRepository.findByMaKenh("SHOPEE_OFFICIAL")).thenReturn(Optional.of(shopeeKenh));
+        when(kenhBanHangService.getShopeePartnerId("SHOPEE_OFFICIAL")).thenReturn(12345L);
+        when(kenhBanHangService.getDecryptedShopeePartnerKey("SHOPEE_OFFICIAL")).thenReturn("mock_partner_key");
+        when(kenhBanHangService.getDecryptedShopeeAccessToken("SHOPEE_OFFICIAL")).thenReturn("tok_shp");
+        when(kenhBanHangService.getShopeeShopId("SHOPEE_OFFICIAL")).thenReturn(8888L);
 
         var spyService = spy(service);
         var mockClient = mock(com.dev.backend.services.shopee.ShopeeClient.class);
@@ -1870,7 +1870,7 @@ class KenhBanHangDongBoServiceTest {
                 {"error":"","response":{"address_list":[{"address_id":5001,"address":"12 Cầu Giấy","city":"Hà Nội","address_type":["PICKUP_ADDRESS"]}]}}
                 """));
 
-        var ds = spyService.getLocations("SHOPEE_SANDBOX");
+        var ds = spyService.getLocations("SHOPEE_OFFICIAL");
 
         assertEquals(1, ds.size(), "Hướng B: Shopee đơn kho chỉ trả đúng 1 địa chỉ lấy hàng từ sàn");
         assertTrue(ds.stream().anyMatch(l -> "5001".equals(l.getMaKhoSan())));
@@ -1881,7 +1881,7 @@ class KenhBanHangDongBoServiceTest {
     @Test
     @DisplayName("Shopee: Đổi sang kho FCentric mới reset Delta Sync và đẩy tồn theo đúng kho đã chọn")
     void luuCaiDat_khiDoiMaKhoSanShopee_resetDeltaSyncVaDayTonTheoKhoFCentric() throws Exception {
-        KenhBanHang shopeeKenh = KenhBanHang.builder().id(7).maKenh("SHOPEE_SANDBOX").tenKenh("Shopee Sandbox").trangThai(1).build();
+        KenhBanHang shopeeKenh = KenhBanHang.builder().id(7).maKenh("SHOPEE_OFFICIAL").tenKenh("Shopee").trangThai(1).build();
         BienTheSanPham bt = BienTheSanPham.builder().id(210).maSku("SHP-WH-SKU-01").build();
         TrangThaiDongBoSanPham dong = TrangThaiDongBoSanPham.builder()
                 .id(710)
@@ -1893,12 +1893,12 @@ class KenhBanHangDongBoServiceTest {
                 .choPhepDongBo(true)
                 .build();
 
-        when(kenhBanHangRepository.findByMaKenh("SHOPEE_SANDBOX")).thenReturn(Optional.of(shopeeKenh));
+        when(kenhBanHangRepository.findByMaKenh("SHOPEE_OFFICIAL")).thenReturn(Optional.of(shopeeKenh));
         when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(7)).thenReturn(List.of(dong));
-        when(kenhBanHangService.getShopeeShopId("SHOPEE_SANDBOX")).thenReturn(8888L);
-        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_SHOPEE_SANDBOX_MA_KHO_SAN"), any()))
+        when(kenhBanHangService.getShopeeShopId("SHOPEE_OFFICIAL")).thenReturn(8888L);
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_SHOPEE_OFFICIAL_MA_KHO_SAN"), any()))
                 .thenReturn("fcentric-kho-1", "fcentric-kho-2");
-        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_SHOPEE_SANDBOX_TU_DONG_DAY_TON"), any()))
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_SHOPEE_OFFICIAL_TU_DONG_DAY_TON"), any()))
                 .thenReturn("true");
         when(tonKhoTongHopRepository.sumFreeToUseTheoKhoVaBienTheIds(2, List.of(210)))
                 .thenReturn(List.<Object[]>of(new Object[]{210, BigDecimal.valueOf(7)}));
@@ -1913,9 +1913,9 @@ class KenhBanHangDongBoServiceTest {
                 .tenKhoSan("Kho TP.HCM (Đồng bộ lên Shopee)")
                 .build();
 
-        spyService.luuCaiDat("SHOPEE_SANDBOX", req);
+        spyService.luuCaiDat("SHOPEE_OFFICIAL", req);
 
-        verify(dieuHanhHeThongService).setCauHinhString("KENH_SHOPEE_SANDBOX_MA_KHO_SAN", "fcentric-kho-2");
+        verify(dieuHanhHeThongService).setCauHinhString("KENH_SHOPEE_OFFICIAL_MA_KHO_SAN", "fcentric-kho-2");
         @SuppressWarnings("unchecked")
         org.mockito.ArgumentCaptor<List<Map<String, Object>>> stockBatchCaptor = org.mockito.ArgumentCaptor.forClass(List.class);
         verify(mockClient).updateStockBatch(eq(900100L), stockBatchCaptor.capture());

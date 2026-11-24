@@ -512,7 +512,7 @@ class DonBanHangServiceSendToWarehouseTest {
         when(khoRepository.findById(2)).thenReturn(Optional.of(kho2));
         when(donBanHangRepository.save(any(DonBanHang.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        for (String maKenh : List.of("SHOPEE_OFFICIAL", "SHOPEE_SANDBOX", "TIKTOK")) {
+        for (String maKenh : List.of("SHOPEE_OFFICIAL", "TIKTOK")) {
             KenhBanHang kenh = KenhBanHang.builder().id(50).maKenh(maKenh).tenKenh(maKenh).build();
             int baseId = maKenh.hashCode() & 0x7FFF;
 
