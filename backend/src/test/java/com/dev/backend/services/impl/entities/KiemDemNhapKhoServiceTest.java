@@ -708,6 +708,24 @@ class KiemDemNhapKhoServiceTest {
     }
 
     @Test
+    @DisplayName("Tạo phiếu cho đơn Đã nhận đủ: 409 \"đã nhận đủ\" ngay, không đọc phần còn lại / không khóa dòng đơn")
+    void taoPhieuDonDaNhanDu() {
+        dangNhap("quan_ly_kho", 1, 1);
+        po.setTrangThai(5);
+        when(donMuaHangRepository.findById(50)).thenReturn(Optional.of(po));
+        com.dev.backend.dto.request.PhieuNhapKhoCreating yc = com.dev.backend.dto.request.PhieuNhapKhoCreating.builder()
+                .donMuaHangId(50)
+                .chiTietPhieuNhapKhos(List.of(com.dev.backend.dto.request.ChiTietPhieuNhapKhoCreating.builder()
+                        .bienTheSanPhamId(100).soLuongDuKienNhap(new BigDecimal("1")).build()))
+                .build();
+        CommonException ex = loi(() -> service.createDraft(yc));
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        assertTrue(ex.getMessage().contains("đã nhận đủ hàng, không cần nhập thêm"), ex.getMessage());
+        verify(chiTietDonMuaHangRepository, never()).khoaTheoDonMua(anyInt());
+        verify(repository, never()).save(any(PhieuNhapKho.class));
+    }
+
+    @Test
     @DisplayName("Tạo phiếu: lỗi dữ liệu / sai kho là 4xx có câu tiếng Việt (không phải 500)")
     void taoPhieuLoiNghiepVu() {
         dangNhap("nhan_vien_kho", 2, 2);
