@@ -807,8 +807,9 @@ export default function BackofficeSidebar() {
 
   // Đường kẻ mảnh giữa chứng từ và dữ liệu gốc trong cùng một nhóm (mục con khai báo `nhom` khác mục liền trước).
   // Tính trên danh sách mục con đã lọc theo vai trò, nên vai trò không thấy mục nào phía trước thì không có đường kẻ.
+  // Nhóm chỉ còn hai mục trở xuống (vd. Bán hàng khi không có khoản đối soát) thì mỗi bên một dòng, kẻ thành thừa.
   const keTruoc = (dsCon, viTri) =>
-    viTri > 0 && Boolean(dsCon[viTri].nhom) && Boolean(dsCon[viTri - 1].nhom) && dsCon[viTri].nhom !== dsCon[viTri - 1].nhom;
+    dsCon.length > 2 && viTri > 0 && Boolean(dsCon[viTri].nhom) && Boolean(dsCon[viTri - 1].nhom) && dsCon[viTri].nhom !== dsCon[viTri - 1].nhom;
 
   const renderItem = (item) => {
     if (!item.children) return renderDirectLink(item);
