@@ -18,7 +18,7 @@ export default function SalesOrderPackingSlipPrint() {
         const don = payload?.donBanHang ?? payload;
         if (!don || !don.id) return null;
         const maKenh = String(don?.kenhBanHang?.maKenh ?? "").trim().toUpperCase();
-        const laShopee = ["SHOPEE", "SHOPEE_OFFICIAL", "SHOPEE_SANDBOX"].includes(maKenh)
+        const laShopee = ["SHOPEE", "SHOPEE_OFFICIAL"].includes(maKenh)
           || maKenh.includes("SHOPEE")
           || String(don.soDonHang || "").startsWith("SHP-");
         const dsChiTiet = payload?.chiTiet ?? don?.chiTietDonHang ?? [];

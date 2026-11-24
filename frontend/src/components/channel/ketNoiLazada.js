@@ -17,18 +17,12 @@ export function daKetNoiLazada(config) {
   return Boolean(config?.appKey && (config?.hasAccessToken || config?.hasAppSecret));
 }
 
-export function laLazadaSandbox(maKenh) {
-  return String(maKenh ?? "").toUpperCase() === "LAZADA_SANDBOX";
-}
-
-export function kiemTraGiaTriKetNoiLazada(values, config, maKenh) {
+export function kiemTraGiaTriKetNoiLazada(values, config) {
   const errors = {};
-  const isSandbox = laLazadaSandbox(maKenh);
-  // Sandbox có thể tự động kế thừa App Key và Secret từ Production nếu để trống
-  if (!isSandbox && !values.appKey?.trim() && !config?.appKey) {
+  if (!values.appKey?.trim() && !config?.appKey) {
     errors.appKey = t("Nhập App Key của ứng dụng Lazada Open Platform.");
   }
-  if (!isSandbox && !config?.hasAppSecret && !values.appSecret?.trim()) {
+  if (!config?.hasAppSecret && !values.appSecret?.trim()) {
     errors.appSecret = t("Nhập App Secret.");
   }
   return errors;

@@ -215,12 +215,8 @@ function RootOAuthRedirect() {
       kenhSlug = "tiktok";
     } else if (savedKenh.includes("shopee-official") || stateLower.includes("shopee-official") || stateLower.includes("shopee_official")) {
       kenhSlug = "shopee";
-    } else if (savedKenh.includes("shopee-sandbox") || stateLower.includes("shopee-sandbox") || stateLower.includes("shopee_sandbox")) {
-      kenhSlug = "shopee-sandbox";
     } else if (savedKenh.includes("shopee") || stateLower.includes("shopee")) {
       kenhSlug = "shopee";
-    } else if (savedKenh.includes("lazada-sandbox") || stateLower.includes("sandbox") || searchParams.get("sandbox") === "true") {
-      kenhSlug = "lazada-sandbox";
     } else if (savedKenh.includes("lazada") || stateLower.includes("lazada")) {
       kenhSlug = "lazada";
     }

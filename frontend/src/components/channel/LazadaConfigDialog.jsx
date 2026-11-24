@@ -10,7 +10,6 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import { t } from "@/i18n";
 
 export default function LazadaConfigDialog({ maKenh = "LAZADA", open, onOpenChange, config, onSaved }) {
-  const isSandbox = String(maKenh).toUpperCase() === "LAZADA_SANDBOX";
   const [values, setValues] = useState(() => taoGiaTriKetNoiLazada(config));
   const [errors, setErrors] = useState({});
   const [result, setResult] = useState(null);
@@ -52,7 +51,7 @@ export default function LazadaConfigDialog({ maKenh = "LAZADA", open, onOpenChan
     <Dialog open={open} onOpenChange={dong}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-xl border-bo-border sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-bo-foreground">{isSandbox ? t("Cấu hình kết nối Lazada Sandbox") : t("Cấu hình kết nối Lazada")}</DialogTitle>
+          <DialogTitle className="text-bo-foreground">{t("Cấu hình kết nối Lazada")}</DialogTitle>
           <DialogDescription className="text-bo-muted">
             {t("Thông tin App Secret và Access Token được mã hóa AES-256-GCM trước khi lưu và chỉ hiển thị dạng che.")}
           </DialogDescription>

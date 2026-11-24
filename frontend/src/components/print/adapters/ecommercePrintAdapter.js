@@ -58,8 +58,8 @@ export function toEcommercePrintModel(payload) {
     const inspectionLabel = phieu.chiDanDongKiem || don.chiDanDongKiem || "ĐƯỢC ĐỒNG KIỂM";
     const maKenhUpper = kenh.maKenh ? String(kenh.maKenh).toUpperCase() : "";
     const isTikTok = ["TIKTOK", "TIKTOK_SHOP"].includes(maKenhUpper) || String(don.soDonHang || "").startsWith("TTS-");
-    const isLazada = ["LAZADA", "LAZADA_SANDBOX"].includes(maKenhUpper) || String(don.soDonHang || "").startsWith("LZD-");
-    const isShopee = ["SHOPEE", "SHOPEE_OFFICIAL", "SHOPEE_SANDBOX"].includes(maKenhUpper)
+    const isLazada = maKenhUpper === "LAZADA" || String(don.soDonHang || "").startsWith("LZD-");
+    const isShopee = ["SHOPEE", "SHOPEE_OFFICIAL"].includes(maKenhUpper)
         || maKenhUpper.includes("SHOPEE")
         || String(don.soDonHang || "").startsWith("SHP-")
         || String(don.maDonHangKenh || "").startsWith("SHP");

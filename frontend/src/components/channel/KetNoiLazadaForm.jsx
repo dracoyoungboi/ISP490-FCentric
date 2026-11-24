@@ -12,7 +12,6 @@ import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 
 export default function KetNoiLazadaForm({ maKenh = "LAZADA", values, errors = {}, onChange, config, disabled = false, result, onResult, onRefreshSuccess }) {
-  const isSandbox = String(maKenh).toUpperCase() === "LAZADA_SANDBOX";
   const id = useId();
   const [dangKiemTra, setDangKiemTra] = useState(false);
   const [dangLayAuthUrl, setDangLayAuthUrl] = useState(false);

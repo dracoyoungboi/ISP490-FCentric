@@ -92,19 +92,19 @@ export const laDonSan = (don) => Boolean(don?.kenhBanHang) || coChu(don?.maDonHa
 const maKenhCua = (don) => String(don?.kenhBanHang?.maKenh ?? "").trim().toUpperCase();
 
 /**
- * Đơn sàn Lazada / Lazada Sandbox: bắt buộc chỉ xuất từ Kho Tổng (khớp OmnichannelOrderSyncJob.isLazada). Nhận theo mã
+ * Đơn sàn Lazada: định tuyến theo bảng cấu hình kho (khớp OmnichannelOrderSyncJob.isLazada). Nhận theo mã
  * kênh; chỉ đơn cũ không có kênh bán mới đoán theo số đơn "LZD-".
  */
 export const laDonLazada = (don) => {
-  if (don?.kenhBanHang) return ["LAZADA", "LAZADA_SANDBOX"].includes(maKenhCua(don));
+  if (don?.kenhBanHang) return ["LAZADA"].includes(maKenhCua(don));
   return [don?.soDonHang, don?.maDonHangKenh].some((so) => String(so ?? "").startsWith("LZD-"));
 };
 
 /**
- * Đơn sàn Shopee / Shopee Sandbox: bắt buộc chỉ xuất từ Kho Tổng (khớp OmnichannelOrderSyncJob.isShopee). Chỉ nhận theo
- * mã kênh: Shopify và Shopee cùng tiền tố số đơn "SHP-", đoán theo số đơn sẽ khóa đơn Shopify vào Kho Tổng.
+ * Đơn sàn Shopee: định tuyến theo bảng cấu hình kho (khớp OmnichannelOrderSyncJob.isShopee). Chỉ nhận theo
+ * mã kênh: Shopify và Shopee cùng tiền tố số đơn "SHP-", đoán theo số đơn sẽ khóa đơn Shopify vào kho Shopee.
  */
-export const laDonShopee = (don) => ["SHOPEE", "SHOPEE_SANDBOX", "SHOPEE_OFFICIAL"].includes(maKenhCua(don));
+export const laDonShopee = (don) => ["SHOPEE", "SHOPEE_OFFICIAL"].includes(maKenhCua(don));
 
 /** Đơn sàn Shopify: không có tem vận đơn sàn (người bán tự giao hoặc dùng đơn vị vận chuyển ngoài). */
 export const laDonShopify = (don) => maKenhCua(don) === "SHOPIFY";

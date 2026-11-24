@@ -1,4 +1,3 @@
-import { toast } from "sonner";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { CalendarRange, ChevronLeft, ChevronRight, SearchX, ShoppingCart, X } from "lucide-react";
@@ -538,9 +537,6 @@ export default function ChannelOrdersPage() {
                     <span className="flex items-center justify-between gap-3">
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="min-w-0 truncate text-[15px] font-semibold uppercase tracking-wide text-bo-primary">{don.soDonHang}</span>
-                        {SAN.maKenh === "LAZADA_SANDBOX" || don.soDonHang?.startsWith("LZD-SBX-") ? (
-                          <span title={t("Đơn thử nghiệm Sandbox")} className="rounded border border-amber-200 bg-amber-50 px-1 py-0.5 text-[10px] font-semibold text-amber-800">Sandbox</span>
-                        ) : null}
                       </span>
                       <span className="flex items-center gap-1.5">
                         {laDonGiuChoLau(don) ? (
@@ -606,9 +602,6 @@ export default function ChannelOrdersPage() {
                       {/* Không gãy dòng ở dấu "-" của LZD-/TTS- */}
                       <div className="flex items-center gap-2 whitespace-nowrap font-semibold uppercase tracking-wide text-bo-primary">
                         <span>{don.soDonHang}</span>
-                        {SAN.maKenh === "LAZADA_SANDBOX" || don.soDonHang?.startsWith("LZD-SBX-") ? (
-                          <span title={t("Đơn thử nghiệm Sandbox")} className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">Sandbox</span>
-                        ) : null}
                       </div>
                       {/* Số đơn LZD-/TTS- đã ghép đúng mã đơn sàn thì không ghi lại lần nữa */}
                       {don.maDonHangKenh && !(uyQuyen && String(don.soDonHang ?? "").includes(don.maDonHangKenh)) ? (

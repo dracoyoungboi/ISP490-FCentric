@@ -863,7 +863,7 @@ function BuocLienKet({
   ghiChuHoanTat = null,
 }) {
   const SAN = useSanHienTai();
-  const coDuaLen = SAN?.kieuKetNoi === "khoa" || SAN?.maKenh?.toUpperCase() === "LAZADA" || SAN?.maKenh?.toUpperCase() === "LAZADA_SANDBOX";
+  const coDuaLen = SAN?.kieuKetNoi === "khoa" || SAN?.maKenh?.toUpperCase() === "LAZADA";
   const [ketQuaTai, setKetQuaTai] = useState(null);
   const [ketQuaDay, setKetQuaDay] = useState(null);
   const [hoiDay, setHoiDay] = useState(false);

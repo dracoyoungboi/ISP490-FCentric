@@ -25,7 +25,6 @@ const KENH_LOC = [
   { value: "ALL", label: t("Tất cả kênh") },
   { value: "SHOPIFY", label: "Shopify" },
   { value: "SHOPEE", label: "Shopee" },
-  { value: "SHOPEE_SANDBOX", label: "Shopee Sandbox" },
   { value: "LAZADA", label: "Lazada" },
   { value: "TIKTOK", label: "TikTok Shop" },
 ];
@@ -33,9 +32,9 @@ const KENH_LOC = [
 function nhanSanChuan(code) {
   const norm = String(code || "").trim().toUpperCase();
   if (!norm) return t("Kênh bán");
-  if (norm.includes("SHOPEE")) return norm.includes("SANDBOX") ? "Shopee Sandbox" : "Shopee";
+  if (norm.includes("SHOPEE")) return "Shopee";
   if (norm.includes("TIKTOK")) return "TikTok Shop";
-  if (norm.includes("LAZADA")) return norm.includes("SANDBOX") ? "Lazada Sandbox" : "Lazada";
+  if (norm.includes("LAZADA")) return "Lazada";
   if (norm.includes("SHOPIFY")) return "Shopify";
   if (norm === "POS") return t("Bán tại quầy (POS)");
   return code;
