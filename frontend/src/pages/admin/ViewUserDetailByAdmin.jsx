@@ -23,6 +23,7 @@ import DauTrangNguoiDung from "@/components/nguoi-dung/chi-tiet/DauTrangNguoiDun
 import CanXemLai from "@/components/nguoi-dung/chi-tiet/CanXemLai";
 import QuyenTruyCap from "@/components/nguoi-dung/chi-tiet/QuyenTruyCap";
 import LichSuPhanQuyen from "@/components/nguoi-dung/chi-tiet/LichSuPhanQuyen";
+import DangNhapNguoiDung from "@/components/nguoi-dung/chi-tiet/DangNhapNguoiDung";
 import ThuocTinhNguoiDung from "@/components/nguoi-dung/chi-tiet/ThuocTinhNguoiDung";
 import NganKeoPhanQuyen from "@/components/nguoi-dung/chi-tiet/NganKeoPhanQuyen";
 import { danhGiaQuyen, gopLichSuNguoiDung, locMauTheoTran, phanQuyenHienCo, vanDeCanXemLai } from "@/components/nguoi-dung/phanQuyen";
@@ -42,7 +43,7 @@ const LOAD_ERROR_MESSAGE = t("Không thể tải thông tin người dùng. Vui 
 // Mã HTTP coi là "không có người dùng này": 404, và 400 vì backend báo
 // "Không tìm thấy người dùng" bằng CommonException (400). Thử lại cũng không ra kết quả khác.
 const NOT_FOUND_STATUSES = [400, 404];
-const TABS = ["quyen", "lich-su"];
+const TABS = ["quyen", "dang-nhap", "lich-su"];
 const NUT_VIEN = "border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle";
 
 function DaiBao({ icon, children, nutNhan, onNut }) {
@@ -151,14 +152,21 @@ function ChiTietNguoiDung({ id }) {
             loiMotPhan,
         };
     }, id);
+    // Tab Đăng nhập: thiết bị đang đăng nhập + lịch sử 90 ngày, dựng từ dữ liệu sẵn có (không có đăng xuất).
+    const nhatKyDangNhapQ = useTaiDuLieu(() => adminService.layNhatKyDangNhap(id), id);
+
     // Khóa / mở khóa, gửi liên kết đặt mật khẩu: tải lại lịch sử ngay và thêm một lần sau 1,5 giây (dòng bảo mật được
     // máy chủ ghi trên luồng nền, có thể chưa có ở lần tải đầu)
     const henTaiLaiLichSuRef = useRef(null);
     useEffect(() => () => clearTimeout(henTaiLaiLichSuRef.current), []);
     const taiLaiLichSuSauThaoTac = () => {
         lichSuQ.reload();
+        nhatKyDangNhapQ.reload();
         clearTimeout(henTaiLaiLichSuRef.current);
-        henTaiLaiLichSuRef.current = setTimeout(() => lichSuQ.reload(), 1500);
+        henTaiLaiLichSuRef.current = setTimeout(() => {
+            lichSuQ.reload();
+            nhatKyDangNhapQ.reload();
+        }, 1500);
     };
 
     const [tab, setTab] = useTabTrenUrl(TABS, "quyen", { ten: "tab" });
@@ -394,6 +402,7 @@ function ChiTietNguoiDung({ id }) {
                             <div role="tablist" aria-label={t("Nội dung")} className="-mb-px flex gap-6 overflow-x-auto overflow-y-hidden [scrollbar-width:none]">
                                 {[
                                     { ma: "quyen", nhan: t("Quyền truy cập") },
+                                    { ma: "dang-nhap", nhan: t("Đăng nhập"), so: nhatKyDangNhapQ.data?.lichSu?.length },
                                     { ma: "lich-su", nhan: t("Lịch sử thay đổi"), so: lichSu?.length },
                                 ].map((muc) => {
                                     const chon = muc.ma === tab;
@@ -447,6 +456,15 @@ function ChiTietNguoiDung({ id }) {
                                     onThuLai={lichSuQ.reload}
                                     idVuaLuu={idVuaLuu}
                                 />
+                            ) : tab === "dang-nhap" ? (
+                                <DangNhapNguoiDung
+                                    data={nhatKyDangNhapQ.data}
+                                    loading={nhatKyDangNhapQ.loading}
+                                    error={nhatKyDangNhapQ.error}
+                                    onThuLai={nhatKyDangNhapQ.reload}
+                                    onCapLaiMatKhau={() => setHop("mat-khau")}
+                                    coEmail={Boolean(nguoiDung.email)}
+                                />
                             ) : (
                                 // Màn rộng: vùng này tự cuộn (index.css › .nd-cuon), khối giữ vừa khung nội dung
                                 <div className="nd-cuon flex flex-1 flex-col px-4 pb-6 pt-5 sm:px-6">
@@ -477,7 +495,7 @@ function ChiTietNguoiDung({ id }) {
                         </div>
                     </section>
 
-                    <ThuocTinhNguoiDung nguoiDung={nguoiDung} />
+                    <ThuocTinhNguoiDung nguoiDung={nguoiDung} dangNhapGanNhat={nhatKyDangNhapQ.data?.tomTat?.lanGanNhat} />
                 </div>
             </article>
 

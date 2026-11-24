@@ -50,4 +50,38 @@ export const adminService = {
         const res = await apiClient.get(`/api/v1/admin/users/${userId}/lich-su-phan-quyen`);
         return Array.isArray(res.data?.data) ? res.data.data : [];
     },
+
+    /**
+     * Nhật ký đăng nhập của một người dùng (tab "Đăng nhập" ở Chi tiết): { tomTat, phien, lichSu }.
+     * Dựng từ dữ liệu sẵn có — không có đăng xuất, không có thiết bị cho từng dòng lịch sử.
+     */
+    async layNhatKyDangNhap(userId) {
+        const res = await apiClient.get(`/api/v1/admin/users/${userId}/nhat-ky-dang-nhap`);
+        return res.data?.data ?? null;
+    },
+
+    /** Trạng thái đăng nhập của các người dùng đang hiện (biểu tượng bất thường ở danh sách): TrangThaiDangNhapDto[]. */
+    async layTrangThaiDangNhap(ids) {
+        const danhSach = Array.isArray(ids) ? ids.filter((x) => x != null) : [];
+        if (danhSach.length === 0) return [];
+        const res = await apiClient.get("/api/v1/admin/users/trang-thai-dang-nhap", {
+            params: { ids: danhSach.join(",") },
+        });
+        return Array.isArray(res.data?.data) ? res.data.data : [];
+    },
+
+    /**
+     * Màn Nhật ký đăng nhập toàn hệ thống: trang DongDangNhapHeThongDto.
+     * params: { q, ketQua: all|thanh_cong|that_bai, soNgay: 1|7|30|90, page, size }.
+     */
+    async layNhatKyDangNhapHeThong(params) {
+        const res = await apiClient.get("/api/v1/admin/nhat-ky-dang-nhap", { params });
+        return res.data?.data ?? { content: [], totalElements: 0 };
+    },
+
+    /** Khung "Cần chú ý" của màn Nhật ký đăng nhập: CanChuYDangNhapDto[]. */
+    async layCanChuYDangNhap() {
+        const res = await apiClient.get("/api/v1/admin/nhat-ky-dang-nhap/can-chu-y");
+        return Array.isArray(res.data?.data) ? res.data.data : [];
+    },
 }

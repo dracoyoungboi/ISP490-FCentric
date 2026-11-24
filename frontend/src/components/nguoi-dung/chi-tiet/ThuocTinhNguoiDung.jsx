@@ -40,7 +40,7 @@ function LienHe({ giaTri, href, nhanMo, icon, nhanSaoChep }) {
  * Dưới 1280px xuống dưới vùng tab, xếp 2 cột khi chính cột này rộng từ 576px (đo cột, không đo cả khối:
  * đo cả khối thì ở 1440px cột 340px vẫn bị chia 2 và email gãy chữ).
  */
-export default function ThuocTinhNguoiDung({ nguoiDung }) {
+export default function ThuocTinhNguoiDung({ nguoiDung, dangNhapGanNhat }) {
   const email = nguoiDung.email?.trim() || "";
   const soDienThoai = nguoiDung.soDienThoai?.trim() || "";
   const hienTenDangNhap = hienTenDangNhapRieng(nguoiDung);
@@ -86,6 +86,11 @@ export default function ThuocTinhNguoiDung({ nguoiDung }) {
           {soDienThoai ? <span className="tabular-nums">{soDienThoai}</span> : chua}
         </Dong>
         <Dong nhan={t("Mật khẩu")}>{nguoiDung.mustChangePassword ? t("Chưa đặt mật khẩu riêng") : t("Đã đặt mật khẩu riêng")}</Dong>
+        {dangNhapGanNhat ? (
+          <Dong nhan={t("Đăng nhập gần nhất")}>
+            <span className="tabular-nums">{formatDateTime(dangNhapGanNhat)}</span>
+          </Dong>
+        ) : null}
         <Dong nhan={t("Ngày tạo")}>
           <span className="tabular-nums">{formatDateTime(nguoiDung.ngayTao)}</span>
         </Dong>
