@@ -25,6 +25,7 @@ import com.dev.backend.repository.PhieuDieuChinhKhoRepository;
 import com.dev.backend.repository.PhieuNhapKhoRepository;
 import com.dev.backend.repository.PhieuXuatKhoRepository;
 import com.dev.backend.repository.ViTriKhoRepository;
+import com.dev.backend.utils.KhoDangChon;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -85,9 +86,14 @@ public class LichSuGiaoDichKhoService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Chi tiết một dòng sổ. Chỉ xem được dòng của kho mình được phân quyền, cùng phạm vi với {@link #getAll()}. Dòng của
+     * kho khác báo "không tìm thấy" như id không tồn tại: không để dò id xác nhận được dòng sổ của kho khác.
+     */
     @Transactional(readOnly = true)
     public LichSuGiaoDichKhoDto getChiTiet(Integer id) {
         LichSuGiaoDichKho entity = repository.findByIdWithDetails(id)
+                .filter(dong -> KhoDangChon.duocXem(dong.getKho()))
                 .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.lichSuKhongTimThay", id)));
         LichSuGiaoDichKhoDto dto = mapper.toDto(entity);
         // Dòng chuyển kệ: thêm khu, dãy, hàng, tầng của hai kệ. Mã kệ giữ như sổ ghi lúc chuyển.
