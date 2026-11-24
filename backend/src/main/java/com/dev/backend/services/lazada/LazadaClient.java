@@ -682,6 +682,54 @@ public class LazadaClient {
     }
 
     /**
+     * Lấy danh sách kho hàng của gian hàng từ Lazada Open Platform (/rc/warehouse/get).
+     */
+    public JsonNode getWarehouses(String appKey, String appSecret, String accessToken) {
+        if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.cauHinhAppKeyLazada"));
+        }
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.chuaCoAccessTokenLazada"));
+        }
+        String apiPath = "/rc/warehouse/get";
+        Map<String, String> params = new HashMap<>();
+        params.put("app_key", appKey.trim());
+        params.put("access_token", accessToken.trim());
+        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
+        params.put("sign", sign);
+
+        return executeGet(API_GATEWAY_VN + apiPath, params);
+    }
+
+    /**
+     * Cập nhật số lượng tồn kho đa kho lên Lazada (/product/stock/sellable/update).
+     * Hỗ trợ phần tử MultiWarehouseInventories / WarehouseCode / SellableQuantity cho từng SKU (tối đa 20 SKU/lần).
+     */
+    public JsonNode updateSellableQuantity(String appKey, String appSecret, String accessToken, String payload) {
+        if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.cauHinhAppKeyLazada"));
+        }
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.chuaCoAccessTokenLazada"));
+        }
+        String apiPath = "/product/stock/sellable/update";
+        Map<String, String> params = new HashMap<>();
+        params.put("app_key", appKey.trim());
+        params.put("access_token", accessToken.trim());
+        params.put("payload", payload);
+        params.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        params.put("sign_method", LazadaSignatureHelper.SIGN_METHOD_SHA256);
+
+        String sign = LazadaSignatureHelper.calculateSignature(apiPath, params, appSecret);
+        params.put("sign", sign);
+
+        return executePostForm(API_GATEWAY_VN + apiPath, params);
+    }
+
+    /**
      * Cập nhật số lượng tồn kho lên Lazada (/product/price_quantity/update).
      * @param payload Chuỗi XML theo chuẩn Lazada:
      *                &lt;Request&gt;&lt;Product&gt;&lt;Skus&gt;&lt;Sku&gt;&lt;SellerSku&gt;...&lt;/SellerSku&gt;&lt;Quantity&gt;...&lt;/Quantity&gt;&lt;/Sku&gt;&lt;/Skus&gt;&lt;/Product&gt;&lt;/Request&gt;
