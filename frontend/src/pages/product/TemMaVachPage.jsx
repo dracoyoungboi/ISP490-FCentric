@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, ChevronsDownUp, ChevronsUpDown, FileText, Layers, Printer, SearchX } from "lucide-react";
+import { useLocation } from "react-router-dom";
+import { Ban, ChevronRight, ChevronsDownUp, ChevronsUpDown, FileText, Info, Layers, Printer, ScanBarcode, SearchX } from "lucide-react";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -19,8 +20,10 @@ import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import { AnhSanPham } from "@/components/channel/HienThiKenh";
 import { NUT_PHU } from "@/components/channel/BottomActionBar";
 import HopChonPhieuNhap from "@/components/tem-ma-vach/HopChonPhieuNhap";
+import useTaiTrangTem from "@/components/tem-ma-vach/useTaiTrangTem";
 import { moTatCaDaNho, nhoMoTatCa, nhoSoDong, soDongDaNho } from "@/components/tem-ma-vach/boNhoTem";
 import {
+  SO_NGAY_DOI_GIA,
   SO_SAN_PHAM_MOI_TRANG,
   TAB_TEM,
   chuanHoaTrang,
@@ -30,6 +33,7 @@ import {
   laMotPhanLoai,
   nhanPhanLoai,
   nhomDangMo,
+  soThieuMaVach,
   timDongQuet,
   tomTatNhom,
   trangThaiChon,
@@ -39,14 +43,13 @@ import { chuanHoaDongInTem } from "@/components/print/tinhTem";
 import HopInTem from "@/pages/product/components/product/HopInTem";
 import EditProductModal from "@/pages/product/components/product/EditProductModal";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
-import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { productService } from "@/services/productService";
+import { temSanPhamService } from "@/services/temSanPhamService";
 import { hasAnyRole } from "@/utils/roles";
-import { formatNumberOrDash } from "@/utils/formatters";
+import { formatDate, formatNumberOrDash } from "@/utils/formatters";
 import { t } from "@/i18n";
 import { VAI_TRO_KHO, VAI_TRO_SUA_SAN_PHAM } from "@/constants/vaiTroTheoNghiepVu";
 
@@ -90,11 +93,22 @@ function NhanBienThe({ dong, className }) {
  * Giá bán (giá in trên tem), chỉ để xem. Chưa có giá: chữ cam vì tem của SKU đó không in được; quản trị viên thấy thêm
  * nút "Đặt giá" mở form Sửa sản phẩm (giá bán chỉ đổi ở đó).
  */
-function OGia({ chu, xam = false, title, onDatGia }) {
+function OGia({ chu, xam = false, title, onDatGia, giaCu }) {
   if (chu) {
     return (
-      <span title={title} className={cn("whitespace-nowrap tabular-nums", xam ? "text-bo-muted" : "font-medium text-bo-foreground")}>
-        {chu}
+      <span className="inline-flex flex-col items-end">
+        <span title={title} className={cn("whitespace-nowrap tabular-nums", xam ? "text-bo-muted" : "font-medium text-bo-foreground")}>
+          {chu}
+        </span>
+        {/* Tab Đổi giá gần đây: giá đang in trên tem cũ và ngày đổi, để biết tem nào cần bóc */}
+        {giaCu ? (
+          // Điện thoại: chỉ giá cũ gạch (đủ hẹp để màu - kích cỡ cùng hàng không bị cắt)
+          <span className="whitespace-nowrap text-xs tabular-nums text-bo-muted">
+            <span className="max-md:hidden">{t("trước")} </span>
+            <s className="text-slate-400">{giaCu.gia}</s>
+            {giaCu.ngay ? <span className="max-md:hidden">{` · ${giaCu.ngay}`}</span> : null}
+          </span>
+        ) : null}
       </span>
     );
   }
@@ -121,6 +135,9 @@ function OGia({ chu, xam = false, title, onDatGia }) {
 /**
  * Tem mã vạch (thay màn "Giá bán & tem mã vạch"): in tem mã vạch theo SKU, theo cả sản phẩm hoặc theo phiếu nhập cho
  * quản trị viên, quản lý kho, nhân viên kho, nhân viên bán hàng (SRS 4.4 "Barcode – Generate / Print", UC 2.7).
+ * Không hiện tồn (BA bỏ cho đỡ rối): số tem do người in tự đặt, hoặc theo số lượng nhập khi in theo phiếu nhập. Tab theo
+ * việc cần làm: Đổi giá gần đây (in lại tem giá cũ), Chưa có giá, Thiếu mã vạch; SKU ngừng hoạt động không hiện. Đổi tab
+ * cho mượt: giữ số trên tab, nhớ trang đã xem, tải trước khi rê chuột lên tab (useTaiTrangTem).
  * Giá bán chỉ để xem (là giá in trên tem); đổi giá ở form Sửa sản phẩm — quản trị viên bấm "Đặt giá" ở SKU chưa có giá
  * để mở form đó ngay tại đây. Phân trang theo sản phẩm (máy chủ trả mỗi sản phẩm kèm đủ SKU khớp bộ lọc); mở / thu gọn,
  * chọn nhiều, tìm kiếm theo đúng khuôn màn Sản phẩm theo sàn. Quét mã vạch vào ô tìm: mở nhóm, cuộn tới và tô dòng đó.
@@ -130,6 +147,7 @@ export default function TemMaVachPage() {
   // In theo phiếu nhập là chứng từ kho: nhân viên bán hàng không có
   const inTheoPhieuNhap = hasAnyRole(VAI_TRO_KHO);
   const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
+  const location = useLocation();
   const [searchText, setSearchText] = useState("");
   const [tuKhoa, setTuKhoa] = useState("");
   const [trang, setTrang] = useState(() => ({ page: 0, size: soDongDaNho(SO_DONG_MAC_DINH) }));
@@ -138,7 +156,15 @@ export default function TemMaVachPage() {
   const [moTatCa, setMoTatCa] = useState(() => moTatCaDaNho());
   const [ngoaiLe, setNgoaiLe] = useState(() => new Set());
   const [boTuMo, setBoTuMo] = useState(false);
-  const [chon, setChon] = useState(() => new Set());
+  // "In lại tem" sau khi lưu giá ở form Sửa sản phẩm: mở tab Đổi giá gần đây, chọn sẵn các SKU vừa đổi
+  const [chon, setChon] = useState(() => new Set(Array.isArray(location.state?.chonBienThe) ? location.state.chonBienThe : []));
+  const [ngungQuet, setNgungQuet] = useState(null); // mã tìm / quét trúng SKU đã ngừng hoạt động
+  // Bấm "In lại tem" lúc đang ở chính màn này (form Sửa mở từ nút Đặt giá): đường dẫn đổi, trang không dựng lại
+  const [khoaDieuHuong, setKhoaDieuHuong] = useState(location.key);
+  if (location.key !== khoaDieuHuong) {
+    setKhoaDieuHuong(location.key);
+    if (Array.isArray(location.state?.chonBienThe)) setChon(new Set(location.state.chonBienThe));
+  }
   const [noiBat, setNoiBat] = useState(null); // id SKU vừa quét trúng
   const [choQuet, setChoQuet] = useState(null); // mã vừa quét, chờ dữ liệu của từ khóa đó
   const [hopChonPhieu, setHopChonPhieu] = useState(false);
@@ -148,10 +174,7 @@ export default function TemMaVachPage() {
   // Điện thoại vẽ danh sách thẻ thay cho bảng (chỉ vẽ một trong hai; id dòng dùng để cuộn tới)
   const isMobile = useIsMobile();
 
-  const ds = useTaiDuLieu(
-    () => productService.locGiaBan({ page: trang.page, size: trang.size, tuKhoa, trangThai: tab }),
-    `${tab}|${tuKhoa}|${trang.page}|${trang.size}`,
-  );
+  const ds = useTaiTrangTem({ tab, tuKhoa, page: trang.page, size: trang.size });
   const duLieu = useMemo(() => chuanHoaTrang(ds.data), [ds.data]);
   const nhom = duLieu.nhom;
   const rows = useMemo(() => dongCuaTrang(duLieu.nhom), [duLieu]);
@@ -205,8 +228,39 @@ export default function TemMaVachPage() {
     });
   }, [choQuet, ds.loading, tuKhoa, nhom]);
 
-  // Quay lại tab thì tải lại ngầm (giá, tồn do người khác đổi); không tải khi đang mở form Sửa sản phẩm
+  // Tìm / quét mà không có SKU nào: tra đúng mã đó, trúng SKU đã ngừng hoạt động thì báo rõ thay vì "không khớp"
+  const khongCoDong = !ds.loading && !ds.error && rows.length === 0;
+  useEffect(() => {
+    if (!tuKhoa || !khongCoDong) return undefined;
+    let huy = false;
+    temSanPhamService
+      .traMa(tuKhoa)
+      .then((d) => {
+        if (!huy) setNgungQuet(d && Number(d.trangThai) !== 1 ? { ma: tuKhoa, maSku: d.maSku || tuKhoa } : null);
+      })
+      .catch(() => {
+        if (!huy) setNgungQuet(null);
+      });
+    return () => {
+      huy = true;
+    };
+  }, [tuKhoa, khongCoDong]);
+
+  // Quay lại tab thì tải lại ngầm (giá do người khác đổi); không tải khi đang mở form Sửa sản phẩm
   useTaiLaiKhiQuayLai(() => ds.reload(), { bat: !ds.loading && spSua == null, lanCuoi: ds.capNhatLuc });
+
+  // Rê chuột lên tab: dừng 100 ms mới tải trước (lướt ngang qua các tab thì không tải hết)
+  const henTaiTruocRef = useRef(null);
+  const taiTruocTab = (event) => {
+    const nut = event.target.closest?.('[role="tab"]');
+    if (!nut) return;
+    const viTri = [...nut.parentElement.querySelectorAll('[role="tab"]')].indexOf(nut);
+    const muc = statusTabs[viTri];
+    window.clearTimeout(henTaiTruocRef.current);
+    if (!muc || muc.value === tab) return;
+    henTaiTruocRef.current = window.setTimeout(() => ds.taiTruoc(muc.value), 100);
+  };
+  useEffect(() => () => window.clearTimeout(henTaiTruocRef.current), []);
 
   const doiTab = (moi) => {
     setTab(moi);
@@ -281,17 +335,17 @@ export default function TemMaVachPage() {
       }
     : undefined;
 
-  const statusTabs = TAB_TEM.map((tab) => ({
-    value: tab.value,
-    label: tab.label,
-    count: (ds.loading && !ds.dungKhoa) || !duLieu.demTheoTab
-      ? null
-      : tab.value === "tat-ca"
-        ? duLieu.demTheoTab.tatCa
-        : tab.value === "hoat-dong"
-          ? duLieu.demTheoTab.hoatDong
-          : duLieu.demTheoTab.ngungHoatDong,
-  }));
+  // Số đếm giữ nguyên khi đổi tab / trang (chỉ phụ thuộc từ khóa), nên không nháy mất rồi hiện lại
+  const dem = ds.dem;
+  const statusTabs = TAB_TEM
+    // "Thiếu mã vạch" chỉ hiện khi có SKU thiếu (máy chủ tự sinh mã khi tạo SKU) hoặc đang mở tab đó
+    .filter((muc) => !muc.anKhiRong || muc.value === tab || (dem && Number(dem[muc.dem]) > 0))
+    .map((muc) => ({
+      value: muc.value,
+      label: muc.label,
+      tone: muc.tone,
+      count: dem ? Number(dem[muc.dem]) || 0 : null,
+    }));
   const daChon = rows.filter((r) => chon.has(r.id));
   const tatCaIds = rows.map((r) => r.id);
 
@@ -299,6 +353,7 @@ export default function TemMaVachPage() {
   const oGiaDong = (d) => (
     <OGia
       chu={coGia(d.giaBan) ? formatNumberOrDash(d.giaBan) : null}
+      giaCu={tab === "doi-gia" && coGia(d.giaBanCu) ? { gia: formatNumberOrDash(d.giaBanCu), ngay: d.ngayDoiGia ? formatDate(d.ngayDoiGia) : "" } : null}
       onDatGia={datGia && dangHoatDong(d) ? () => datGia(d) : undefined}
     />
   );
@@ -376,9 +431,6 @@ export default function TemMaVachPage() {
             {t("Mã vạch")} {d.maVachSku ? <ToKhop text={d.maVachSku} tu={tuKhoa} /> : "—"}
           </p>
         </td>
-        <td className={cn("whitespace-nowrap px-3 py-2.5 text-right tabular-nums", Number(d.tonKho) === 0 ? "text-slate-400" : "text-bo-foreground")}>
-          {formatNumberOrDash(d.tonKho)}
-        </td>
         <td className="whitespace-nowrap px-3 py-2.5 text-right">{oGiaDong(d)}</td>
         <td className="w-16 px-2 py-2.5">
           <RowActions>
@@ -395,7 +447,7 @@ export default function TemMaVachPage() {
   };
 
   /**
-   * Hàng sản phẩm nhiều phân loại: bấm chỗ nào trên hàng cũng mở/gập; chọn cả nhóm (có lưng chừng); tổng tồn; giá bán
+   * Hàng sản phẩm nhiều phân loại: bấm chỗ nào trên hàng cũng mở/gập; chọn cả nhóm (có lưng chừng); giá bán
    * một số / khoảng / chưa có; in tem cả sản phẩm. Đang mở thì hàng dính dưới tiêu đề cột.
    */
   const hangNhom = (g, mo) => {
@@ -433,8 +485,19 @@ export default function TemMaVachPage() {
             </div>
           </div>
         </td>
-        <td className={cn("px-3 py-2.5 cam-ung:max-lg:hidden", o)} />
-        <td className={cn("whitespace-nowrap px-3 py-2.5 text-right font-medium tabular-nums text-bo-heading", o)}>{formatNumberOrDash(tt.tongTon)}</td>
+        {/* Mã sản phẩm (cha của các mã SKU bên dưới) để cột SKU · Mã vạch không trống ở hàng sản phẩm */}
+        <td className={cn("max-w-[250px] px-3 py-2.5 cam-ung:max-lg:hidden", o)}>
+          <p className="truncate text-[13.5px] text-bo-foreground">
+            <ToKhop text={g.maSanPham || "—"} tu={tuKhoa} />
+          </p>
+          {soThieuMaVach(g) ? (
+            <p className="truncate text-[12.5px] text-orange-700">{t("{{so}} SKU thiếu mã vạch", { count: soThieuMaVach(g), so: formatNumberOrDash(soThieuMaVach(g)) })}</p>
+          ) : (
+            <p className="truncate text-[12.5px] text-bo-muted">
+              {t("Mã sản phẩm · {{so}} SKU", { count: g.dong.length, so: formatNumberOrDash(g.dong.length) })}
+            </p>
+          )}
+        </td>
         <td className={cn("whitespace-nowrap px-3 py-2.5 text-right", o)}>{oGiaNhom(g, tt)}</td>
         <td className={cn("w-16 px-2 py-2.5", o)}>
           <RowActions>
@@ -468,7 +531,7 @@ export default function TemMaVachPage() {
 
   /**
    * Thẻ một SKU: ô chọn, (ảnh + tên khi là sản phẩm một phân loại); màu - cỡ cùng hàng với giá bán và In tem; dưới đó
-   * SKU · mã vạch, tồn. `trongNhom`: nằm dưới thẻ sản phẩm nhiều phân loại (thụt vào, không ảnh).
+   * SKU · mã vạch. `trongNhom`: nằm dưới thẻ sản phẩm nhiều phân loại (thụt vào, không ảnh).
    */
   const theSku = (d, g, trongNhom) => {
     const ngung = !dangHoatDong(d);
@@ -503,16 +566,13 @@ export default function TemMaVachPage() {
           <p className="truncate text-[12.5px] text-bo-muted">
             <ToKhop text={d.maSku || "—"} tu={tuKhoa} /> · {d.maVachSku ? <ToKhop text={d.maVachSku} tu={tuKhoa} /> : "—"}
           </p>
-          <p className="text-[12.5px] tabular-nums text-bo-muted">
-            {t("Tồn")} <span className={Number(d.tonKho) === 0 ? "text-slate-400" : "font-medium text-bo-foreground"}>{formatNumberOrDash(d.tonKho)}</span>
-          </p>
         </div>
       </li>
     );
   };
 
   /**
-   * Thẻ sản phẩm nhiều phân loại: ô chọn cả nhóm, bấm phần tên để mở / thu gọn các phân loại; số phân loại · tổng tồn,
+   * Thẻ sản phẩm nhiều phân loại: ô chọn cả nhóm, bấm phần tên để mở / thu gọn các phân loại; số phân loại,
    * giá bán cả sản phẩm (một số / khoảng / chưa có) và In tem cả sản phẩm. Đang mở thì các SKU nằm ngay dưới.
    */
   const theNhom = (g, mo) => {
@@ -536,7 +596,7 @@ export default function TemMaVachPage() {
                   <ToKhop text={g.ten} tu={tuKhoa} />
                 </span>
                 <span className="block text-[13px] tabular-nums text-bo-muted">
-                  {t("{{phanLoai}} · Tồn {{tongTon}}", { phanLoai: nhanPhanLoai(g, motPhan, formatNumberOrDash), tongTon: formatNumberOrDash(tt.tongTon) })}
+                  {nhanPhanLoai(g, motPhan, formatNumberOrDash)}
                 </span>
               </span>
               <span className="grid size-11 shrink-0 place-items-center text-bo-muted">
@@ -574,24 +634,39 @@ export default function TemMaVachPage() {
         toolbar={
           <>
             <ListToolbar
-              tabs={<StatusTabs label={t("Lọc SKU theo trạng thái")} tabs={statusTabs} value={tab} onChange={doiTab} />}
-              hasFilter={Boolean(tuKhoa)}
-              onClear={xoaLoc}
+              tabs={
+                <div onPointerOver={taiTruocTab} onPointerLeave={() => window.clearTimeout(henTaiTruocRef.current)}>
+                  <StatusTabs label={t("Lọc SKU theo trạng thái")} tabs={statusTabs} value={tab} onChange={doiTab} />
+                </div>
+              }
+              // Không truyền hasFilter / onClear: màn chỉ lọc bằng ô tìm, dấu × trong ô đã xóa từ khóa — thêm nút "Xóa lọc" là
+              // hai nút một việc đứng sát nhau
             >
+              {/* Máy tính: nút vuông có viền, cao bằng ô tìm (hai thứ thẳng hàng), chữ hiện khi rê chuột. Điện thoại: nút nằm
+                  riêng một hàng trên ô tìm nên ghi cả chữ cho dễ hiểu */}
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 onClick={doiMoTatCa}
                 disabled={nhomNhieu.length === 0}
-                title={nhomNhieu.length === 0 && rows.length > 0 ? t("Trang này không có sản phẩm nhiều phân loại") : undefined}
-                className="h-9 gap-1.5 px-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-bo-foreground max-sm:h-11"
+                aria-label={tatCaDangMo ? t("Thu gọn tất cả") : t("Mở tất cả")}
+                title={
+                  nhomNhieu.length === 0 && rows.length > 0
+                    ? t("Trang này không có sản phẩm nhiều phân loại")
+                    : tatCaDangMo
+                      ? t("Thu gọn tất cả")
+                      : t("Mở tất cả")
+                }
+                className="h-9 shrink-0 gap-1.5 border-bo-border bg-bo-surface text-slate-600 hover:bg-bo-surface-subtle hover:text-bo-foreground md:w-9 md:p-0 max-md:h-11 max-md:px-3"
               >
                 {tatCaDangMo ? <ChevronsDownUp className="size-4" aria-hidden="true" /> : <ChevronsUpDown className="size-4" aria-hidden="true" />}
-                {tatCaDangMo ? t("Thu gọn tất cả") : t("Mở tất cả")}
+                <span className="md:hidden">{tatCaDangMo ? t("Thu gọn tất cả") : t("Mở tất cả")}</span>
               </Button>
               <SearchInput
                 label={t("Tìm SKU")}
-                placeholder={t("Tìm tên sản phẩm, SKU hoặc quét mã vạch")}
+                // Điện thoại: ô hẹp hơn nên chữ gợi ý ngắn hơn; biểu tượng súng quét vẫn báo ô nhận máy quét
+                placeholder={isMobile ? t("Tìm tên, SKU, mã vạch") : t("Tìm tên, SKU hoặc quét mã vạch")}
+                bieuTuongCuoi={<ScanBarcode />}
                 value={searchText}
                 onChange={(event) => setSearchText(event.target.value)}
                 onKeyDown={timNgay}
@@ -604,6 +679,24 @@ export default function TemMaVachPage() {
                 className="sm:w-[360px]"
               />
             </ListToolbar>
+            {tab === "doi-gia" || tab === "chua-gia" ? (
+              <p className="flex items-start gap-2 border-b border-bo-border bg-[#f8fbff] px-3 py-2 text-[13px] text-slate-600 sm:px-4">
+                <Info className="mt-0.5 size-[15px] shrink-0 text-blue-600" aria-hidden="true" />
+                <span>
+                  {tab === "doi-gia"
+                    ? t("SKU đổi giá bán trong {{soNgay}} ngày qua. Tem đang dán còn giá cũ, cần in lại.", { soNgay: SO_NGAY_DOI_GIA })
+                    : suaDuocSanPham
+                      ? t("Tem in kèm giá nên SKU chưa có giá không in được. Bấm Đặt giá để mở form Sửa sản phẩm.")
+                      : t("Tem in kèm giá nên SKU chưa có giá không in được. Báo quản trị viên đặt giá bán.")}
+                </span>
+              </p>
+            ) : null}
+            {/* Đang tải trang chưa xem: vạch mảnh dưới hàng tab, chỉ hiện nếu chờ quá 200 ms (index.css .bo-vach-tai) */}
+            {ds.dangTaiMoi ? (
+              <div className="relative h-0" aria-hidden="true">
+                <div className="bo-vach-tai" />
+              </div>
+            ) : null}
             {daChon.length ? (
               <div className="flex flex-wrap items-center gap-2 border-b border-bo-border bg-bo-primary-soft px-3 py-2 text-sm text-bo-primary-strong sm:px-4">
                 <span className="mr-1">
@@ -660,7 +753,18 @@ export default function TemMaVachPage() {
         ) : ds.error && !ds.loiTaiLai ? (
           <ErrorState description={t("Không tải được danh sách SKU. Vui lòng thử lại.")} onRetry={ds.reload} />
         ) : rows.length === 0 ? (
-          tuKhoa ? (
+          tuKhoa && ngungQuet?.ma === tuKhoa ? (
+            <EmptyState
+              icon={Ban}
+              title={t("SKU {{maSku}} đã ngừng hoạt động", { maSku: ngungQuet.maSku })}
+              description={
+                suaDuocSanPham
+                  ? t("SKU ngừng hoạt động không in tem. Mở lại SKU ở form Sửa sản phẩm nếu vẫn bán.")
+                  : t("SKU ngừng hoạt động không in tem. Báo quản trị viên mở lại SKU nếu vẫn bán.")
+              }
+              action={<Button variant="outline" onClick={xoaLoc} className={NUT_PHU}>{t("Xóa lọc")}</Button>}
+            />
+          ) : tuKhoa ? (
             <EmptyState
               icon={SearchX}
               title={t("Không có SKU khớp “{{tuKhoa}}”", { tuKhoa })}
@@ -670,8 +774,8 @@ export default function TemMaVachPage() {
           ) : tab !== TAB_MAC_DINH ? (
             <EmptyState
               icon={Layers}
-              title={t("Không có SKU nào ở mục này")}
-              description={t("Chọn tab Tất cả để xem mọi SKU.")}
+              title={tab === "doi-gia" ? t("Không có SKU đổi giá trong {{soNgay}} ngày qua", { soNgay: SO_NGAY_DOI_GIA }) : t("Không có SKU nào ở mục này")}
+              description={tab === "doi-gia" ? t("Tem trên hàng đang khớp giá bán.") : t("Chọn tab Tất cả để xem mọi SKU.")}
               action={<Button variant="outline" onClick={() => doiTab(TAB_MAC_DINH)} className={NUT_PHU}>{t("Xem tất cả")}</Button>}
             />
           ) : (
@@ -679,13 +783,19 @@ export default function TemMaVachPage() {
           )
         ) : isMobile ? (
           // Điện thoại: mỗi sản phẩm một thẻ (nhiều phân loại thì mở / thu gọn như bảng), không vuốt ngang
-          <ul ref={bangRef} aria-label={t("SKU cần in tem")} className="divide-y divide-bo-border md:hidden">
+          <ul ref={bangRef} aria-label={t("SKU cần in tem")} aria-busy={ds.dangTaiMoi || undefined} className={cn("divide-y divide-bo-border md:hidden", ds.dangTaiMoi && "bo-bang-cho")}>
             {nhom.map((g) => (laMotPhanLoai(g) ? theSku(g.dong[0], g, false) : theNhom(g, laMo(g))))}
           </ul>
         ) : (
           // Máy tính bảng dọc (cảm ứng): bỏ cột SKU · Mã vạch (SKU xuống dưới tên), nút In tem 44px — để bảng vừa
           // khung, không vuốt ngang
-          <table ref={bangRef} aria-label={t("SKU cần in tem")} className="w-full min-w-[920px] text-sm max-md:hidden cam-ung:max-lg:min-w-0">
+          // Đang tải tab chưa xem: bảng cũ mờ đi sau 200 ms (index.css .bo-bang-cho) để thấy là đang đổi, không tưởng bấm hỏng
+          <table
+            ref={bangRef}
+            aria-label={t("SKU cần in tem")}
+            aria-busy={ds.dangTaiMoi || undefined}
+            className={cn("w-full min-w-[820px] text-sm max-md:hidden cam-ung:max-lg:min-w-0", ds.dangTaiMoi && "bo-bang-cho")}
+          >
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-bo-border bg-bo-surface-subtle">
                 <th className={`${TH} w-10 text-left`}>
@@ -696,9 +806,10 @@ export default function TemMaVachPage() {
                     className={CHECKBOX_CLASS}
                   />
                 </th>
-                <th className={`${TH} text-left`}>{t("Sản phẩm")}</th>
-                <th className={`${TH} w-[250px] text-left cam-ung:max-lg:hidden`}>{t("SKU · Mã vạch")}</th>
-                <th className={`${TH} w-24 text-right`}>{t("Tồn kho")}</th>
+                {/* Cột Sản phẩm giới hạn ~46% để cột SKU · Mã vạch đứng sát bên, không để khoảng trống giữa bảng (máy tính bảng dọc
+                    đã ẩn cột SKU nên cột này lấy hết chỗ) */}
+                <th className={`${TH} w-[46%] text-left cam-ung:max-lg:w-auto`}>{t("Sản phẩm")}</th>
+                <th className={`${TH} text-left cam-ung:max-lg:hidden`}>{t("SKU · Mã vạch")}</th>
                 <th className={`${TH} w-44 text-right`} title={t("Giá in trên tem. Đổi giá ở Danh sách sản phẩm.")}>
                   {t("Giá bán")}
                 </th>
@@ -738,6 +849,7 @@ export default function TemMaVachPage() {
         nguon={hopInTem?.nguon}
         dong={hopInTem?.dong ?? []}
         maPhieu={hopInTem?.maPhieu}
+        hienGiaCu={hopInTem?.nguon !== "phieu"}
         onDatGia={datGia}
         onDaIn={() => setChon(new Set())}
       />

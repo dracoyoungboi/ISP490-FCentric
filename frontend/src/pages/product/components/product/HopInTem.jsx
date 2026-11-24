@@ -35,20 +35,23 @@ import { t } from "@/i18n";
 const NGUONG_MAC_DINH = 200;
 // Máy tính bảng cảm ứng: cột số tem rộng hơn vì nút −/+ 44px và ô số 48px (44 + 48 + 44 + đệm 20 = 156px).
 // Điện thoại: còn 2 cột (SKU, số tem); giá trên tem và tồn thành dòng phụ dưới SKU — bảng không phải vuốt ngang.
-const COT = "grid grid-cols-[minmax(0,1fr)_110px_76px_112px] items-center cam-ung:md:grid-cols-[minmax(0,1fr)_100px_64px_156px] max-md:grid-cols-[minmax(0,1fr)_156px]";
+// Phiếu nhập: SKU, giá trên tem, SL nhập, số tem. Mở từ màn Tem mã vạch: không có cột số lượng (BA bỏ tồn khỏi in tem).
+const COT_PHIEU = "grid grid-cols-[minmax(0,1fr)_110px_76px_112px] items-center cam-ung:md:grid-cols-[minmax(0,1fr)_100px_64px_156px] max-md:grid-cols-[minmax(0,1fr)_156px]";
+const COT_CHON = "grid grid-cols-[minmax(0,1fr)_110px_112px] items-center cam-ung:md:grid-cols-[minmax(0,1fr)_100px_156px] max-md:grid-cols-[minmax(0,1fr)_156px]";
 
 /**
  * Hộp "In tem sản phẩm" (thay BarcodePrint): mở từ màn Tem mã vạch (SKU đã chọn) hoặc từ phiếu nhập đã hoàn tất.
  * - `nguon`: "chon" | "phieu" — quyết định dòng phụ đầu hộp và cách tính số tem mặc định.
- * - `dong`: SKU cần in ({ id, tenSanPham, tenMau, kichCo, maSku, maVachSku, giaBan, trangThai, tonKho, soLuong? }).
+ * - `dong`: SKU cần in ({ id, tenSanPham, tenMau, kichCo, maSku, maVachSku, giaBan, giaBanCu?, trangThai, soLuong? }).
  * - `maPhieu`: số phiếu nhập khi `nguon` = "phieu".
+ * - `hienGiaCu`: ghi giá cũ (gạch) dưới giá trên tem của SKU vừa đổi giá, để biết tem nào cần bóc.
  * - `onDatGia(dong)`: quản trị viên bấm "Đặt giá" ở dòng chưa có giá — nơi mở hộp đóng hộp rồi mở form Sửa sản phẩm
  *   của `dong.sanPhamId` (không truyền thì không có nút).
  * - `onDaIn()`: gọi khi đóng hộp sau ít nhất một lần mở hộp thoại in.
  * Dòng không in được chỉ bị bỏ qua (ghi lý do), không chặn cả lần in. In xong hộp vẫn mở (trình duyệt không cho biết
  * người dùng bấm In hay Hủy trong hộp thoại in), nên in lại hay sửa số tem không phải quét lại từ đầu.
  */
-export default function HopInTem({ open, onOpenChange, nguon = "chon", dong = [], maPhieu, onDatGia, onDaIn }) {
+export default function HopInTem({ open, onOpenChange, nguon = "chon", dong = [], maPhieu, hienGiaCu = false, onDatGia, onDaIn }) {
   // Đã mở hộp thoại in ít nhất một lần trong lần mở hộp này: hộp đóng (nút, dấu X, Esc, bấm ra ngoài, hay trang tự
   // đóng khi bấm "Đặt giá") thì báo onDaIn một lần
   const daInRef = useRef(false);
@@ -65,6 +68,7 @@ export default function HopInTem({ open, onOpenChange, nguon = "chon", dong = []
           nguon={nguon}
           dongBanDau={dong}
           maPhieu={maPhieu}
+          hienGiaCu={hienGiaCu}
           onDatGia={onDatGia}
           onDaMoIn={() => {
             daInRef.current = true;
@@ -76,7 +80,7 @@ export default function HopInTem({ open, onOpenChange, nguon = "chon", dong = []
   );
 }
 
-function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
+function NoiDung({ nguon, dongBanDau, maPhieu, hienGiaCu, onDatGia, onDaMoIn, onDong }) {
   const id = useId();
   const cauHinh = useTaiDuLieu(() => temSanPhamService.cauHinh(), "cau-hinh-tem");
   const [dsDong, setDsDong] = useState(() => boDongTrung(dongBanDau.map((d) => ({ ...d }))));
@@ -132,13 +136,14 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
   const rongXemTruoc = khungXemTruoc.width ? Math.min(280, khungXemTruoc.width - 24) : 280;
   const cacCheDo = [
     ...(nguon === "phieu" ? [[CHE_DO_SO_TEM.nhap, t("Theo SL nhập")]] : []),
-    [CHE_DO_SO_TEM.ton, t("Theo tồn")],
     [CHE_DO_SO_TEM.mot, t("1 tem mỗi SKU")],
   ];
   const nguonTxt =
     nguon === "phieu"
       ? t("Từ phiếu nhập {{maPhieu}} · số tem bằng số lượng thực nhận", { maPhieu: maPhieu ?? "" })
       : t("{{so}} SKU đã chọn", { count: dsDong.length, so: formatNumber(dsDong.length) });
+  const laPhieu = nguon === "phieu";
+  const COT = laPhieu ? COT_PHIEU : COT_CHON;
 
   const doiCheDo = (giaTri) => {
     if (giaTri === cheDo) return;
@@ -301,6 +306,10 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
         {/* Trái: danh sách SKU */}
         <div className="flex min-w-0 flex-[999_1_540px] flex-col gap-2.5">
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Chỉ phiếu nhập có hai cách tính (theo SL nhập / 1 tem mỗi SKU); mở từ màn Tem mã vạch thì luôn 1 tem mỗi
+                SKU, sửa số ở từng dòng */}
+            {cacCheDo.length > 1 ? (
+              <>
             <span id={`${id}-che-do`} className="text-[13px] text-slate-600">{t("Số tem")}</span>
             <div
               role="radiogroup"
@@ -336,6 +345,8 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                 );
               })}
             </div>
+              </>
+            ) : null}
             <label className="relative ml-auto flex w-full items-center sm:w-[230px]">
               <span className="sr-only">{t("Quét mã để thêm 1 tem")}</span>
               <ScanBarcode className="pointer-events-none absolute left-2.5 size-[15px] text-bo-muted" aria-hidden="true" />
@@ -366,7 +377,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
               <div className={cn(COT, "border-b border-[#eef1f5] bg-bo-surface-subtle text-[11px] font-semibold uppercase tracking-wide text-bo-muted *:px-2.5 *:py-2")}>
                 <div>SKU</div>
                 <div className="text-right max-md:hidden">{t("Giá trên tem")}</div>
-                <div className="text-right max-md:hidden">{nguon === "phieu" ? t("SL nhập") : t("Tồn")}</div>
+                {laPhieu ? <div className="text-right max-md:hidden">{t("SL nhập")}</div> : null}
                 <div className="text-right">{t("Số tem")}</div>
               </div>
               <div className="max-h-[340px] overflow-y-auto">
@@ -383,7 +394,8 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                             {[nhanBienThe(d), d.maVachSku].filter(Boolean).join(" · ") || "—"}
                           </p>
                           <p className="mt-px truncate text-xs tabular-nums text-bo-muted md:hidden">
-                            {t("Giá")} {Number(d.giaBan) > 0 ? formatNumber(d.giaBan) : "—"} · {nguon === "phieu" ? t("SL nhập") : t("Tồn")} {formatNumber(nguon === "phieu" ? d.soLuong : d.tonKho)}
+                            {t("Giá")} {Number(d.giaBan) > 0 ? formatNumber(d.giaBan) : "—"}
+                            {laPhieu ? ` · ${t("SL nhập")} ${formatNumber(d.soLuong)}` : null}
                           </p>
                           {lyDo ? (
                             <p className="mt-[3px] flex flex-wrap items-center gap-1.5 text-xs text-red-700">
@@ -402,8 +414,13 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
                             </p>
                           ) : null}
                         </div>
-                        <div className="text-right font-semibold tabular-nums max-md:hidden">{Number(d.giaBan) > 0 ? formatNumber(d.giaBan) : "—"}</div>
-                        <div className="text-right tabular-nums text-bo-muted max-md:hidden">{formatNumber(nguon === "phieu" ? d.soLuong : d.tonKho)}</div>
+                        <div className="text-right font-semibold tabular-nums max-md:hidden">
+                          {Number(d.giaBan) > 0 ? formatNumber(d.giaBan) : "—"}
+                          {hienGiaCu && Number(d.giaBanCu) > 0 ? (
+                            <s className="block text-xs font-normal text-slate-400" title={t("Giá trên tem đang dán")}>{formatNumber(d.giaBanCu)}</s>
+                          ) : null}
+                        </div>
+                        {laPhieu ? <div className="text-right tabular-nums text-bo-muted max-md:hidden">{formatNumber(d.soLuong)}</div> : null}
                         <div className="flex justify-end">
                           {lyDo ? (
                             <span className="text-[12.5px] text-slate-400">{t("Bỏ qua")}</span>

@@ -22,7 +22,7 @@ export const LY_DO_BO_QUA = Object.freeze({
 });
 
 /** Cách tính số tem mặc định của từng dòng theo nơi mở hộp in. */
-export const CHE_DO_SO_TEM = Object.freeze({ nhap: "nhap", ton: "ton", mot: "mot" });
+export const CHE_DO_SO_TEM = Object.freeze({ nhap: "nhap", mot: "mot" });
 
 /** Cách tính mặc định: mở từ phiếu nhập → theo số lượng nhập; còn lại → 1 tem. */
 export function cheDoMacDinh(nguon) {
@@ -87,10 +87,9 @@ export function pxMoiMmXemTruoc(kho, rongPx = 280) {
     return Math.min(8, Math.floor((rongPx / kho.rongTem) * 10) / 10);
 }
 
-/** Số tem mặc định của một dòng: theo số lượng nhập của phiếu, theo tồn hoặc 1 tem. */
+/** Số tem mặc định của một dòng: theo số lượng nhập của phiếu hoặc 1 tem (BA bỏ in theo tồn). */
 export function soTemMacDinh(dong, cheDo) {
     if (cheDo === CHE_DO_SO_TEM.nhap) return gioiHanSoTem(dong?.soLuong);
-    if (cheDo === CHE_DO_SO_TEM.ton) return gioiHanSoTem(dong?.tonKho);
     return 1;
 }
 
@@ -140,7 +139,7 @@ export function giaTrenTem(gia) {
 
 /**
  * Dòng in tem từ máy chủ (DongInTemDto: bienTheId, tenSanPham, maSku, maVachSku, tenMau, kichCo, trangThai, giaBan,
- * tonKho, soLuong) về cùng dạng với dòng của màn Tem mã vạch (id thay cho bienTheId).
+ * soLuong) về cùng dạng với dòng của màn Tem mã vạch (id thay cho bienTheId).
  */
 export function chuanHoaDongInTem(x) {
     return {
@@ -154,7 +153,8 @@ export function chuanHoaDongInTem(x) {
         kichCo: x.kichCo ?? null,
         trangThai: x.trangThai,
         giaBan: x.giaBan ?? null,
-        tonKho: Number(x.tonKho) || 0,
+        // Giá trước lần đổi giá gần nhất trong 7 ngày (để biết tem nào đang dán giá cũ); null nếu không đổi gần đây
+        giaBanCu: x.giaBanCu ?? null,
         soLuong: x.soLuong ?? null,
     };
 }

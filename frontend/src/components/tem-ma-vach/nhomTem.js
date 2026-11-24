@@ -9,12 +9,19 @@ import { t } from "../../i18n/t.js";
 
 export { laMotPhanLoai, nhomDangMo };
 
-/** Tab trạng thái (đếm theo SKU), mã nằm trên URL ?trangThai=. */
+/**
+ * Tab theo việc cần làm (đếm theo SKU đang hoạt động; SKU ngừng không in tem nên không hiện ở màn này), mã nằm trên URL
+ * ?trangThai=. "Đổi giá gần đây": đổi giá bán trong {@link SO_NGAY_DOI_GIA} ngày qua. "Thiếu mã vạch" chỉ hiện khi có.
+ */
 export const TAB_TEM = Object.freeze([
-  { value: "tat-ca", label: t("Tất cả") },
-  { value: "hoat-dong", label: t("Hoạt động") },
-  { value: "ngung-hoat-dong", label: t("Ngừng hoạt động") },
+  { value: "tat-ca", label: t("Tất cả"), dem: "tatCa" },
+  { value: "doi-gia", label: t("Đổi giá gần đây"), dem: "doiGia" },
+  { value: "chua-gia", label: t("Chưa có giá"), dem: "chuaGia", tone: "warning" },
+  { value: "thieu-ma", label: t("Thiếu mã vạch"), dem: "thieuMa", tone: "warning", anKhiRong: true },
 ]);
+
+/** Số ngày của tab "Đổi giá gần đây" (cùng GiaBanBienTheService.SO_NGAY_DOI_GIA_GAN_DAY). */
+export const SO_NGAY_DOI_GIA = 7;
 
 /** Số sản phẩm mỗi trang: mỗi sản phẩm kéo theo đủ SKU nên không cho 100. */
 export const SO_SAN_PHAM_MOI_TRANG = [10, 20, 50];
@@ -43,7 +50,8 @@ export function chuanHoaTrang(data) {
       kichCo: b.kichCo ?? null,
       trangThai: b.trangThai,
       giaBan: b.giaBan ?? null,
-      tonKho: so(b.tonKho),
+      giaBanCu: b.giaBanCu ?? null,
+      ngayDoiGia: b.ngayDoiGia ?? null,
     }));
     const tong = Number(g?.tongPhanLoai);
     return {
@@ -71,11 +79,12 @@ export function dongCuaTrang(nhoms) {
 }
 
 /**
- * Nhóm tự mở: tab Ngừng hoạt động, tìm kiếm chỉ khớp SKU / mã vạch của một phần phân loại (khớp tên sản phẩm thì máy
- * chủ trả đủ phân loại → không tự mở), và nhóm chứa dòng vừa quét.
+ * Nhóm tự mở: tab khác "Tất cả" (Đổi giá gần đây, Chưa có giá, Thiếu mã vạch — việc nằm ở từng SKU), tìm kiếm chỉ khớp
+ * SKU / mã vạch của một phần phân loại (khớp tên sản phẩm thì máy chủ trả đủ phân loại → không tự mở), và nhóm chứa
+ * dòng vừa quét.
  */
 export function tuMoNhom(nhom, { tab, tuKhoa, idNoiBat = null }) {
-  if (tab === "ngung-hoat-dong") return true;
+  if (tab && tab !== "tat-ca") return true;
   if (tuKhoa && !nhom.khopTen && nhom.dong.length < nhom.tongPhanLoai) return true;
   return idNoiBat != null && nhom.dong.some((d) => d.id === idNoiBat);
 }
@@ -94,13 +103,11 @@ export function trangThaiChon(ids, chon) {
 
 /**
  * Tóm tắt hàng sản phẩm (tính trên các SKU đang hiện của nhóm; nếu không SKU nào đang hoạt động thì tính trên tất cả):
- * - tongTon: tổng tồn;
  * - giaBan: { loai: "mot", gia } | { loai: "khoang", thapNhat, caoNhat, thieuGia } | { loai: "chua" }.
  */
 export function tomTatNhom(nhom) {
   const hoatDong = nhom.dong.filter(dangHoatDong);
   const xet = hoatDong.length ? hoatDong : nhom.dong;
-  const tongTon = nhom.dong.reduce((tong, d) => tong + so(d.tonKho), 0);
   const ban = xet.map((d) => d.giaBan);
   const coGiaBan = ban.filter(coGia).map(so);
   let giaBan;
@@ -108,8 +115,11 @@ export function tomTatNhom(nhom) {
   else if (coGiaBan.length === ban.length && coGiaBan.every((g) => g === coGiaBan[0])) giaBan = { loai: "mot", gia: coGiaBan[0] };
   // thieuGia: có phân loại (đang xét) chưa có giá — khoảng giá chỉ tính các phân loại đã có giá
   else giaBan = { loai: "khoang", thapNhat: Math.min(...coGiaBan), caoNhat: Math.max(...coGiaBan), thieuGia: coGiaBan.length < ban.length };
-  return { tongTon, giaBan };
+  return { giaBan };
 }
+
+/** Số SKU thiếu mã vạch của nhóm (hàng sản phẩm báo màu cam). */
+export const soThieuMaVach = (nhom) => nhom.dong.filter((d) => !String(d.maVachSku ?? "").trim()).length;
 
 /** Tìm SKU đúng mã quét (mã vạch hoặc SKU, không phân biệt hoa thường) trong trang đang xem. */
 export function timDongQuet(nhoms, ma) {

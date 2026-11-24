@@ -48,10 +48,11 @@ export const productService = {
      * Màn "Tem mã vạch": sản phẩm (phân trang theo sản phẩm) kèm biến thể khớp bộ lọc (giá bán, tồn, mã vạch) và số đếm
      * theo tab. `size` là số SẢN PHẨM mỗi trang. Trả phần `data` của phản hồi.
      */
-    locGiaBan: async ({ page = 0, size = 20, tuKhoa = "", trangThai = "tat-ca" } = {}) => {
+    // kemDem = false: không đếm lại 4 tab (đổi tab / trang — số đếm chỉ phụ thuộc từ khóa)
+    locGiaBan: async ({ page = 0, size = 20, tuKhoa = "", trangThai = "tat-ca", kemDem } = {}) => {
         const res = await apiClient.post(
             "/api/v1/san-pham-quan-ao/gia-ban/filter",
-            { page, size, tuKhoa, trangThai },
+            { page, size, tuKhoa, trangThai, kemDem },
             { needKho: false },
         );
         return res.data?.data;
