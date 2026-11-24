@@ -1850,19 +1850,14 @@ class KenhBanHangDongBoServiceTest {
     }
 
     @Test
-    @DisplayName("Shopee: getLocations kết hợp kho/địa chỉ Shopee với các kho vật lý FCentric khi Shopee dùng mô hình 1 kho")
-    void getLocations_shopee_ketHopKhoShopeeVaKhoFCentricKhiShopMotKho() throws Exception {
+    @DisplayName("Hướng B - Shopee: getLocations chỉ trả địa chỉ lấy hàng Shopee thật, không tự bơm kho FCentric ảo")
+    void getLocations_shopee_chiTraDiaChiShopeeKhongBomKhoFCentricAo() throws Exception {
         KenhBanHang shopeeKenh = KenhBanHang.builder().id(7).maKenh("SHOPEE_SANDBOX").tenKenh("Shopee Sandbox").trangThai(1).build();
         when(kenhBanHangRepository.findByMaKenh("SHOPEE_SANDBOX")).thenReturn(Optional.of(shopeeKenh));
         when(kenhBanHangService.getShopeePartnerId("SHOPEE_SANDBOX")).thenReturn(12345L);
         when(kenhBanHangService.getDecryptedShopeePartnerKey("SHOPEE_SANDBOX")).thenReturn("mock_partner_key");
         when(kenhBanHangService.getDecryptedShopeeAccessToken("SHOPEE_SANDBOX")).thenReturn("tok_shp");
         when(kenhBanHangService.getShopeeShopId("SHOPEE_SANDBOX")).thenReturn(8888L);
-
-        var khoTong = com.dev.backend.entities.Kho.builder().id(1).maKho("KHO_TONG").tenKho("Kho Tổng Hà Nội").loaiKho("kho_tong").trangThai(1).build();
-        var khoHcm = com.dev.backend.entities.Kho.builder().id(2).maKho("KHO_HCM").tenKho("Kho TP.HCM").loaiKho("cua_hang").trangThai(1).build();
-        var khoTransit = com.dev.backend.entities.Kho.builder().id(3).maKho("KHO_TRANSIT").tenKho("Kho Transit").loaiKho("transit").trangThai(1).build();
-        when(khoRepository.findByTrangThai(1)).thenReturn(List.of(khoTong, khoHcm, khoTransit));
 
         var spyService = spy(service);
         var mockClient = mock(com.dev.backend.services.shopee.ShopeeClient.class);
@@ -1875,11 +1870,10 @@ class KenhBanHangDongBoServiceTest {
 
         var ds = spyService.getLocations("SHOPEE_SANDBOX");
 
-        assertTrue(ds.size() >= 3, "Phải trả về địa chỉ Shopee kèm các kho FCentric đang hoạt động (trừ KHO_TRANSIT)");
+        assertEquals(1, ds.size(), "Hướng B: Shopee đơn kho chỉ trả đúng 1 địa chỉ lấy hàng từ sàn");
         assertTrue(ds.stream().anyMatch(l -> "5001".equals(l.getMaKhoSan())));
-        assertTrue(ds.stream().anyMatch(l -> "fcentric-kho-1".equals(l.getMaKhoSan())));
-        assertTrue(ds.stream().anyMatch(l -> "fcentric-kho-2".equals(l.getMaKhoSan())));
-        assertFalse(ds.stream().anyMatch(l -> l.getMaKhoSan().contains("-3")), "Không được đưa KHO_TRANSIT vào danh sách chọn kho");
+        assertTrue(ds.stream().noneMatch(l -> l.getMaKhoSan() != null && l.getMaKhoSan().startsWith("fcentric-kho-")),
+                "Không được tự bơm kho ảo fcentric-kho-* vào danh sách kho Shopee");
     }
 
     @Test

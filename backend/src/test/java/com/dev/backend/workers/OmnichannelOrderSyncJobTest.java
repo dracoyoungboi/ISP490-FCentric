@@ -697,4 +697,116 @@ class OmnichannelOrderSyncJobTest {
         assertEquals("da_thanh_toan", existingWrong.getTrangThaiThanhToan(),
                 "Cash on Delivery sau khi COMPLETED mới đổi sang da_thanh_toan");
     }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("Shopee READY_TO_SHIP không có tracking/ĐVVC: không bịa SPXVN<orderSn>, không ghi [ĐƠN VỊ: ], lưu rõ PTTT Ví ShopeePay")
+    void processSingleShopeeOrder_noTrackingOrBlankCarrier_neverFabricatesSpxvnOrEmptyTag() {
+        var kenh = KenhBanHang.builder().id(8).maKenh("SHOPEE_OFFICIAL").tenKenh("Shopee").build();
+        var khoTong = com.dev.backend.entities.Kho.builder()
+                .id(1).maKho("KHO_TONG").tenKho("Kho Tổng").loaiKho("kho_tong").trangThai(1).build();
+        when(khoRepository.findByTrangThai(1)).thenReturn(List.of(khoTong));
+        when(khachHangRepository.findFirstBySoDienThoai("0903334455"))
+                .thenReturn(Optional.of(KhachHang.builder().id(12).tenKhachHang("Khách Shopee").build()));
+        when(donBanHangRepository.findBySoDonHang("SHP-261125EWALLET")).thenReturn(Optional.empty());
+
+        var addr = new com.dev.backend.dto.response.customize.ShopeeOrderDto.ShopeeRecipientAddressDto();
+        addr.setName("****");
+        addr.setPhone("0903334455");
+        addr.setFullAddress("****");
+
+        var dto = new com.dev.backend.dto.response.customize.ShopeeOrderDto();
+        dto.setOrderSn("261125EWALLET");
+        dto.setOrderStatus("READY_TO_SHIP");
+        dto.setPaymentMethod("ShopeePay");
+        dto.setShippingCarrier("");
+        dto.setTrackingNumber(null);
+        dto.setTotalAmount(540000.0);
+        dto.setRecipientAddress(addr);
+
+        assertTrue(job.processSingleShopeeOrder(dto, kenh));
+
+        ArgumentCaptor<DonBanHang> cap = ArgumentCaptor.forClass(DonBanHang.class);
+        verify(donBanHangRepository).save(cap.capture());
+        String note = cap.getValue().getGhiChu();
+        assertNotNull(note);
+        assertFalse(note.contains("SPXVN261125EWALLET"), "Tuyệt đối không tự bịa mã SPXVN theo mã đơn");
+        assertFalse(note.contains("[ĐƠN VỊ: ]"), "Tuyệt đối không ghi thẻ [ĐƠN VỊ: ] rỗng");
+        assertTrue(note.contains("[PTTT: Ví ShopeePay]"));
+        assertFalse(note.contains("[COD:"));
+        assertEquals("da_thanh_toan", cap.getValue().getTrangThaiThanhToan());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("syncRealShopeeOrders: gọi get_shipping_document_data_info lấy mã chia chọn tuyến thật & tự chữa đơn lưu SPXVN giả")
+    void syncRealShopeeOrders_enrichesRealSortCodeAndHealsBrokenOrder() {
+        var shopeeClientMock = mock(com.dev.backend.services.shopee.ShopeeClient.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(job, "shopeeClient", shopeeClientMock);
+
+        var kenh = KenhBanHang.builder().id(8).maKenh("SHOPEE_OFFICIAL").tenKenh("Shopee").build();
+        when(kenhBanHangService.getShopeeShopId("SHOPEE_OFFICIAL")).thenReturn(88201679L);
+        when(kenhBanHangService.getShopeePartnerId("SHOPEE_OFFICIAL")).thenReturn(2001L);
+        when(kenhBanHangService.getDecryptedShopeePartnerKey("SHOPEE_OFFICIAL")).thenReturn("pk_live");
+        when(kenhBanHangService.getDecryptedShopeeAccessToken("SHOPEE_OFFICIAL")).thenReturn("at_live");
+
+        String sn = "261120S3WBWNQG";
+        var existingBroken = DonBanHang.builder()
+                .id(76).soDonHang("SHP-" + sn).maDonHangKenh(sn).kenhBanHang(kenh)
+                .trangThai(5).trangThaiThanhToan("chua_thanh_toan")
+                .tongCong(new BigDecimal("320000"))
+                .ghiChu("[VẬN ĐƠN: SPXVN" + sn + "] [ĐƠN VỊ: ] | Đơn hàng đồng bộ tự động từ Shopee #" + sn)
+                .build();
+        when(donBanHangRepository.findBySoDonHang("SHP-" + sn)).thenReturn(Optional.of(existingBroken));
+
+        var listRes = mapper.createObjectNode().put("error", "");
+        listRes.putObject("response").put("more", false).putArray("order_list").addObject().put("order_sn", sn);
+        when(shopeeClientMock.getOrderList(eq("2001"), eq("pk_live"), eq("at_live"), eq("88201679"),
+                anyLong(), anyLong(), eq("update_time"), isNull(), eq(50), isNull(), eq(false)))
+                .thenReturn(listRes);
+
+        var detailRes = mapper.createObjectNode().put("error", "");
+        var ordNode = detailRes.putObject("response").putArray("order_list").addObject();
+        ordNode.put("order_sn", sn)
+                .put("order_status", "PROCESSED")
+                .put("payment_method", "CASH_ON_DELIVERY")
+                .put("shipping_carrier", "")
+                .put("total_amount", 320000.0);
+        ordNode.putArray("package_list").addObject()
+                .put("package_number", "PKG-888")
+                .put("shipping_carrier", "Shopee Xpress (SPX VN)");
+        when(shopeeClientMock.getOrderDetail(eq("2001"), eq("pk_live"), eq("at_live"), eq("88201679"),
+                eq(List.of(sn)), eq(false)))
+                .thenReturn(detailRes);
+
+        var trackRes = mapper.createObjectNode().put("error", "");
+        trackRes.putObject("response").put("tracking_number", "SPXVN05998877");
+        when(shopeeClientMock.getTrackingNumber(eq("2001"), eq("pk_live"), eq("at_live"), eq("88201679"),
+                eq(sn), eq(false)))
+                .thenReturn(trackRes);
+
+        var docRes = mapper.createObjectNode().put("error", "");
+        var info = docRes.putObject("response").putObject("shipping_document_info");
+        info.put("tracking_number", "SPXVN05998877");
+        info.put("shipping_carrier", "Shopee Xpress (SPX VN)");
+        info.put("cod", true);
+        info.put("cod_amount", 320000);
+        info.putObject("recipient_sort_code")
+                .put("first_recipient_sort_code", "20-HAN-DD")
+                .put("second_recipient_sort_code", "HN012-00-01");
+        when(shopeeClientMock.getShippingDocumentDataInfo(eq("2001"), eq("pk_live"), eq("at_live"), eq("88201679"),
+                eq(sn), eq("PKG-888"), eq(false)))
+                .thenReturn(docRes);
+
+        job.syncRealShopeeOrders(kenh, Instant.now().minusSeconds(600), Instant.now());
+
+        String healed = existingBroken.getGhiChu();
+        assertNotNull(healed);
+        assertFalse(healed.contains("SPXVN" + sn), "Mã SPXVN giả phải bị ghi đè bởi mã vận đơn thật");
+        assertFalse(healed.contains("[ĐƠN VỊ: ]"), "Thẻ [ĐƠN VỊ: ] rỗng phải bị thay bằng ĐVVC thật");
+        assertTrue(healed.contains("[VẬN ĐƠN: SPXVN05998877]"));
+        assertTrue(healed.contains("[ĐƠN VỊ: Shopee Xpress (SPX VN)]"));
+        assertTrue(healed.contains("[TUYẾN: 20-HAN-DD]"));
+        assertTrue(healed.contains("[TRẠM: HN012-00-01]"));
+        assertTrue(healed.contains("[PTTT: COD]"));
+        assertTrue(healed.contains("[COD: 320000]"));
+    }
 }
