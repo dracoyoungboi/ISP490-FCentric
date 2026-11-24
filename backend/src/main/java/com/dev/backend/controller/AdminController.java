@@ -6,11 +6,16 @@ import com.dev.backend.dto.request.BaseFilterRequest;
 import com.dev.backend.dto.request.LuuPhanQuyenRequest;
 import com.dev.backend.dto.request.NguoiDungCreating;
 import com.dev.backend.dto.response.ResponseData;
+import com.dev.backend.dto.response.entities.CanChuYDangNhapDto;
+import com.dev.backend.dto.response.entities.DongDangNhapHeThongDto;
 import com.dev.backend.dto.response.entities.NguoiDungDto;
+import com.dev.backend.dto.response.entities.NhatKyDangNhapNguoiDungDto;
+import com.dev.backend.dto.response.entities.TrangThaiDangNhapDto;
 import com.dev.backend.dto.response.phanquyen.LichSuPhanQuyenDto;
 import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.mapper.NguoiDungMapper;
 import com.dev.backend.services.impl.entities.NguoiDungService;
+import com.dev.backend.services.impl.multitable.NhatKyDangNhapService;
 import com.dev.backend.services.multitable.PhanQuyenNguoiDungService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -30,11 +35,15 @@ public class AdminController {
 
     private final PhanQuyenNguoiDungService phanQuyenNguoiDungService;
 
+    private final NhatKyDangNhapService nhatKyDangNhapService;
+
     public AdminController(NguoiDungService nguoiDungService, NguoiDungMapper nguoiDungMapper,
-                           PhanQuyenNguoiDungService phanQuyenNguoiDungService) {
+                           PhanQuyenNguoiDungService phanQuyenNguoiDungService,
+                           NhatKyDangNhapService nhatKyDangNhapService) {
         this.nguoiDungService = nguoiDungService;
         this.nguoiDungMapper = nguoiDungMapper;
         this.phanQuyenNguoiDungService = phanQuyenNguoiDungService;
+        this.nhatKyDangNhapService = nhatKyDangNhapService;
     }
 
     @PostMapping("/filter")
@@ -168,6 +177,75 @@ public class AdminController {
                 ResponseData.<List<LichSuPhanQuyenDto>>builder()
                         .status(HttpStatus.OK.value())
                         .data(phanQuyenNguoiDungService.layLichSuPhanQuyen(id))
+                        .message("Success")
+                        .build()
+        );
+    }
+
+    // Trạng thái đăng nhập của các người dùng đang hiện trên danh sách (biểu tượng bất thường — PA C). ids trên URL,
+    // tối đa bằng cỡ trang, nên nhẹ. Dựng từ dữ liệu sẵn có, không thêm cột.
+    @GetMapping("/users/trang-thai-dang-nhap")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    public ResponseEntity<ResponseData<List<TrangThaiDangNhapDto>>> trangThaiDangNhap(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(required = false) List<Integer> ids
+    ) {
+        return ResponseEntity.ok(
+                ResponseData.<List<TrangThaiDangNhapDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(nhatKyDangNhapService.trangThaiNhieuNguoi(ids == null ? List.of() : ids))
+                        .message("Success")
+                        .build()
+        );
+    }
+
+    // Màn Nhật ký đăng nhập toàn hệ thống: lọc theo từ khóa (họ tên / tên đăng nhập / IP), kết quả, khoảng ngày.
+    @GetMapping("/nhat-ky-dang-nhap")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    public ResponseEntity<ResponseData<Page<DongDangNhapHeThongDto>>> nhatKyDangNhapHeThong(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "all") String ketQua,
+            @RequestParam(required = false, defaultValue = "7") int soNgay,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "20") int size
+    ) {
+        return ResponseEntity.ok(
+                ResponseData.<Page<DongDangNhapHeThongDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(nhatKyDangNhapService.heThong(q, ketQua, soNgay, PageRequest.of(Math.max(page, 0), size)))
+                        .message("Success")
+                        .build()
+        );
+    }
+
+    // Khung "Cần chú ý" của màn Nhật ký đăng nhập (24 giờ gần nhất).
+    @GetMapping("/nhat-ky-dang-nhap/can-chu-y")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    public ResponseEntity<ResponseData<List<CanChuYDangNhapDto>>> canChuYDangNhap(
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        return ResponseEntity.ok(
+                ResponseData.<List<CanChuYDangNhapDto>>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(nhatKyDangNhapService.canChuYHeThong())
+                        .message("Success")
+                        .build()
+        );
+    }
+
+    // Nhật ký đăng nhập của một người dùng (tab "Đăng nhập" ở Chi tiết): thiết bị đang đăng nhập + lịch sử 90 ngày,
+    // dựng từ dữ liệu sẵn có (không thêm bảng). Chỉ xem, không có nút đăng xuất thiết bị của người khác.
+    @GetMapping("/users/{id}/nhat-ky-dang-nhap")
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    public ResponseEntity<ResponseData<NhatKyDangNhapNguoiDungDto>> nhatKyDangNhap(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Integer id
+    ) {
+        return ResponseEntity.ok(
+                ResponseData.<NhatKyDangNhapNguoiDungDto>builder()
+                        .status(HttpStatus.OK.value())
+                        .data(nhatKyDangNhapService.cuaNguoiDung(id))
                         .message("Success")
                         .build()
         );

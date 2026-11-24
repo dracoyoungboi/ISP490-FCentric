@@ -1,6 +1,7 @@
 package com.dev.backend.repository;
 
 import com.dev.backend.entities.LichSuThayDoi;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -67,4 +69,40 @@ public interface LichSuThayDoiRepository extends JpaRepository<LichSuThayDoi, In
     /** Mọi dòng của nhiều đối tượng cùng loại, cũ trước (nhật ký biên bản trả hàng nhà cung cấp: dựng lại từng việc). */
     @EntityGraph(attributePaths = {"nguoiThucHien"})
     List<LichSuThayDoi> findByLoaiThamChieuAndIdThamChieuInOrderByIdAsc(String loaiThamChieu, Collection<Integer> idThamChieus);
+
+    // ── Nhật ký đăng nhập (tab Đăng nhập + màn Nhật ký đăng nhập), dựng từ dữ liệu sẵn có ──
+
+    /** (idThamChieu, ghiChu) của các dòng một hành động, trong nhiều đối tượng, từ thời điểm cho trước (đánh dấu bất thường). */
+    @Query("SELECT l.idThamChieu, l.ghiChu FROM LichSuThayDoi l WHERE l.loaiThamChieu = :loai"
+            + " AND l.hanhDong = :hanhDong AND l.idThamChieu IN :ids AND l.ngayThucHien >= :tu")
+    List<Object[]> idVaGhiChuTheoHanhDongTuNgay(@Param("loai") String loaiThamChieu, @Param("hanhDong") String hanhDong,
+                                                @Param("ids") Collection<Integer> ids, @Param("tu") Instant tu);
+
+    /** (idThamChieu, lần cuối) của một hành động trong nhiều đối tượng (đăng nhập gần nhất của danh sách người dùng). */
+    @Query("SELECT l.idThamChieu, MAX(l.ngayThucHien) FROM LichSuThayDoi l WHERE l.loaiThamChieu = :loai"
+            + " AND l.hanhDong = :hanhDong AND l.idThamChieu IN :ids GROUP BY l.idThamChieu")
+    List<Object[]> lanCuoiTheoHanhDong(@Param("loai") String loaiThamChieu, @Param("hanhDong") String hanhDong,
+                                       @Param("ids") Collection<Integer> ids);
+
+    /** Mọi dòng của một hành động trên toàn hệ thống từ thời điểm cho trước, kèm người (khung "Cần chú ý" màn nhật ký). */
+    @EntityGraph(attributePaths = {"nguoiThucHien"})
+    @Query("SELECT l FROM LichSuThayDoi l WHERE l.loaiThamChieu = :loai AND l.hanhDong = :hanhDong"
+            + " AND l.ngayThucHien >= :tu ORDER BY l.ngayThucHien DESC, l.id DESC")
+    List<LichSuThayDoi> toanHeThongTheoHanhDongTuNgay(@Param("loai") String loaiThamChieu,
+                                                      @Param("hanhDong") String hanhDong, @Param("tu") Instant tu);
+
+    /**
+     * Nhật ký đăng nhập toàn hệ thống (màn Nhật ký đăng nhập): các hành động cho trước từ thời điểm cho trước, lọc theo
+     * từ khóa (họ tên / tên đăng nhập / ghi chú chứa IP). q đã là "%tu_khoa%" chữ thường, hoặc null để không lọc.
+     * Thứ tự do Pageable (mới nhất trước).
+     */
+    @EntityGraph(attributePaths = {"nguoiThucHien"})
+    @Query("SELECT l FROM LichSuThayDoi l WHERE l.loaiThamChieu = :loai AND l.hanhDong IN :hanhDongs"
+            + " AND l.ngayThucHien >= :tu AND (:q IS NULL"
+            + " OR LOWER(COALESCE(l.nguoiThucHien.hoTen, '')) LIKE :q"
+            + " OR LOWER(COALESCE(l.nguoiThucHien.tenDangNhap, '')) LIKE :q"
+            + " OR LOWER(COALESCE(l.ghiChu, '')) LIKE :q)")
+    Page<LichSuThayDoi> nhatKyDangNhapHeThong(@Param("loai") String loaiThamChieu,
+                                              @Param("hanhDongs") Collection<String> hanhDongs,
+                                              @Param("tu") Instant tu, @Param("q") String q, Pageable pageable);
 }
