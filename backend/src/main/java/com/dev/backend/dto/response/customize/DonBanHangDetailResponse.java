@@ -31,4 +31,6 @@ public class DonBanHangDetailResponse {
     private Boolean coTheGuiSangKho;
     /** true nếu đơn Shopee đang chờ xác nhận (UNPAID) — chỉ cho phép xem, chưa gửi kho/in vận đơn. */
     private Boolean choXacNhanSan;
+    /** Đơn Chờ nhặt hàng mà kho xuất đang thiếu hàng (hoặc đang kiểm kê toàn kho); null khi kho đủ hoặc đơn ở bước khác. */
+    private ThieuTonKhoXuatDto thieuTonKhoXuat;
 }

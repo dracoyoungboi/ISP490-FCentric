@@ -20,6 +20,7 @@ import com.dev.backend.dto.response.customize.DonBanHangKpiHomNayDto;
 import com.dev.backend.dto.response.customize.KhoKhaDungDto;
 import com.dev.backend.dto.response.customize.PhieuXuatKhoSummaryDto;
 import com.dev.backend.dto.response.customize.ThanhToanTaiQuayDto;
+import com.dev.backend.dto.response.customize.ThieuTonKhoXuatDto;
 import com.dev.backend.dto.response.customize.TongQuanMuaHangKhachDto;
 import com.dev.backend.dto.response.entities.ChiTietDonBanHangDto;
 import com.dev.backend.dto.response.entities.DonBanHangDto;
@@ -82,6 +83,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -658,6 +660,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .tachNhieuKhoSan(routingMeta != null && routingMeta.isSplitMultiLocation())
                 .coTheGuiSangKho(coTheGuiKho)
                 .choXacNhanSan(choXacNhanSan)
+                .thieuTonKhoXuat(Integer.valueOf(ITrangThaiDonBanHang.CHO_NHAT_HANG).equals(don.getTrangThai())
+                        ? tinhThieuTonTaiKho(don, don.getKhoXuat())
+                        : null)
                 .build();
     }
 
@@ -760,10 +765,12 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                         Map.of("khoId", khoHienTai.getId(), "tenKho", khoHienTai.getTenKho(), "lyDo", "kho_khong_hoat_dong")
                 );
             }
-            String chiTietThieu = kiemTraDuTonTaiKho(don, khoHienTai);
-            if (chiTietThieu != null) {
-                // Vẫn gửi đơn sang kho hiện tại và trả về cảnh báo để người dùng biết cần chuyển kho nội bộ sau khi nhận đơn
-                canhBaoThieuTon = ThongDiep.dich("banHang.donSanKhongDuTonTaiKhoHienTai", khoHienTai.getTenKho(), chiTietThieu);
+            ThieuTonKhoXuatDto thieuTon = tinhThieuTonTaiKho(don, khoHienTai);
+            if (thieuTon != null) {
+                // Vẫn gửi đơn sang kho hiện tại; màn chi tiết đơn hiện dải cảnh báo kể từng dòng thiếu cho tới khi kho đủ hàng
+                canhBaoThieuTon = thieuTon.getDotKiemKeToanKho() != null
+                        ? ThongDiep.dich("banHang.donSanKhoXuatDangKiemKe", khoHienTai.getTenKho(), thieuTon.getDotKiemKeToanKho())
+                        : ThongDiep.dich("banHang.donSanKhongDuTonTaiKhoHienTai", khoHienTai.getTenKho(), thieuTon.getDong().size());
             }
             khoChon = khoHienTai;
         } else if (khoId != null) {
@@ -1028,52 +1035,73 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     }
 
     /**
-     * Kiểm tra tồn khả dụng của đơn tại kho hiện tại. Trả null nếu đủ hàng; ngược lại trả mô tả ngắn
-     * (vd. SKU hoặc đợt kiểm kê) để kích hoạt luồng fallback chọn kho thủ công.
+     * Tồn khả dụng của đơn tại kho xuất. Trả null nếu kho đủ hàng; ngược lại trả mọi biến thể thiếu (đã cộng các
+     * dòng trùng biến thể), hoặc mã đợt kiểm kê đang khóa toàn kho. Tồn khả dụng = tồn theo lô − hàng các đơn khác
+     * và phiếu chuyển kho đang giữ − phần đang kiểm kê.
      */
-    private String kiemTraDuTonTaiKho(DonBanHang don, Kho kho) {
-        if (chiTietDonBanHangRepository == null || tonKhoTheoLoRepository == null || don.getId() == null) {
+    private ThieuTonKhoXuatDto tinhThieuTonTaiKho(DonBanHang don, Kho kho) {
+        if (kho == null || kho.getId() == null || chiTietDonBanHangRepository == null
+                || tonKhoTheoLoRepository == null || don.getId() == null) {
             return null;
         }
         List<ChiTietDonBanHang> chiTiets = chiTietDonBanHangRepository.findByDonBanHangId(don.getId());
         if (chiTiets == null || chiTiets.isEmpty()) {
             return null;
         }
-        List<Integer> bienTheIds = chiTiets.stream()
-                .map(ct -> ct.getBienTheSanPham() != null ? ct.getBienTheSanPham().getId() : null)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        if (bienTheIds.isEmpty()) {
+        Map<Integer, BigDecimal> canTheoBienThe = new LinkedHashMap<>();
+        Map<Integer, BienTheSanPham> bienTheTheoId = new HashMap<>();
+        for (ChiTietDonBanHang ct : chiTiets) {
+            BienTheSanPham bt = ct.getBienTheSanPham();
+            BigDecimal soLuongDat = ct.getSoLuongDat() != null ? ct.getSoLuongDat() : BigDecimal.ZERO;
+            if (bt == null || bt.getId() == null || soLuongDat.signum() <= 0) {
+                continue;
+            }
+            canTheoBienThe.merge(bt.getId(), soLuongDat, BigDecimal::add);
+            bienTheTheoId.putIfAbsent(bt.getId(), bt);
+        }
+        if (canTheoBienThe.isEmpty()) {
             return null;
         }
+        List<Integer> bienTheIds = new ArrayList<>(canTheoBienThe.keySet());
         Integer khoId = kho.getId();
-        Map<Integer, BigDecimal> khoOnHand = khaDungLoTheoKho(bienTheIds).getOrDefault(khoId, Collections.emptyMap());
-        Map<Integer, BigDecimal> khoOutgoing = choXuatTheoKhoAnToan(bienTheIds, don.getId()).getOrDefault(khoId, Collections.emptyMap());
         KhoaKiemKeGuard.KiemKeTheoMa khoKiemKe = khoaKiemKeGuard != null
                 ? khoaKiemKeGuard.dangKiemKeTheoMa(khoId, bienTheIds)
                 : KhoaKiemKeGuard.KiemKeTheoMa.RONG;
         if (khoKiemKe.dotToanKho() != null) {
-            return "đang kiểm kê " + khoKiemKe.dotToanKho();
+            return ThieuTonKhoXuatDto.builder()
+                    .khoId(khoId)
+                    .tenKho(kho.getTenKho())
+                    .dotKiemKeToanKho(khoKiemKe.dotToanKho())
+                    .dong(List.of())
+                    .build();
         }
-        for (ChiTietDonBanHang ct : chiTiets) {
-            BienTheSanPham bt = ct.getBienTheSanPham();
-            Integer btId = bt != null ? bt.getId() : null;
-            BigDecimal soLuongDat = ct.getSoLuongDat() != null ? ct.getSoLuongDat() : BigDecimal.ZERO;
-            if (soLuongDat.signum() <= 0 || btId == null) {
-                continue;
+        Map<Integer, BigDecimal> khoOnHand = khaDungLoTheoKho(bienTheIds).getOrDefault(khoId, Collections.emptyMap());
+        Map<Integer, BigDecimal> khoOutgoing = choXuatTheoKhoAnToan(bienTheIds, don.getId()).getOrDefault(khoId, Collections.emptyMap());
+        List<ThieuTonKhoXuatDto.Dong> dongThieu = new ArrayList<>();
+        canTheoBienThe.forEach((btId, can) -> {
+            BigDecimal tonKhaDung = khoOnHand.getOrDefault(btId, BigDecimal.ZERO)
+                    .subtract(khoOutgoing.getOrDefault(btId, BigDecimal.ZERO))
+                    .subtract(khoKiemKe.cua(btId))
+                    .max(BigDecimal.ZERO);
+            if (tonKhaDung.compareTo(can) < 0) {
+                BienTheSanPham bt = bienTheTheoId.get(btId);
+                dongThieu.add(ThieuTonKhoXuatDto.Dong.builder()
+                        .bienTheId(btId)
+                        .maSku(bt.getMaSku() != null && !bt.getMaSku().isBlank() ? bt.getMaSku() : null)
+                        .soLuongCan(can.stripTrailingZeros())
+                        .tonKhaDung(tonKhaDung.stripTrailingZeros())
+                        .soLuongThieu(can.subtract(tonKhaDung).stripTrailingZeros())
+                        .build());
             }
-            BigDecimal onHand = khoOnHand.getOrDefault(btId, BigDecimal.ZERO);
-            BigDecimal outgoing = khoOutgoing.getOrDefault(btId, BigDecimal.ZERO);
-            BigDecimal dangKiem = khoKiemKe.cua(btId);
-            BigDecimal tonKhaDung = onHand.subtract(outgoing).subtract(dangKiem).max(BigDecimal.ZERO);
-            if (tonKhaDung.compareTo(soLuongDat) < 0) {
-                String sku = bt.getMaSku() != null && !bt.getMaSku().isBlank() ? bt.getMaSku() : ("#" + btId);
-                return sku + ": cần " + soLuongDat.stripTrailingZeros().toPlainString()
-                        + ", còn " + tonKhaDung.stripTrailingZeros().toPlainString();
-            }
+        });
+        if (dongThieu.isEmpty()) {
+            return null;
         }
-        return null;
+        return ThieuTonKhoXuatDto.builder()
+                .khoId(khoId)
+                .tenKho(kho.getTenKho())
+                .dong(dongThieu)
+                .build();
     }
 
     private Map<Integer, Map<Integer, BigDecimal>> choXuatTheoKhoAnToan(List<Integer> bienTheIds, Integer boQuaDonId) {
