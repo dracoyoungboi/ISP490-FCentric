@@ -1,40 +1,28 @@
 import { RefreshCw } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DongCaiDat } from "@/components/channel/KhuonCaiDat";
-import { khoDaLuuKhongCon, khoSanDangChon, noiDungSan } from "@/components/channel/noiDungSan";
+import { khoMacDinhSan, noiDungSan } from "@/components/channel/noiDungSan";
 import { tenKhoSanHienThi } from "@/components/channel/cauHinhDongBo";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 
 /**
- * Dòng kho trên sàn của thẻ Tồn kho, cho sàn ủy quyền (Lazada, Shopee, TikTok Shop):
- * tự động hiển thị chỉ đọc khi sàn chỉ có 1 kho, mở dropdown khi có từ 2 kho trở lên,
- * kèm nút "Tải lại từ sàn" để cập nhật ngay khi người bán vừa thêm kho trên Seller Center.
+ * Dòng kho trên sàn của thẻ Tồn kho (Lazada, Shopee, TikTok Shop):
+ * luôn hiển thị chỉ đọc kho bán hàng / lấy hàng mặc định của sàn, kèm nút "Tải lại từ sàn"
+ * để đồng bộ ngay khi người bán đổi kho mặc định trên Seller Center.
  */
 export default function DongKhoSan({
   maKenh,
   tenSan,
   khoSan,
-  value,
-  maKhoDaLuu,
-  onChange,
   onTaiLaiTuSan,
   dangTaiLaiTuSan = false,
   disabled = false,
 }) {
   const noiDung = noiDungSan(maKenh);
   if (!noiDung) return null;
-  const { nhan, chiDoc } = noiDung.khoSan;
+  const { nhan, chiDoc, moTa } = noiDung.khoSan;
   const ds = Array.isArray(khoSan?.data) ? khoSan.data : [];
-  // Kho đã lưu không còn trên sàn: nói rõ thay cho câu giải thích (trang cha coi là có thay đổi cần lưu)
-  const moTa =
-    !chiDoc && khoDaLuuKhongCon(maKhoDaLuu, ds) ? (
-      <span className="text-bo-warning">{t("Kho đã lưu không còn trên {{tenSan}}. Lưu để chuyển sang kho đang chọn.", { tenSan })}</span>
-    ) : ds.length === 1 ? (
-      t("Gian hàng một kho bán: {{tenSan}} nhận số vào kho bán hàng mặc định, không cần chọn.", { tenSan })
-    ) : (
-      noiDung.khoSan.moTa
-    );
+  const khoMacDinh = khoMacDinhSan(ds);
 
   const nutTaiLai = onTaiLaiTuSan ? (
     <button
@@ -68,44 +56,26 @@ export default function DongKhoSan({
         </button>
       </span>
     );
-  } else if (!ds.length) {
+  } else if (!khoMacDinh) {
     control = (
       <div className="flex flex-wrap items-center justify-end gap-2">
         <span className="max-w-[240px] text-sm text-bo-muted">{t("{{tenSan}} chưa có kho bán hàng nào", { tenSan })}</span>
         {nutTaiLai}
       </div>
     );
-  } else if (ds.length === 1) {
-    control = (
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <span className="text-sm font-medium text-bo-foreground">
-          {tenKhoSanHienThi(ds[0].tenKhoSan)}
-        </span>
-        {nutTaiLai}
-      </div>
-    );
   } else {
     control = (
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <Select value={value || khoSanDangChon(null, ds)} onValueChange={onChange} disabled={disabled}>
-          <SelectTrigger aria-label={nhan} className="h-9 w-[220px] max-w-full rounded-lg border-bo-border bg-bo-surface text-sm text-bo-foreground max-sm:data-[size=default]:h-11">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper" align="end" className="z-50 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
-            {ds.map((kho) => (
-              <SelectItem key={kho.maKhoSan} value={kho.maKhoSan} className="rounded-md focus:bg-bo-primary-soft">
-                {tenKhoSanHienThi(kho.tenKhoSan)}
-                {kho.macDinh ? t(" (mặc định)") : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <span className="text-sm font-medium text-bo-foreground">
+          {tenKhoSanHienThi(khoMacDinh.tenKhoSan || khoMacDinh.maKhoSan)}
+        </span>
+        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+          {t("Mặc định trên sàn")}
+        </span>
         {nutTaiLai}
       </div>
     );
   }
 
-  // Chỉ là chữ (kho chỉ đọc, 1 kho duy nhất, đang tải, lỗi, chưa có kho): như các dòng khóa–giá trị khác, điện thoại xếp dưới tên
-  const laChu = Boolean(chiDoc) || ds.length === 1 || khoSan?.initialLoading || !ds.length;
-  return <DongCaiDat title={nhan} description={moTa} control={control} giaTriChu={laChu} />;
+  return <DongCaiDat title={nhan} description={moTa} control={control} giaTriChu />;
 }

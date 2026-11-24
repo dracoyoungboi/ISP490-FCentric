@@ -19,7 +19,7 @@ import { TrangThaiCham } from "@/components/channel/HienThiKenh";
 import { ChonPhuongAn, CotCaiDat, DongCaiDat, TheCaiDat } from "@/components/channel/KhuonCaiDat";
 import { TheDonHang, TheTonKho } from "@/components/channel/CauHinhDongBoCards";
 import { ngayIso } from "@/components/channel/ngay";
-import { khoDaLuuKhongCon, khoSanDangChon, noiDungSan } from "@/components/channel/noiDungSan";
+import { khoMacDinhSan, noiDungSan } from "@/components/channel/noiDungSan";
 import { taiLaiKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
 import {
   coLuaChonTuDong,
@@ -636,21 +636,17 @@ function BuocTonKho({ cauHinh, choHoanTat, khoSan, ketNoi, dsKhoSan, onLoi, onHu
   });
   const [cheDo, setCheDo] = useState(() => cheDoTheoGiaTri(taoGiaTriCauHinh(cauHinh)));
   const [errors, setErrors] = useState({});
-  const [maKhoSan, setMaKhoSan] = useState(null);
   const [dangChay, chay] = useDangChay();
-  const khoDangLuu = khoSanDangChon(ketNoi?.maKhoSan, dsKhoSan?.data);
-  const khoMat = khoDaLuuKhongCon(ketNoi?.maKhoSan, dsKhoSan?.data);
-  // Kho sẽ lưu (chỉ sàn chọn được kho, tức TikTok Shop): kho người dùng chọn, hoặc kho đang hiện (mặc định của sàn)
-  // khi gian hàng chưa lưu kho nào hay kho đã lưu không còn trên sàn — Thiết lập là nơi xác nhận kho nhận tồn.
-  // Shopify và Lazada (một kho) không lưu.
-  const chonDuocKho = Boolean(noiDung) && !noiDung.khoSan.chiDoc;
-  const khoSeLuu = chonDuocKho ? (maKhoSan ?? (ketNoi?.maKhoSan && !khoMat ? null : khoDangLuu || null)) : null;
+  const khoMacDinh = khoMacDinhSan(dsKhoSan?.data);
+  const maKhoMacDinh = khoMacDinh?.maKhoSan ?? "";
+  const canDongBoKhoSan = Boolean(noiDung) && !noiDung.khoSan.chiDoc;
+  const khoSeLuu = canDongBoKhoSan && maKhoMacDinh && maKhoMacDinh !== ketNoi?.maKhoSan ? maKhoMacDinh : null;
   // Không đọc được danh sách kho mà gian hàng đã lưu kho thì vẫn cho đi tiếp với kho đó
-  const khoaTiep = !chonDuocKho
+  const khoaTiep = !canDongBoKhoSan
     ? null
     : dsKhoSan?.initialLoading
       ? t("Đang đọc kho từ {{ten}}…", { ten: SAN.ten })
-      : !(maKhoSan || khoDangLuu || ketNoi?.maKhoSan)
+      : !(maKhoMacDinh || ketNoi?.maKhoSan)
         ? t("Cần một kho bán hàng trên {{ten}} để nhận số tồn.", { ten: SAN.ten })
         : null;
 
@@ -681,11 +677,10 @@ function BuocTonKho({ cauHinh, choHoanTat, khoSan, ketNoi, dsKhoSan, onLoi, onHu
       }
       try {
         const dto = await kenhBanHangService.luuCauHinhDongBo(SAN.maKenh, payload);
-        // Kho trên sàn (TikTok Shop chọn được) lưu riêng, chỉ khi khác kho đã lưu
+        // Tự động gắn kho mặc định trên sàn (nếu khác giá trị đang lưu)
         let khoMoi = null;
         if (khoSeLuu && khoSeLuu !== ketNoi?.maKhoSan) {
-          const kho = dsKhoSan?.data?.find((k) => k.maKhoSan === khoSeLuu);
-          khoMoi = { maKhoSan: khoSeLuu, tenKhoSan: kho?.tenKhoSan ?? null };
+          khoMoi = { maKhoSan: khoSeLuu, tenKhoSan: khoMacDinh?.tenKhoSan ?? null };
           await kenhBanHangService.luuCaiDatKenh(SAN.maKenh, khoMoi);
         }
         onXong(dto, khoMoi);
@@ -718,9 +713,6 @@ function BuocTonKho({ cauHinh, choHoanTat, khoSan, ketNoi, dsKhoSan, onLoi, onHu
               maKenh={SAN.maKenh}
               tenSan={SAN.ten}
               khoSan={dsKhoSan}
-              value={maKhoSan ?? khoDangLuu}
-              maKhoDaLuu={ketNoi?.maKhoSan}
-              onChange={setMaKhoSan}
               disabled={Boolean(dangChay)}
             />
           ) : undefined

@@ -24,7 +24,7 @@ import { TheCaiDat, ThanhLuuTrenCung, VUNG_CHAM_CONG_TAC } from "@/components/ch
 import { SWITCH_CLASS } from "@/components/channel/SettingsCard";
 import { TheDonHang, TheTonKho } from "@/components/channel/CauHinhDongBoCards";
 import { daKetNoi, giuTenMienDangHien, hoTroNgatKetNoi, moTaNgatKetNoi, trangThaiKetNoi } from "@/components/channel/ketNoiKenh";
-import { khoDaLuuKhongCon, khoSanDangChon, noiDungSan } from "@/components/channel/noiDungSan";
+import { noiDungSan } from "@/components/channel/noiDungSan";
 import { xoaLuaChonThietLap } from "@/components/channel/luaChonThietLap";
 import { taiLaiKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
 import { cauLoiUyQuyen, moTrangUyQuyen } from "@/components/channel/uyQuyen";
@@ -137,7 +137,6 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, hoTroMapp
   const [cheDo, setCheDo] = useState(() => cheDoTheoGiaTri(taoGiaTriCauHinh(cauHinh)));
   const [errors, setErrors] = useState({});
   const [dongBoGianHang, setDongBoGianHang] = useState(() => Number(config?.trangThai) === 1);
-  const [maKhoSan, setMaKhoSan] = useState(null);
   const [khoMappingConfig, setKhoMappingConfig] = useState(() => khoMapping?.data);
 
   useEffect(() => {
@@ -149,7 +148,6 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, hoTroMapp
   const [ketQuaKetNoi, setKetQuaKetNoi] = useState(null);
   const [moDoiKhoa, setMoDoiKhoa] = useState(false);
   const [hoiNgat, setHoiNgat] = useState(false);
-  const [khoChoXacNhan, setKhoChoXacNhan] = useState(null);
   // Rời trang khi còn thay đổi chưa lưu: hàm đi tiếp chờ người dùng xác nhận
   const [hoiRoi, setHoiRoi] = useState(null);
   const [dangChay, setDangChay] = useState(null);
@@ -159,30 +157,13 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, hoTroMapp
   const viecSauMenuRef = useRef(null);
   const nutMenuRef = useRef(null);
 
-  // Kho trên sàn (sàn ủy quyền): ô chọn hiện kho đã lưu, chưa lưu thì kho mặc định của sàn. Kho đã lưu không còn trên
-  // sàn thì ô chọn hiện kho mặc định và coi là thay đổi cần lưu (Radix Select không báo khi chọn lại đúng kho đang hiện)
-  const khoDangLuu = khoSanDangChon(config?.maKhoSan, dsKhoSan?.data);
-  const khoMat = uyQuyen && khoDaLuuKhongCon(config?.maKhoSan, dsKhoSan?.data);
-  const khoChon = maKhoSan ?? (khoMat ? khoDangLuu : null);
-  const doiKho = uyQuyen && Boolean(khoChon) && khoChon !== (config?.maKhoSan ?? khoDangLuu);
-  const danhSachKho = dsKhoSan?.data ?? [];
-  const maKhoHienTai = maKhoSan ?? khoDangLuu;
-  const tenKhoCu =
-    danhSachKho.find((k) => k.maKhoSan === maKhoHienTai)?.tenKhoSan ??
-    config?.tenKhoSan ??
-    maKhoHienTai ??
-    t("Kho hiện tại");
-  const tenKhoMoi =
-    danhSachKho.find((k) => k.maKhoSan === khoChoXacNhan)?.tenKhoSan ??
-    khoChoXacNhan ??
-    "";
   const doiGianHang = dongBoGianHang !== (Number(config?.trangThai) === 1);
   const doiCauHinh = coThayDoiCauHinh(values, cauHinh);
   const doiKhoMapping = Boolean(
     khoMapping?.data &&
     JSON.stringify(khoMappingConfig) !== JSON.stringify(khoMapping?.data)
   );
-  const coThayDoi = doiGianHang || doiCauHinh || doiKho || doiKhoMapping;
+  const coThayDoi = doiGianHang || doiCauHinh || doiKhoMapping;
   const [dangTaiKhoTuSan, setDangTaiKhoTuSan] = useState(false);
 
   const taiLaiKhoTuSan = async () => {
@@ -198,6 +179,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, hoTroMapp
         khoMapping?.setData(mappingMoi);
         setKhoMappingConfig(mappingMoi);
       }
+      onTaiLaiKetNoi?.();
       toast.success(t("Đã tải lại danh sách kho mới nhất từ {{ten}}.", { ten: SAN.ten }));
     } catch (error) {
       toast.error(getApiErrorMessage(error, t("Không tải được danh sách kho từ {{ten}}.", { ten: SAN.ten })));
@@ -260,42 +242,10 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, hoTroMapp
     setCheDo(cheDoTheoGiaTri(goc));
     setErrors({});
     setDongBoGianHang(Number(config?.trangThai) === 1);
-    setMaKhoSan(null);
     if (khoMapping?.data) {
       setKhoMappingConfig(khoMapping.data);
     }
   };
-
-  const chonKhoSan = (moi) => {
-    if (!moi || moi === maKhoHienTai) return;
-    setKhoChoXacNhan(moi);
-  };
-
-  const xacNhanChuyenKho = () =>
-    chay("chuyen-kho", async () => {
-      if (!khoChoXacNhan) return;
-      const khoMucTieu = danhSachKho.find((k) => k.maKhoSan === khoChoXacNhan);
-      const khoMoiPayload = {
-        maKhoSan: khoChoXacNhan,
-        tenKhoSan: khoMucTieu?.tenKhoSan ?? null,
-      };
-      try {
-        const dto = await kenhBanHangService.luuCaiDatKenh(SAN.maKenh, khoMoiPayload);
-        onConfigSaved((cu) => ({ ...cu, ...khoMoiPayload }));
-        setMaKhoSan(null);
-        setKhoChoXacNhan(null);
-        khoMapping?.reload();
-        if (dto?.canhBao) {
-          toast.warning(dto.canhBao);
-        } else {
-          toast.success(t("Đã chuyển kho và đồng bộ sản phẩm sang {{khoMoi}}.", { khoMoi: tenKhoMoi }));
-        }
-      } catch (error) {
-        toast.error(getApiErrorMessage(error, t("Không chuyển được kho đồng bộ.")));
-        onTaiLaiKetNoi();
-        khiMatKetNoi(error);
-      }
-    });
 
   const luu = () =>
     chay("luu", async () => {
@@ -319,15 +269,6 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, hoTroMapp
           setCheDo(cheDoTheoGiaTri(moi));
         }
         let canhBaoKho = null;
-        if (doiKho) {
-          const kho = dsKhoSan?.data?.find((k) => k.maKhoSan === khoChon);
-          const khoMoi = { maKhoSan: khoChon, tenKhoSan: kho?.tenKhoSan ?? null };
-          const kqLuu = await kenhBanHangService.luuCaiDatKenh(SAN.maKenh, khoMoi);
-          // PUT cai-dat không trả KetNoiKenhDto: gộp kho vừa lưu vào kết nối đang có
-          onConfigSaved((cu) => ({ ...cu, ...khoMoi }));
-          setMaKhoSan(null);
-          if (kqLuu?.canhBao) canhBaoKho = kqLuu.canhBao;
-        }
         if (doiKhoMapping && khoMappingConfig) {
           const dto = await kenhBanHangService.luuKhoMapping(SAN.maKenh, {
             cheDoDaKho: hoTroMappingKho ? Boolean(khoMappingConfig.cheDoDaKho) : false,
@@ -357,8 +298,8 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, hoTroMapp
             ? t("Gian hàng {{ten}} vừa được đổi ở nơi khác. Trang đã tải lại, kiểm tra rồi lưu lại.", { ten: SAN.ten })
             : getApiErrorMessage(error, t("Không lưu được cấu hình")),
         );
-        // Lưu dở (vd. cấu hình xong, kho lỗi): đọc lại kết nối để công tắc và kho hiện đúng giá trị trên máy chủ
-        if (doiKho || doiGianHang) onTaiLaiKetNoi();
+        // Lưu dở: đọc lại kết nối để công tắc hiện đúng giá trị trên máy chủ
+        if (doiGianHang) onTaiLaiKetNoi();
         if (doiNoiKhac) taiLaiKenhDaKetNoi();
         khiMatKetNoi(error);
       }
@@ -629,9 +570,6 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, hoTroMapp
                   maKenh={SAN.maKenh}
                   tenSan={SAN.ten}
                   khoSan={dsKhoSan}
-                  value={maKhoSan ?? khoDangLuu}
-                  maKhoDaLuu={config?.maKhoSan}
-                  onChange={chonKhoSan}
                   onTaiLaiTuSan={taiLaiKhoTuSan}
                   dangTaiLaiTuSan={dangTaiKhoTuSan}
                   disabled={khoa}
@@ -745,18 +683,6 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, hoTroMapp
         description={t("Các thay đổi cấu hình chưa lưu sẽ mất.")}
         confirmText={t("Rời trang")}
         cancelText={t("Ở lại")}
-      />
-
-      <ConfirmModal
-        isOpen={Boolean(khoChoXacNhan)}
-        onClose={() => dangChay !== "chuyen-kho" && setKhoChoXacNhan(null)}
-        onConfirm={xacNhanChuyenKho}
-        isLoading={dangChay === "chuyen-kho"}
-        variant="warning"
-        title={t("Chuyển sản phẩm sang kho mới?")}
-        description={t("Bạn đang chuyển kho đồng bộ của kênh {{tenSan}} từ {{khoCu}} sang {{khoMoi}}. Hệ thống sẽ tự động chuyển sản phẩm đang đồng bộ sang kho mới và đẩy lại tồn kho lên sàn.", { tenSan: SAN.ten, khoCu: tenKhoCu, khoMoi: tenKhoMoi })}
-        confirmText={t("Chuyển kho và đồng bộ")}
-        cancelText={t("Giữ kho hiện tại")}
       />
 
       <ConfirmModal

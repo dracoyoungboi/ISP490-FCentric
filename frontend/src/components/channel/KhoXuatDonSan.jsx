@@ -99,7 +99,7 @@ export default function KhoXuatDonSan({ tenSan, mappingConfig, onChange, disable
       <div>
         <p className="text-sm font-medium text-bo-heading">{t("Ánh xạ kho lấy hàng sang kho xuất FCentric")}</p>
         <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">
-          {t("Khi đổi kho lấy hàng hoặc nhận đơn từ từng kho trên {{tenSan}}, nút Gửi sang kho sẽ tự động chọn sẵn kho FCentric tương ứng. Tồn kho vẫn đồng bộ theo chế độ đơn kho.", { tenSan })}
+          {t("Tồn kho đồng bộ trực tiếp vào kho mặc định trên {{tenSan}}. Bảng bên dưới dùng để định tuyến kho xuất FCentric tương ứng khi nhận đơn từ từng kho trên sàn.", { tenSan })}
         </p>
       </div>
       <div className="mt-3 overflow-x-auto rounded-lg border border-bo-border bg-bo-surface">
@@ -124,11 +124,6 @@ export default function KhoXuatDonSan({ tenSan, mappingConfig, onChange, disable
                         {kho.laMacDinhSan ? (
                           <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
                             {t("Mặc định trên sàn")}
-                          </span>
-                        ) : null}
-                        {kho.laMacDinh ? (
-                          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                            {t("Đang chọn đẩy tồn")}
                           </span>
                         ) : null}
                       </span>
