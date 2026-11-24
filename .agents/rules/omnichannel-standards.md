@@ -10,11 +10,12 @@
 2. **Lazada, TikTok Shop, Shopee (Single-Warehouse tồn kho trên sàn — tách biệt Định tuyến kho xuất đơn FCentric)**:
    - Backend (`KenhBanHangDongBoServiceImpl.layCauHinhKhoMapping` / `luuCauHinhKhoMapping`) BẮT BUỘC giữ `cheDoDaKho = false` cho mọi kênh không phải Shopify (không mở `BangMappingKhoSan` chia tồn đa kho); `layDanhSachKhoShopee` KHÔNG được tự bơm kho ảo `fcentric-kho-*` khi gian hàng Shopee chưa nằm trong whitelist Multi-Warehouse.
    - **Định tuyến kho xuất đơn (`KhoXuatDonSan.jsx`, `KENH_<MA>_KHO_ID`, `KENH_<MA>_KHO_MAPPING` với `cheDoDaKho = false`)**: Cho phép chọn kho xuất đơn FCentric mặc định (khi sàn có 1 kho) hoặc ánh xạ 1–1 từng kho lấy hàng trên sàn sang kho xuất FCentric (khi sàn có ≥ 2 kho, vd TH1 Kho A → `Kho tổng`, TH2 Kho B → `Cửa hàng Hà Nội`). Khi đổi kho lấy hàng ở `DongKhoSan` (`luuCaiDat`) hoặc khi đồng bộ đơn qua `resolveKhoXuatChoDonSan`, hộp `HopGuiSangKho` ("Gửi sang kho") tự động chọn sẵn đúng kho FCentric tương ứng mà không kích hoạt chia tồn đa kho.
-   - **Minh bạch chính sách Seller Center**: Trên Lazada/Shopee/TikTok Shop, việc chọn kho ở FCentric chỉ áp dụng cho đẩy tồn và định tuyến đơn trong FCentric (cờ kho mặc định của sàn quản lý trực tiếp trên Seller Center; riêng TikTok Shop tự động gọi `inventory/update` chuyển tồn SKU sang kho được chọn).
+   - **Minh bạch chính sách Seller Center (`laMacDinhSan` vs `laMacDinh`)**: Trên Lazada/Shopee/TikTok Shop/Shopify, cờ mặc định gốc trên sàn (`laMacDinhSan`) chỉ đọc từ API sàn và luôn được làm mới trong `layCauHinhKhoMapping`; cờ `laMacDinh` là lựa chọn kho đẩy tồn / tiếp nhận đơn nội bộ tại FCentric và KHÔNG được ghi đè lên nhãn `"Mặc định trên sàn"` trên UI (`KhoXuatDonSan`, `BangMappingKhoSan`).
+   - **Loại trừ tuyệt đối kho trả hàng & kho vô hiệu hóa**: Cả 3 sàn (`xacDinhTikTokSalesWarehouseId`, `getLocations` TikTok, `parseLazadaWarehouses`, `layDanhSachKhoShopee`, `layCauHinhKhoMapping`, `luuCauHinhKhoMapping`) BẮT BUỘC loại bỏ `RETURN_WAREHOUSE`, `FBT`, địa chỉ Shopee chỉ mang `RETURN_ADDRESS`, các kho có tên/loại `RETURN`/`Trả hàng` và các kho `DISABLED`/`INACTIVE`/`DELETED`.
    - **Lazada (Single-Warehouse tồn kho)**: Áp dụng mô hình kho mặc định / `GET /rc/warehouse/get` (`DongKhoSan`).
    - **TikTok Shop (Single-Warehouse bán hàng)**: BẮT BUỘC lọc bỏ 100% `RETURN_WAREHOUSE` khỏi danh sách kho bán hàng (`type == "SALES_WAREHOUSE"`), tuyệt đối không dùng `subType == "DOMESTIC_WAREHOUSE"` làm điều kiện OR (chống lỗi `12052532`). Khi shop có 1 `SALES_WAREHOUSE`, hiển thị gọn trên `DongKhoSan` + nút Tải lại từ sàn.
    - **Shopee**: Áp dụng mô hình kho mặc định / địa chỉ lấy hàng (`get_address_list`) trên `DongKhoSan`.
-   - **Điều phối xuất kho nội bộ FCentric**: Đơn hàng từ Lazada, Shopee, TikTok vẫn mở hộp chọn kho `HopGuiSangKho` linh hoạt giữa các kho hoạt động trong nội bộ FCentric để tối ưu xử lý đơn mà không phụ thuộc Multi-Warehouse trên sàn.
+   - **Xuất kho 3 sàn không popup trừ khi lỗi**: Đơn hàng từ Shopee, Lazada, TikTok Shop vẫn chờ nhân viên bấm nút **`Gửi sang kho`** (`NHAP`), nhưng mặc định gửi thẳng sang `don.khoXuat` và **chặn hiển thị popup `HopGuiSangKho` ở cả 2 lớp** (`DonBanHangDetail` + `HopGuiSangKho` qua `coTheMoHopGuiSangKho`). Backend (`DonBanHangService.sendToWarehouse`) kiểm tra kho hoạt động & đủ tồn khả dụng; chỉ khi thiếu kho, kho ngừng hoạt động hoặc thiếu tồn mới ném `409 Conflict` (`MaLoi.DON_SAN_CAN_CHON_KHO_THU_CONG`) để giao diện tự mở popup chọn kho thủ công (`thuCongKhiLoi = true`). Shopify và đơn bán trực tiếp giữ nguyên hộp chọn đa kho.
 
 ---
 
@@ -31,6 +32,9 @@
    - Chỉ gọi API sàn nạp lại cache khi cache hết hạn hoặc người dùng bấm "Tải sản phẩm từ sàn".
 4. **Kiểm tra tính hợp lệ của Product ID trước khi gọi sàn**:
    - Chỉ gọi API cập nhật tồn khi `productId` là chuỗi số hợp lệ của sàn. Tuyệt đối không gửi chuỗi mã SKU vào endpoint `productId` rồi retry làm nghẽn thread.
+5. **Đồng bộ ngay (Manual Sync) & Ép đẩy toàn bộ tồn**:
+   - Job định kỳ (`JOB-03`) giữ nguyên Delta Sync + backoff 60 phút cho SKU lỗi. Riêng thao tác chủ động **`Đồng bộ ngay`** (`DongBoNgayService`) luôn bật `boQuaBackoffLoi = true` để thử lại ngay các SKU `that_bai`, đồng thời ghi nhận `soBoQuaKhongDoi` để UI hiển thị `"{{so}} SKU không đổi"` / `"Không có biến động"`.
+   - Tích hợp nút **`Đẩy lại toàn bộ tồn`** (`POST /api/v1/kenh-ban-hang/{maKenh}/dong-bo-ngay?epDayToanBo=true`) trong `NutDongBoNgay` (khi có SKU bị bỏ qua) và menu `⋯` (`ThaoTacDongBo`) để ép đẩy toàn bộ SKU bất kể số tồn chưa đổi across cả 4 sàn.
 
 ---
 
@@ -70,6 +74,7 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
 1. Cột `apiKey`, `apiSecret`, `token` lưu trữ JWT hoặc Access Token BẮT BUỘC là kiểu `TEXT` hoặc `VARCHAR(2048)` để chứa chuỗi mã hóa AES-GCM (tránh lỗi `Data truncation` / `Size must be between 0 and 255`).
 2. Cột `token_expires_at` lưu `DATETIME(6)` hợp lệ trong khoảng 7–365 ngày. Tuyệt đối không lưu giá trị năm 2083 làm lỗi MySQL DATETIME.
 3. TikTok Shop có trường định danh độc lập `shop_cipher` (dạng `ROW_...`). Không được ghi đè tên gian hàng vào `shop_cipher` (tránh lỗi "Hệ thống đang bảo trì").
+4. **URL ủy quyền TikTok Shop Custom App vs Partner App**: Custom App BẮT BUỘC dùng URL chuẩn `https://auth.tiktok-shops.com/oauth/authorize?app_key=<appKey>&state=<state>` (`TikTokShopClient.generateAuthUrl`). Chỉ dùng `AUTH_URL_PARTNER` (`generatePartnerAuthUrl`) khi cấu hình `service_id` dạng số thực sự khác với `appKey`.
 
 ---
 
