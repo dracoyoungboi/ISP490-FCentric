@@ -3332,24 +3332,6 @@
 1. **Giải phóng Transaction Boundary & Kiểm soát đồng thời ReentrantLock per-channel**:
    - Xóa bỏ hoàn toàn annotation `@Transactional` khỏi `thuLai` và `tuDongLienKet`. Mọi thao tác đọc/ghi CSDL (`findById`, `save`) được thực thi trong các transaction con nhanh gọn, không bao giờ giữ lock CSDL trong lúc chờ HTTP API sàn.
    - Bổ sung cơ chế khóa phân tán cấp kênh bằng `ReentrantLock` độc lập (`khoaDayTon.computeIfAbsent(kenh.getId(), id -> new ReentrantLock())`) kèm timeout 5 giây (`tryLock(5, TimeUnit.SECONDS)`):
-     + **Đa kênh song song**: Thao tác đẩy sản phẩm Shopee, Lazada, TikTok Shop diễn ra trên các khóa khác nhau nên chạy song song hoàn toàn độc lập, không chặn nhau.
-     + **Cùng một kênh**: Nếu 2 người dùng hoặc 2 máy bấm cùng lúc trên một sàn, request thứ hai sẽ đợi tối đa 5 giây; nếu vẫn bận sẽ trả về thông báo lịch sự: *"Kênh [Tên Sàn] đang có tiến trình đồng bộ khác đang chạy. Vui lòng chờ đợt hiện tại hoàn tất."* (mã 409 không gây deadlock CSDL).
-2. **Nâng cấp kiểm tra trạng thái Shopee bằng `v2.product.get_item_base_info`**:
-   - Trong `tuDongLienKetShopee`, trước khi quyết định Smart Upsert, gọi `client.getItemBaseInfo(List.of(existingItemId))` để tra cứu trường `item_status`.
-   - Nếu `item_status` khác `"NORMAL"` (hoặc sản phẩm không tồn tại):
-     + Đánh dấu `isAlive = false`.
-     + Lập tức gọi `xuLySanPhamBiXoaHoacBatThuongShopee(kenh, existingItemId, shopKey)`: xóa trắng `maSanPhamKenh = null` trong DB và evict RAM cache.
-     + Gán `existingItemId = null`, cho phép luồng chạy chuyển thẳng sang `taoSanPhamLenShopee` để tạo bài đăng mới sạch 100% trên Shopee.
-3. **Chuẩn hóa thuộc tính sản phẩm Lazada & Khôi phục SkuId tự động**:
-   - Trong `taoSanPhamLenLazada`:
-     + Phân loại chặt chẽ: Chỉ thêm `<Fit_Type>Slim Fit</Fit_Type>` cho Áo thun (`7930`), Áo sơ mi (`7940`) và Áo Polo (`14275`). Loại bỏ hoàn toàn khỏi Áo khoác (`7953`), Áo hoodie/sweater (`6424`) và Quần (`6414`, `7991`, `10100765`).
-     + Nhận diện chất liệu thông minh: Nếu tên sản phẩm hoặc chất liệu chứa `poly`, `gió`, `dù`, tự động gửi `<clothing_material>Polyester</clothing_material>`, ngược lại gửi `<clothing_material>100% Cotton</clothing_material>` (hoặc `Denim` cho quần jeans).
-     + Khi Lazada từ chối tạo bài vì đã tồn tại sản phẩm trùng lặp (`duplicate` / `exist`): Tự động gọi `layMapSellerSkuToSkuIdLazada` để tra cứu và khôi phục ngay `SkuId` số từ sàn.
-     + Nếu từ chối vì lý do khác: Ghi nhận chính xác nội dung phản hồi từ sàn vào `chiTietLoi` thông qua hàm mới `ghiNhanLoiTaoSanPhamLazada`.
-   - Trong `dayTonLazadaToiUu`: Đổi thông báo lỗi sang: *"Sản phẩm chưa được tạo thành công trên Lazada. Vui lòng bấm 'Đưa sản phẩm FCentric lên Lazada' để tạo lại."* khớp 100% với tên nút trên giao diện.
-4. **Chuẩn hóa thông điệp đồng thời i18n**:
-   - Cập nhật `chung.properties` và `chung_en.properties`: Đổi `chung.thaoTacDongThoi` thành *"Dữ liệu đang được cập nhật đồng thời bởi một tác vụ khác. Vui lòng tải lại trang rồi thử lại."* để phản ánh đúng bản chất kỹ thuật đa luồng.
-
 #### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
 1. **Kiểm thử đơn vị JUnit**: Chạy toàn bộ 20 unit tests (`ShopeeSyncUpsertTest`, `ShopifyStatusSyncTest`, `DonBanHangServiceGiaoHangSanTest`) -> **20/20 tests PASS 100%**.
 2. **Maven Compile & Test Compile**: 863 file source và 146 file test biên dịch thành công 100% (`BUILD SUCCESS`).
