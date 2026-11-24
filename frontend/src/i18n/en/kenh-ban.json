@@ -1072,5 +1072,16 @@
   "Ánh xạ kho lấy hàng sang kho xuất FCentric": "Map pickup warehouses to FCentric dispatch warehouses",
   "Khi đổi kho lấy hàng hoặc nhận đơn từ từng kho trên {{tenSan}}, nút Gửi sang kho sẽ tự động chọn sẵn kho FCentric tương ứng. Tồn kho vẫn đồng bộ theo chế độ đơn kho.": "When you switch pickup warehouses or receive orders from a specific {{tenSan}} warehouse, Send to warehouse pre-selects the mapped FCentric warehouse. Inventory still syncs in single-warehouse mode.",
   "Kho xuất FCentric": "FCentric dispatch warehouse",
-  "Chọn kho xuất FCentric cho {{ten}}": "Select FCentric dispatch warehouse for {{ten}}"
+  "Chọn kho xuất FCentric cho {{ten}}": "Select FCentric dispatch warehouse for {{ten}}",
+  "Mặc định trên sàn": "Marketplace default",
+  "Đang chọn đẩy tồn": "Selected for stock push",
+  "Đẩy lại toàn bộ tồn": "Force push all stock",
+  "Đẩy toàn bộ tồn ngay cả khi số lượng chưa đổi.": "Push all stock quantities even if stock hasn't changed.",
+  "Không có biến động": "No stock changes",
+  "{{so}} SKU không đổi_one": "{{so}} unchanged SKU",
+  "{{so}} SKU không đổi_other": "{{so}} unchanged SKUs",
+  " · {{so}} không đổi": " · {{so}} unchanged",
+  "Tồn kho các SKU đã khớp với FCentric, chưa cần đẩy lại. Nếu nghi ngờ lệch trên sàn, bạn có thể đẩy lại toàn bộ tồn.": "All SKU stock quantities already match FCentric. If you suspect a mismatch on the marketplace, you can force push all stock.",
+  "Bỏ qua {{so}} SKU có tồn kho chưa đổi_one": "Skipped {{so}} SKU with unchanged stock",
+  "Bỏ qua {{so}} SKU có tồn kho chưa đổi_other": "Skipped {{so}} SKUs with unchanged stock"
 }

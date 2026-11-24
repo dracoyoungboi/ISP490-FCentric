@@ -950,5 +950,6 @@
   "Sao chép mã chia chọn tuyến": "Copy sorting code",
   "Mã trạm phát": "Delivery station",
   "Sao chép mã trạm phát": "Copy delivery station",
-  "Thanh toán sàn": "Marketplace payment"
+  "Thanh toán sàn": "Marketplace payment",
+  "Đơn sàn chưa có kho xuất hợp lệ hoặc không đủ tồn tại kho hiện tại. Chọn kho xuất thủ công để tiếp tục.": "This marketplace order does not have a valid dispatch warehouse or lacks stock at its current warehouse. Select a dispatch warehouse manually to continue."
 }
