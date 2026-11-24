@@ -31,13 +31,31 @@ const chuBienThe = (n) => (n.soBienThe !== n.soBienTheCaNhom
   ? t("{{soBienThe}}/{{soBienTheCaNhom}} biến thể", { count: Number(n.soBienTheCaNhom) || 0, soBienThe: soVN(n.soBienThe), soBienTheCaNhom: soVN(n.soBienTheCaNhom) })
   : t("{{soBienThe}} biến thể", { count: n.soBienThe, soBienThe: soVN(n.soBienThe) }));
 
-/** Ô "Đề xuất" của một dòng: số đề xuất, "—" khi chưa cần nhập, "Chưa nhập" khi chưa từng nhập về Kho tổng. */
+/** Ô "Đề xuất" của một dòng: số đề xuất DSS, "Ngừng nhập" khi khóa ngừng nhập, "—" khi chưa chạm ROP. */
 function ODeXuat({ d }) {
   if (d.khongConBan) return <span className="text-bo-muted">—</span>;
-  if (!d.daTungNhap) {
-    return <span className="text-xs text-bo-muted" title={t("Mã chưa nhập về Kho tổng lần nào nên chưa có số đề xuất")}>{t("Chưa nhập", { context: "nhap_hang" })}</span>;
+  if (d.khoaTaoYeuCau) {
+    return (
+      <span
+        className="text-xs text-bo-muted"
+        title={t("Hệ thống DSS đang khóa đề xuất nhập ở kịch bản Ngừng nhập")}
+      >
+        {t("Ngừng nhập")}
+      </span>
+    );
   }
-  return d.deXuat > 0 ? soVN(d.deXuat) : <span className="text-bo-muted" title={t("Kho tổng chưa dưới ngưỡng")}>—</span>;
+  if (d.deXuat > 0) {
+    return (
+      <span title={t("ROP {{rop}} · tồn an toàn {{ss}}", { rop: soVN(d.nguong), ss: soVN(d.tonAnToan) })}>
+        {soVN(d.deXuat)}
+      </span>
+    );
+  }
+  return (
+    <span className="text-bo-muted" title={t("Chưa chạm điểm đặt hàng lại (ROP) theo DSS")}>
+      —
+    </span>
+  );
 }
 
 /**
@@ -183,7 +201,7 @@ export default function BangHangYeuCauTao({
                 <th scope="col" className={O_TIEU_DE}>{t("Sản phẩm")}</th>
                 <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)} title={t("Khả dụng ở Kho tổng")}>{t("Khả dụng")}</th>
                 <th scope="col" className={cn(O_TIEU_DE, "w-20 text-right", AN_DIEN_THOAI)} title={t("Phần chưa nhận của đơn mua đã chốt về Kho tổng")}>{t("Đang về")}</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)} title={t("Đưa khả dụng + đang về lên gấp đôi ngưỡng")}>{t("Đề xuất")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)} title={t("Số lượng đặt gợi ý theo mô hình DSS (tính từ sức bán, thời gian giao hàng và tồn an toàn)")}>{t("Đề xuất")}</th>
                 <th scope="col" className={cn(O_TIEU_DE, O_SO_LUONG, "text-right")}>{t("Số lượng nhập")}</th>
                 <th scope="col" className={cn(O_TIEU_DE, O_BO, O_CUOI)}><span className="sr-only">{t("Bỏ dòng")}</span></th>
               </tr>
@@ -272,9 +290,26 @@ export default function BangHangYeuCauTao({
                                   : t("Đang trong {{ma}}", { ma: d.yeuCauMo.ma })}
                               </span>
                             </span>
-                          ) : d.du ? (
-                            <span className={cn(NHAN_CANH_BAO, NHAN_DU)} title={t("Khả dụng + đang về đã vượt ngưỡng × hệ số dư")}>
-                              {t("Kho tổng còn dư hàng")}
+                          ) : d.khoaTaoYeuCau ? (
+                            <span
+                              className={cn(NHAN_CANH_BAO, NHAN_DU)}
+                              title={t("Hệ thống DSS đang ở kịch bản Ngừng nhập cho mã này")}
+                            >
+                              {t("Ngừng nhập theo DSS")}
+                            </span>
+                          ) : d.tonDuXaHang > 0 ? (
+                            <span
+                              className={cn(NHAN_CANH_BAO, NHAN_DU)}
+                              title={t("Lượng hàng vượt nhu cầu còn lại cần xả theo DSS")}
+                            >
+                              {t("Tồn dư cần xả ({{soDu}})", { soDu: soVN(d.tonDuXaHang) })}
+                            </span>
+                          ) : d.tonCham || d.du ? (
+                            <span
+                              className={cn(NHAN_CANH_BAO, NHAN_DU)}
+                              title={t("Không phát sinh đơn trong 30 ngày qua hoặc tồn vượt 60 ngày bán")}
+                            >
+                              {t("Bán chậm theo DSS")}
                             </span>
                           ) : null}
                           <div className={cn("mt-0.5 text-xs text-bo-muted", CHI_DIEN_THOAI)}>

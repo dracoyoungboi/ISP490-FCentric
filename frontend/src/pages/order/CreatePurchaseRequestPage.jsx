@@ -84,8 +84,9 @@ function moTaLoiTai(e) {
  * Tạo yêu cầu nhập hàng (/purchase-requests/create) · khối chứng từ "một khối" như các màn tạo chứng từ khác (bản 2,
  * chốt 25/10/2026, canvas "Tạo yêu cầu nhập hàng – thiết kế lại").
  *
- * - Danh mục: GET /nghiep-vu/yeu-cau-mua-hang/hang-kho-tong — mọi mã nhập được kèm khả dụng, đang về, số đề xuất (quy tắc
- *   Cần mua ở Tổng quan), cờ còn dư, yêu cầu nhập đang mở. Một danh sách dùng cho ô tìm và Gợi ý cần nhập.
+ * - Danh mục: GET /nghiep-vu/yeu-cau-mua-hang/hang-kho-tong — mọi mã nhập được kèm khả dụng, đang về, số đề xuất (tính
+ *   100% theo mô hình DSS: ROP, tồn an toàn, Q), cờ bán chậm / xả hàng / ngừng nhập và yêu cầu nhập đang mở. Một danh
+ *   sách dùng cho ô tìm và Gợi ý cần nhập.
  * - Thêm hàng: tìm / quét từng mã (quét lại cộng 1), "Thêm cả n biến thể", Gợi ý cần nhập (cả loạt theo số đề xuất).
  *   Bảng gom theo sản phẩm (tìm, lọc Cần chú ý, thu gọn, phân trang theo config/bangChungTu.js), chọn nhiều
  *   để đặt số lượng / theo đề xuất / bỏ; hoặc nhập theo lưới màu × kích cỡ.
@@ -168,6 +169,7 @@ export default function CreatePurchaseRequestPage() {
       if (deXuat.khoTong && deXuat.khoTong !== String(duLieu.kho?.id)) setKhoId(Number(deXuat.khoTong));
       setDienSan({
         soMa: deXuat.dong ? 1 : 0, coSoLuong: deXuat.coSoLuong, khongThay: deXuat.khongThay,
+        bienTheId: deXuat.dong?.bienTheId ?? null, soLuong: deXuat.dong?.soLuong ?? null,
         ten: deXuat.ten || (deXuat.dong ? chiMuc.theoId.get(String(deXuat.dong.bienTheId))?.tenSanPham : null) || null,
         khoDeXuat: deXuat.khoDeXuat, khoDeXuatTen: null,
       });
@@ -329,7 +331,7 @@ export default function CreatePurchaseRequestPage() {
     const kq = theoSoDeXuat(dong, ids, chiMuc.theoId);
     setDong(kq.dong);
     toast.success(t("Đã đưa {{dat}} dòng về số đề xuất", { count: kq.dat, dat: soVN(kq.dat) }), {
-      description: kq.khong ? t("Giữ nguyên {{khong}} dòng chưa có số đề xuất (Kho tổng chưa dưới ngưỡng).", { count: kq.khong, khong: soVN(kq.khong) }) : undefined,
+      description: kq.khong ? t("Giữ nguyên {{khong}} dòng chưa có số đề xuất theo DSS.", { count: kq.khong, khong: soVN(kq.khong) }) : undefined,
     });
   };
 
@@ -427,6 +429,11 @@ export default function CreatePurchaseRequestPage() {
     }
   }
 
+  const btDienSan = dienSan?.bienTheId != null ? chiMuc.theoId.get(String(dienSan.bienTheId)) : null;
+  const lechDeXuatDss = Boolean(
+    dienSan?.coSoLuong && btDienSan && Number(dienSan.soLuong) !== Number(btDienSan.soLuongDeXuat || 0),
+  );
+
   // ── Dòng thông báo ──
   const thongBao = [
     loiTai ? (
@@ -444,7 +451,15 @@ export default function CreatePurchaseRequestPage() {
         {t("Đã điền sẵn")} <b className="font-semibold">{t("1 mã")}</b>{dienSan.ten ? <> {t("của")} <b className="font-semibold">{dienSan.ten}</b></> : null}
         {dienSan.coSoLuong
           ? <> {t("theo đề xuất")} <b className="font-semibold">{t("Cần bổ sung")}</b> {t("ở Tổng quan, kèm số lượng đề xuất.")}</>
-          : t(", số lượng tạm để 1.")}{" "}
+          : t(", số lượng tạm để 1.")}
+        {lechDeXuatDss ? (
+          <>
+            {" "}
+            {Number(btDienSan.soLuongDeXuat) > 0
+              ? t("Đề xuất hiện tại của DSS cho mã này là {{deXuat}}.", { deXuat: soVN(btDienSan.soLuongDeXuat) })
+              : t("Theo DSS hiện tại, mã này chưa cần nhập thêm.")}
+          </>
+        ) : null}{" "}
         {t("Kiểm tra lại, chọn ngày giao dự kiến rồi gửi duyệt.")}
         {soGoiYMoi ? <> {t("Còn {{soMa}} mã sắp hết khác ở", { count: soGoiYMoi, soMa: soVN(soGoiYMoi) })} <NutChu onClick={() => setHop("goiY")}>{t("Gợi ý cần nhập")}</NutChu>.</> : null}
       </DongThongBao>
@@ -524,7 +539,7 @@ export default function CreatePurchaseRequestPage() {
           icon={PackagePlus}
           title={t("Chưa có sản phẩm nào")}
           description={soGoiYMoi
-            ? t("{{tenKho}} đang có {{soGoiYMoi}} mã hết hoặc sắp hết. Lấy cả loạt theo số đề xuất, hoặc tìm / quét từng mã ở ô phía trên.", { tenKho: kho?.tenKho || t("Kho tổng"), count: soGoiYMoi, soGoiYMoi: soVN(soGoiYMoi) })
+            ? t("{{tenKho}} đang có {{soGoiYMoi}} mã cần bổ sung theo gợi ý DSS. Lấy cả loạt theo số đề xuất, hoặc tìm và quét từng mã ở ô phía trên.", { tenKho: kho?.tenKho || t("Kho tổng"), count: soGoiYMoi, soGoiYMoi: soVN(soGoiYMoi) })
             : t("Tìm hoặc quét từng mã ở ô phía trên. Quét lại cùng mã thì cộng thêm 1.")}
           action={soGoiYMoi && !khoa && !duLieuCu ? (
             <Button type="button" onClick={() => setHop("goiY")} className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">
@@ -651,7 +666,7 @@ export default function CreatePurchaseRequestPage() {
         dsHang={dsHang}
         dong={dong}
         tenKho={kho?.tenKho}
-        nguong={duLieu?.nguongMacDinh}
+        cauHinhDss={duLieu?.cauHinhDss}
         onThem={themGoiY}
         traTieuDiemVe={oTimRef}
       />

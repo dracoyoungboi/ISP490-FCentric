@@ -5,7 +5,9 @@
  *
  * Danh mục hàng: `bienThe[]` của GET /nghiep-vu/yeu-cau-mua-hang/hang-kho-tong (HangNhapKhoTongResponse.BienThe):
  *   { bienTheId, maSku, maVach, sanPhamId, maSanPham, tenSanPham, nhomHang, tenMau, maMauHex, tenSize, tenChatLieu, anh,
- *     khaDung, dangVe, nguong, daTungNhap, soLuongDeXuat, du, yeuCauMo: { id, ma, soYeuCau } | null }
+ *     khaDung, dangVe, nguong, daTungNhap, soLuongDeXuat, du, yeuCauMo: { id, ma, soYeuCau } | null,
+ *     tonAnToan, tonDuXaHang, goiYXaHang, tonCham, khoaTaoYeuCau, phanLoaiAbc, mucDoKhanCap, kichBanApDung,
+ *     soNgayTonKho, banTrungBinhNgay }
  * Dòng yêu cầu trong màn: `{ bienTheId, soLuong }` — `soLuong` là số, hoặc "" khi đang xóa trống ô (rời ô thì về 1).
  */
 import { docSo, khopTuKhoa, tachTuKhoa } from "../../chung-tu/bangChungTu.js";
@@ -91,14 +93,37 @@ export function taoChiMuc(dsHang) {
 /** Khóa sản phẩm của một biến thể trong chỉ mục `theoSanPham`. */
 export const khoaSanPham = (bt) => String(bt?.sanPhamId ?? `ten-${bt?.tenSanPham}`);
 
-/** Mã cần chú ý: đang nằm trong yêu cầu nhập khác chưa xong, hoặc Kho tổng còn dư. */
-export const canChuY = (bt) => Boolean(bt?.yeuCauMo) || Boolean(bt?.du);
+/** Mã cần chú ý: đang nằm trong yêu cầu nhập khác chưa xong, bị khóa ngừng nhập hoặc bán chậm / tồn dư theo DSS. */
+export const canChuY = (bt) => Boolean(bt?.yeuCauMo)
+  || Boolean(bt?.khoaTaoYeuCau)
+  || docSo(bt?.tonDuXaHang) > 0
+  || Boolean(bt?.tonCham)
+  || Boolean(bt?.du);
 
 /** Lọc nhanh của bảng hàng (useBangChungTu → boLoc): mặc định "Tất cả", "Cần chú ý" theo canChuY. */
 export const BO_LOC_BANG = Object.freeze({ tatCa: null, chuY: canChuY });
 
-/** Mã Kho tổng đang hết / sắp hết (có số đề xuất). */
-export const laGoiY = (bt) => docSo(bt?.soLuongDeXuat) > 0;
+/** Mã Kho tổng cần bổ sung theo DSS (có số đề xuất đặt Q và chưa bị khóa ngừng nhập). */
+export const laGoiY = (bt) => !bt?.khoaTaoYeuCau && docSo(bt?.soLuongDeXuat) > 0;
+
+const THU_TU_KHAN_CAP = Object.freeze({ CRITICAL: 0, HIGH: 1, NORMAL: 2, EXCESS_OR_PHASE_OUT: 3 });
+
+/** Thứ tự ưu tiên theo mức độ khẩn cấp DSS (Cần nhập gấp → Chạm ngưỡng ROP → An toàn → Ngừng nhập / Xả tồn). */
+export function thuTuMucDoKhanCap(mucDo) {
+  return THU_TU_KHAN_CAP[mucDo] ?? 4;
+}
+
+/** Sắp xếp gợi ý theo ưu tiên DSS: mức độ khẩn cấp → số ngày tồn kho tăng dần → đề xuất giảm dần → hạng ABC. */
+export function soSanhUuTienDss(a, b) {
+  const u = thuTuMucDoKhanCap(a?.mucDoKhanCap) - thuTuMucDoKhanCap(b?.mucDoKhanCap);
+  if (u !== 0) return u;
+  const doiA = a?.soNgayTonKho ?? Number.MAX_SAFE_INTEGER;
+  const doiB = b?.soNgayTonKho ?? Number.MAX_SAFE_INTEGER;
+  if (doiA !== doiB) return doiA - doiB;
+  const q = docSo(b?.soLuongDeXuat) - docSo(a?.soLuongDeXuat);
+  if (q !== 0) return q;
+  return String(a?.phanLoaiAbc || "C").localeCompare(String(b?.phanLoaiAbc || "C"));
+}
 
 // Dạng "dòng chứng từ" của biến thể để tìm bằng khopTuKhoa (nhớ theo đối tượng: chữ tìm chỉ tính một lần)
 const DONG_TIM = new WeakMap();
@@ -286,8 +311,19 @@ export function dongBang(dong, chiMuc, thuTuSp = []) {
         khaDung: docSo(bt?.khaDung),
         dangVe: docSo(bt?.dangVe),
         deXuat: docSo(bt?.soLuongDeXuat),
+        nguong: docSo(bt?.nguong),
         daTungNhap: Boolean(bt?.daTungNhap),
         du: Boolean(bt?.du),
+        tonAnToan: docSo(bt?.tonAnToan),
+        tonDuXaHang: docSo(bt?.tonDuXaHang),
+        goiYXaHang: Boolean(bt?.goiYXaHang),
+        tonCham: Boolean(bt?.tonCham),
+        khoaTaoYeuCau: Boolean(bt?.khoaTaoYeuCau),
+        phanLoaiAbc: bt?.phanLoaiAbc || "",
+        mucDoKhanCap: bt?.mucDoKhanCap || "",
+        kichBanApDung: bt?.kichBanApDung || "",
+        soNgayTonKho: bt?.soNgayTonKho ?? null,
+        banTrungBinhNgay: Number(bt?.banTrungBinhNgay || 0),
         yeuCauMo: bt?.yeuCauMo ?? null,
         khongConBan: !bt,
         _thuTuSp: thuTuSpMap.get(khoa),
@@ -399,12 +435,15 @@ export function moTaNgayGiao(iso, homNay = homNayVN()) {
 /* ------------------------------------------------------------------ cảnh báo, tóm tắt, gửi */
 
 /**
- * Các dòng cần chú ý: `trung` (mã đang trong yêu cầu nhập khác chưa xong), `du` (Kho tổng còn dư, không tính mã đã
- * trùng), `maYeuCau` (các mã yêu cầu khác, không lặp).
+ * Các dòng cần chú ý theo thứ tự ưu tiên không trùng: `trung` (đang trong yêu cầu nhập khác chưa xong), `khoaNhap`
+ * (đang ở kịch bản ngừng nhập theo DSS), `tonDu` (tồn dư cần xả theo DSS), `banCham` (hàng bán chậm theo DSS),
+ * `du` (`tonDu` + `banCham`), `maYeuCau` (các mã yêu cầu khác, không lặp).
  */
 export function canhBao(dong, chiMuc) {
   const trung = [];
-  const du = [];
+  const khoaNhap = [];
+  const tonDu = [];
+  const banCham = [];
   const maYeuCau = [];
   (dong ?? []).forEach((d) => {
     const bt = chiMuc?.theoId?.get(String(d.bienTheId));
@@ -412,21 +451,36 @@ export function canhBao(dong, chiMuc) {
     if (bt.yeuCauMo) {
       trung.push(d.bienTheId);
       if (bt.yeuCauMo.ma && !maYeuCau.includes(bt.yeuCauMo.ma)) maYeuCau.push(bt.yeuCauMo.ma);
-    } else if (bt.du) {
-      du.push(d.bienTheId);
+    } else if (bt.khoaTaoYeuCau) {
+      khoaNhap.push(d.bienTheId);
+    } else if (docSo(bt.tonDuXaHang) > 0) {
+      tonDu.push(d.bienTheId);
+    } else if (bt.tonCham || bt.du) {
+      banCham.push(d.bienTheId);
     }
   });
-  return { trung, du, maYeuCau, soChuY: trung.length + du.length };
+  const du = [...tonDu, ...banCham];
+  return {
+    trung,
+    khoaNhap,
+    tonDu,
+    banCham,
+    du,
+    maYeuCau,
+    soChuY: trung.length + khoaNhap.length + tonDu.length + banCham.length,
+  };
 }
 
 /** Câu cảnh báo đầu khối / trong hộp xác nhận; không có gì thì "". */
-export function cauCanhBao({ trung = [], du = [], maYeuCau = [] } = {}) {
+export function cauCanhBao({ trung = [], khoaNhap = [], tonDu = [], banCham = [], maYeuCau = [] } = {}) {
   const ma = maYeuCau.length > 3 ? t("{{dsMa}} và {{count}} yêu cầu khác", { dsMa: maYeuCau.slice(0, 3).join(", "), count: maYeuCau.length - 3 }) : maYeuCau.join(", ");
   const phan = [
     trung.length ? t("{{soMa}} mã đang nằm trong yêu cầu nhập khác chưa xong{{dsMa}}", { count: trung.length, soMa: trung.length.toLocaleString("vi-VN"), dsMa: ma ? ` (${ma})` : "" }) : "",
-    du.length ? t("{{soMa}} mã Kho tổng còn dư hàng", { count: du.length, soMa: du.length.toLocaleString("vi-VN") }) : "",
+    khoaNhap.length ? t("{{soMa}} mã đang ở kịch bản ngừng nhập theo DSS", { count: khoaNhap.length, soMa: khoaNhap.length.toLocaleString("vi-VN") }) : "",
+    tonDu.length ? t("{{soMa}} mã đang có tồn dư cần xả theo DSS", { count: tonDu.length, soMa: tonDu.length.toLocaleString("vi-VN") }) : "",
+    banCham.length ? t("{{soMa}} mã bán chậm theo DSS", { count: banCham.length, soMa: banCham.length.toLocaleString("vi-VN") }) : "",
   ].filter(Boolean);
-  return phan.length ? t("{{canhBao}}. Gửi thêm có thể mua trùng hoặc mua thừa.", { canhBao: phan.join("; ") }) : "";
+  return phan.length ? t("{{canhBao}}. Kiểm tra kỹ trước khi gửi để tránh mua trùng hoặc tăng tồn chậm.", { canhBao: phan.join("; ") }) : "";
 }
 
 /** Số lượng theo nhóm hàng, nhiều trước; quá SO_NHOM_HANG_HIEN nhóm thì gom phần còn lại vào "Nhóm khác (n)". */

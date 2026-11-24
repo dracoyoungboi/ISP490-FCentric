@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Search, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -9,11 +10,18 @@ import MauKichCo from "@/components/chung-tu/MauKichCo";
 import { khopTuKhoa, soVN, tachTuKhoa } from "@/components/chung-tu/bangChungTu";
 import { CHAN_HOP, DAU_HOP, HOP, MO_TA_HOP, NUT_CHINH, NUT_QUAY_LAI, O_NHAP, TIEU_DE_HOP } from "@/components/chung-tu/kieuHopThoai";
 import { NHAN_CANH_BAO, NHAN_TRUNG, O_CHON } from "./kieuTaoYeuCau";
-import { dongTimCua, khoaSanPham, laGoiY } from "./tinhTaoYeuCau";
+import { dongTimCua, khoaSanPham, laGoiY, soSanhUuTienDss } from "./tinhTaoYeuCau";
 import { t } from "@/i18n";
 
-// Hiện dần theo sản phẩm: kho lớn có thể vài nghìn mã sắp hết, vẽ hết một lần làm hộp mở chậm
+// Hiện dần theo sản phẩm: kho lớn có thể vài nghìn mã cần nhập, vẽ hết một lần làm hộp mở chậm
 const SO_SP_HIEN = 30;
+
+const NHAN_KICH_BAN = {
+  PRESET_01_STANDARD: t("Hoạt động chuẩn"),
+  PRESET_02_PEAK: t("Cao điểm"),
+  PRESET_03_LEAN: t("Tiết kiệm vốn"),
+  PRESET_04_PHASE_OUT: t("Ngừng nhập"),
+};
 
 // Điện thoại (< 768px): chỉ 3 cột (chọn · sản phẩm · đề xuất), khả dụng / đang về ghi thành dòng phụ dưới SKU để hộp không cuộn ngang
 const LUOI = "grid grid-cols-[44px_minmax(0,1fr)_76px] items-center md:grid-cols-[44px_minmax(220px,1fr)_84px_80px_84px]";
@@ -25,15 +33,15 @@ const trangThai = (ids, chon) => {
 };
 
 /**
- * Hộp "Gợi ý cần nhập": các mã Kho tổng đang hết / sắp hết (có số đề xuất), gom theo sản phẩm, tích để thêm cả loạt theo
- * số đề xuất. Mặc định tích mọi mã chưa có trong yêu cầu này và không nằm trong yêu cầu nhập khác đang mở (ẩn các mã đó,
- * bật lại được). Mã đã có trong yêu cầu hiện mờ, không tích được.
+ * Hộp "Gợi ý cần nhập": các mã Kho tổng đã chạm điểm đặt hàng lại (ROP) theo công thức DSS, gom theo sản phẩm, tích để
+ * thêm cả loạt theo số đề xuất Q. Mặc định tích mọi mã chưa có trong yêu cầu này và không nằm trong yêu cầu nhập khác
+ * đang mở (ẩn các mã đó, bật lại được). Mã đã có trong yêu cầu hiện mờ, không tích được.
  *
- * - `dsHang`: danh mục hàng Kho tổng; `dong`: dòng đang có; `tenKho`, `nguong` (ngưỡng mặc định) cho câu mô tả.
+ * - `dsHang`: danh mục hàng Kho tổng; `dong`: dòng đang có; `tenKho`, `cauHinhDss` cho câu mô tả công thức DSS.
  * - `onThem(ids)`: thêm các mã đã tích (màn tự lấy số đề xuất). Mã đang ẩn (trong yêu cầu khác) không tính là đã chọn.
  * - `traTieuDiemVe` (ref): đóng hộp thì đưa tiêu điểm về phần tử này (ô tìm thêm hàng).
  */
-export default function HopGoiYCanNhap({ mo, onDoiMo, dsHang, dong, tenKho, nguong, onThem, traTieuDiemVe }) {
+export default function HopGoiYCanNhap({ mo, onDoiMo, dsHang, dong, tenKho, cauHinhDss, onThem, traTieuDiemVe }) {
   return (
     <Dialog open={mo} onOpenChange={onDoiMo}>
       <DialogContent
@@ -44,15 +52,15 @@ export default function HopGoiYCanNhap({ mo, onDoiMo, dsHang, dong, tenKho, nguo
           if (el?.isConnected && !el.disabled) { e.preventDefault(); el.focus(); }
         }}
       >
-        {mo ? <NoiDung dsHang={dsHang} dong={dong} tenKho={tenKho} nguong={nguong} onThem={onThem} onDong={() => onDoiMo(false)} /> : null}
+        {mo ? <NoiDung dsHang={dsHang} dong={dong} tenKho={tenKho} cauHinhDss={cauHinhDss} onThem={onThem} onDong={() => onDoiMo(false)} /> : null}
       </DialogContent>
     </Dialog>
   );
 }
 
-function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
+function NoiDung({ dsHang, dong, tenKho, cauHinhDss, onThem, onDong }) {
   const daCo = useMemo(() => new Map((dong ?? []).map((d) => [String(d.bienTheId), d.soLuong])), [dong]);
-  const goiY = useMemo(() => (dsHang ?? []).filter(laGoiY), [dsHang]);
+  const goiY = useMemo(() => (dsHang ?? []).filter(laGoiY).sort(soSanhUuTienDss), [dsHang]);
   const soTrung = useMemo(() => goiY.filter((bt) => bt.yeuCauMo && !daCo.has(String(bt.bienTheId))).length, [goiY, daCo]);
   const [tuKhoa, setTuKhoa] = useState("");
   const [anTrung, setAnTrung] = useState(true);
@@ -100,7 +108,19 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
           {t("Gợi ý cần nhập · {{tenKho}}", { tenKho: tenKho || t("Kho tổng") })}
         </DialogTitle>
         <DialogDescription className={MO_TA_HOP}>
-          {t("Mã đã từng nhập về {{tenKho}} mà khả dụng + đang về không quá ngưỡng (mặc định {{nguong}}, sản phẩm có ngưỡng riêng thì theo ngưỡng đó). Số đề xuất đưa lên gấp đôi ngưỡng, cùng quy tắc mục Cần mua ở Tổng quan.", { tenKho: tenKho || t("Kho tổng"), nguong: soVN(nguong) })}
+          {cauHinhDss?.cheDo === "GLOBAL_PRESET"
+            ? t("Áp dụng cùng công thức Gợi ý nhập hàng (DSS) theo kịch bản {{kichBan}} (quan sát {{n}} ngày, dự trữ {{t}} ngày). Chỉ hiển thị mã đã chạm điểm đặt hàng lại (ROP) và cần bổ sung.", {
+                kichBan: NHAN_KICH_BAN[cauHinhDss?.kichBanChung] || t("Hoạt động chuẩn"),
+                n: soVN(cauHinhDss?.chuKyQuanSatN || 14),
+                t: soVN(cauHinhDss?.chuKyDuTruT || 14),
+              })
+            : t("Áp dụng cùng công thức Gợi ý nhập hàng (DSS) theo nhóm ABC tự động (quan sát {{n}} ngày, dự trữ {{t}} ngày). Chỉ hiển thị mã đã chạm điểm đặt hàng lại (ROP) và cần bổ sung.", {
+                n: soVN(cauHinhDss?.chuKyQuanSatN || 14),
+                t: soVN(cauHinhDss?.chuKyDuTruT || 14),
+              })}{" "}
+          <Link to="/purchase-requests/dss" className="font-medium text-bo-primary hover:underline">
+            {t("Xem và điều chỉnh ở Gợi ý nhập hàng (DSS)")}
+          </Link>
         </DialogDescription>
       </DialogHeader>
 
@@ -194,6 +214,29 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
                       <span role="cell" className="flex min-w-0 flex-col items-start py-2 pl-[50px] pr-3">
                         <MauKichCo tenMau={bt.tenMau} maMauHex={bt.maMauHex} kichCo={bt.tenSize} className={coRoi ? "" : "text-bo-foreground"} />
                         <span className="break-all font-mono text-xs leading-4 text-bo-muted">{bt.maSku}</span>
+                        {bt.phanLoaiAbc || bt.mucDoKhanCap === "CRITICAL" || bt.mucDoKhanCap === "HIGH" || bt.nguong > 0 ? (
+                          <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] leading-4">
+                            {bt.phanLoaiAbc ? (
+                              <span className="rounded border border-slate-200 bg-slate-100 px-1.5 font-semibold text-slate-700">
+                                {t("Nhóm {{nhom}}", { nhom: bt.phanLoaiAbc })}
+                              </span>
+                            ) : null}
+                            {bt.mucDoKhanCap === "CRITICAL" ? (
+                              <span className="rounded border border-red-200 bg-red-50 px-1.5 font-medium text-red-700">
+                                {t("Cần nhập gấp")}
+                              </span>
+                            ) : bt.mucDoKhanCap === "HIGH" ? (
+                              <span className="rounded border border-amber-200 bg-amber-50 px-1.5 font-medium text-amber-800">
+                                {t("Chạm ngưỡng ROP")}
+                              </span>
+                            ) : null}
+                            {bt.nguong > 0 ? (
+                              <span className="tabular-nums text-bo-muted">
+                                {t("ROP {{rop}}", { rop: soVN(bt.nguong) })}
+                              </span>
+                            ) : null}
+                          </span>
+                        ) : null}
                         {coRoi ? <span className="mt-0.5 text-xs text-bo-muted">{t("Đã có trong yêu cầu này · {{slCo}}", { slCo: soVN(slCo) })}</span> : null}
                         {!coRoi && bt.yeuCauMo ? (
                           <span className={cn(NHAN_CANH_BAO, NHAN_TRUNG)}>{t("Đang trong {{ma}}", { ma: bt.yeuCauMo.ma })}</span>
@@ -230,7 +273,11 @@ function NoiDung({ dsHang, dong, tenKho, nguong, onThem, onDong }) {
           ) : null}
           {!nhom.length ? (
             <p className="px-6 py-8 text-center text-sm text-bo-muted">
-              {goiY.length ? t("Không có mã gợi ý nào khớp.") : t("{{tenKho}} chưa có mã nào hết hoặc sắp hết.", { tenKho: tenKho || t("Kho tổng") })}
+              {goiY.length
+                ? t("Không có mã gợi ý nào khớp.")
+                : cauHinhDss?.cheDo === "GLOBAL_PRESET" && cauHinhDss?.kichBanChung === "PRESET_04_PHASE_OUT"
+                  ? t("Hệ thống DSS đang ở kịch bản Ngừng nhập và xả hàng nên không đề xuất nhập mới.")
+                  : t("{{tenKho}} chưa có mã nào chạm điểm đặt hàng lại (ROP) theo DSS.", { tenKho: tenKho || t("Kho tổng") })}
             </p>
           ) : null}
         </div>
