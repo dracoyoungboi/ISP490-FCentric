@@ -98,8 +98,12 @@ class MauEmailTest {
         ds.add(new BienThe("M5 quá hạn, không người phụ trách", LoaiEmail.M5, s -> {
             BienBanTraHangNcc bb = MauEmailFixture.bienBan();
             bb.getPhieuNhapKho().getDonMuaHang().setNguoiTao(null);
-            s.guiDaGhiNhanTraLoi(bb, MauEmailFixture.banDaTraLoi("TRU_CONG_NO", null, null), true);
+            s.guiDaGhiNhanTraLoi(bb, MauEmailFixture.banQuaHan(), true);
         }));
+        ds.add(new BienThe("M5 theo từng dòng", LoaiEmail.M5, s -> s.guiDaGhiNhanTraLoi(MauEmailFixture.bienBan(),
+                banTheoDong(), false)));
+        ds.add(new BienThe("M5 cần chọn lại cách bù", LoaiEmail.M5, s -> s.guiCanChonLaiCachBu(MauEmailFixture.bienBan(),
+                banChonLai(), List.of(51))));
         ds.add(new BienThe("M6", LoaiEmail.M6, s -> s.guiBienBanDaHuy(MauEmailFixture.bienBan("DA_HUY"))));
         ds.add(new BienThe("M3", LoaiEmail.M3, s -> s.guiDaNhanBaoGia(MauEmailFixture.donDaBaoGia(null))));
         ds.add(new BienThe("M3 ghi chú", LoaiEmail.M3,
@@ -478,7 +482,7 @@ class MauEmailTest {
     void m5_quaHan_daChuyenTruTien_khongNguoiXacNhan_hangLoiVanCho() {
         BienBanTraHangNcc bb = MauEmailFixture.bienBan();
         bb.getPhieuNhapKho().getDonMuaHang().setNguoiTao(null);
-        BanThu thu = f.dung(s -> s.guiDaGhiNhanTraLoi(bb, MauEmailFixture.banDaTraLoi("TRU_CONG_NO", null, null), true),
+        BanThu thu = f.dung(s -> s.guiDaGhiNhanTraLoi(bb, MauEmailFixture.banQuaHan(), true),
                 MauEmailFixture.cuaHang());
         assertEquals("Biên bản trả hàng RTV-20261021-003 quá hạn trả lời: đã chuyển trừ tiền", thu.tieuDe());
         for (String ban : List.of(chuHien(thu.html()), thu.text())) {
@@ -495,6 +499,95 @@ class MauEmailTest {
         assertTrue(chuHien(thu.html()).contains("Hàng lỗi Chưa chọn Ghi nhận lúc 14:22 ngày 19/10/2026"),
                 chuHien(thu.html()));
         assertTrue(thu.text().contains("Hàng lỗi: Chưa chọn\nGhi nhận lúc: 14:22 ngày 19/10/2026"), thu.text());
+    }
+
+    /** Dòng 51 (2 sp) trừ tiền + nhận lại, dòng 52 (1) giao bù + tiêu hủy, dòng 53 (1) giao bù + nhận lại. */
+    private static com.dev.backend.dto.response.inbound.BienBanTraHangDto banTheoDong() {
+        return MauEmailFixture.banTheoDong(new String[]{"TRU_CONG_NO", "DOI_HANG", "DOI_HANG"},
+                new String[]{"NHAN_LAI", "TIEU_HUY", "NHAN_LAI"}, "Trần Thị Thu Hà");
+    }
+
+    /** Nhà cung cấp chọn trừ tiền cả 3 dòng, nhập kho không trừ được dòng 51 (về chờ chọn), dòng 52, 53 đã trừ. */
+    private static com.dev.backend.dto.response.inbound.BienBanTraHangDto banChonLai() {
+        com.dev.backend.dto.response.inbound.BienBanTraHangDto b = MauEmailFixture.banTheoDong(
+                new String[]{null, "TRU_CONG_NO", "TRU_CONG_NO"}, new String[]{"NHAN_LAI", "NHAN_LAI", "NHAN_LAI"}, "Lan");
+        b.getItems().get(0).setNguonCachBu("NHAP_KHO");
+        b.setPhieuDaNhap(true);
+        return b;
+    }
+
+    @Test
+    void m5_theoTungDong_tomTatVaBangTungSanPham() {
+        String d = DinhDangEmail.KY_HIEU_DONG;
+        BanThu thu = f.dung(s -> s.guiDaGhiNhanTraLoi(MauEmailFixture.bienBan(), banTheoDong(), false),
+                MauEmailFixture.cuaHang());
+        assertEquals("Đã ghi nhận trả lời biên bản RTV-20261021-003", thu.tieuDe());
+        String chu = chuHien(thu.html());
+        assertTrue(chu.contains("Bù hàng lỗi Theo từng sản phẩm Trừ 290.000" + d + " cho 2 sản phẩm, giao bù 2 sản phẩm"
+                + " Hàng lỗi Theo từng sản phẩm Nhận lại 3 sản phẩm, đồng ý tiêu hủy 1 sản phẩm"), chu);
+        assertTrue(chu.contains("Người xác nhận: Trần Thị Thu Hà · Ghi nhận lúc 14:22 ngày 19/10/2026"), chu);
+        // Bảng từng sản phẩm: đủ 3 dòng, mỗi dòng cách bù + hàng lỗi riêng
+        assertEquals(3, dem(thu.html(), "class=\"dong-sp\""), "mỗi dòng biên bản một hàng trong bảng");
+        assertTrue(chu.contains("Sản phẩm lỗi Cách xử lý"), chu);
+        assertTrue(chu.contains("Áo polo nam cơ bản Trắng · M · Lỗi phụ liệu · 2 sản phẩm Trừ tiền · 290.000" + d
+                + " Hàng lỗi: Nhận lại"), chu);
+        assertTrue(chu.contains("Xanh navy · L · Rách vải · 1 sản phẩm Giao bù Hàng lỗi: Đồng ý tiêu hủy"), chu);
+        assertTrue(chu.contains("Quần kaki nam slim Be · 31 · Ố bẩn · 1 sản phẩm Giao bù Hàng lỗi: Nhận lại"), chu);
+        assertFalse(thu.html().contains("#b45309"), "không có dòng cần chọn lại");
+        assertTrue(thu.html().contains("Đã ghi nhận: Theo từng sản phẩm, Theo từng sản phẩm."), "dòng xem trước");
+
+        assertTrue(thu.text().contains("Bù hàng lỗi: Theo từng sản phẩm (Trừ 290.000" + d
+                + " cho 2 sản phẩm, giao bù 2 sản phẩm)\nHàng lỗi: Theo từng sản phẩm (Nhận lại 3 sản phẩm, đồng ý tiêu hủy 1 sản phẩm)"),
+                thu.text());
+        assertTrue(thu.text().contains("Từng sản phẩm lỗi:\n"
+                + "- Áo polo nam cơ bản (Trắng · M) · Lỗi phụ liệu · 2 sản phẩm: Trừ tiền · 290.000" + d + " · hàng lỗi: Nhận lại\n"
+                + "- Áo polo nam cơ bản (Xanh navy · L) · Rách vải · 1 sản phẩm: Giao bù · hàng lỗi: Đồng ý tiêu hủy\n"
+                + "- Quần kaki nam slim (Be · 31) · Ố bẩn · 1 sản phẩm: Giao bù · hàng lỗi: Nhận lại\n"), thu.text());
+    }
+
+    @Test
+    void m5_canChonLaiCachBu_chiDongVuot_khongKhungTomTat() {
+        BanThu thu = f.dung(s -> s.guiCanChonLaiCachBu(MauEmailFixture.bienBan(), banChonLai(), List.of(51)),
+                MauEmailFixture.cuaHang());
+        assertEquals("Biên bản trả hàng RTV-20261021-003: cần chọn lại cách bù", thu.tieuDe());
+        // Mã biên bản in đậm trong HTML: bỏ khoảng trắng chuHien chèn trước dấu phẩy
+        for (String ban : List.of(chuHien(thu.html()).replace(" ,", ","), thu.text())) {
+            assertTrue(ban.contains("Biên bản RTV-20261021-003: cần chọn lại cách bù"), ban);
+            assertTrue(ban.contains("Khi nhập kho lô hàng của biên bản RTV-20261021-003, chúng tôi chưa trừ tiền được cho"
+                    + " 2 sản phẩm lỗi Quý công ty chọn trừ tiền, vì đơn PO202610195101 không còn chờ đủ số này (đã có hàng"
+                    + " giao ở đợt khác hoặc đang chờ nhập kho). Vui lòng chọn lại cách bù cho các sản phẩm ghi \"Cần chọn lại\" bên dưới trên Cổng"
+                    + " nhà cung cấp trước hết ngày 28/10/2026."), ban);
+            assertFalse(ban.contains("Bù hàng lỗi"), "thư chọn lại không có khung tóm tắt");
+            assertFalse(ban.contains("Người xác nhận"), "không phải câu trả lời của nhà cung cấp");
+            assertFalse(ban.contains("Đã ghi nhận trả lời"), ban);
+        }
+        String chu = chuHien(thu.html());
+        assertEquals(3, dem(thu.html(), "class=\"dong-sp\""));
+        assertTrue(chu.contains("Áo polo nam cơ bản Trắng · M · Lỗi phụ liệu · 2 sản phẩm Cần chọn lại Hàng lỗi: Nhận lại"), chu);
+        assertTrue(chu.contains("Xanh navy · L · Rách vải · 1 sản phẩm Trừ tiền"), chu);
+        assertEquals(1, dem(thu.html(), "#b45309"), "chỉ dòng cần chọn lại tô màu");
+        assertTrue(chu.contains("Chọn lại trên Cổng nhà cung cấp"), chu);
+        assertTrue(thu.html().contains("Cần chọn lại cách bù cho 2 sản phẩm lỗi."), "dòng xem trước");
+        assertTrue(thu.text().contains("- Áo polo nam cơ bản (Trắng · M) · Lỗi phụ liệu · 2 sản phẩm: Cần chọn lại · hàng lỗi:"
+                + " Nhận lại\n"), thu.text());
+    }
+
+    @Test
+    void m5_quaHan_moiDongCoiNhuDaGiaoBu_khongNoiTruTien() {
+        com.dev.backend.dto.response.inbound.BienBanTraHangDto ban = MauEmailFixture.banTheoDong(
+                new String[]{"DOI_HANG", "DOI_HANG", "DOI_HANG"}, new String[]{null, null, null}, null);
+        ban.getItems().forEach(it -> it.setNguonCachBu("TU_DONG"));
+        BanThu thu = f.dung(s -> s.guiDaGhiNhanTraLoi(MauEmailFixture.bienBan(), ban, true), MauEmailFixture.cuaHang());
+        assertEquals("Biên bản trả hàng RTV-20261021-003 quá hạn trả lời", thu.tieuDe());
+        for (String ban2 : List.of(chuHien(thu.html()), thu.text())) {
+            assertTrue(ban2.contains("Biên bản RTV-20261021-003: quá hạn trả lời"), ban2);
+            assertTrue(ban2.contains("mà Quý công ty chưa chọn cách bù."), ban2);
+            assertFalse(ban2.contains("từ chối nhận"), "không dòng nào trừ tiền");
+            assertFalse(ban2.contains("đã chuyển trừ tiền"), ban2);
+            assertTrue(ban2.contains("4 sản phẩm lỗi coi như đã giao bù vì đơn PO202610195101 đã nhận đủ số này ở đợt"
+                    + " giao khác, không trừ tiền."), ban2);
+        }
+        assertTrue(thu.html().contains("Quá hạn trả lời, hàng lỗi coi như đã giao bù."), "dòng xem trước");
     }
 
     @Test
