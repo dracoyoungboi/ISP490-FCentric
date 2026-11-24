@@ -431,7 +431,7 @@ export default function PhieuChuyenKhoCreate() {
                 role="combobox"
                 aria-expanded={moKetQua}
                 aria-controls={`${idDs}-ds`}
-                placeholder={t("Tìm tên, mã SKU hoặc quét mã vạch rồi Enter")}
+                placeholder={t("Tên, SKU hoặc quét mã vạch")}
                 onChange={(e) => { setSearchTerm(e.target.value); setMoKetQua(true); }}
                 onFocus={() => setMoKetQua(true)}
                 onBlur={() => setTimeout(() => setMoKetQua(false), 150)}

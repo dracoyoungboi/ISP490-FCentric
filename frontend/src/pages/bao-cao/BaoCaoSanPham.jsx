@@ -496,7 +496,7 @@ export default function BaoCaoSanPham() {
               <FilterSelect label={t("Kho")} value={boLoc.khoId} options={dsKhoChon} className="sm:w-[180px]" onChange={(v) => setBoLoc({ khoId: v })} onClear={() => setBoLoc({ khoId: "" })} clearLabel={t("Bỏ lọc kho")} />
             ) : null}
             <FilterSelect label={t("Kênh bán")} value={boLoc.kenh} options={dsKenh} className="sm:w-[170px]" onChange={(v) => setBoLoc({ kenh: v })} onClear={() => setBoLoc({ kenh: "" })} clearLabel={t("Bỏ lọc kênh")} />
-            <SearchInput label={t("Tìm sản phẩm")} placeholder={t("Mã SP, SKU, tên sản phẩm...")} value={tuKhoa} onChange={(e) => setTuKhoa(e.target.value)} onClear={() => setTuKhoa("")} className="sm:w-[260px]" />
+            <SearchInput label={t("Tìm sản phẩm")} placeholder={t("Tên, mã SP, SKU")} value={tuKhoa} onChange={(e) => setTuKhoa(e.target.value)} onClear={() => setTuKhoa("")} className="sm:w-[260px]" />
           </ListToolbar>
         )}
         footer={bc ? (

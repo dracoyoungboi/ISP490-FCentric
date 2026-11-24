@@ -128,7 +128,7 @@ export default function OTimThemHang({ dsHang, chiMuc, dong, khoa = false, onThe
         aria-activedescendant={dangMo && chiSo >= 0 ? `${id}-muc-${chiSo}` : undefined}
         aria-describedby={goiY ? `${id}-goi-y` : undefined}
         disabled={khoa}
-        placeholder={t("Thêm sản phẩm: tìm tên, mã SKU hoặc quét mã vạch rồi Enter")}
+        placeholder={t("Tên, SKU hoặc quét mã vạch")}
         onChange={(e) => { setTuKhoa(e.target.value); setGoiY(""); setChiSo(-1); chonBangPhimRef.current = false; setMo(true); }}
         // Chỉ mở danh sách khi người dùng gõ, bấm ↑ ↓ hay bấm chuột vào ô: tiêu điểm được trả về ô (đóng hộp thoại, bỏ dòng)
         // thì không bung danh sách đè lên bảng

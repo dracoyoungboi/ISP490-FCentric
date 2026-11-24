@@ -608,7 +608,7 @@ export default function LichSuGiaoDichKhoList() {
                         <SearchInput
                             label={t("Tìm kiếm")}
                             // Gợi ý ngắn, ô rộng 300px như các trang danh sách khác (228px chữ); vẫn tìm được theo kho, người thực hiện, mã phiếu chuyển kệ (matchSearch)
-                            placeholder={t("Tìm sản phẩm, SKU, lô, kệ…")}
+                            placeholder={t("Sản phẩm, SKU, lô, kệ, chứng từ")}
                             value={search}
                             onChange={(e) => changeSearch(e.target.value)}
                             onClear={handleClearSearch}

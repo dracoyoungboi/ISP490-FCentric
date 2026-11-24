@@ -447,7 +447,7 @@ export default function PosReturnsPage() {
                   disabled={submitting}
                   id="tra-hang-tim"
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t("Mã hóa đơn, mã phiếu trả hoặc số điện thoại khách")}
+                  placeholder={t("Mã hóa đơn, phiếu trả, SĐT")}
                   ref={searchRef}
                   value={query}
                 />

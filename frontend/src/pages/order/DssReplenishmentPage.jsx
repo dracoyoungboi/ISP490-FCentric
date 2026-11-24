@@ -381,7 +381,7 @@ export default function DssReplenishmentPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onClear={() => setSearch("")}
-              placeholder={t("Tìm theo tên sản phẩm hoặc mã SKU…")}
+              placeholder={t("Tên, mã sản phẩm hoặc SKU")}
             />
           </div>
         </div>

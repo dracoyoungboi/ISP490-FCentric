@@ -382,7 +382,7 @@ export default function KhachHangPage() {
                     >
                         <SearchInput
                             label={t("Tìm khách hàng")}
-                            placeholder={t("Tìm theo tên, mã, SĐT, email...")}
+                            placeholder={t("Tên, mã, SĐT, email")}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             onClear={handleClearSearch}

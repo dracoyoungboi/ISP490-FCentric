@@ -277,7 +277,7 @@ export default function XuatDuLieuKeToan() {
             hasFilter={dangLoc}
             onClear={() => setTim("")}
           >
-            <SearchInput label={t("Tìm lô")} placeholder={t("Tìm số lô, ghi chú...")} value={tim}
+            <SearchInput label={t("Tìm lô")} placeholder={t("Số lô, ghi chú")} value={tim}
               onChange={(e) => { setTim(e.target.value); setPage(0); }} onClear={() => setTim("")} />
           </ListToolbar>
         }

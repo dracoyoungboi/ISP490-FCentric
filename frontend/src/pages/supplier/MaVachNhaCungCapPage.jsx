@@ -359,7 +359,7 @@ export default function MaVachNhaCungCapPage() {
           <ListToolbar hasFilter={dangLoc} onClear={xoaLoc}>
             <SearchInput
               label={t("Tìm mã vạch nhà cung cấp")}
-              placeholder={t("Quét hoặc nhập mã vạch, mã hàng, SKU, tên, màu")}
+              placeholder={t("Mã vạch, SKU, tên, màu")}
               value={tuKhoa}
               onChange={(e) => {
                 setTuKhoa(e.target.value);

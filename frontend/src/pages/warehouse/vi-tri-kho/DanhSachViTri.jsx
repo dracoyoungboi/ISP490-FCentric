@@ -266,7 +266,7 @@ export default function DanhSachViTri({
             >
               <SearchInput
                 label={t("Tìm mã vị trí")}
-                placeholder={t("Tìm mã vị trí, VD: A-01")}
+                placeholder={t("Mã vị trí, VD: A-01")}
                 value={tuKhoa}
                 onChange={(e) => {
                   setTuKhoa(e.target.value);

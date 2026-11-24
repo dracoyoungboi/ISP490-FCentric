@@ -364,7 +364,7 @@ export default function WarehouseManagement() {
                     >
                         <SearchInput
                             label={t("Tìm kho")}
-                            placeholder={t("Tìm theo tên kho, mã kho, địa chỉ...")}
+                            placeholder={t("Tên kho, mã kho, địa chỉ")}
                             value={searchInput}
                             onChange={(e) => setSearchInput(e.target.value)}
                             onClear={() => setSearchInput('')}

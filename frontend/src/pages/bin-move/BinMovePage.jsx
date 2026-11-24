@@ -887,7 +887,7 @@ export default function BinMovePage() {
   }, [ketQua]);
 
   const goiYO = !nguon
-    ? t("Quét hoặc nhập mã kệ cần lấy hàng, VD: A-01-02")
+    ? t("Quét mã kệ, VD: A-01")
     : tong <= 0
       ? t("Quét mã hàng để cộng 1, hoặc quét kệ khác để đổi kệ nguồn")
       : conLai > 0

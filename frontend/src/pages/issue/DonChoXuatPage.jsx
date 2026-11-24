@@ -253,7 +253,7 @@ export default function DonChoXuatPage() {
                         >
                             <KhoLamViecSelect onChange={handleDoiKho} />
                             <SearchInput
-                                placeholder={t("Nhập số đơn hoặc tên khách hàng...")}
+                                placeholder={t("Số đơn, tên khách hàng")}
                                 label={t("Tìm đơn chờ nhặt hàng")}
                                 value={searchText}
                                 onChange={(event) => setSearchText(event.target.value)}

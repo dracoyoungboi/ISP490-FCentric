@@ -648,7 +648,7 @@ export default function DanhMucQuanAoTree() {
             <ListToolbar tabs={nutMoTatCa} hasFilter={dangLoc} onClear={xoaLoc}>
               <SearchInput
                 label={t("Tìm danh mục")}
-                placeholder={t("Tìm theo tên hoặc mã danh mục")}
+                placeholder={t("Tên hoặc mã danh mục")}
                 value={tuKhoa}
                 onChange={(event) => doiTuKhoa(event.target.value)}
                 onClear={() => doiTuKhoa("")}

@@ -26,7 +26,7 @@ export const LOAI_PHIEU_NHAT = Object.freeze({ BAN_HANG: "BAN_HANG", CHUYEN_KHO:
 
 /** Bộ lọc loại ở danh sách phiếu nhặt: `value` gửi API (`loai`), rỗng = tất cả. */
 export const LOC_LOAI_PHIEU_NHAT = [
-  { value: "", label: t("Loại: Tất cả") },
+  { value: "", label: t("Tất cả loại phiếu") },
   { value: LOAI_PHIEU_NHAT.BAN_HANG, label: t("Bán hàng") },
   { value: LOAI_PHIEU_NHAT.CHUYEN_KHO, label: t("Chuyển kho") },
 ];

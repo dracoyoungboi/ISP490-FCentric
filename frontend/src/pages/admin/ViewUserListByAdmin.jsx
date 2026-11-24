@@ -550,7 +550,7 @@ export default function ViewUserListByAdmin() {
                     >
                         <SearchInput
                             label={t("Tìm người dùng")}
-                            placeholder={t("Tên, tên đăng nhập, email hoặc SĐT")}
+                            placeholder={t("Tên, tài khoản, SĐT")}
                             value={searchText}
                             onChange={(e) => setSearchText(e.target.value)}
                             onKeyDown={(e) => {

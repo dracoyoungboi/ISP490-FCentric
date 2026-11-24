@@ -264,7 +264,7 @@ export default function SupplierList() {
                         >
                             <SearchInput
                                 label={t("Tìm nhà cung cấp")}
-                                placeholder={t("Tìm mã, tên, MST, liên hệ, SĐT...")}
+                                placeholder={t("Mã, tên, MST, SĐT")}
                                 value={search}
                                 onChange={(e) => changeSearch(e.target.value)}
                                 onClear={handleClearSearch}

@@ -206,7 +206,7 @@ export default function StockTakeList() {
   // Điện thoại: ô lọc kho vào sheet "Bộ lọc" của ListToolbar (chip + Xóa lọc) nên vẫn dùng FilterSelect; máy tính: ô chọn có tìm
   const laDienThoai = useIsMobile();
   const tuyChonKho = useMemo(
-    () => [{ value: MOI_KHO, label: t("Mọi kho") }, ...dsKho.map((k) => ({ value: String(k.id), label: k.ten || k.ma || t("Kho #{{id}}", { id: k.id }) }))],
+    () => [{ value: MOI_KHO, label: t("Tất cả kho") }, ...dsKho.map((k) => ({ value: String(k.id), label: k.ten || k.ma || t("Kho #{{id}}", { id: k.id }) }))],
     [dsKho],
   );
 
@@ -310,7 +310,7 @@ export default function StockTakeList() {
             onClear={xoaLoc}
           >
             <SearchInput
-              placeholder={t("Tìm đợt, kho, người chủ trì")}
+              placeholder={t("Đợt, kho, người chủ trì")}
               label={t("Tìm đợt kiểm kê")}
               value={tuKhoa}
               onChange={(e) => doiTuKhoa(e.target.value)}
@@ -332,7 +332,7 @@ export default function StockTakeList() {
                 dsKho={dsKho}
                 value={dangLocKho ? Number(kho) : null}
                 onChange={(id) => doiKho(id == null ? MOI_KHO : String(id))}
-                nhanMoiKho={t("Mọi kho")}
+                nhanMoiKho={t("Tất cả kho")}
                 nhan={t("Lọc theo kho")}
                 align="end"
                 className="w-full sm:w-[220px]"

@@ -51,7 +51,7 @@ const ORDER_CHANNEL_OPTIONS = [
 
 // Lọc theo trạng thái thanh toán lưu trên đơn (đơn sàn theo sàn, đơn tại quầy đã thu)
 const THANH_TOAN_OPTIONS = [
-  { value: "", label: t("Mọi thanh toán") },
+  { value: "", label: t("Tất cả thanh toán") },
   ...Object.entries(DON_BAN_HANG_THANH_TOAN).map(([value, { label }]) => ({ value, label: t(label) })),
 ];
 
@@ -389,7 +389,7 @@ export default function DonBanHangList() {
           >
             <SearchInput
               label={t("Tìm đơn bán hàng")}
-              placeholder={t("Số đơn, mã đơn sàn, SĐT khách...")}
+              placeholder={t("Số đơn, mã sàn, SĐT")}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               onKeyDown={(e) => {

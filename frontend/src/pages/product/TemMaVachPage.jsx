@@ -665,7 +665,7 @@ export default function TemMaVachPage() {
               <SearchInput
                 label={t("Tìm SKU")}
                 // Điện thoại: ô hẹp hơn nên chữ gợi ý ngắn hơn; biểu tượng súng quét vẫn báo ô nhận máy quét
-                placeholder={isMobile ? t("Tìm tên, SKU, mã vạch") : t("Tìm tên, SKU hoặc quét mã vạch")}
+                placeholder={t("Tên, SKU hoặc quét mã vạch")}
                 bieuTuongCuoi={<ScanBarcode />}
                 value={searchText}
                 onChange={(event) => setSearchText(event.target.value)}

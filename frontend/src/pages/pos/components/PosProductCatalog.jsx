@@ -323,7 +323,7 @@ export default function PosProductCatalog({
               ) : (
                 <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-bo-muted" size={17} />
               )}
-              <input aria-describedby={scanMode ? 'pos-scan-hint' : undefined} aria-label={t("Tìm hàng hóa")} autoComplete="off" className={`block min-h-10 w-full text-ellipsis rounded-lg border bg-bo-surface py-2 pl-9 text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10 ${searchTone}`} onChange={(event) => onSearch(event.target.value)} onKeyDown={onSearchKeyDown} placeholder={scanMode ? t("Quét mã hoặc gõ tên / mã hàng (F3)") : t("Tên hoặc mã hàng (F3)")} ref={searchRef} spellCheck={false} value={search} />
+              <input aria-describedby={scanMode ? 'pos-scan-hint' : undefined} aria-label={t("Tìm hàng hóa")} autoComplete="off" className={`block min-h-10 w-full text-ellipsis rounded-lg border bg-bo-surface py-2 pl-9 text-sm text-bo-foreground outline-none placeholder:text-bo-muted focus:border-bo-primary focus:ring-2 focus:ring-bo-primary/10 ${searchTone}`} onChange={(event) => onSearch(event.target.value)} onKeyDown={onSearchKeyDown} placeholder={scanMode ? t("Quét mã hoặc gõ tên / mã hàng (F3)") : t("Tên, mã hàng (F3)")} ref={searchRef} spellCheck={false} value={search} />
             </label>
             {scanMode ? <span className="sr-only" id="pos-scan-hint">{SCAN_HINT}</span> : null}
             {scanMode && scanTone ? <span aria-hidden="true" className="pos-scan-ring pointer-events-none absolute inset-0 rounded-lg" data-pos-scan-ring={scanTone} data-tone={scanTone} key={`scan-ring-${scanSeq}`} /> : null}
