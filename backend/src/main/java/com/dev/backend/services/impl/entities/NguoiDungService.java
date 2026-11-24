@@ -61,6 +61,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -1049,20 +1050,35 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             throw resetOtpExpired(ThongDiep.of(KHOA_RESET_OTP_INVALID));
         }
 
-        if (!findingResetOtp.getOtp().equals(otp)) {
-            // nhập sai quá số lần cho phép thì huỷ mã, buộc yêu cầu mã mới (chống dò mã 6
-            // số)
-            int failed = findingResetOtp.getFailedAttempts().incrementAndGet();
-            if (failed >= RESET_OTP_MAX_FAILED_ATTEMPTS) {
+        // So mã và đếm lần sai trong khóa của chính mã (như Cổng nhà cung cấp). Không khóa thì gửi hàng trăm yêu cầu
+        // cùng lúc: mọi yêu cầu đã lấy được mã trước khi lần sai thứ 5 hủy nó vẫn được so tiếp, thử được quá 5 lần.
+        synchronized (findingResetOtp) {
+            // Mã đã bị hủy trong lúc yêu cầu này chờ khóa: sai đủ lần, đã dùng để đặt mật khẩu, hoặc có mã mới thay
+            if (findingResetOtp.getFailedAttempts().get() >= RESET_OTP_MAX_FAILED_ATTEMPTS
+                    || !GlobalCache.OTP_SCHEDULE_OBJS.contains(findingResetOtp)) {
                 GlobalCache.OTP_SCHEDULE_OBJS.remove(findingResetOtp);
-                throw resetOtpExpired(ThongDiep.of("heThong.nhapSaiMaXacNhanQuaNhieu", RESET_OTP_MAX_FAILED_ATTEMPTS));
+                throw resetOtpExpired(ThongDiep.of(KHOA_RESET_OTP_INVALID));
             }
-            int remaining = RESET_OTP_MAX_FAILED_ATTEMPTS - failed;
-            throw new CommonException(ThongDiep.of("heThong.maXacNhanSaiConLan", remaining),
-                    HttpStatus.BAD_REQUEST,
-                    Map.of("code", RESET_OTP_WRONG_CODE, "remainingAttempts", remaining));
+            if (!maKhop(findingResetOtp.getOtp(), otp)) {
+                // nhập sai quá số lần cho phép thì huỷ mã, buộc yêu cầu mã mới (chống dò mã 6 số)
+                int failed = findingResetOtp.getFailedAttempts().incrementAndGet();
+                if (failed >= RESET_OTP_MAX_FAILED_ATTEMPTS) {
+                    GlobalCache.OTP_SCHEDULE_OBJS.remove(findingResetOtp);
+                    throw resetOtpExpired(ThongDiep.of("heThong.nhapSaiMaXacNhanQuaNhieu", RESET_OTP_MAX_FAILED_ATTEMPTS));
+                }
+                int remaining = RESET_OTP_MAX_FAILED_ATTEMPTS - failed;
+                throw new CommonException(ThongDiep.of("heThong.maXacNhanSaiConLan", remaining),
+                        HttpStatus.BAD_REQUEST,
+                        Map.of("code", RESET_OTP_WRONG_CODE, "remainingAttempts", remaining));
+            }
         }
         return findingResetOtp;
+    }
+
+    /** So mã trong thời gian không đổi: thời gian phản hồi không lộ mã nhập đúng được mấy chữ số đầu. */
+    private static boolean maKhop(String maDung, String maNhap) {
+        return maNhap != null
+                && MessageDigest.isEqual(maDung.getBytes(StandardCharsets.UTF_8), maNhap.getBytes(StandardCharsets.UTF_8));
     }
 
     private static CommonException resetOtpExpired(ThongDiep message) {
