@@ -967,11 +967,13 @@ public class KenhBanHangController {
     @PostMapping("/{maKenh}/dong-bo-ngay")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Bắt đầu đồng bộ tay chạy nền (đẩy tồn theo quy tắc đã lưu rồi lấy đơn 24 giờ qua); đang chạy thì trả đợt đang chạy")
-    public ResponseEntity<ResponseData<DongBoNgayDto>> batDauDongBoNgay(@PathVariable String maKenh) {
+    public ResponseEntity<ResponseData<DongBoNgayDto>> batDauDongBoNgay(
+            @PathVariable String maKenh,
+            @RequestParam(defaultValue = "false") boolean epDayToanBo) {
         return ResponseEntity.ok(
                 ResponseData.<DongBoNgayDto>builder()
                         .status(HttpStatus.OK.value())
-                        .data(dongBoNgayService.batDau(maKenh))
+                        .data(dongBoNgayService.batDau(maKenh, epDayToanBo))
                         .message(ThongDiep.dich("kenhBan.daBatDauDongBo"))
                         .build()
         );

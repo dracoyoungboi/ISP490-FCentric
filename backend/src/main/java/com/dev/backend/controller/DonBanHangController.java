@@ -136,7 +136,8 @@ public class DonBanHangController {
             @RequestBody(required = false) com.dev.backend.dto.request.SendToWarehouseRequest request
     ) {
         Integer khoId = request != null ? request.getKhoId() : null;
-        donBanHangService.sendToWarehouse(id, khoId);
+        boolean thuCongKhiLoi = request != null && Boolean.TRUE.equals(request.getThuCongKhiLoi());
+        donBanHangService.sendToWarehouse(id, khoId, thuCongKhiLoi);
 
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
