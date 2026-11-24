@@ -3,6 +3,8 @@ import { SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import FilterSelect from "@/components/shared/FilterSelect";
+import LocKhoangNgay from "@/components/shared/LocKhoangNgay";
+import { nhanKhoangNgay } from "@/components/shared/khoangNgayLoc";
 import SearchInput from "@/components/shared/SearchInput";
 import SheetDay from "@/components/shared/SheetDay";
 import { LocTrongSheetContext } from "@/components/shared/locTrongSheet";
@@ -21,12 +23,22 @@ function traiCon(children) {
 }
 
 /** Ô vào sheet "Bộ lọc": ô chọn lọc, ô nhập lọc và ô ngày (label bọc input). Nút thao tác, chip riêng của trang… ở lại trên hàng. */
-const laOLoc = (c) => c.type === FilterSelect || c.type === Input || c.type === "label";
+const laOLoc = (c) => c.type === FilterSelect || c.type === LocKhoangNgay || c.type === Input || c.type === "label";
 
 const ngayVN = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v.split("-").reverse().join("/") : v);
 
 /** Ô lọc đang áp → các chip { khoa, nhan, moTa, boLoc }; ô đang để trống / "Tất cả" → không chip nào. */
 function chipLoc(c, i) {
+  if (c.type === LocKhoangNgay) {
+    const { nhan, tuNgay, denNgay, onDoi } = c.props;
+    if (!tuNgay && !denNgay) return [];
+    return [{
+      khoa: c.key ?? i,
+      nhan: `${nhan}: ${nhanKhoangNgay(tuNgay, denNgay)}`,
+      moTa: t("Bỏ lọc {{ten}}", { ten: nhan ?? "" }),
+      boLoc: () => onDoi({ tuNgay: "", denNgay: "" }),
+    }];
+  }
   if (c.type === FilterSelect) {
     const { label, value, options, onChange, onClear } = c.props;
     if (!options?.length || value === options[0].value) return [];
