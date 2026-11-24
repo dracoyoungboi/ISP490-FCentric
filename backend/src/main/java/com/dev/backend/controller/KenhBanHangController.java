@@ -470,6 +470,19 @@ public class KenhBanHangController {
                             .build()
             );
         }
+        if ("TIKTOK".equals(ma)) {
+            boolean success = kenhBanHangService.refreshTikTokAccessToken();
+            if (!success) {
+                throw new LoiCoMaException(HttpStatus.FAILED_DEPENDENCY, MaLoi.LAM_MOI_KHOA_LOI, ThongDiep.of("kenhBan.khongTheLamMoiTokenSan", "TikTok Shop"));
+            }
+            return ResponseEntity.ok(
+                    ResponseData.<ShopifyConfigResponse>builder()
+                            .status(HttpStatus.OK.value())
+                            .data(kenhBanHangService.getKetNoi(ma))
+                            .message(ThongDiep.dich("kenhBan.lamMoiAccessTokenSanThanhCong", "TikTok Shop"))
+                            .build()
+            );
+        }
         kenhBanHangService.kiemTraSanShopify(maKenh);
         return null;
     }
@@ -789,11 +802,13 @@ public class KenhBanHangController {
     @GetMapping("/{maKenh}/kho-san")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy danh sách kho bán hàng thực tế từ sàn")
-    public ResponseEntity<ResponseData<List<ShopifyLocationDto>>> getKhoSan(@PathVariable String maKenh) {
+    public ResponseEntity<ResponseData<List<ShopifyLocationDto>>> getKhoSan(
+            @PathVariable String maKenh,
+            @RequestParam(required = false, defaultValue = "false") boolean forceRefresh) {
         return ResponseEntity.ok(
                 ResponseData.<List<ShopifyLocationDto>>builder()
                         .status(HttpStatus.OK.value())
-                        .data(kenhBanHangDongBoService.getLocations(maKenh))
+                        .data(kenhBanHangDongBoService.getLocations(maKenh, forceRefresh))
                         .message(ThongDiep.dich("kenhBan.layKhoSanThanhCong"))
                         .build()
         );
@@ -802,11 +817,13 @@ public class KenhBanHangController {
     @GetMapping("/{maKenh}/locations")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy danh sách vị trí kho từ kênh bán hàng")
-    public ResponseEntity<ResponseData<List<ShopifyLocationDto>>> getLocations(@PathVariable String maKenh) {
+    public ResponseEntity<ResponseData<List<ShopifyLocationDto>>> getLocations(
+            @PathVariable String maKenh,
+            @RequestParam(required = false, defaultValue = "false") boolean forceRefresh) {
         return ResponseEntity.ok(
                 ResponseData.<List<ShopifyLocationDto>>builder()
                         .status(HttpStatus.OK.value())
-                        .data(kenhBanHangDongBoService.getLocations(maKenh))
+                        .data(kenhBanHangDongBoService.getLocations(maKenh, forceRefresh))
                         .message(ThongDiep.dich("kenhBan.layViTriKhoThanhCong"))
                         .build()
         );
@@ -831,11 +848,12 @@ public class KenhBanHangController {
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy cấu hình ánh xạ kho sàn với kho FCentric (tự động nhận diện 1 kho vs đa kho)")
     public ResponseEntity<ResponseData<com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto>> getKhoMapping(
-            @PathVariable String maKenh) {
+            @PathVariable String maKenh,
+            @RequestParam(required = false, defaultValue = "false") boolean forceRefresh) {
         return ResponseEntity.ok(
                 ResponseData.<com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto>builder()
                         .status(HttpStatus.OK.value())
-                        .data(kenhBanHangDongBoService.layCauHinhKhoMapping(maKenh))
+                        .data(kenhBanHangDongBoService.layCauHinhKhoMapping(maKenh, forceRefresh))
                         .message(ThongDiep.dich("kenhBan.layCauHinhKhoMappingThanhCong"))
                         .build()
         );
