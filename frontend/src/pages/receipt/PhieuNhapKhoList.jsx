@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  Calendar,
   ClipboardList,
   Plus,
   SearchX,
@@ -15,6 +14,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";
+import LocKhoangNgay from "@/components/shared/LocKhoangNgay";
 import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -22,7 +22,6 @@ import StatusTabs from "@/components/shared/StatusTabs";
 import TablePagination from "@/components/shared/TablePagination";
 import TableShell from "@/components/shared/TableShell";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
@@ -56,7 +55,8 @@ const SEARCH_DEBOUNCE_MS = 300;
 const DEFAULT_FILTERS = {
   keyword: "",
   nhaCungCap: "",
-  ngayNhap: "",
+  tuNgay: "",
+  denNgay: "",
   page: 0,
   size: SO_DONG_MAC_DINH,
 };
@@ -81,9 +81,12 @@ function buildFilterPayload(filters) {
     filterList.push({ fieldName: "trangThai", operation: "EQUALS", value: Number(filters.trangThai) });
   }
   // Ngày nhập lọc ở máy chủ (trước đây lọc trên trang đang xem nên tổng số và số trên tab không theo ngày)
-  if (filters.ngayNhap) {
-    filterList.push({ fieldName: "ngayNhap", operation: "GREATER_THAN_OR_EQUAL", value: filters.ngayNhap });
-    filterList.push({ fieldName: "ngayNhap", operation: "LESS_THAN_OR_EQUAL", value: `${filters.ngayNhap}T23:59:59` });
+  // Ngày nhập: khoảng ngày, bỏ trống một đầu được
+  if (filters.tuNgay) {
+    filterList.push({ fieldName: "ngayNhap", operation: "GREATER_THAN_OR_EQUAL", value: filters.tuNgay });
+  }
+  if (filters.denNgay) {
+    filterList.push({ fieldName: "ngayNhap", operation: "LESS_THAN_OR_EQUAL", value: `${filters.denNgay}T23:59:59` });
   }
   // Ô lọc "Hàng lỗi chờ trả": lọc theo mã phiếu (bộ lọc IN sẵn có của API); không có phiếu nào thì lọc rỗng
   if (filters.idIn) {
@@ -193,7 +196,7 @@ export default function PhieuNhapKhoList() {
   const tabCounts = useDemTheoTrangThai(
     TAB_MAS,
     (ma) => demPhieu({ ...filters, trangThai: trangThaiCuaTab(ma), idIn }),
-    `${filters.keyword}|${filters.nhaCungCap}|${filters.ngayNhap}|${idIn ? idIn.join(",") : ""}`
+    `${filters.keyword}|${filters.nhaCungCap}|${filters.tuNgay}|${filters.denNgay}|${idIn ? idIn.join(",") : ""}`
   );
 
   // ── Dòng chú ý: phiếu chờ nhập kho trong phạm vi danh sách, bỏ qua các bộ lọc khác (R4) ──
@@ -210,7 +213,7 @@ export default function PhieuNhapKhoList() {
     setFilters(p => (p.page === 0 ? p : { ...p, page: 0 }));
   };
 
-  const hasActiveFilters = Boolean(keywordInput.trim() || filters.nhaCungCap || filters.ngayNhap || locHangLoi);
+  const hasActiveFilters = Boolean(keywordInput.trim() || filters.nhaCungCap || filters.tuNgay || filters.denNgay || locHangLoi);
 
   // "Xóa lọc": bỏ từ khóa, nhà cung cấp, ngày nhập; giữ tab đang chọn
   const clearFilters = () => {
@@ -328,18 +331,12 @@ export default function PhieuNhapKhoList() {
               className="sm:w-[220px]"
             />
 
-            {/* Ngày nhập: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
-            <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
-              <Calendar className="size-4 shrink-0 text-bo-muted" />
-              <span className="shrink-0 text-xs text-bo-muted">{t("Ngày nhập")}</span>
-              <Input
-                type="date"
-                aria-label={t("Ngày nhập")}
-                className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm text-bo-foreground shadow-none focus-visible:ring-0"
-                value={filters.ngayNhap}
-                onChange={e => setFilters(p => ({ ...p, ngayNhap: e.target.value, page: 0 }))}
-              />
-            </label>
+            <LocKhoangNgay
+              nhan={t("Ngày nhập")}
+              tuNgay={filters.tuNgay}
+              denNgay={filters.denNgay}
+              onDoi={({ tuNgay, denNgay }) => setFilters(p => ({ ...p, tuNgay, denNgay, page: 0 }))}
+            />
 
             {/* Ô lọc hàng lỗi chỉ hiện khi đang lọc (mở từ dòng chú ý) */}
             {laKho && locHangLoi ? (
