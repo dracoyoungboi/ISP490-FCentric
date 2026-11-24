@@ -505,4 +505,63 @@ class DonBanHangServiceSendToWarehouseTest {
         assertEquals("Đã gửi đơn sang Kho Hà Nội, nhưng kho đang thiếu hàng cho 2 sản phẩm. Lập phiếu chuyển kho về kho này để nhặt được đơn.", canhBao);
         assertEquals(1, don.getTrangThai());
     }
+
+    @Test
+    void donShopeeVaTikTok_guiThangKhoDaMap_thieuTonVanGuiVaKhoNgungBaoLoiThuCong() {
+        var bt = com.dev.backend.entities.BienTheSanPham.builder().id(205).maSku("SKU-3SAN-205").build();
+        when(khoRepository.findById(2)).thenReturn(Optional.of(kho2));
+        when(donBanHangRepository.save(any(DonBanHang.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        for (String maKenh : List.of("SHOPEE_OFFICIAL", "SHOPEE_SANDBOX", "TIKTOK")) {
+            KenhBanHang kenh = KenhBanHang.builder().id(50).maKenh(maKenh).tenKenh(maKenh).build();
+            int baseId = maKenh.hashCode() & 0x7FFF;
+
+            // 1. Đủ tồn tại kho đã map (kho2): gửi thẳng thành công, không cảnh báo; đổi kho khác chưa lỗi bị chặn 400
+            var ctDu = com.dev.backend.entities.ChiTietDonBanHang.builder()
+                    .id(1).bienTheSanPham(bt).soLuongDat(BigDecimal.valueOf(2)).build();
+            DonBanHang donDu = DonBanHang.builder()
+                    .id(baseId).soDonHang("ORD-" + maKenh + "-1").maDonHangKenh("K-" + maKenh + "-1")
+                    .kenhBanHang(kenh).loaiChungTu("don_ban_hang").trangThai(0).khoXuat(kho2).build();
+            when(donBanHangRepository.findById(baseId)).thenReturn(Optional.of(donDu));
+            when(chiTietDonBanHangRepository.findByDonBanHangId(baseId)).thenReturn(List.of(ctDu));
+            when(tonKhoTheoLoRepository.sumKhaDungLoTheoKhoBan(List.of(205)))
+                    .thenReturn(List.<Object[]>of(new Object[]{205, 2, BigDecimal.valueOf(8)}));
+
+            CommonException exDoiKho = assertThrows(CommonException.class, () -> service.sendToWarehouse(baseId, 1, false));
+            assertEquals(HttpStatus.BAD_REQUEST, exDoiKho.getHttpStatus());
+            assertNull(service.sendToWarehouse(baseId, 2, false));
+            assertEquals(ITrangThaiDonBanHang.CHO_NHAT_HANG, donDu.getTrangThai());
+            assertEquals(kho2, donDu.getKhoXuat());
+
+            // 2. Thiếu tồn tại kho2: vẫn gửi thẳng sang kho2 và trả chuỗi cảnh báo thiếu hàng tại Kho Hồ Chí Minh
+            DonBanHang donThieu = DonBanHang.builder()
+                    .id(baseId + 1).soDonHang("ORD-" + maKenh + "-2").maDonHangKenh("K-" + maKenh + "-2")
+                    .kenhBanHang(kenh).loaiChungTu("don_ban_hang").trangThai(0).khoXuat(kho2).build();
+            when(donBanHangRepository.findById(baseId + 1)).thenReturn(Optional.of(donThieu));
+            when(chiTietDonBanHangRepository.findByDonBanHangId(baseId + 1)).thenReturn(List.of(ctDu));
+            when(tonKhoTheoLoRepository.sumKhaDungLoTheoKhoBan(List.of(205)))
+                    .thenReturn(List.<Object[]>of(new Object[]{205, 2, BigDecimal.ONE}));
+
+            String warn = service.sendToWarehouse(baseId + 1, 2, false);
+            assertNotNull(warn);
+            assertTrue(warn.contains("Kho Hồ Chí Minh"));
+            assertEquals(ITrangThaiDonBanHang.CHO_NHAT_HANG, donThieu.getTrangThai());
+            assertEquals(kho2, donThieu.getKhoXuat());
+
+            // 3. Thiếu khoXuat (null): trả 409 DON_SAN_CAN_CHON_KHO_THU_CONG, mở fallback thuCongKhiLoi = true gửi thành công
+            DonBanHang donNullKho = DonBanHang.builder()
+                    .id(baseId + 2).soDonHang("ORD-" + maKenh + "-3").maDonHangKenh("K-" + maKenh + "-3")
+                    .kenhBanHang(kenh).loaiChungTu("don_ban_hang").trangThai(0).khoXuat(null).build();
+            when(donBanHangRepository.findById(baseId + 2)).thenReturn(Optional.of(donNullKho));
+
+            var exMissing = assertThrows(com.dev.backend.exception.customize.LoiCoMaException.class,
+                    () -> service.sendToWarehouse(baseId + 2, null, false));
+            assertEquals(HttpStatus.CONFLICT, exMissing.getStatus());
+            assertEquals(com.dev.backend.exception.customize.MaLoi.DON_SAN_CAN_CHON_KHO_THU_CONG, exMissing.getMa());
+
+            assertNull(service.sendToWarehouse(baseId + 2, 2, true));
+            assertEquals(ITrangThaiDonBanHang.CHO_NHAT_HANG, donNullKho.getTrangThai());
+            assertEquals(kho2, donNullKho.getKhoXuat());
+        }
+    }
 }

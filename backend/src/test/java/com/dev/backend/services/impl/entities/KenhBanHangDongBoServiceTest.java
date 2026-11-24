@@ -1777,7 +1777,9 @@ class KenhBanHangDongBoServiceTest {
         assertEquals("wh_2", ds.get(1).getMaKhoSan());
         assertEquals("Kho Hồ Chí Minh", ds.get(1).getTenKhoSan());
         assertFalse(ds.get(1).isMacDinh());
-        verify(dieuHanhHeThongService, never()).setCauHinhString(eq("KENH_TIKTOK_MA_KHO_SAN"), any());
+        // Sau AUDIT-138: bỏ dropdown chọn kho tay nên getLocations tự đồng bộ về kho mặc định trên Seller Center (wh_1)
+        verify(dieuHanhHeThongService).setCauHinhString("KENH_TIKTOK_MA_KHO_SAN", "wh_1");
+        verify(dieuHanhHeThongService).setCauHinhString("KENH_TIKTOK_TEN_KHO_SAN", "Kho Hà Nội");
     }
 
     @Test
@@ -2373,5 +2375,187 @@ class KenhBanHangDongBoServiceTest {
 
         spyService.getLocations("SHOPEE_OFFICIAL", true);
         verify(dieuHanhHeThongService).setCauHinhString("KENH_SHOPEE_OFFICIAL_MA_KHO_SAN", "1003");
+    }
+
+    @Test
+    @DisplayName("AUDIT-141: Shopee ưu tiên PICKUP_ADDRESS khi đổi kho lấy hàng và không trộn wh_loc với address_id khi có 1 kho MWH")
+    void layDanhSachKhoShopee_uuTienPickupAddressHonDefaultOnlyVaKhongTronWhLoc() throws Exception {
+        ObjectMapper om = new ObjectMapper();
+
+        // Case 1: getWarehouseDetail trả đúng 1 kho MWH -> KHÔNG gọi getAddressList để tránh trộn 2 hệ ID
+        KenhBanHang shopeeMwh = KenhBanHang.builder().id(40).maKenh("SHOPEE_OFFICIAL").tenKenh("Shopee").trangThai(1).build();
+        when(kenhBanHangRepository.findByMaKenh("SHOPEE_OFFICIAL")).thenReturn(Optional.of(shopeeMwh));
+        var spyService = spy(service);
+        var spMock = mock(com.dev.backend.services.shopee.ShopeeClient.class);
+        doReturn(spMock).when(spyService).getShopeeClient(shopeeMwh);
+        when(spMock.getWarehouseDetail()).thenReturn(om.readTree("""
+                {"error":"","response":[{"location_id":"VNM1","warehouse_name":"Kho MWH Chính","default_warehouse":true}]}
+                """));
+
+        var mwhLocs = spyService.getLocations("SHOPEE_OFFICIAL", true);
+        assertEquals(1, mwhLocs.size());
+        assertEquals("wh_loc:VNM1", mwhLocs.get(0).getMaKhoSan());
+        assertTrue(mwhLocs.get(0).isMacDinh());
+        verify(spMock, never()).getAddressList();
+
+        // Case 2: Seller đổi PICKUP_ADDRESS sang 2002 trong khi DEFAULT_ADDRESS vẫn gắn ở 2001 -> chọn 2002 làm mặc định
+        when(spMock.getWarehouseDetail()).thenReturn(om.readTree("{\"error\":\"\"}"));
+        when(spMock.getAddressList()).thenReturn(om.readTree("""
+                {
+                  "error": "",
+                  "response": {
+                    "address_list": [
+                      {"address_id": 2001, "address_type": ["DEFAULT_ADDRESS"], "address": "Kho mặc định cũ A"},
+                      {"address_id": 2002, "address_type": ["PICKUP_ADDRESS"], "address": "Kho lấy hàng mới B"}
+                    ]
+                  }
+                }
+                """));
+
+        var addrLocs = spyService.getLocations("SHOPEE_OFFICIAL", true);
+        assertEquals(2, addrLocs.size());
+        assertFalse(addrLocs.get(0).isMacDinh());
+        assertTrue(addrLocs.get(1).isMacDinh(), "Khi Seller đổi PICKUP_ADDRESS sang kho khác DEFAULT_ADDRESS phải ưu tiên PICKUP_ADDRESS");
+        verify(dieuHanhHeThongService).setCauHinhString("KENH_SHOPEE_OFFICIAL_MA_KHO_SAN", "2002");
+    }
+
+    @Test
+    @DisplayName("AUDIT-141: TikTok cache hit vẫn đồng bộ kho mặc định Seller Center và xếp kho mặc định lên đầu")
+    void getLocations_tiktokCacheHitVanDongBoMacDinhVaSortLenDau() {
+        KenhBanHang tikTokKenh = KenhBanHang.builder().id(41).maKenh("TIKTOK").tenKenh("TikTok Shop").trangThai(1).build();
+        when(kenhBanHangRepository.findByMaKenh("TIKTOK")).thenReturn(Optional.of(tikTokKenh));
+        when(kenhBanHangService.getTikTokAppKey()).thenReturn("app_k");
+        when(kenhBanHangService.getDecryptedTikTokAppSecret()).thenReturn("app_s");
+        when(kenhBanHangService.getDecryptedTikTokAccessToken()).thenReturn("tok_1");
+        when(kenhBanHangService.getTikTokShopCipher()).thenReturn("ROW_CIPHER");
+
+        Map<String, String> store = new HashMap<>();
+        store.put("KENH_TIKTOK_MA_KHO_SAN", "wh_2");
+        when(dieuHanhHeThongService.getCauHinhString(anyString(), any())).thenAnswer(inv ->
+                store.getOrDefault(inv.getArgument(0), inv.getArgument(1)));
+        doAnswer(inv -> {
+            store.put(inv.getArgument(0), inv.getArgument(1));
+            return null;
+        }).when(dieuHanhHeThongService).setCauHinhString(anyString(), anyString());
+
+        var mockClient = mock(com.dev.backend.services.tiktok.TikTokShopClient.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "tiktokShopClient", mockClient);
+        var wh2 = com.dev.backend.dto.response.customize.TikTokWarehouseDto.builder()
+                .id("wh_2").name("Kho phụ").type("SALES_WAREHOUSE").isDefault(false).effectStatus("EFFECTIVE").build();
+        var wh1 = com.dev.backend.dto.response.customize.TikTokWarehouseDto.builder()
+                .id("wh_1").name("Kho mặc định mới").type("SALES_WAREHOUSE").isDefault(true).effectStatus("EFFECTIVE").build();
+        var whResp = new com.dev.backend.dto.response.customize.TikTokWarehousesResponse();
+        whResp.setWarehouses(List.of(wh2, wh1));
+        when(mockClient.getWarehouses("app_k", "app_s", "tok_1", "ROW_CIPHER")).thenReturn(whResp);
+
+        // Lần 1: đọc API sàn -> xếp wh_1 (isDefault=true) lên đầu và cập nhật MA_KHO_SAN = wh_1
+        var ds1 = service.getLocations("TIKTOK", true);
+        assertEquals("wh_1", ds1.get(0).getMaKhoSan());
+        assertEquals("wh_1", store.get("KENH_TIKTOK_MA_KHO_SAN"));
+
+        // Giả lập cấu hình trỏ nhầm lại wh_2; lần 2 hit cache vẫn phải tự chữa MA_KHO_SAN -> wh_1 mà không gọi lại sàn
+        store.put("KENH_TIKTOK_MA_KHO_SAN", "wh_2");
+        var ds2 = service.getLocations("TIKTOK", false);
+        assertEquals("wh_1", ds2.get(0).getMaKhoSan());
+        assertEquals("wh_1", store.get("KENH_TIKTOK_MA_KHO_SAN"));
+        verify(mockClient, times(1)).getWarehouses("app_k", "app_s", "tok_1", "ROW_CIPHER");
+    }
+
+    @Test
+    @DisplayName("AUDIT-141: resolveKhoXuatChoDonSan & resolveShopeeAddressIdChoKho hỗ trợ fallback alias SHOPEE_OFFICIAL<->SHOPEE, TIKTOK_SHOP<->TIKTOK")
+    void resolveKhoXuatVaAddressId_hoTroAliasShopeeOfficialVaTikTokShop() {
+        var kho1 = com.dev.backend.entities.Kho.builder().id(1).maKho("KHO_TONG").tenKho("Kho tổng").loaiKho("kho_tong").trangThai(1).build();
+        var kho2 = com.dev.backend.entities.Kho.builder().id(2).maKho("CH_HN").tenKho("Cửa hàng Hà Nội").loaiKho("kho_nhanh").trangThai(1).build();
+        when(khoRepository.findByTrangThai(1)).thenReturn(List.of(kho1, kho2));
+
+        String shopeeCfg = """
+                {
+                  "cheDoDaKho": false,
+                  "khoIdMacDinh": 1,
+                  "danhSachKho": [
+                    {"maKhoSan": "1001", "tenKhoSan": "Kho Cũ", "khoIdFCentric": 2, "kichHoat": true, "laMacDinh": false, "laMacDinhSan": false},
+                    {"maKhoSan": "2002", "tenKhoSan": "Kho Mới", "khoIdFCentric": 2, "kichHoat": true, "laMacDinh": true, "laMacDinhSan": true}
+                  ]
+                }
+                """;
+        String tiktokCfg = """
+                {
+                  "cheDoDaKho": false,
+                  "khoIdMacDinh": 2,
+                  "danhSachKho": [
+                    {"maKhoSan": "TT_B", "tenKhoSan": "Kho TT B", "khoIdFCentric": 2, "kichHoat": true, "laMacDinh": true, "laMacDinhSan": true}
+                  ]
+                }
+                """;
+        when(dieuHanhHeThongService.getCauHinhString("KENH_SHOPEE_KHO_MAPPING", null)).thenReturn(shopeeCfg);
+        when(dieuHanhHeThongService.getCauHinhString("KENH_SHOPEE_MA_KHO_SAN", null)).thenReturn("2002");
+        when(dieuHanhHeThongService.getCauHinhString("KENH_TIKTOK_KHO_MAPPING", null)).thenReturn(tiktokCfg);
+        when(dieuHanhHeThongService.getCauHinhString("KENH_TIKTOK_MA_KHO_SAN", null)).thenReturn("TT_B");
+
+        KenhBanHang shopeeOfficial = KenhBanHang.builder().id(8).maKenh("SHOPEE_OFFICIAL").build();
+        assertEquals(2, service.resolveKhoXuatChoDonSan(shopeeOfficial, null).getId());
+        assertEquals(2002L, service.resolveShopeeAddressIdChoKho(shopeeOfficial, 2));
+
+        KenhBanHang tikTokShopAlias = KenhBanHang.builder().id(5).maKenh("TIKTOK_SHOP").build();
+        assertEquals(2, service.resolveKhoXuatChoDonSan(tikTokShopAlias, null).getId());
+    }
+
+    @Test
+    @DisplayName("AUDIT-141: luuCauHinhKhoMapping tự động cập nhật khoXuat cho các đơn Nháp (0) của kênh, không đụng đơn đã gửi")
+    void luuCauHinhKhoMapping_tuDongCapNhatKhoXuatDonNhapVaKhongDungDonDaGui() {
+        var kho1 = com.dev.backend.entities.Kho.builder().id(1).maKho("KHO_TONG").tenKho("Kho tổng").loaiKho("kho_tong").trangThai(1).build();
+        var kho2 = com.dev.backend.entities.Kho.builder().id(2).maKho("CH_HN").tenKho("Cửa hàng Hà Nội").loaiKho("kho_nhanh").trangThai(1).build();
+        when(khoRepository.findByTrangThai(1)).thenReturn(List.of(kho1, kho2));
+
+        KenhBanHang shopeeOfficial = KenhBanHang.builder().id(8).maKenh("SHOPEE_OFFICIAL").tenKenh("Shopee").trangThai(1).build();
+        when(kenhBanHangRepository.findByMaKenh("SHOPEE_OFFICIAL")).thenReturn(Optional.of(shopeeOfficial));
+
+        Map<String, String> store = new HashMap<>();
+        store.put("KENH_SHOPEE_OFFICIAL_MA_KHO_SAN", "2002");
+        when(dieuHanhHeThongService.getCauHinhString(anyString(), any())).thenAnswer(inv ->
+                store.getOrDefault(inv.getArgument(0), inv.getArgument(1)));
+        doAnswer(inv -> {
+            store.put(inv.getArgument(0), inv.getArgument(1));
+            return null;
+        }).when(dieuHanhHeThongService).setCauHinhString(anyString(), anyString());
+
+        DonBanHang donNhapTheoKho = DonBanHang.builder()
+                .id(901).soDonHang("SHP-901").kenhBanHang(shopeeOfficial).khoXuat(kho1)
+                .trangThai(0).ghiChu("Đơn hàng đồng bộ tự động từ Shopee #901 | [KHO SÀN: 2002]").build();
+        DonBanHang donNhapMacDinh = DonBanHang.builder()
+                .id(902).soDonHang("SHP-902").kenhBanHang(shopeeOfficial).khoXuat(kho1)
+                .trangThai(0).ghiChu("Đơn hàng đồng bộ tự động từ Shopee #902").build();
+        DonBanHang donDaGui = DonBanHang.builder()
+                .id(903).soDonHang("SHP-903").kenhBanHang(shopeeOfficial).khoXuat(kho1)
+                .trangThai(1).ghiChu("Đơn hàng đồng bộ tự động từ Shopee #903 | [KHO SÀN: 2002]").build();
+        when(donBanHangRepository.findByKenhBanHangIdAndTrangThaiAndDanhSachNhatHangIsNull(8, 0))
+                .thenReturn(List.of(donNhapTheoKho, donNhapMacDinh, donDaGui));
+
+        var spyService = spy(service);
+        doReturn(List.of(
+                com.dev.backend.dto.response.customize.ShopifyLocationDto.builder().maKhoSan("1001").tenKhoSan("Kho A").macDinh(false).build(),
+                com.dev.backend.dto.response.customize.ShopifyLocationDto.builder().maKhoSan("2002").tenKhoSan("Kho B").macDinh(true).build()
+        )).when(spyService).getLocations(eq("SHOPEE_OFFICIAL"), anyBoolean());
+
+        var mappingReq = com.dev.backend.dto.channel.warehouse.KenhKhoMappingUpdateRequest.builder()
+                .khoIdMacDinh(2)
+                .danhSachKho(List.of(
+                        com.dev.backend.dto.channel.warehouse.KenhKhoMappingItemDto.builder()
+                                .maKhoSan("1001").tenKhoSan("Kho A").khoIdFCentric(1).laMacDinh(false).build(),
+                        com.dev.backend.dto.channel.warehouse.KenhKhoMappingItemDto.builder()
+                                .maKhoSan("2002").tenKhoSan("Kho B").khoIdFCentric(2).laMacDinh(true).build()
+                ))
+                .build();
+
+        spyService.luuCauHinhKhoMapping("SHOPEE_OFFICIAL", mappingReq);
+
+        assertEquals(2, donNhapTheoKho.getKhoXuat().getId());
+        assertEquals(2, donNhapMacDinh.getKhoXuat().getId());
+        assertEquals(1, donDaGui.getKhoXuat().getId(), "Đơn đã gửi sang kho (trangThai=1) tuyệt đối không bị đổi kho xuất");
+        verify(donBanHangRepository).saveAll(argThat(iterable -> {
+            int cnt = 0;
+            for (DonBanHang ignored : iterable) cnt++;
+            return cnt == 2;
+        }));
     }
 }
