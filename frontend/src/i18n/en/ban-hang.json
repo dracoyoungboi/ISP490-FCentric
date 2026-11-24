@@ -943,5 +943,7 @@
   "Hệ thống không theo dõi thanh toán của đơn này.": "Payments for this order aren't tracked in the system.",
   "Đang tải dữ liệu hóa đơn": "Loading invoice",
   "Không tìm thấy hóa đơn": "Invoice not found",
+  "Đơn sàn được định tuyến mặc định tới {{tenKho}} theo ánh xạ kho. Bạn có thể chọn kho khác nếu cần điều phối.": "Marketplace orders default to {{tenKho}} per your warehouse mapping. Select another warehouse if you need to reroute.",
+  "kho đã ánh xạ": "mapped warehouse",
   "Đơn bán hàng có thể đã bị xóa hoặc bạn không có quyền truy cập.": "The sales order may have been deleted, or you don't have access to it."
 }

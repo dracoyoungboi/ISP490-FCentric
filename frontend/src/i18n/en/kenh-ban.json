@@ -1053,5 +1053,13 @@
   "POS là lượng bán tại quầy cửa hàng; Tỷ trọng POS = POS / Tổng bán (POS + Online). Nhóm A (POS ≥ 30%) đệm 10%–25%, Nhóm B (POS ≥ 40%) đệm 10%; tồn ≤ Ngưỡng tức thời sẽ đẩy 100%.": "POS tracks store counter sales; POS share = POS / Total sold (POS + Online). Class A (POS ≥ 30%) holds a 10%–25% buffer, Class B (POS ≥ 40%) holds 10%; at or below real-time threshold, 100% is pushed.",
   "Gian hàng / Kênh bán": "Store / Channel",
   "Số lượng bán tại quầy (POS) trên tổng lượng bán mọi kênh": "In-store POS units sold out of total units across all channels",
-  "Tỷ trọng bán tại quầy r_POS = POS / Tổng bán": "POS sales share r_POS = POS / Total sold"
+  "Tỷ trọng bán tại quầy r_POS = POS / Tổng bán": "POS sales share r_POS = POS / Total sold",
+  "Shopify chỉ đẩy tồn từ các kho đã bật ánh xạ trên kênh.": "Shopify pushes stock only from warehouses enabled in channel warehouse mapping.",
+  "Chọn kho trên Lazada nhận tồn đồng bộ hoặc tải lại khi vừa thêm kho mới trên Seller Center.": "Select the Lazada warehouse to sync inventory to, or reload if you just added a new warehouse in Seller Center.",
+  "Chọn kho trên Lazada Sandbox nhận tồn đồng bộ hoặc tải lại khi vừa thêm kho mới trên Seller Center.": "Select the Lazada Sandbox warehouse to sync inventory to, or reload if you just added a new warehouse in Seller Center.",
+  "Tải lại danh sách kho mới nhất trực tiếp từ {{tenSan}}": "Reload the latest warehouse list directly from {{tenSan}}",
+  "Tải lại từ sàn": "Reload from channel",
+  "Bảng ánh xạ điều khiển đẩy tồn kho và định tuyến kho xuất cho đơn {{tenSan}} trong FCentric. Cờ kho mặc định của gian hàng được quản lý trực tiếp trên Seller Center của {{tenSan}}.": "Warehouse mapping controls inventory pushes and order fulfillment routing for {{tenSan}} in FCentric. The shop's default warehouse setting is managed directly in {{tenSan}} Seller Center.",
+  "Đã tải lại danh sách kho mới nhất từ {{ten}}.": "Reloaded the latest warehouse list from {{ten}}.",
+  "Không tải được danh sách kho từ {{ten}}.": "Could not load the warehouse list from {{ten}}."
 }
