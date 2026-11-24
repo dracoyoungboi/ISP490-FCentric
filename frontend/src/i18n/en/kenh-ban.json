@@ -1062,8 +1062,15 @@
   "Bảng ánh xạ điều khiển đẩy tồn kho và định tuyến kho xuất cho đơn {{tenSan}} trong FCentric. Cờ kho mặc định của gian hàng được quản lý trực tiếp trên Seller Center của {{tenSan}}.": "Warehouse mapping controls inventory pushes and order fulfillment routing for {{tenSan}} in FCentric. The shop's default warehouse setting is managed directly in {{tenSan}} Seller Center.",
   "Đã tải lại danh sách kho mới nhất từ {{ten}}.": "Reloaded the latest warehouse list from {{ten}}.",
   "Không tải được danh sách kho từ {{ten}}.": "Could not load the warehouse list from {{ten}}.",
-  "Kho mặc định trên Lazada nhận tồn đồng bộ; bấm tải lại khi cần cập nhật từ Seller Center.": "Default Lazada warehouse receives synced stock; click reload to update from Seller Center.",
-  "Kho mặc định trên Lazada Sandbox nhận tồn đồng bộ; bấm tải lại khi cần cập nhật từ Seller Center.": "Default Lazada Sandbox warehouse receives synced stock; click reload to update from Seller Center.",
-  "Kho mặc định hoặc địa chỉ lấy hàng trên Shopee nhận tồn đồng bộ.": "Default Shopee warehouse or pickup address receives synced stock.",
-  "Kho mặc định hoặc địa chỉ lấy hàng trên Shopee Sandbox nhận tồn đồng bộ.": "Default Shopee Sandbox warehouse or pickup address receives synced stock."
+  "Chọn kho nhận tồn và định tuyến đơn trên FCentric; để đổi kho mặc định trên sàn, thao tác trực tiếp tại Lazada Seller Center.": "Select the warehouse used for inventory sync and order routing in FCentric. To change the marketplace default warehouse, update it directly in Lazada Seller Center.",
+  "Chọn kho nhận tồn và định tuyến đơn Sandbox trên FCentric; để đổi kho mặc định trên sàn, thao tác trực tiếp tại Lazada Seller Center.": "Select the Sandbox warehouse used for inventory sync and order routing in FCentric. To change the marketplace default warehouse, update it directly in Lazada Seller Center.",
+  "Chọn địa chỉ lấy hàng hoặc kho áp dụng trong FCentric; để đổi địa chỉ mặc định trên Shopee, thao tác trực tiếp tại Seller Center.": "Select the pickup address or warehouse applied in FCentric. To change the default address on Shopee, update it directly in Seller Center.",
+  "Chọn địa chỉ lấy hàng hoặc kho áp dụng Sandbox trong FCentric; để đổi địa chỉ mặc định trên Shopee, thao tác trực tiếp tại Seller Center.": "Select the Sandbox pickup address or warehouse applied in FCentric. To change the default address on Shopee, update it directly in Seller Center.",
+  "Chọn kho bán hàng nhận tồn và định tuyến đơn trong FCentric (kho khác giữ nguyên); để đổi kho mặc định trên TikTok Shop, thao tác trực tiếp tại Seller Center.": "Select the sales warehouse used for inventory sync and order routing in FCentric (other warehouses stay unchanged). To change the default warehouse on TikTok Shop, update it directly in Seller Center.",
+  "Kho xuất đơn tại FCentric": "FCentric dispatch warehouse",
+  "Đơn từ {{tenSan}} tự động chọn sẵn kho này khi bấm Gửi sang kho.": "Orders from {{tenSan}} pre-select this warehouse when you click Send to warehouse.",
+  "Ánh xạ kho lấy hàng sang kho xuất FCentric": "Map pickup warehouses to FCentric dispatch warehouses",
+  "Khi đổi kho lấy hàng hoặc nhận đơn từ từng kho trên {{tenSan}}, nút Gửi sang kho sẽ tự động chọn sẵn kho FCentric tương ứng. Tồn kho vẫn đồng bộ theo chế độ đơn kho.": "When you switch pickup warehouses or receive orders from a specific {{tenSan}} warehouse, Send to warehouse pre-selects the mapped FCentric warehouse. Inventory still syncs in single-warehouse mode.",
+  "Kho xuất FCentric": "FCentric dispatch warehouse",
+  "Chọn kho xuất FCentric cho {{ten}}": "Select FCentric dispatch warehouse for {{ten}}"
 }
