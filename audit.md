@@ -142,6 +142,12 @@
 | **AUDIT-124** | `2026-11-21 16:31:00` | PhanAnh & Antigravity AI | Feat & Analytics / Triển khai DSS gợi ý nhập hàng động (FE-04.4 Pareto 70/20/10 & 4 Kịch bản) và Hệ thống Telemetry / Throttling Guard 85% / Buffer% & Threshold_RT Đa kênh | `migration-2026-11-21-dss-va-omnichannel-metric.sql`, `DssTableInitializer.java`, `LichSuDongBoMetric.java`, `LichSuDongBoMetricRepository.java`, `TrangThaiDongBoSanPham.java`, `ITable.java`, `IHanhDong.java`, `dss.properties`, `dss_en.properties`, `dto/dss/*`, `dto/omnichannel/*`, `DssReplenishmentRepository.java`, `HangNhapKhoTongRepository.java`, `TongQuanAdminRepository.java`, `DieuHanhHeThongServiceImpl.java`, `DssPolicyEngine.java`, `DssReplenishmentService.java`, `DssSyncJob.java`, `services/omnichannel/*`, `InventoryChannelSyncJob.java`, `OmnichannelOrderSyncJob.java`, `KenhBanHangDongBoServiceImpl.java`, `KenhBanHangServiceImpl.java`, `LazadaClient.java`, `ShopeeClient.java`, `TikTokShopClient.java`, `ShopifyMultiLocationClient.java`, `ShopifyOrderProgressClient.java`, `ShopifyOrderSnapshotClient.java`, `ShopifyRealtimeRegistration.java`, `ShopifyWebhookService.java`, `DssReplenishmentController.java`, `OmnichannelAnalyticsController.java`, `dssService.js`, `omnichannelAnalyticsService.js`, `components/order/dss/*`, `DssReplenishmentPage.jsx`, `OmnichannelAnalyticsPage.jsx`, `ChannelSyncDashboard.jsx`, `App.jsx`, `index.css`, `sidebar.config.js`, `en/mua-hang.json`, `en/kenh-ban.json`, `DieuHanhHeThongDynamicConfigTest.java`, `DieuHanhHeThongDssConfigTest.java`, `DssPolicyEngineTest.java`, `DssReplenishmentControllerTest.java`, `OmnichannelAnalyticsServiceTest.java`, `OmnichannelTelemetryInterceptorTest.java`, `audit.md` | **Phần 1 — DSS Nhập hàng (FE-04.4)**: Trích xuất biến động (`OnHand`, `Outgoing`, `Incoming`, `FTU`, nhu cầu ngày `N` ngày `D_avg`/`D_max`/`sigma_D`, lead time `M=10` PO `L_avg`/`L_max` mặc định `5/7`), phân nhóm **Pareto 70/20/10** + lọc tồn chết 30 ngày, 4 kịch bản (`PRESET_01_STANDARD`, `PRESET_02_PEAK`, `PRESET_03_LEAN`, `PRESET_04_PHASE_OUT`) theo `BY_ABC_CLASS` (`A->PEAK`, `B->STANDARD`, `C->LEAN`) hoặc `GLOBAL_PRESET`; Job đêm `02:00` đồng bộ `nguong_canh_bao` trong `canh_bao` (`ton_kho_thap`) và nối ROP động vào `HangNhapKhoTongRepository` & `TongQuanAdminRepository`; Trang `/purchase-requests/dss` hỗ trợ mô phỏng What-If tức thì (`dssFormula.js`) và tạo PR 1-Click. **Phần 2 — Telemetry & Đa kênh**: Gắn `OmnichannelTelemetryInterceptor` lên toàn bộ 13 điểm `RestTemplate` + webhook inbound (`ShopifyWebhookService`) ghi `lich_su_dong_bo_metric`, thêm Throttling Guard (`RateLimitUtilization >= 85%` -> hoãn `+500ms` ở `SCHEDULED_BATCH`, giữ `0ms` ở `REALTIME_CRITICAL`), `METRIC_01..06` tại `/channels/analytics`, cùng `buffer_percent` (`r_POS,k`) & `realtime_threshold` (`Threshold_RT,k`) động trên `trang_thai_dong_bo_san_pham` áp dụng vào 4 sàn (TikTok, Lazada, Shopee, Shopify đơn/đa kho). Backend **336/336 PASS** (`16` test suites gồm `BackendApplicationTests`), Frontend **730/730 `i18n:kiem`**, **673 pass / 0 fail** (1 skip có sẵn) `node --test`, **0** lỗi ESLint, `vite build` PASS (`16.89s`). |
 | **AUDIT-125** | `2026-11-22 01:46:00` | PhanAnh & Antigravity AI | Fix SQL, Spec Alignment, UI & Shopee Logistics / Sửa lỗi `BadSqlGrammarException` (`lh.ngay_nhap`), chuẩn hóa công thức `Buffer%`/`Threshold_RT`/`deadStock`/`Bucket` theo đặc tả DSS, chuẩn hóa hiển thị cột Gian hàng/Kênh ở Hiệu năng đa kênh, chuyển nút In vận đơn sàn A6 về Chi tiết phiếu xuất kho và triệt spam API Logistics Shopee | `DssReplenishmentRepository.java`, `DssPolicyEngine.java`, `OmnichannelRateLimitState.java`, `OmnichannelSyncRecommendationDto.java`, `OmnichannelAnalyticsService.java`, `ShopeeClient.java`, `DonBanHangService.java`, `OmnichannelOrderSyncJob.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelAnalyticsPage.jsx`, `DonBanHangDetail.jsx`, `PhieuXuatKhoDetail.jsx`, `dssFormula.js`, `en/kenh-ban.json`, `DssPolicyEngineTest.java`, `OmnichannelAnalyticsServiceTest.java`, `OmnichannelTelemetryInterceptorTest.java`, `ShopeeClientTest.java`, `dssFormula.test.js`, `audit.md` | (1) Sửa `DssReplenishmentRepository.loadVariantsWithStock` từ `lh.ngay_nhap` (không tồn tại ở `lo_hang`) sang `lh.ngay_tao` + fallback `bt.gia_von`/`sp.gia_von_mac_dinh`, và mở rộng truy vấn nhu cầu `Kho Tổng` tổng hợp POS + Online toàn bộ kho hoạt động; (2) Khớp 100% đặc tả `.docx`: cập nhật `deadStock` gồm `DOI > 60`, `OmnichannelRateLimitState` đếm trượt 60 giây (`120 calls/phút`) cho sàn không có bucket header, và `OmnichannelAnalyticsService` tính `Buffer%` theo Pareto ABC 70/20/10 (`A & rPos >= 0.30 -> min(25, max(10, round(rPos*30)))`, `B & rPos >= 0.40 -> 10`, còn lại `0`) và `Threshold_RT` (`max(3, ceil(0.5*D_avg))`, riêng Hạng A `PRESET_02_PEAK` = `max(normal, SS_k)`) kèm mở rộng lọc kênh (`TIKTOK` khớp `TIKTOK_SHOP`); (3) Chuẩn hóa cột **Gian hàng / Kênh bán** chỉ tại `OmnichannelAnalyticsPage.jsx` theo format thống nhất `<Tên gian hàng> [Tên sàn chuẩn]`; (4) Gỡ nút/menu "In vận đơn sàn (A6)" khỏi `DonBanHangDetail.jsx` và đưa nút phụ `In vận đơn sàn (A6)` lên header `PhieuXuatKhoDetail.jsx`; (5) Triệt spam API Shopee (`ShopeeClient.downloadShippingDocument` dừng polling sớm khi `createShippingDocument`/`getShippingDocumentResult` báo lỗi thay vì lặp 16 lượt + bỏ qua `shipOrderAuto` khi đã chuẩn bị hàng, cache `get_warehouse_detail` 24h cho shop đơn kho, cooldown `shipOrderAuto` 10–15p và bỏ gọi lặp khi xuất kho). Backend **308/308 PASS** (`12` suites gồm `BackendApplicationTests`), Frontend **730/730 `i18n:kiem`**, **677 pass / 0 fail / 1 skip** `node --test`, **0** lỗi ESLint, `vite build` PASS (`1m 4s`). |
 | **AUDIT-126** | `2026-11-22 03:31:07` | PhanAnh & Antigravity AI | Fix UI / Sửa lỗi tiêu đề tab trình duyệt trang Hiệu năng đồng bộ (`/channels/analytics`) hiển thị `"Không tìm thấy trang · FCentric"` và trang Gợi ý nhập hàng DSS (`/purchase-requests/dss`) | `BackofficeLayout.jsx`, `audit.md` | `BackofficeLayout.jsx` khớp tuần tự `PAGE_META_CONFIG` theo đường dẫn để đặt `document.title`, nhưng khi thêm 2 route tĩnh ở `[AUDIT-124]` đã chưa khai báo trước 2 quy tắc bắt nhầm dạng regex là `CHANNEL_KHONG_TIM_THAY` (`/^\/channels\/[^/]+(\/.*)?$/` -> `"Không tìm thấy trang"`) và `PURCHASE_REQUEST_DETAIL_MA_SAI` (`/^\/purchase-requests\/[^/]+$/` -> `"Chi tiết yêu cầu nhập hàng"`); bổ sung `CHANNELS_ANALYTICS` (`/channels/analytics` -> `t("Hiệu năng đồng bộ")`) và `PURCHASE_REQUESTS_DSS` (`/purchase-requests/dss` -> `t("Gợi ý nhập hàng (DSS)")`) trước các nhánh động; Đạt **728/728 `i18n:kiem`**, **0** lỗi ESLint, **677 pass / 0 fail / 1 skip** `node --test`, `vite build` (`24.28s`) PASS. |
+| **AUDIT-127** | `2026-11-23 23:59:00` | Khang (`nguyendangkhang79`) — đối soát bổ sung từ `origin/Dev` | Feat, Fix & Test / Chuỗi 31 micro-commits trên `Dev` (`3a23a3c8..fad1d46c`): Ngừng/kinh doanh lại sản phẩm còn tồn, bỏ dán Excel ở YCN/Báo giá, nút `i` giải thích (Khách hàng/Đồng bộ kênh/AMIS), đổi tên Đơn chờ nhặt hàng, và trọn luồng Trả hàng NCC qua Cổng nhà cung cấp | `SanPhamQuanAoService.java`, `BienBanTraHang*`, `CongNhaCungCap*`, `BaoCaoSanPham*`, `BackofficeLayout.jsx`, `sidebar.config.js`, `App.jsx`, `frontend/src/pages/supplier/**`, `frontend/src/pages/receipt/**`, `frontend/src/pages/supplier-returns/**`, `en/*.json`, tests | Đối soát bổ sung 31 micro-commits của `nguyendangkhang79` sau `[AUDIT-126]` trên `origin/Dev`: (1) Ngừng/kinh doanh lại sản phẩm (`3a23a3c8..dc6d5c47`): chặn ngừng lại SP đã ngừng hoặc còn YCN/đơn đang giao, đẩy tồn 0 lên sàn, báo QTV khi đơn sàn hoặc hàng trả quay về SP đã ngừng, trả số tồn SP ngừng còn hàng ở API & Báo cáo tồn kho; (2) Bỏ dán Excel ở Báo giá NCC & Tạo YCN (`50c4901f`, `a3d8990d`); (3) Nút `i` giải thích tại Khách hàng, Báo cáo đồng bộ kênh, Xuất kế toán AMIS và bổ sung mục menu Báo cáo đồng bộ kênh (`103f814d..7ae5b6cc`); (4) Đổi tên "Đơn chờ xuất" → "Đơn chờ nhặt hàng" đồng bộ BE/FE/i18n (`089839eb..b1e40910`); (5) Hoàn thiện luồng Trả hàng NCC & Cổng nhà cung cấp đăng nhập email OTP (`a661def7..fad1d46c`): lập biên bản trả hàng có ký/in PDF, theo dõi hàng lỗi ở Đơn mua, tab Trả hàng ở chi tiết NCC, Cổng NCC trả lời biên bản & cập nhật bộ test. |
+| **AUDIT-128** | `2026-11-24 03:07:00` | PhanAnh & Antigravity AI | Setup Workspace, Docs, Rules & Skills / Chuyển nhánh `Dev`, dựng `hệ thống.md`, `agent.md`, `.agents/rules/coding-standards.md`, tích hợp 16 skills Backend/Frontend từ `agentic-awesome-skills` và kiểm chứng `.gitignore` | `hệ thống.md`, `agent.md`, `.agents/rules/coding-standards.md`, `.agents/skills/*` (16 skills — ignored), `audit.md` | Khôi phục đầy đủ môi trường làm việc AI trên máy mới: chuyển workspace từ nhánh `main` cũ (27/09/2026) sang nhánh `Dev` (`fad1d46c`, mới hơn 2.177 commits); đọc toàn bộ kiến trúc dự án (87 Entities, 51 Controllers, 8 Workers, 23 nhóm trang React 19, DB migrations, `AGENTS.md`, `.agents/rules/omnichannel-standards.md`, `DESIGN_CONTRACT.md`); tạo mới `hệ thống.md` (tổng quan hệ thống), `agent.md` (quy tắc không lan man/bám base, không lệch DB/Sequence/Class, đồng bộ 100% văn phong, phòng lỗi ngoại biên, micro-commit theo chuẩn Khang & PhanAnh, tự nâng cấp sau mỗi prompt/thinking) và `.agents/rules/coding-standards.md`; tích hợp 16 skills chọn lọc (Backend Java/Spring/MySQL/API Security + Frontend React/Tailwind v4/shadcn/i18n + Debug/Review) vào `.agents/skills/`; xác minh 100% file mới đều bị `.gitignore` chặn đẩy lên GitHub. |
+| **AUDIT-129** | `2026-11-24 03:47:00` | PhanAnh & Antigravity AI | DB Deep-Dive & Docs Sync / Đối soát 100% schema MySQL `8.0.46` (`fashion_system` — 108 bảng, 1.063 cột, 212 FKs, 448 Indexes) khớp 88 JPA Entities (0 drift), trích xuất 8 cột `GENERATED`, 27 `ENUM`, dữ liệu nền & cập nhật `hệ thống.md`, `agent.md`, `coding-standards.md` | `hệ thống.md`, `agent.md`, `.agents/rules/coding-standards.md`, `audit.md` | Áp dụng 2 skill `sql-optimization-patterns` và `database-migrations-sql-migrations` truy vấn chỉ đọc `information_schema` trên DB thật `fashion_system` (MySQL `8.0.46`) và đọc 5 `TableInitializer` + chuỗi migration 11/2026: xác nhận **0 drift** giữa 88 JPA Entities và DB thật; ghi nhận đầy đủ 8 cột `GENERATED` (cấm ghi trực tiếp), 27 cột `ENUM`, 5 kho, 8 kênh, 24 quyền hạn, 65 khóa `cau_hinh_he_thong`, 0 trigger/view/procedure; phát hiện các điểm cần phòng thủ gồm collation drift (`lo_hang_ke_nhap`/`shopify_webhook_inbox` dùng `utf8mb4_0900_ai_ci`), cột `kho.quan_ly_id` ngừng dùng, quy tắc giữ `don_ban_hang.trang_thai = 5` khi trả hàng POS, các bảng thiếu FK mức DB và index trùng trên cột số phiếu; cập nhật toàn bộ vào `hệ thống.md`, `agent.md` và `.agents/rules/coding-standards.md`. |
+| **AUDIT-130** | `2026-11-24 03:54:00` | PhanAnh & Antigravity AI | RCA & Rules Upgrade / Truy vết cảnh báo `HQL_SYNTAX` trên tệp cũ `fswms-backoffice-template/.../TonKhoTongHopRepository.java` & Bổ sung rule luồng Git (`Dev` → `PhanAnh` → `Dev`), phân tích commit kéo về và đồng bộ Plan | `agent.md`, `.agents/rules/coding-standards.md`, `audit.md` | Xác định 2 tầng nguyên nhân cảnh báo `HQL_SYNTAX`: (1) Tệp `fswms-backoffice-template/.../TonKhoTongHopRepository.java` chỉ tồn tại trên nhánh `main` cũ (27/09/2026) và đã bị xóa hoàn toàn trên `Dev`, cảnh báo trên VS Code chỉ là cache cũ của `vscode-spring-boot` (còn sót thư mục `target/` bị ignore); (2) Tại dòng 56 của bản `main` cũ có ký tự escape `\s` (`COALESCE(SUM(tkl.soLuongTon), 0)\s`) trong Java Text Block khiến parser HQL tĩnh hiểu nhầm thành `0)s` — bản thật trên `Dev` (`backend/.../TonKhoTongHopRepository.java`) đã sửa sạch. Đồng thời nâng cấp `agent.md` và `.agents/rules/coding-standards.md` bổ sung bắt buộc luồng Git `origin/Dev → PhanAnh → origin/PhanAnh → origin/Dev`, quy trình phân tích mọi commit mới kéo về (ai làm, sửa gì, đóng vai trò/mục đích gì) và bước đối chiếu/cập nhật lại Plan khớp 100% với code mới trước khi triển khai. |
+| **AUDIT-131** | `2026-11-24 04:25:00` | PhanAnh & Antigravity AI | RCA, Policy Alignment & Plan / Phân tích nguyên nhân gốc rễ 6 lỗi đồng bộ đa kênh (4 SKU chờ đẩy, lệch 16 cái Shopify, lỗi TikTok `moKetNoiDayTon`, đồng bộ kho 3 sàn & Seller Center, đơn Shopee `SHIPPED`/`COMPLETED`, định tuyến nút Gửi sang kho) đối chiếu chính sách 4 sàn, lập Plan Artifact + Thiết kế 200 bài test cục bộ + Thêm rule kiểm thử 10 vòng lặp | `agent.md`, `.agents/rules/coding-standards.md`, `audit.md`, `plan_omnichannel_6_bugs_va_200_tests.md` (artifact) | Áp dụng `systematic-debugging` và đối chiếu API chính thức 4 sàn: (1) Lỗi 4 SKU chờ đẩy lặp lại do `tinhSoLuongSeDayTheoBienThe` & `thuLai` thiếu `buffer_percent`/`realtime_threshold`, còn Shopify hụt 16 cái do làm tròn `FLOOR` từng kho và lọc kho chưa map; (2) TikTok `"Đẩy tồn lại"` & `dayTonKhoKhanCap` rơi xuống nhánh Shopify trong `moKetNoiDayTon`; (3) Lazada thiếu `GET /rc/warehouse/get` + `MultiWarehouseInventories`, TikTok `chuyenKhoSanPhamTikTok` nuốt lỗi báo xanh giả và thiếu `inventory/update`, Shopee cache `SHOPEE_WH_DETAIL_UNSUPPORTED` 24h; (4) `capNhatTrangThaiGiaoHangTuSan` chỉ `log.warn` và dừng im lặng khi `phieu_xuat_kho` ở `CHO_XUAT`/`NHAP`; (5) `OmnichannelOrderSyncJob` & `DonBanHangService.sendToWarehouse` khóa cứng về `Kho tổng` cho Shopee/Lazada/TikTok. Đã thêm rule kiểm thử 10 vòng lặp + bộ 200 bài test cục bộ (ignored) vào `agent.md` & `coding-standards.md`, và xuất Plan Artifact hoàn chỉnh chờ người dùng duyệt. |
+| **AUDIT-132** | `2026-11-24 09:24:30` | PhanAnh & Antigravity AI | Omnichannel Fixes & 200-Test Verification / Sửa triệt để 6 lỗi đồng bộ đa kênh (Buffer/Hamilton Shopify, TikTok retry & real-time push, Chính sách đa kho Lazada/TikTok/Shopee, Tự chốt phiếu xuất `CHO_XUAT` + đối soát đơn mở, Định tuyến đa kho khi gửi đơn sàn) & Nghiệm thu 10 vòng lặp + Bộ 200 bài test cục bộ | `DongBoTongQuanDto.java`, `TikTokOrderDto.java`, `ShopeeOrderDto.java`, `TikTokInventoryUpdateRequest.java`, `kenhBan*.properties`, `thongBaoXuatKho*.properties`, `LazadaClient.java`, `DonBanHangRepository.java`, `PhieuXuatKhoService.java`, `ThongBaoXuatKhoService.java`, `DonBanHangService.java`, `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `OmnichannelOrderSyncJob.java`, `KenhBanHangController.java`, `en/kenh-ban.json`, `en/ban-hang.json`, `kenhBanHangService.js`, `noiDungSan.js`, `DongKhoSan.jsx`, `BangMappingKhoSan.jsx`, `ChannelSettingsPage.jsx`, `ChannelMappingsPage.jsx`, `HopGuiSangKho.jsx`, `DonBanHangDetail.jsx`, `audit.md`, 12 test cục bộ *(ignored)* | **(1) Buffer & Hamilton Multi-Location:** Hợp nhất công thức `buffer_percent` + `realtime_threshold` vào `tinhSoLuongSeDayTheoBienThe`, `thuLai` và `tinhTonTheoLocationShopifyTuInputs` (bù phần dư Hamilton Largest-Remainder, giữ đủ `1.413` trên 16 phân loại); **(2) TikTok Retry & Token:** Bổ sung nhánh TikTok trong `moKetNoiDayTon`, giữ lý do từ chối tạo sản phẩm ở `thuLai`, thêm nhánh `TIKTOK` trong `lamMoiKhoa` & nút Làm mới khóa UI; **(3) Chính sách kho 3 sàn:** Bổ sung Lazada `GET /rc/warehouse/get` + `<MultiWarehouseInventories>` (batch 20 SKU), TikTok `inventory/update` (`mode=FULL` + `unlink_warehouse_ids`) trả `DongBoTongQuanDto.canhBao` cho mã `12052533`, `forceRefresh` vượt cache 24h Shopee và mở khóa `BangMappingKhoSan` cho cả Lazada/Shopee/TikTok; **(4) Tự chốt xuất & Đối soát đơn mở:** Bổ sung `xacNhanXuatKhoTuDongTuSan`, cảnh báo idempotent `[CẢNH BÁO LỆCH SÀN:]` + `canhBaoLechTrangThaiSan` (chỉ báo 1 lần tránh spam), và đối soát đơn mở 90 ngày cooldown 10 phút; **(5) Định tuyến kho đơn sàn:** `resolveKhoXuatChoDonSan` (hỗ trợ cả `fcentric-kho-<id>` trực tiếp trên mã kho đơn), `resolveShopeeAddressIdChoKho`, mở khóa `HopGuiSangKho`. **Kết quả 10 vòng lặp:** BE `908` main + `172` test compile sạch, **217/217** test BE có sẵn PASS, **140/140** test BE cục bộ PASS (`10.070s`), **32/32** test FE có sẵn PASS, **60/60** test FE cục bộ PASS (`2.124s`) -> **200/200 test cục bộ PASS**, `eslint` **0** lỗi/cảnh báo + `esbuild` JSX/ESM 8/8 OK (*lưu ý: `vite build` / Vite 7 yêu cầu Node `>=20.19` trong khi máy chạy Node `v19.7.0`*), `i18n:kiem` **745** tệp 0 lỗi, `git check-ignore` khóa chặt toàn bộ tệp test/docs cục bộ. |
 
 
 ---
@@ -3467,73 +3473,6 @@
 - **Tác giả**: Khang
 - **Phân hệ ảnh hưởng**:
   - `frontend`: trang Chi tiết lô xuất kế toán (`/reports/accounting-export/:id`), bước chuyển trang sau khi tạo lô; bản dịch tiếng Anh.
-  - `backend`: bỏ API `GET /api/v1/ke-toan/lo-xuat/{id}/huong-dan` (chỉ quản trị viên). Việc ghi `00_HUONG_DAN.txt` vào tệp nén khi tạo lô giữ nguyên.
-- **Tệp thay đổi**:
-  - `frontend/src/pages/bao-cao/ChiTietLoKeToan.jsx`
-  - `frontend/src/pages/bao-cao/TaoLoKeToan.jsx`
-  - `frontend/src/services/keToanService.js`
-  - `frontend/src/i18n/en/tong-quan-bao-cao.json`
-  - `backend/src/main/java/com/dev/backend/controller/KeToanController.java`
-  - `backend/src/main/java/com/dev/backend/services/impl/ketoan/XuatKeToanService.java`
-  - `backend/src/main/resources/i18n/thong-diep/keToanDuLieuVao.properties`
-  - `backend/src/main/resources/i18n/thong-diep/keToanDuLieuVao_en.properties`
-  - `audit.md`
-
-#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
-1. **Trùng nội dung**: khung "Hướng dẫn nhập AMIS" và nút "Sao chép hướng dẫn" chỉ đọc lại `00_HUONG_DAN.txt` từ tệp nén đã lưu của lô (`XuatKeToanService.huongDanCuaLo`). Kế toán nhận tệp nén nên đã có đúng bản này; mỗi tệp Excel trong tệp nén còn in sẵn vài dòng hướng dẫn trên dòng tiêu đề.
-2. **Lý do mở sẵn khung không còn**: khung tự mở khi vừa tạo lô (cờ `vuaTao`) để người tạo gửi ngay cho kế toán, nhưng trang Tạo lô đã tự tải tệp nén về ngay sau khi tạo.
-3. **Đầu trang và thân trang rối**: nút phụ cạnh "Tải tệp" và khung dài dưới bảng chứng từ làm trang chi tiết lô nặng mà không thêm thông tin.
-
-#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
-1. **`ChiTietLoKeToan.jsx`**: bỏ `nutPhu` "Sao chép hướng dẫn" ở `DauChungTu`; bỏ mục thu gọn "Hướng dẫn nhập AMIS"; bỏ state `moHuongDan`, `huongDan`, `loiHuongDan`, `dangChep`, hàm `layHuongDan`, `chepHuongDan` và hiệu ứng tải hướng dẫn; bỏ import không dùng (`useCallback`, `useLocation`, `Copy`, `ChevronDown`, `Loader2`, `Button`, `useSaoChep`); sửa chú thích đầu hàm. Lô đã hủy vẫn tải được tệp để đối chiếu.
-2. **`TaoLoKeToan.jsx`**: bỏ `state: { vuaTao: true }` khi chuyển sang trang lô vừa tạo.
-3. **`keToanService.js`**: bỏ `huongDanCuaLo`.
-4. **i18n frontend**: bỏ 6 khóa không còn nơi dùng ("Sao chép hướng dẫn", "Sao chép hướng dẫn nhập AMIS", "Hướng dẫn nhập AMIS", "Đúng bản 00_HUONG_DAN.txt trong tệp nén của lô", "Đang tải hướng dẫn", "Không tải được hướng dẫn của lô").
-5. **Backend**: bỏ endpoint `huongDanCuaLo` ở `KeToanController`, hàm `huongDanCuaLo` ở `XuatKeToanService` cùng import `ByteArrayInputStream`, `ZipInputStream`; bỏ 2 khóa `keToanDuLieuVao.loKhongCoHuongDan`, `keToanDuLieuVao.khongDocDuocTepNen` ở cả tệp tiếng Việt và tiếng Anh. Hằng `TEP_HUONG_DAN` và hàm `huongDan(...)` ghi tệp vào tệp nén giữ nguyên.
-
-#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
-1. **Rà chỗ dùng**: không còn mã nguồn hay test nào gọi `huongDanCuaLo`, `/huong-dan` hay 2 khóa thông điệp đã bỏ.
-2. **Biên dịch backend** (javac vào thư mục tạm, không ghi `backend/target` vì IntelliJ đang mở): `KeToanController.java`, `XuatKeToanService.java` biên dịch sạch.
-3. **ESLint** `ChiTietLoKeToan.jsx`, `TaoLoKeToan.jsx`, `keToanService.js`: sạch.
-4. **Đa ngôn ngữ frontend `npm run i18n:kiem`**: 722 tệp, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
-5. **Chưa thử trên trình duyệt** (không có máy chủ dev chạy lúc sửa).
-
----
-
-### [AUDIT-098] BỔ SUNG THUỘC TÍNH BẮT BUỘC NGÀNH HÀNG LAZADA, LOẠI BỎ SELLERSKU TRONG UPDATE PRODUCT VÀ REFINE DỊCH LỖI
-- **Thời gian**: `2026-11-16 22:30:00` (GMT+7)
-- **Tác giả**: PhanAnh & Antigravity AI
-- **Phân hệ ảnh hưởng**: Omnichannel Sync Engine, Đẩy & Cập nhật sản phẩm Lazada (`KenhBanHangDongBoServiceImpl`, `LazadaSyncDiagnosticTest`).
-- **Tệp thay đổi**:
-  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
-  - `backend/src/test/java/com/dev/backend/services/lazada/LazadaSyncDiagnosticTest.java`
-  - `audit.md`
-
-#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
-1. **Hiện tượng lỗi**:
-   - Giao diện tab "Lỗi (69)" của kênh Lazada hiển thị thông điệp đỏ:
-     `Lazada từ chối tạo: Cấu hình thuộc tính phân loại bán hàng của Lazada chưa hợp lệ. Vui lòng bấm 'Thử lại' để hệ thống đồng bộ lại.` cho 69 SKU của các sản phẩm "Áo khoác gió công năng phong cách Âu", "Áo khoác Blouson cản gió cổ đứng", "Áo polo bảo hộ lao động ngắn tay"...
-   - Khi cập nhật sản phẩm, sàn từ chối:
-     `Lazada từ chối (501): E501: Update product failed - The SellerSku parameter is no longer supported. Please update your parameter to use SkuId and try again`.
-2. **Nguyên nhân kỹ thuật sâu xa**:
-   - **Lớp mặt nạ che giấu lỗi trong `dichLoiLazada`**:
-     + Trước đây hàm `dichLoiLazada` bắt điều kiện `if (code.contains("500") || lower.contains("saleprop") || lower.contains("sales attributes"))`.
-     + Do sàn Lazada luôn trả về HTTP 200 kèm `code = "500"` cho BẤT KỲ lỗi nghiệp vụ nào khi tạo sản phẩm (`E500: Create product failed`), toàn bộ các lỗi thiếu thuộc tính bắt buộc, lỗi ảnh hay lỗi danh mục đều bị chụp mũ thành `"Cấu hình thuộc tính phân loại bán hàng..."`, làm mất dấu nguyên nhân gốc rễ thực tế từ sàn.
-   - **Thiếu các thuộc tính bắt buộc theo schema OpenAPI của Lazada**:
-     + Qua đối soát trực tiếp API `/category/attributes/get` của Lazada:
-       - Danh mục `7953` (Áo khoác nhẹ & Áo vest nam) có thuộc tính bắt buộc (`is_mandatory = 1`) là `<jacket_coat_styles>` (các giá trị hợp lệ: `Windbreaker`, `Bomber Jacket`, `Blazer`, `Vest`, `Parka`, `Puffer Coat`...). Code trước đây hoàn toàn không gửi trường này, dẫn đến sàn từ chối với lỗi: `BIZ_CHECK_MANDATORY_FIELD_REQUIRE: jacket_coat_styles is require`.
-       - Danh mục `14275` (Áo polo / Áo thun có cổ nam) có thuộc tính bắt buộc (`is_mandatory = 1`) là `<Fit_Type>` (các giá trị: `Slim Fit`, `Regular`, `Loose`, `Skinny`, `Oversized`). Code trước đây chỉ gán `Fit_Type` cho `7930` và `7940`, bỏ sót `14275`, dẫn đến sàn từ chối: `BIZ_CHECK_MANDATORY_FIELD_REQUIRE: Fit_Type is require`.
-       - Danh mục `7940` (Áo sơ mi nam) bắt buộc `<Neckline>Shirt Collar</Neckline>`.
-       - Danh mục `6424` (Áo hoodies & sweater nam) bắt buộc `<hoodie_style_type>` (`Pullover`/`Zip Up`) và `<Fit_Type>`.
-       - Danh mục `6414` (Quần jeans) bắt buộc `<jeans_fit_type>`, `<Denim_Wash>`, `<waist_type>`.
-       - Danh mục `7991` (Quần dài) bắt buộc `<pants_length>`, `<pants_fit_type>`.
-       - Danh mục `10100765` (Quần short) bắt buộc `<shorts_style>`, `<waist_type>`.
-   - **Lỗi SellerSku không còn được hỗ trợ trong `updateProduct`**:
-     + Trong `capNhatSanPhamLenLazada`, thẻ `<SellerSku>` vẫn được append vào thẻ `<Sku>`. Lazada Open Platform API v2 đã khai tử tham số `SellerSku` trong endpoint `/product/update`, bắt buộc chỉ được dùng `SkuId` số.
-
-#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
-1. **Bổ sung thuộc tính bắt buộc cho 8 danh mục ngành hàng thời trang Lazada**:
-   - Trong `taoSanPhamLenLazada` (`KenhBanHangDongBoServiceImpl`):
      - `7953` (Áo khoác): Bổ sung `<jacket_coat_styles>` tự động ánh xạ theo tên sản phẩm (`Windbreaker`, `Bomber Jacket`, `Blazer`, `Vest`, `Parka`, `Puffer Coat`).
      - `14275` (Áo polo) & `7930` (Áo thun): Bổ sung `<Fit_Type>Slim Fit</Fit_Type>`.
      - `7940` (Áo sơ mi): Bổ sung `<Neckline>Shirt Collar</Neckline>`.
@@ -4962,3 +4901,196 @@ Không phát sinh stack trace sự cố vận hành thật. Bộ kiểm thử t�
   + `npx eslint src/components/backoffice/BackofficeLayout.jsx`: **0 errors, 0 warnings**.
   + `node --test`: **677 pass, 0 fail, 1 skip có sẵn** (tổng `678` tests).
   + `npm run build` (`vite build`): **PASS** (`✓ built in 24.28s`).
+
+---
+
+### [AUDIT-127] ĐỐI SOÁT CHUỖI 31 MICRO-COMMITS TRÊN NHÁNH `Dev` SAU `[AUDIT-126]` (`3a23a3c8..fad1d46c`)
+
+- **Thời gian (GMT+7):** `2026-11-22` → `2026-11-23`
+- **Tác giả thực hiện:** `nguyendangkhang79` (tổng hợp đối soát bổ sung vào sổ kiểm toán bởi PhanAnh & Antigravity AI)
+- **Phân hệ ảnh hưởng:**
+  - `Sản phẩm (ngừng / kinh doanh lại)`, `Báo cáo & Kế toán AMIS`, `Kho hàng (Đơn chờ nhặt hàng)`, `Khách hàng`, `Mua hàng / Nhập kho / Trả hàng NCC & Cổng nhà cung cấp`
+- **Chuỗi micro-commits đã kiểm soát trên `origin/Dev`:**
+  1. **Vòng đời sản phẩm ngừng kinh doanh & còn tồn (`3a23a3c8`, `bc40a9ad`, `aee64942`, `1c884137`, `7323cabe`, `9721f9de`, `ea90df5b`, `30d9fa68`, `f5e7b83b`, `8f541dd7`, `dc6d5c47`):**
+     - Chặn ngừng lại sản phẩm đã ngừng và chặn ngừng khi còn yêu cầu nhập hoặc đơn đang giao; sắp xếp theo trạng thái xuyên trang.
+     - Đẩy tồn `0` lên sàn cho sản phẩm đã ngừng; gửi thông báo quản trị viên khi đơn sàn có sản phẩm ngừng hoặc hàng quay về sản phẩm ngừng; trả hàng tại quầy tính lại trạng thái sản phẩm.
+     - Bổ sung API và màn hình Sản phẩm hiển thị số tồn sản phẩm đã ngừng còn hàng, bổ sung nút kinh doanh lại và cập nhật Báo cáo tồn kho.
+  2. **Tinh gọn màn hình Báo giá & Tạo yêu cầu nhập (`50c4901f`, `a3d8990d`):** Bỏ luồng dán dữ liệu từ Excel ở màn báo giá NCC và tạo yêu cầu nhập.
+  3. **Hộp giải thích `i` & điều hướng Báo cáo/Khách hàng/AMIS (`103f814d`, `58ef3a24`, `639e27f0`, `0714f4a6`, `da5c296f`, `23516a25`, `7ae5b6cc`):**
+     - Thêm component nút `i` giải thích cạnh tiêu đề trang danh sách cho Khách hàng (chỉ khách cửa hàng), Báo cáo đồng bộ kênh và Xuất dữ liệu kế toán AMIS; đưa Báo cáo đồng bộ kênh vào menu Báo cáo.
+  4. **Chuẩn hóa thuật ngữ Kho hàng (`089839eb`, `2f5b58d0`, `b1e40910`):** Đổi tên đồng bộ Backend/Frontend/i18n từ "Đơn chờ xuất" → "Đơn chờ nhặt hàng".
+  5. **Trọn luồng Trả hàng Nhà cung cấp qua Cổng NCC (`a661def7`, `3a332902`, `aa1e8836`, `c9bb646e`, `6b5cae99`, `24dc3b6c`, `41f7a373`, `fad1d46c`):**
+     - Backend xử lý biên bản trả hàng NCC (`BienBanTraHangNcc`, `CongNhaCungCapController`, in PDF biên bản, gửi email/OTP).
+     - Frontend: lập biên bản trả hàng tại Phiếu nhập (ghi đã ký và gửi), theo dõi hàng lỗi chờ NCC chọn tại Đơn mua hàng, tab Trả hàng tại chi tiết NCC, Cổng NCC đăng nhập theo email trả lời biên bản (`/supplier/portal`), cập nhật bộ test backend/frontend.
+
+---
+
+### [AUDIT-128] THIẾT LẬP MÔI TRƯỜNG LÀM VIỆC AI TRÊN MÁY MỚI (`hệ thống.md`, `agent.md`, `.agents/rules/coding-standards.md`, 16 SKILLS)
+
+- **Thời gian (GMT+7):** `2026-11-24 03:07:00`
+- **Tác giả thực hiện:** PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng:**
+  - `Tài liệu kiến trúc & Quy chuẩn AI cục bộ (Workspace Customizations)`
+- **Tệp tạo mới / cập nhật:**
+  - `hệ thống.md` *(ignored bởi `.gitignore:14`)*
+  - `agent.md` *(ignored bởi `.gitignore:5`)*
+  - `.agents/rules/coding-standards.md` *(ignored bởi `.gitignore:2`)*
+  - `.agents/skills/*` — 16 skills Backend/Frontend trích lọc từ `sickn33/agentic-awesome-skills` *(ignored bởi `.gitignore:2`)*
+  - `audit.md` *(bổ sung `[AUDIT-127]` và `[AUDIT-128]`)*
+
+#### Mục tiêu & Phát hiện khi khảo sát máy mới
+- Khi mới clone repo về máy mới, Git mặc định đứng ở nhánh `main` (commit cuối `8229eed2` ngày `2026-09-27`, chậm hơn `origin/Dev` **2.177 commits** và chưa có `.gitignore` gốc, `AGENTS.md`, `audit.md`, `.agents/`).
+- Đã chuyển workspace sang nhánh `Dev` theo dõi `origin/Dev` (`fad1d46c`) để khôi phục 100% mã nguồn mới nhất, đồng thời dựng lại đầy đủ các tệp Markdown nội bộ bị loại khỏi Git trên máy cũ.
+
+#### Giải pháp & Chi tiết triển khai
+1. **`hệ thống.md`**: Tổng hợp toàn diện kiến trúc hệ thống FCentric thực tế trên `Dev` (Tech Stack Backend Spring Boot 3.5.5 / Java 17 / MySQL 8 `ddl-auto=none` & Frontend React 19 / Vite 7 / Tailwind v4, sơ đồ triển khai, 5 vai trò RBAC + `@RequireAuth` AOP, 87 Entities theo 10 phân hệ, 51 REST Controllers, toàn bộ State Machine của Đơn bán/Phiếu xuất/Chuyển kho/Kiểm kê/Nhập kho & Trả hàng NCC, Omnichannel 4 sàn + DSS + 8 Workers, quy chuẩn i18n & `DESIGN_CONTRACT.md`).
+2. **`agent.md` & `.agents/rules/coding-standards.md`**:
+   - Thiết lập đầy đủ các quy tắc bắt buộc: không viết lan man / bám sát base; không lệch DB, Sequence và Class; đồng bộ 100% văn phong code & i18n; chốt chặn 8 nhóm lỗi logic ngoại biên; chiến lược **micro-commit** học từ chuỗi commit của Khang (`nguyendangkhang79`) và PhanAnh (`dracoyoungboi`); vòng lặp **tự nâng cấp rule & audit sau mỗi prompt/thinking**.
+   - Tạo `.agents/rules/coding-standards.md` khớp đúng đường dẫn mà `AGENTS.md` (dòng 8) đang tham chiếu để Antigravity tự động nạp trong mọi phiên chat sau.
+3. **Tích hợp 16 Skills từ `https://github.com/sickn33/agentic-awesome-skills.git` vào `.agents/skills/`**:
+   - Backend (8): `java-pro`, `modern-java-guidance`, `hunt-springboot`, `api-security`, `api-security-best-practices`, `api-design-principles`, `sql-optimization-patterns`, `database-migrations-sql-migrations`.
+   - Frontend (6): `react-best-practices`, `react-patterns`, `react-ui-patterns`, `tailwind-patterns`, `shadcn`, `i18n-localization`.
+   - Chất lượng & Debug (2): `systematic-debugging`, `code-review-checklist`.
+4. **Kiểm soát `.gitignore`**:
+   - Xác minh bằng `git check-ignore -v`: toàn bộ `hệ thống.md`, `agent.md`, `.agents/rules/coding-standards.md`, và 16 thư mục trong `.agents/skills/` đều bị `.gitignore` bỏ qua hoàn toàn, không thể vô tình đẩy lên GitHub.
+   - Ghi chú rõ cơ chế của `audit.md`: đang nằm trong `.gitignore` nhưng đã được Git track từ trước trên `origin/Dev`, do đó luôn stage file thủ công (cấm `git add -A`) khi commit.
+
+---
+
+### [AUDIT-129] ĐỐI SOÁT TOÀN DIỆN CƠ SỞ DỮ LIỆU THẬT MYSQL `8.0.46` (`fashion_system`) & CẬP NHẬT KIẾN TRÚC / RULE PHÒNG LỖI DB
+
+- **Thời gian (GMT+7):** `2026-11-24 03:47:00`
+- **Tác giả thực hiện:** PhanAnh & Antigravity AI
+- **Skill & Rule đã kích hoạt:** `sql-optimization-patterns`, `database-migrations-sql-migrations`, `agent.md`, `.agents/rules/coding-standards.md`
+- **Phân hệ ảnh hưởng:**
+  - `Tài liệu kiến trúc hệ thống (hệ thống.md)` & `Quy tắc làm việc AI cục bộ (agent.md, .agents/rules/coding-standards.md)`
+- **Tệp cập nhật:**
+  - `hệ thống.md` *(ignored)*
+  - `agent.md` *(ignored)*
+  - `.agents/rules/coding-standards.md` *(ignored)*
+  - `audit.md`
+
+#### Mục tiêu & Kết quả đối soát chỉ đọc (`information_schema`)
+- Kiểm tra trực tiếp CSDL vận hành `fashion_system` (MySQL `8.0.46`, `InnoDB`, `max_connections = 151`, `@@time_zone = SYSTEM`) kết hợp đọc 5 `TableInitializer` và chuỗi migration tháng 11/2026 (`lo-nhieu-ke`, `quan-ly-chinh-kho`, `chi-ban-le`, `tra-hang-tai-quay`, `dss-va-omnichannel-metric`, `shopify_realtime.sql`):
+  1. **Quy mô & Độ khớp Entity ↔ DB**: **108 bảng** (**88 JPA Entities** trên 87 file + **6 bảng thuần JDBC** + **10 bảng backup `bk_*`** + 4 bảng phụ), **1.063 cột**, **212 Foreign Keys**, **448 Indexes**, **0 Triggers / Views / Procedures / Events**. Kết quả đối soát **0 drift** giữa mã Java `@Entity` và schema DB thật.
+  2. **Trích xuất toàn bộ bất biến DB**:
+     - **8 cột `GENERATED`** (cấm ghi trực tiếp): `thanh_tien` (3 bảng chi tiết đơn bán/đơn mua/phiếu nhập), `ton_kho_theo_lo.so_luong_kha_dung`, `chi_tiet_kiem_ke.khoa_vi_tri`, `chung_tu_xuat_ke_toan.khoa_hieu_luc`, `dot_kiem_ke_khoa_lo.khoa_active`, `dot_kiem_ke_vi_tri.khoa_toan_ke_active`.
+     - **27 cột `ENUM`** thực tế kèm chính xác tập giá trị hợp lệ.
+     - **Dữ liệu nền**: 5 kho (`KHO01`, `KHO02`, `KHO_TRANSIT`, `KHO_TONG`, `KH003`), 8 kênh bán hàng, 24 quyền hạn (11 quyền nhạy cảm), 2 mốc thuế GTGT (`8%` / `10%`), 65 khóa `cau_hinh_he_thong`.
+  3. **Các điểm rủi ro & bẫy ngoại biên đã ghi nhận vào Rule**:
+     - **Collation drift**: `lo_hang_ke_nhap` và `shopify_webhook_inbox` đang dùng `utf8mb4_0900_ai_ci` trong khi phần lớn bảng dùng `utf8mb4_unicode_ci` → quy định bắt buộc khai báo `COLLATE=utf8mb4_unicode_ci` cho mọi migration mới.
+     - **`kho.loai_kho` & `kho.quan_ly_id`**: phân biệt kho tổng bằng `loai_kho = 'kho_tong'`; `kho.quan_ly_id` đã ngừng dùng từ `2026-11-20` (đọc từ `phan_quyen_nguoi_dung_kho.la_quan_ly_kho = 1`).
+     - **Trả hàng POS**: giữ nguyên `don_ban_hang.trang_thai = 5`, chỉ ghi `trang_thai_tra_hang`.
+     - **Bảng thiếu FK mức DB**: các bảng do `InboundTableInitializer` / `BangChungDongGoiTableInitializer` tạo không có ràng buộc `FOREIGN KEY` ở DB → phải kiểm tra tham chiếu chặt ở tầng Service.
+     - **Index tối ưu tiềm năng (chỉ ghi nhận, chưa sửa DDL)**: `don_ban_hang` chưa có composite `(kenh_ban_id, ma_don_hang_kenh)`; 3 bảng chứng từ (`don_ban_hang`, `phieu_xuat_kho`, `phieu_nhap_kho`) có 3 index trùng nhau trên cột số chứng từ.
+
+#### Kết quả xác minh
+- Không thực hiện bất kỳ thao tác ghi/DDL nào lên CSDL (100% read-only).
+- `git status -s` xác nhận chỉ có `M audit.md`; toàn bộ `hệ thống.md`, `agent.md`, `.agents/rules/coding-standards.md` tiếp tục được `.gitignore` bảo vệ tuyệt đối.
+
+---
+
+### [AUDIT-130] TRUY VẾT CẢNH BÁO `HQL_SYNTAX` TẠI `fswms-backoffice-template/.../TonKhoTongHopRepository.java` & BỔ SUNG RULE LUỒNG GIT / PHÂN TÍCH COMMIT / ĐỒNG BỘ PLAN
+
+- **Thời gian (GMT+7):** `2026-11-24 03:54:00`
+- **Tác giả thực hiện:** PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng:**
+  - `Quy chuẩn vận hành Git & Lập kế hoạch AI (agent.md, .agents/rules/coding-standards.md)`
+- **Tệp cập nhật:**
+  - `agent.md` *(ignored)*
+  - `.agents/rules/coding-standards.md` *(ignored)*
+  - `audit.md`
+
+#### Phân tích nguyên nhân gốc rễ (RCA) của cảnh báo đỏ `vscode-spring-boot` (`HQL_SYNTAX`)
+1. **Tệp không còn tồn tại trên nhánh `Dev` (Stale IDE Cache):**
+   - Tệp `fswms-backoffice-template/backend/src/main/java/com/dev/backend/repository/TonKhoTongHopRepository.java` thuộc nhánh `main` cũ (27/09/2026). Sau khi chuyển workspace sang `Dev`, Git đã gỡ toàn bộ mã nguồn trong `fswms-backoffice-template/` (chỉ còn lại thư mục build `target/` bị `.gitignore` bỏ qua). Extension `vscode-spring-boot` vẫn giữ diagnostic cũ trong bộ nhớ cho tới khi Reload Window / Clean Java Language Server Workspace.
+2. **Nguyên nhân kỹ thuật ở dòng 56 bản `main` cũ:**
+   - Dòng 56 chứa `COALESCE(SUM(tkl.soLuongTon), 0)\s` bên trong Java 17 Text Block (`"""..."""`). Java compiler dịch `\s` thành khoảng trắng hợp lệ, nhưng parser HQL tĩnh của `vscode-spring-boot` không giải mã `\s` nên đọc nhầm thành `0)s` và báo `HQL_SYNTAX`.
+   - Bản thật trên nhánh `Dev` (`backend/src/main/java/com/dev/backend/repository/TonKhoTongHopRepository.java`, dòng 79) đã bỏ hoàn toàn `\s` và sạch lỗi.
+
+#### Nâng cấp Rule mới vào `agent.md` & `.agents/rules/coding-standards.md`
+1. **Luồng nhánh Git bắt buộc:** Kéo từ `origin/Dev` về `PhanAnh` → micro-commit trên `PhanAnh` → đẩy lên `origin/PhanAnh` rồi đẩy/merge lên `origin/Dev`.
+2. **Phân tích bắt buộc mọi commit mới kéo về từ `Dev`:** Trước khi code tiếp, phải phân tích rõ ai thêm commit, thay đổi cụ thể những gì, đóng vai trò/mục đích gì và có ảnh hưởng gì đến phần việc hiện tại.
+3. **Chốt chặn đồng bộ Plan theo code mới:** Trước khi thực thi bất kỳ `plan` nào, bắt buộc rà soát và cập nhật lại `plan` khớp 100% với toàn bộ thay đổi mới nhất vừa kéo về từ `Dev`.
+4. **Bài học HQL Text Block:** Không dùng escape `\s` trong `@Query("""...""")`.
+
+---
+
+### [AUDIT-131] PHÂN TÍCH RCA 6 LỖI ĐỒNG BỘ ĐA KÊNH ĐỐI CHIẾU CHÍNH SÁCH 4 SÀN, LẬP PLAN SỬA + BỘ 200 BÀI TEST CỤC BỘ & BỔ SUNG RULE KIỂM THỬ 10 VÒNG LẶP
+
+- **Thời gian (GMT+7):** `2026-11-24 04:25:00`
+- **Tác giả thực hiện:** PhanAnh & Antigravity AI
+- **Skill & Rule đã kích hoạt:** `systematic-debugging`, `agent.md`, `.agents/rules/coding-standards.md`, `.agents/rules/omnichannel-standards.md`
+- **Tài liệu & Tệp cập nhật:**
+  - `agent.md` *(ignored)*
+  - `.agents/rules/coding-standards.md` *(ignored)*
+  - `plan_omnichannel_6_bugs_va_200_tests.md` *(Plan Artifact chờ duyệt)*
+  - `audit.md`
+
+#### Tóm tắt kết quả điều tra RCA (6 lỗi thực tế từ ảnh chụp vận hành)
+1. **Lỗi 1 (`4 SKU chờ đẩy` lặp lại sau `"Đồng bộ ngay"` & Shopify hụt `16` cái so với `1.413` trên `"Áo Khoác Phối Lót Lông Giả Lông Cừu"`):**
+   - `tinhSoLuongSeDayTheoBienThe` (`KenhBanHangDongBoServiceImpl.java:3933`) và `thuLai` (`:6083`, `:7277`) chưa áp dụng `buffer_percent` & `realtime_threshold` như các job quét tồn/`"Đồng bộ ngay"`, khiến bấm `"Đẩy tồn lại"` đẩy số chưa trừ buffer rồi bị `"Đồng bộ ngay"` đẩy đè lại số đã trừ buffer.
+   - Trên Shopify đa kho (`tinhTonTheoLocationShopify:7234`), tồn chỉ tổng hợp từ các kho FCentric đang map & kích hoạt và bị làm tròn `FLOOR` từng kho riêng lẻ trên 16 biến thể nên thấp hơn tổng đơn kho 16 cái.
+2. **Lỗi 2 (TikTok `"Đẩy tồn lại"` báo `"Không xác định được địa điểm mặc định trên Shopify"` & lỗi liên đới):**
+   - `moKetNoiDayTon` (`:6904`) thiếu nhánh `isTikTok`, làm cả nút `"Đẩy tồn lại"`, `"Thử lại"` và real-time push `dayTonKhoKhanCap` (`:5117`) rơi thẳng xuống nhánh Shopify; đồng thời `KenhBanHangController.lamMoiKhoa` (`:427`) thiếu nhánh `TIKTOK`.
+3. **Lỗi 3 & Lỗi 4 (Kho lấy hàng 3 sàn không đồng bộ hai chiều với Seller Center & Lazada không hiện kho mới `Kho 1`):**
+   - Đối chiếu API chính thức: cả Lazada, TikTok Shop, Shopee đều không cho đổi cờ mặc định trên Seller Center qua Open API (`is_default` TikTok là read-only), nhưng hỗ trợ quản lý tồn/lấy hàng theo từng mã kho (`warehouse_code` Lazada `/rc/warehouse/get` + `UpdateSellableQuantity`; `inventory/update` `INCREMENTAL`/`FULL` TikTok; `location_id`/`address_id` Shopee).
+   - Nguyên nhân trong code: Lazada đang hardcode 1 kho giả ở `getLocations` (`:5215`) & `chiDoc` ở `noiDungSan.js`; TikTok `chuyenKhoSanPhamTikTok` (`:5741`) nuốt exception chỉ `log.warn`; Shopee cache `SHOPEE_WH_DETAIL_UNSUPPORTED` 24h (`:5395`) chưa có nút làm mới.
+4. **Lỗi 5 (Đơn Shopee `261120S3WBWNQG` trên Seller `SHIPPED` nhưng FCentric kẹt `"Chờ xuất kho"` & tiến tới `COMPLETED`):**
+   - `DonBanHangService.capNhatTrangThaiGiaoHangTuSan` (`:1126`, `:1150`) chặn im lặng khi `phieu_xuat_kho` ở `CHO_XUAT (6)` / `NHAP (0)` thay vì tự chốt phiếu `CHO_XUAT` (đã đóng gói xong) qua `PhieuXuatKhoService` hoặc phát cảnh báo khi chưa đóng gói, và thiếu đối soát định kỳ đơn mở.
+5. **Lỗi 6 (Nút `"Gửi sang kho"` khóa cứng về `Kho tổng` trên Lazada, TikTok Shop, Shopee):**
+   - `OmnichannelOrderSyncJob` (`:1298`, `:1495`, `:2126`) hardcode `Kho tổng`; `DonBanHangService.sendToWarehouse` (`:708-713`) chủ động ném lỗi `banHang.donSanChiXuatKhoTong`; `ChannelSettingsPage.jsx` (`:78`, `:620`) chỉ bật `BangMappingKhoSan` cho Shopify.
+
+#### Nâng cấp Rule & Thiết kế Kế hoạch
+- Bổ sung vào `agent.md` và `.agents/rules/coding-standards.md` **Quy chuẩn kiểm thử & rà soát 10 vòng lặp** và **Quy chuẩn bộ 200 bài test cục bộ (140 BE + 60 FE, không đẩy lên Git)**, cùng bài học RCA 6 lỗi đa kênh vào mục 6 của `agent.md`.
+- Lập Plan Artifact chi tiết `plan_omnichannel_6_bugs_va_200_tests.md` gồm lộ trình 4 đợt micro-commit + bảng thiết kế đủ 200 bài test từ hiệu năng đến ngoại biên chờ người dùng duyệt trước khi sửa mã nguồn.
+
+---
+
+### [AUDIT-132] XỬ LÝ TRIỆT ĐỂ 6 LỖI ĐỒNG BỘ ĐA KÊNH, CHUẨN HÓA CHÍNH SÁCH KHO 4 SÀN & NGHIỆM THU 10 VÒNG LẶP CÙNG 200 BÀI TEST CỤC BỘ
+
+- **Thời gian (GMT+7):** `2026-11-24 09:24:30`
+- **Tác giả thực hiện:** PhanAnh & Antigravity AI
+- **Skill & Rule đã kích hoạt:** `systematic-debugging`, `java-pro`, `api-design-principles`, `api-security`, `react-best-practices`, `i18n-localization`, `code-review-checklist`, `agent.md`, `.agents/rules/coding-standards.md`, `.agents/rules/omnichannel-standards.md`
+- **Phân hệ ảnh hưởng:**
+  - `Đồng bộ tồn kho & ánh xạ kho đa kênh (Shopify, Lazada, TikTok Shop, Shopee)`
+  - `Định tuyến kho & đồng bộ giao hàng đơn bán sàn (DonBanHangService, PhieuXuatKhoService, OmnichannelOrderSyncJob)`
+- **Tệp thay đổi (28 tệp tracked + 12 tệp test & tài liệu cục bộ ignored):**
+  - **DTO & Request/Response (`4`):** `DongBoTongQuanDto.java`, `TikTokOrderDto.java`, `ShopeeOrderDto.java`, `TikTokInventoryUpdateRequest.java`
+  - **Backend i18n (`4`):** `kenhBan.properties`, `kenhBan_en.properties`, `thongBaoXuatKho.properties`, `thongBaoXuatKho_en.properties`
+  - **Clients & Repository (`2`):** `LazadaClient.java`, `DonBanHangRepository.java`
+  - **Services, Worker & Controller (`6`):** `KenhBanHangDongBoService.java`, `KenhBanHangDongBoServiceImpl.java`, `PhieuXuatKhoService.java`, `ThongBaoXuatKhoService.java`, `DonBanHangService.java`, `OmnichannelOrderSyncJob.java`, `KenhBanHangController.java` *(tổng 7 tệp Java tầng logic/controller)*
+  - **Frontend i18n, Service & UI (`10`):** `en/kenh-ban.json`, `en/ban-hang.json`, `kenhBanHangService.js`, `noiDungSan.js`, `DongKhoSan.jsx`, `BangMappingKhoSan.jsx`, `ChannelSettingsPage.jsx`, `ChannelMappingsPage.jsx`, `HopGuiSangKho.jsx`, `DonBanHangDetail.jsx`
+  - **Kiểm thử cục bộ *(git-ignored, không đẩy Git)*:** `backend/src/test/java/com/dev/backend/omnichannel_suite/*.java` (6 lớp — 140 `@Test`) + `frontend/src/tests/omnichannel/*.test.js` (6 tệp — 60 subtests)
+  - **Tài liệu:** `audit.md` *(tracked)*, `agent.md` & `hệ thống.md` *(ignored)*
+
+#### Giải pháp kỹ thuật theo tầng kiến trúc
+1. **Lỗi 1 — Sửa triệt để vòng lặp `SKU chờ đẩy` & hụt `16` cái trên Shopify:**
+   - Thống nhất `tinhSoLuongSeDayTheoBienThe`, `thuLai` và `tinhTonTheoLocationShopifyTuInputs` dùng chung quy tắc `buffer_percent` & `realtime_threshold` từng SKU.
+   - Bổ sung phân bổ **Hamilton Largest-Remainder** trong `tinhTonTheoLocationShopifyTuInputs` (`KenhBanHangDongBoServiceImpl.java`): phân bổ đúng phần dư `targetTotal - sumFloored` theo số dư lẻ và ưu tiên `Kho tổng` → giữ nguyên tổng `1.413` cho 16 phân loại mà không mất đơn vị làm tròn lẻ từng kho.
+2. **Lỗi 2 — Mở khóa `"Đẩy tồn lại"`, real-time push & làm mới token TikTok Shop:**
+   - Thêm nhánh `isTikTok` hoàn chỉnh trong `moKetNoiDayTon` (`KenhBanHangDongBoServiceImpl.java`) để `"Đẩy tồn lại"`, `"Thử lại"` và `dayTonKhoKhanCap` dùng đúng token/`shop_cipher` TikTok Shop; giữ nguyên `chiTietLoi` khi tạo sản phẩm thất bại.
+   - Bổ sung nhánh `"TIKTOK"` vào `KenhBanHangController.lamMoiKhoa` (`POST /{maKenh}/lam-moi-token`, giữ `@RequireAuth(roles = {IRoleType.quan_tri_vien})`) cùng nút làm mới khóa trên `ChannelSettingsPage.jsx`.
+3. **Lỗi 3 & Lỗi 4 — Chính sách kho 3 sàn, đa kho Lazada & cảnh báo Seller Center:**
+   - **Lazada (`LazadaClient.java`, `KenhBanHangDongBoServiceImpl.java`):** Triển khai `GET /rc/warehouse/get` (`getLocations`) và `updateSellableQuantity` (`<MultiWarehouseInventories>`, batch 20 SKU) khi sàn bật ≥ 2 kho; tiếp tục dùng `UpdatePriceQuantity` phẳng cho đơn kho và trả cảnh báo `kenhBan.lazadaCanhBaoLuuKho` qua `DongBoTongQuanDto.canhBao`.
+   - **TikTok Shop (`KenhBanHangDongBoServiceImpl.java`, `TikTokInventoryUpdateRequest.java`):** `chuyenKhoSanPhamTikTok` dùng `/inventory/update` (`skuWarehouseStockUpdateMode="FULL"`, `unlinkWarehouseIds`), xử lý rõ mã lỗi `12052533` thành `DongBoTongQuanDto.canhBao` (`kenhBan.tiktokChuyenKhoBiChan12052533` / `kenhBan.tiktokChuyenKhoMotPhanThatBai`).
+   - **Shopee (`KenhBanHangDongBoServiceImpl.java`, `BangMappingKhoSan.jsx`, `ChannelSettingsPage.jsx`):** Hỗ trợ `forceRefresh=true` để vượt cache `SHOPEE_WH_DETAIL_UNSUPPORTED` 24h; mở `BangMappingKhoSan` cho cả 4 sàn kèm `noiDungSan.js` minh bạch chính sách Seller Center và gỡ prop `maKenh` dư thừa trong `BangMappingKhoSan.jsx` (sạch 0 lỗi ESLint).
+4. **Lỗi 5 — Tự chốt phiếu `CHO_XUAT`, cảnh báo idempotent & đối soát đơn mở:**
+   - `PhieuXuatKhoService.xacNhanXuatKhoTuDongTuSan` tự động xuất kho thật theo đúng lô đã pick khi phiếu ở `CHO_XUAT (6)` (giữ nguyên kiểm tra `KhoaKiemKeGuard` và không cần `KhoDangChon` từ web request).
+   - `DonBanHangService.capNhatTrangThaiGiaoHangTuSan` gọi `xacNhanXuatKhoTuDongTuSan` khi sàn báo `SHIPPED`/`COMPLETED`; nếu còn phiếu `NHAP (0)` hoặc bị khóa kiểm kê → giữ nguyên trạng thái kho, gắn `[CẢNH BÁO LỆCH SÀN: ...]` và gửi `thongBaoXuatKhoService.canhBaoLechTrangThaiSan` **đúng 1 lần** (đặt trong nhánh idempotent `!currentNote.contains(tagPrefix)` tránh spam mỗi 5 phút).
+   - `OmnichannelOrderSyncJob` bổ sung `doiSoatDonMoShopee` (batch 50), `doiSoatDonMoTikTok` (`getOrderDetails`), `doiSoatDonMoLazada` dùng `DonBanHangRepository.findOpenChannelOrders` với trần 90 ngày và cooldown 10 phút.
+5. **Lỗi 6 — Định tuyến kho thống nhất khi gửi đơn sàn (`DonBanHangService`, `OmnichannelOrderSyncJob`, `HopGuiSangKho.jsx`):**
+   - `resolveKhoXuatChoDonSan` (+ helper `resolveVirtualFCentricKho`) tra theo thứ tự ưu tiên: mã kho trên payload đơn (hỗ trợ cả `fcentric-kho-<id>`) → `MA_KHO_SAN` → dòng mặc định `KENH_<MA>_KHO_MAPPING` → `KHO_ID` → `Kho tổng`; `resolveShopeeAddressIdChoKho` lấy đúng `address_id` Shopee theo kho xuất của đơn.
+   - Bỏ chặn cứng `"donSanChiXuatKhoTong"` ở `DonBanHangService.sendToWarehouse` / `getKhoKhaDungChoDonHang` và hợp nhất thao tác mở `HopGuiSangKho` ở `DonBanHangDetail.jsx` kèm banner kho đã định tuyến mặc định.
+
+#### Kết quả kiểm thử 10 vòng lặp & Đối soát hồi quy
+- **Vòng 1 — Biên dịch & Cú pháp:** Backend `.\mvnw.cmd clean test-compile` biên dịch sạch **908** main + **172** test source files; Frontend `npx eslint` trên cả **8** tệp JS/JSX đã sửa đạt **0 lỗi, 0 cảnh báo** và `esbuild.transformSync` **8/8 OK** *(ghi chú trung thực: `npm run build` / Vite 7 yêu cầu Node `>=20.19` trong khi môi trường máy host đang cài Node `v19.7.0`)*.
+- **Vòng 2 — Bộ test gốc hiện có:** Backend **11/11** suites (`DonBanHangServiceGiaoHangSanTest` 16, `DonBanHangServiceSendToWarehouseTest` 16, `DonBanHangShopifyDispatchTest` 5, `KenhBanHangDongBoServiceTest` 80, `KenhBanHangLienKetTheoSanPhamTest` 18, `KenhBanHangShopifyMultiLocationTest` 10, `PhieuXuatKhoDispatchTest` 4, `PhieuXuatKhoServiceDetailTest` 18, `ShopifySyncVulnerabilitiesTest` 4, `ShopifyMultiLocationInventoryTest` 7, `OmnichannelOrderSyncJobTest` 39) = **217/217 PASS** (`11.967s`); Frontend **3/3** suites (`tinhDonBan.test.js` 15, `chonKho.test.js` 1, `nhomLienKet.test.js` 16) = **32/32 PASS**.
+- **Vòng 3 (Buffer & Retry — Lỗi 1, 2):** Suites A+B = **55/55 BE** (`OmnichannelBufferAndDeltaSyncTest` 30 + `OmnichannelRetryAndRealtimePushTest` 25) + **20/20 FE** (`nhomLienKetBuffer.test.js` 10 + `channelMappingsActions.test.js` 10) = **75/75 PASS**.
+- **Vòng 4 (Hiệu năng & Concurrency):** Suite F = **15/15 BE** (`OmnichannelPerformanceAndConcurrencyTest`) + **10/10 FE** (`channelPerformanceStress.test.js`) = **25/25 PASS**.
+- **Vòng 5 (Toàn vẹn CSDL & DDL):** `git diff --name-only` xác nhận **0** chỉnh sửa ở `entities/`, tệp `.sql` hoặc migration.
+- **Vòng 6 (Đa kho & Định tuyến kho — Lỗi 3, 4, 6):** Suites C+E = **45/45 BE** (`OmnichannelMultiWarehousePolicyTest` 25 + `OmnichannelWarehouseRoutingTest` 20) + **20/20 FE** (`channelWarehouseSettings.test.js` 10 + `donBanHangRouting.test.js` 10) = **65/65 PASS**.
+- **Vòng 7 (Đồng bộ giao hàng — Lỗi 5):** Suite D = **25/25 BE** (`OmnichannelOrderDeliverySyncTest`) + **10/10 FE** (`donBanHangSyncStatus.test.js`) = **35/35 PASS**.
+- **Vòng 8 (Bảo mật & Phân quyền):** Rà soát 100% endpoint sửa đổi tại `KenhBanHangController` (`lamMoiKhoa`, `getLocations`, `getKhoMapping`, `luuKhoMapping`) đều gắn `@RequireAuth(roles = {IRoleType.quan_tri_vien})` + `DonBanHangShopifyDispatchTest` **5/5 PASS**.
+- **Vòng 9 (Đa ngôn ngữ i18n):** `cd frontend && npm run i18n:kiem` quét **745** tệp đạt **0 chưa bọc · 0 thiếu bản dịch · 0 lệch**; đối chiếu cặp khóa `kenhBan*.properties` và `thongBaoXuatKho*.properties` **0** khóa lệch.
+- **Vòng 10 (Hồi quy 200 bài test cục bộ & `.gitignore`):** Backend **140/140 PASS** (`10.070s`, `0` fail/error/skip) + Frontend **60/60 PASS** (`2.124s`, `0` fail/cancel/skip) -> Tổng **200/200 PASS**; `git check-ignore -v` xác nhận `.gitignore` khóa chặt toàn bộ **12** tệp test cục bộ cùng `agent.md`, `hệ thống.md`, `.agents/`.
