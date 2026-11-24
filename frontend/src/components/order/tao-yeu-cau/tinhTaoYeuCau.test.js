@@ -29,12 +29,14 @@ import {
   SO_LUONG_TOI_DA,
   soNgayToi,
   soSanhKichCo,
+  soSanhUuTienDss,
   taoBodyYeuCau,
   taoChiMuc,
   themDong,
   themNhieu,
   theoNhomHang,
   theoSoDeXuat,
+  thuTuMucDoKhanCap,
   timHang,
 } from "./tinhTaoYeuCau.js";
 
@@ -42,6 +44,8 @@ const bt = (id, spId, ten, mau, co, them = {}) => ({
   bienTheId: id, sanPhamId: spId, tenSanPham: ten, maSanPham: `SP${spId}`, maSku: `SP${spId}-${mau}-${co}`.toUpperCase(),
   maVach: `20${String(id).padStart(11, "0")}`, tenMau: mau, maMauHex: "#111111", tenSize: co, tenChatLieu: "Cotton",
   nhomHang: "Áo khoác", anh: null, khaDung: 0, dangVe: 0, nguong: 10, daTungNhap: true, soLuongDeXuat: 0, du: false,
+  tonAnToan: 0, tonDuXaHang: 0, goiYXaHang: false, tonCham: false, khoaTaoYeuCau: false,
+  phanLoaiAbc: "B", mucDoKhanCap: "NORMAL", kichBanApDung: "PRESET_01_STANDARD", soNgayTonKho: null, banTrungBinhNgay: 0,
   yeuCauMo: null, ...them,
 });
 
@@ -81,12 +85,28 @@ test("timHang / chonKhiEnter: không dấu, mã chính xác trước, một kế
   assert.equal(chonKhiEnter(HANG, CM, "  "), null);
 });
 
-test("laGoiY / canChuY", () => {
+test("laGoiY / canChuY / soSanhUuTienDss theo chuẩn DSS", () => {
   assert.equal(laGoiY(HANG[0]), true);
+  assert.equal(laGoiY({ ...HANG[0], khoaTaoYeuCau: true }), false, "khóa ngừng nhập thì không gợi ý");
   assert.equal(laGoiY(HANG[2]), false);
-  assert.equal(canChuY(HANG[3]), true, "còn dư");
+  assert.equal(canChuY(HANG[3]), true, "bán chậm / tồn dư");
   assert.equal(canChuY(HANG[4]), true, "đang trong yêu cầu khác");
+  assert.equal(canChuY(bt(91, 90, "SP", "Đen", "M", { khoaTaoYeuCau: true })), true, "ngừng nhập");
+  assert.equal(canChuY(bt(92, 90, "SP", "Đen", "M", { tonDuXaHang: 12 })), true, "tồn dư xả hàng");
+  assert.equal(canChuY(bt(93, 90, "SP", "Đen", "M", { tonCham: true })), true, "bán chậm");
   assert.equal(canChuY(HANG[2]), false);
+
+  assert.equal(thuTuMucDoKhanCap("CRITICAL"), 0);
+  assert.equal(thuTuMucDoKhanCap("HIGH"), 1);
+  assert.equal(thuTuMucDoKhanCap("NORMAL"), 2);
+  assert.equal(thuTuMucDoKhanCap("EXCESS_OR_PHASE_OUT"), 3);
+
+  const dsUuTien = [
+    bt(1, 1, "B", "Đen", "M", { mucDoKhanCap: "HIGH", soNgayTonKho: 4.5, soLuongDeXuat: 10 }),
+    bt(2, 1, "A", "Đen", "L", { mucDoKhanCap: "CRITICAL", soNgayTonKho: 1.2, soLuongDeXuat: 5 }),
+    bt(3, 1, "C", "Đen", "S", { mucDoKhanCap: "HIGH", soNgayTonKho: 2.0, soLuongDeXuat: 20 }),
+  ].sort(soSanhUuTienDss);
+  assert.deepEqual(dsUuTien.map((x) => x.bienTheId), [2, 3, 1]);
 });
 
 test("themDong: quét lại cộng 1, kẹp tối đa", () => {
@@ -135,11 +155,14 @@ test("ô lưới: trống / 0 bỏ mã, số thì đặt hoặc thêm, chữ sai
   assert.equal(doiOLuoi(goc, 1, "x"), goc);
 });
 
-test("dongBang: gom theo sản phẩm theo thứ tự thêm, trong sản phẩm theo màu rồi cỡ, kèm số Kho tổng", () => {
+test("dongBang: gom theo sản phẩm theo thứ tự thêm, trong sản phẩm theo màu rồi cỡ, kèm số Kho tổng và DSS", () => {
   const d = dongBang([{ bienTheId: 5, soLuong: 2 }, { bienTheId: 1, soLuong: 20 }, { bienTheId: 2, soLuong: "" }, { bienTheId: 999, soLuong: 1 }], CM);
   assert.deepEqual(d.map((x) => x.id), [5, 2, 1, 999]);
   assert.equal(d[1].deXuat, 15);
   assert.equal(d[1].khaDung, 5);
+  assert.equal(d[1].nguong, 10);
+  assert.equal(d[1].phanLoaiAbc, "B");
+  assert.equal(d[1].khoaTaoYeuCau, false);
   assert.equal(d[1].oNhap, "");
   assert.equal(d[1].soLuong, 0);
   assert.equal(d[0].yeuCauMo.ma, "PR202610240009");
@@ -204,11 +227,34 @@ test("ngày giao: đọc ngày, sau n ngày, số ngày còn lại, dòng mô t�
   assert.equal(moTaNgayGiao("", homNay).trai, "Bắt buộc");
 });
 
-test("canhBao / cauCanhBao: mã trùng yêu cầu khác, mã còn dư", () => {
-  const cb = canhBao([{ bienTheId: 5, soLuong: 1 }, { bienTheId: 4, soLuong: 1 }, { bienTheId: 1, soLuong: 1 }], CM);
-  assert.deepEqual(cb, { trung: [5], du: [4], maYeuCau: ["PR202610240009"], soChuY: 2 });
-  assert.equal(cauCanhBao(cb), "1 mã đang nằm trong yêu cầu nhập khác chưa xong (PR202610240009); 1 mã Kho tổng còn dư hàng. Gửi thêm có thể mua trùng hoặc mua thừa.");
-  assert.equal(cauCanhBao(canhBao([{ bienTheId: 1 }], CM)), "");
+test("canhBao / cauCanhBao: tách rõ trùng PR, ngừng nhập, tồn dư xả hàng và bán chậm DSS", () => {
+  const cmDss = taoChiMuc([
+    ...HANG,
+    bt(7, 30, "Áo ngừng nhập", "Đen", "M", { khoaTaoYeuCau: true, tonDuXaHang: 15 }),
+    bt(8, 30, "Áo tồn dư", "Đen", "L", { tonDuXaHang: 25, du: true }),
+    bt(9, 30, "Áo bán chậm", "Đen", "S", { tonCham: true, du: true }),
+  ]);
+  const cb = canhBao([
+    { bienTheId: 5, soLuong: 1 },
+    { bienTheId: 7, soLuong: 1 },
+    { bienTheId: 8, soLuong: 1 },
+    { bienTheId: 9, soLuong: 1 },
+    { bienTheId: 1, soLuong: 1 },
+  ], cmDss);
+  assert.deepEqual(cb, {
+    trung: [5],
+    khoaNhap: [7],
+    tonDu: [8],
+    banCham: [9],
+    du: [8, 9],
+    maYeuCau: ["PR202610240009"],
+    soChuY: 4,
+  });
+  assert.equal(
+    cauCanhBao(cb),
+    "1 mã đang nằm trong yêu cầu nhập khác chưa xong (PR202610240009); 1 mã đang ở kịch bản ngừng nhập theo DSS; 1 mã đang có tồn dư cần xả theo DSS; 1 mã bán chậm theo DSS. Kiểm tra kỹ trước khi gửi để tránh mua trùng hoặc tăng tồn chậm.",
+  );
+  assert.equal(cauCanhBao(canhBao([{ bienTheId: 1 }], cmDss)), "");
 });
 
 test("theoNhomHang / demTheoDeXuat", () => {
