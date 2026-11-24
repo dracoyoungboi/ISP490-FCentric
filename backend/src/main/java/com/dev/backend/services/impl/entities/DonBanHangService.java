@@ -712,7 +712,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void sendToWarehouse(Integer id, Integer khoId, boolean thuCongKhiLoi) {
+    public String sendToWarehouse(Integer id, Integer khoId, boolean thuCongKhiLoi) {
         DonBanHang don = repository.findById(id)
                 .orElseThrow(() -> new CommonException(ThongDiep.of("banHang.donBanKhongTimThayVoiId", id), HttpStatus.NOT_FOUND, null));
         kiemTraPhamVi(don);
@@ -734,6 +734,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         }
 
         Kho khoChon;
+        String canhBaoThieuTon = null;
         boolean donBaSanTrucTiep = laDonBaSan(don) && !thuCongKhiLoi;
         if (donBaSanTrucTiep) {
             Kho khoHienTai = don.getKhoXuat();
@@ -761,12 +762,8 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             }
             String chiTietThieu = kiemTraDuTonTaiKho(don, khoHienTai);
             if (chiTietThieu != null) {
-                throw new LoiCoMaException(
-                        HttpStatus.CONFLICT,
-                        MaLoi.DON_SAN_CAN_CHON_KHO_THU_CONG,
-                        ThongDiep.of("banHang.donSanKhongDuTonTaiKhoHienTai", khoHienTai.getTenKho(), chiTietThieu),
-                        Map.of("khoId", khoHienTai.getId(), "tenKho", khoHienTai.getTenKho(), "lyDo", "khong_du_ton")
-                );
+                // Vẫn gửi đơn sang kho hiện tại và trả về cảnh báo để người dùng biết cần chuyển kho nội bộ sau khi nhận đơn
+                canhBaoThieuTon = ThongDiep.dich("banHang.donSanKhongDuTonTaiKhoHienTai", khoHienTai.getTenKho(), chiTietThieu);
             }
             khoChon = khoHienTai;
         } else if (khoId != null) {
@@ -843,6 +840,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             NguoiDungAuthInfo nguoiGui = SecurityContextHolder.getUser();
             thongBaoXuatKhoService.donGuiSangKho(don, nguoiGui == null ? null : nguoiGui.getId());
         }
+        return canhBaoThieuTon;
     }
 
     /**
