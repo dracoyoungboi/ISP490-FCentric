@@ -137,13 +137,14 @@ public class DonBanHangController {
     ) {
         Integer khoId = request != null ? request.getKhoId() : null;
         boolean thuCongKhiLoi = request != null && Boolean.TRUE.equals(request.getThuCongKhiLoi());
-        donBanHangService.sendToWarehouse(id, khoId, thuCongKhiLoi);
+        String canhBaoThieuTon = donBanHangService.sendToWarehouse(id, khoId, thuCongKhiLoi);
+        boolean coCanhBaoThieuTon = canhBaoThieuTon != null && !canhBaoThieuTon.isBlank();
 
         return ResponseEntity.ok(
                 ResponseData.<String>builder()
                         .status(200)
-                        .data("Success")
-                        .message(ThongDiep.dich("banHang.daGuiDonSangKho"))
+                        .data(coCanhBaoThieuTon ? "CANH_BAO_THIEU_TON" : "Success")
+                        .message(coCanhBaoThieuTon ? canhBaoThieuTon : ThongDiep.dich("banHang.daGuiDonSangKho"))
                         .error(null)
                         .build()
         );
