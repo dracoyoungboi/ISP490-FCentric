@@ -1828,13 +1828,23 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         String serviceId = kenh != null ? kenh.getServiceId() : null;
         String appKey = getTikTokAppKey();
 
-        // Chuẩn OAuth2 TikTok Shop: Ưu tiên Service ID (Partner App), nếu chưa cấu hình thì dùng App Key (Custom App)
-        String authIdentifier = (serviceId != null && !serviceId.isBlank()) ? serviceId.trim() : appKey;
-        if (authIdentifier == null || authIdentifier.isBlank()) {
+        String cleanAppKey = (appKey != null && !appKey.isBlank()) ? appKey.trim() : null;
+        String cleanServiceId = (serviceId != null && !serviceId.isBlank()) ? serviceId.trim() : null;
+        if (cleanAppKey == null && cleanServiceId == null) {
             throw new CommonException(ThongDiep.of("kenhBan.tiktokAppKeyTrong"), HttpStatus.BAD_REQUEST, null);
         }
         String cleanState = (state != null && !state.isBlank()) ? state : ("tiktok_" + java.util.UUID.randomUUID().toString().replace("-", ""));
-        return getTikTokShopClient().generateAuthUrl(authIdentifier, redirectUri, cleanState);
+
+        // Chỉ dùng Partner Authorize URL khi có Service ID dạng số thực thụ (Partner App), khác App Key;
+        // Custom App luôn dùng https://auth.tiktok-shops.com/oauth/authorize?app_key=<appKey>&state=<state>.
+        boolean dungPartner = cleanServiceId != null
+                && !cleanServiceId.equals(cleanAppKey)
+                && cleanServiceId.chars().allMatch(Character::isDigit);
+        if (dungPartner) {
+            return getTikTokShopClient().generatePartnerAuthUrl(cleanServiceId, redirectUri, cleanState);
+        }
+        String customAppKey = cleanAppKey != null ? cleanAppKey : cleanServiceId;
+        return getTikTokShopClient().generateAuthUrl(customAppKey, redirectUri, cleanState);
     }
 
     @Override

@@ -3055,10 +3055,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         try {
             TikTokWarehousesResponse whRes = getTikTokShopClient().getWarehouses(appKey, appSecret, token, cipher);
             if (whRes != null && whRes.getWarehouses() != null && !whRes.getWarehouses().isEmpty()) {
-                // Lọc bỏ 100% kho trả hàng (RETURN_WAREHOUSE)
+                // Lọc bỏ 100% kho trả hàng (RETURN_WAREHOUSE), kho FBT và kho vô hiệu hóa
                 List<TikTokWarehouseDto> salesWarehouses = whRes.getWarehouses().stream()
-                        .filter(w -> !"RETURN_WAREHOUSE".equalsIgnoreCase(w.getWarehouseType())
-                                && !"RETURN".equalsIgnoreCase(w.getWarehouseType()))
+                        .filter(w -> !laKhoTraHangHoacVoHieuTikTok(w))
                         .toList();
 
                 // 1. Ưu tiên kho SALES_WAREHOUSE có isDefault = true
@@ -4231,6 +4230,35 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return dayTonKhoLenKenh(maKenh, quyTacDaLuu(maKenh), theoDoi != null ? theoDoi : TheoDoiDayTon.KHONG_THEO_DOI);
     }
 
+    @Override
+    public DayTonResultDto dayTonTheoQuyTacDaLuu(String maKenh, TheoDoiDayTon theoDoi, boolean boQuaBackoffLoi, boolean epDayToanBo) {
+        TheoDoiDayTon goc = theoDoi != null ? theoDoi : TheoDoiDayTon.KHONG_THEO_DOI;
+        if (goc.boQuaBackoffLoi() == boQuaBackoffLoi && goc.epDayToanBo() == epDayToanBo) {
+            return dayTonKhoLenKenh(maKenh, quyTacDaLuu(maKenh), goc);
+        }
+        TheoDoiDayTon boc = new TheoDoiDayTon() {
+            @Override
+            public void batDauDay(int tongSku) { goc.batDauDay(tongSku); }
+            @Override
+            public void dangDay(String maSku) { goc.dangDay(maSku); }
+            @Override
+            public void daDay(String maSku, String tenSku, boolean thanhCong, String lyDo) {
+                goc.daDay(maSku, tenSku, thanhCong, lyDo);
+            }
+            @Override
+            public boolean canDung() { return goc.canDung(); }
+            @Override
+            public Duration choKenhRanhToiDa() { return goc.choKenhRanhToiDa(); }
+            @Override
+            public boolean boQuaBackoffLoi() { return boQuaBackoffLoi || goc.boQuaBackoffLoi(); }
+            @Override
+            public boolean epDayToanBo() { return epDayToanBo || goc.epDayToanBo(); }
+            @Override
+            public void daBoQuaKhongDoi(int soSkuKhongDoi) { goc.daBoQuaKhongDoi(soSkuKhongDoi); }
+        };
+        return dayTonKhoLenKenh(maKenh, quyTacDaLuu(maKenh), boc);
+    }
+
     DayTonResultDto dayTonKhoLenKenh(String maKenh, DayTonKenhRequest request, TheoDoiDayTon theoDoi) {
         KenhBanHang kenh = getKenhActive(maKenh);
         // Mỗi kênh chỉ một đợt đẩy tồn cùng lúc (JOB-03, Đồng bộ ngay, nút Đẩy tồn, Đồng bộ tất cả):
@@ -4312,6 +4340,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         List<DongCanCapNhat> dirtyList = new ArrayList<>();
         int soBoQuaKhongDoi = 0;
+        boolean boQuaBackoffLoi = theoDoi.boQuaBackoffLoi();
+        boolean epDayToanBo = theoDoi.epDayToanBo();
 
         for (TrangThaiDongBoSanPham dong : dongCanDay) {
             BienTheSanPham bt = dong.getBienTheSanPham();
@@ -4325,12 +4355,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             boolean daThanhCong = "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
             boolean soTonKhongDoi = dong.getSoLuongDaDay() != null && dong.getSoLuongDaDay().equals(soDay);
-            if (daThanhCong && soTonKhongDoi) {
+            if (!epDayToanBo && daThanhCong && soTonKhongDoi) {
                 soBoQuaKhongDoi++;
                 continue;
             }
-            // Chống spam lặp lỗi (Delta Sync bảo vệ quota): nếu lần trước thất bại nhưng số tồn không đổi và lần thử gần nhất chưa quá 60 phút -> bỏ qua
-            if (!daThanhCong && soTonKhongDoi && dong.getNgayDongBoCuoi() != null
+            // Chống spam lặp lỗi (Delta Sync bảo vệ quota) cho job định kỳ; Đồng bộ ngay (boQuaBackoffLoi = true) thử lại ngay
+            if (!epDayToanBo && !boQuaBackoffLoi && !daThanhCong && soTonKhongDoi && dong.getNgayDongBoCuoi() != null
                     && java.time.Duration.between(dong.getNgayDongBoCuoi(), Instant.now()).toMinutes() < 60) {
                 soBoQuaKhongDoi++;
                 continue;
@@ -4340,8 +4370,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             dirtyList.add(new DongCanCapNhat(dong, soDay, skuSan, maSku.trim()));
         }
 
-        log.info("[TIKTOK-SYNC-DELTA] Tổng số SKU: {}, Bỏ qua không đổi: {}, Cần đẩy (dirty): {}",
-                dongCanDay.size(), soBoQuaKhongDoi, dirtyList.size());
+        theoDoi.daBoQuaKhongDoi(soBoQuaKhongDoi);
+        log.info("[TIKTOK-SYNC-DELTA] Tổng số SKU: {}, Bỏ qua không đổi: {}, Cần đẩy (dirty): {}, Ép đẩy toàn bộ: {}",
+                dongCanDay.size(), soBoQuaKhongDoi, dirtyList.size(), epDayToanBo);
 
         if (dirtyList.isEmpty()) {
             theoDoi.batDauDay(0);
@@ -4730,6 +4761,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         List<DongCanCapNhat> dirtyList = new ArrayList<>();
         Map<Integer, Map<String, Integer>> lzdWhQtyByDongId = new HashMap<>();
         int soBoQuaKhongDoi = 0;
+        boolean epDayToanBo = theoDoi.epDayToanBo();
 
         for (TrangThaiDongBoSanPham dong : dongCanDay) {
             BienTheSanPham bt = dong.getBienTheSanPham();
@@ -4750,7 +4782,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             boolean daThanhCong = "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
             boolean soTonKhongDoi = dong.getSoLuongDaDay() != null && dong.getSoLuongDaDay().equals(soDay);
-            if (daThanhCong && soTonKhongDoi) {
+            if (!epDayToanBo && daThanhCong && soTonKhongDoi) {
                 soBoQuaKhongDoi++;
                 continue;
             }
@@ -4759,8 +4791,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             dirtyList.add(new DongCanCapNhat(dong, soDay, skuId, bt.getMaSku().trim()));
         }
 
-        log.info("[LAZADA-SYNC-DELTA] Tổng số SKU: {}, Bỏ qua không đổi: {}, Cần đẩy (dirty): {}, Đa kho: {}",
-                dongCanDay.size(), soBoQuaKhongDoi, dirtyList.size(), daKhoLazada);
+        theoDoi.daBoQuaKhongDoi(soBoQuaKhongDoi);
+        log.info("[LAZADA-SYNC-DELTA] Tổng số SKU: {}, Bỏ qua không đổi: {}, Cần đẩy (dirty): {}, Đa kho: {}, Ép đẩy toàn bộ: {}",
+                dongCanDay.size(), soBoQuaKhongDoi, dirtyList.size(), daKhoLazada, epDayToanBo);
 
         if (dirtyList.isEmpty()) {
             theoDoi.batDauDay(0);
@@ -5063,6 +5096,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int soLoi = 0;
         int daXuLy = 0;
         int soBoQuaKhongDoi = 0;
+        boolean epDayToanBo = theoDoi.epDayToanBo();
         boolean dungTheoYeuCau = false;
         if (loiKenh == null) {
             KenhKhoMappingConfigDto mappingCfg = layCauHinhKhoMappingDaLuu("SHOPIFY");
@@ -5096,15 +5130,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             && dong.getSoLuongDaDay().equals(soDay)
                             && "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
                 }
-                if (khongDoi) {
+                if (!epDayToanBo && khongDoi) {
                     soBoQuaKhongDoi++;
                 } else {
                     dirtyList.add(new DongCanCapNhat(dong, soDay, dong.getMaSanPhamKenh(), bt.getMaSku()));
                 }
             }
 
-            log.info("[SHOPIFY-SYNC] Đẩy tồn Shopify {}: tổng {} SKU, cần đẩy {} SKU dirty, bỏ qua {} SKU không đổi số tồn.",
-                    maKenh, dongCanDay.size(), dirtyList.size(), soBoQuaKhongDoi);
+            theoDoi.daBoQuaKhongDoi(soBoQuaKhongDoi);
+            log.info("[SHOPIFY-SYNC] Đẩy tồn Shopify {}: tổng {} SKU, cần đẩy {} SKU dirty, bỏ qua {} SKU không đổi số tồn (ép đẩy toàn bộ: {}).",
+                    maKenh, dongCanDay.size(), dirtyList.size(), soBoQuaKhongDoi, epDayToanBo);
 
             theoDoi.batDauDay(dirtyList.size());
             boolean coCapNhatDaKho = false;
@@ -5124,8 +5159,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 theoDoi.dangDay(item.sellerSku());
                 Map<Long, Integer> expectedLocs = bt != null ? expectedTheoSku.get(bt.getId()) : null;
                 KetQuaGuiTon kq = expectedLocs != null
-                        ? dayTonChoDongShopifyTheoMap(dong, ketNoi, item.soDay(), expectedLocs)
-                        : dayTonChoDong(dong, ketNoi, item.soDay());
+                        ? dayTonChoDongShopifyTheoMap(dong, ketNoi, item.soDay(), expectedLocs, epDayToanBo)
+                        : dayTonChoDong(dong, ketNoi, item.soDay(), epDayToanBo);
                 if (kq.loiKenh()) {
                     loiKenh = kq.lyDo();
                     break;
@@ -5350,11 +5385,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         for (TikTokWarehouseDto w : warehouses) {
                             if (w == null) continue;
                             String rawType = w.getWarehouseType() != null ? w.getWarehouseType().trim().toUpperCase(Locale.ROOT) : "";
-                            boolean isReturn = "RETURN_WAREHOUSE".equals(rawType) || "RETURN".equals(rawType);
-                            boolean isFbt = "FBT".equals(rawType) || "FBT_WAREHOUSE".equals(rawType) || rawType.contains("FBT");
                             boolean isSales = "SALES_WAREHOUSE".equals(rawType);
-                            // Bỏ qua kho trả hàng và FBT; khi sàn có SALES_WAREHOUSE tường minh thì chỉ giữ SALES_WAREHOUSE
-                            if (isReturn || isFbt || (hasExplicitSales && !isSales)) {
+                            // Bỏ qua kho trả hàng, kho FBT và kho vô hiệu hóa; khi sàn có SALES_WAREHOUSE tường minh thì chỉ giữ SALES_WAREHOUSE
+                            if (laKhoTraHangHoacVoHieuTikTok(w) || (hasExplicitSales && !isSales)) {
                                 continue;
                             }
                             String warehouseId = (w.getWarehouseId() != null && !w.getWarehouseId().isBlank())
@@ -5530,9 +5563,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         || "DELETED".equals(status) || "0".equals(status)) {
                     continue;
                 }
+                String whType = firstNonBlankText(w, "warehouse_type", "type", "address_type", "sub_type");
+                String upperType = whType != null ? whType.toUpperCase(Locale.ROOT) : "";
+                String whName = firstNonBlankText(w, "warehouse_name", "name", "address_name", "address");
+                String upperName = whName != null ? whName.toUpperCase(Locale.ROOT) : "";
+                if (upperType.contains("RETURN") || upperName.contains("RETURN") || upperName.contains("TRẢ HÀNG")) {
+                    continue;
+                }
                 String whCode = firstNonBlankText(w, "warehouse_code", "code", "warehouse_id", "id");
                 if (whCode == null || whCode.isBlank() || !seen.add(whCode)) continue;
-                String whName = firstNonBlankText(w, "warehouse_name", "name", "address_name", "address");
                 if (whName == null || whName.isBlank()) {
                     whName = "Kho Lazada (" + whCode + ")";
                 }
@@ -5555,6 +5594,24 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             list.get(0).setMacDinh(true);
         }
         return list;
+    }
+
+    private static boolean laKhoTraHangHoacVoHieuTikTok(TikTokWarehouseDto w) {
+        if (w == null) return true;
+        String effect = w.getEffectStatus() != null ? w.getEffectStatus().trim().toUpperCase(Locale.ROOT) : "";
+        if ("DISABLED".equals(effect) || "INACTIVE".equals(effect) || "DELETED".equals(effect)) {
+            return true;
+        }
+        String rawType = w.getWarehouseType() != null ? w.getWarehouseType().trim().toUpperCase(Locale.ROOT) : "";
+        String rawSub = w.getSubType() != null ? w.getSubType().trim().toUpperCase(Locale.ROOT) : "";
+        return rawType.contains("RETURN") || rawType.contains("FBT") || rawSub.contains("RETURN");
+    }
+
+    private static boolean laKhoTraHangMapping(KenhKhoMappingItemDto item) {
+        if (item == null) return true;
+        String loai = item.getLoaiKhoSan() != null ? item.getLoaiKhoSan().trim().toUpperCase(Locale.ROOT) : "";
+        String ten = item.getTenKhoSan() != null ? item.getTenKhoSan().trim().toUpperCase(Locale.ROOT) : "";
+        return loai.contains("RETURN") || loai.contains("FBT") || ten.contains("TRẢ HÀNG") || ten.contains("RETURN WAREHOUSE");
     }
 
     private static String firstNonBlankText(JsonNode node, String... fields) {
@@ -5657,6 +5714,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 : (resp.path("warehouse_list").isArray() ? resp.path("warehouse_list") : resp.path("list"));
                         if (whArray.isArray()) {
                             for (JsonNode w : whArray) {
+                                String whStatus = firstNonBlankText(w, "status", "warehouse_status");
+                                if (whStatus != null && Set.of("DISABLE", "DISABLED", "INACTIVE", "DELETED", "0")
+                                        .contains(whStatus.toUpperCase(Locale.ROOT))) {
+                                    continue;
+                                }
+                                String whType = firstNonBlankText(w, "warehouse_type", "type", "address_type");
+                                if (whType != null && whType.toUpperCase(Locale.ROOT).contains("RETURN")) {
+                                    continue;
+                                }
                                 String locId = w.path("location_id").asText("").trim();
                                 if (locId.isBlank()) {
                                     locId = w.path("warehouse_id").asText("").trim();
@@ -5667,6 +5733,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                 String name = w.path("warehouse_name").asText("").trim();
                                 if (name.isBlank()) name = w.path("address_name").asText("").trim();
                                 if (name.isBlank()) name = w.path("address").asText("").trim();
+                                if (name.toUpperCase(Locale.ROOT).contains("TRẢ HÀNG")
+                                        || name.toUpperCase(Locale.ROOT).contains("RETURN WAREHOUSE")) {
+                                    continue;
+                                }
                                 boolean macDinh = w.path("default_warehouse").asBoolean(false)
                                         || w.path("is_default").asBoolean(false);
                                 list.add(ShopifyLocationDto.builder()
@@ -5697,18 +5767,34 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             for (JsonNode addr : addrList) {
                                 long addrId = addr.path("address_id").asLong(0);
                                 if (addrId <= 0) continue;
-                                String idStr = String.valueOf(addrId);
-                                if (!seenIds.add(idStr)) continue;
-                                boolean isDefaultOrPickup = false;
+                                boolean hasDefaultAddress = false;
+                                boolean hasPickupAddress = false;
+                                boolean hasReturnAddress = false;
+                                boolean hasAnyType = false;
                                 JsonNode types = addr.path("address_type");
                                 if (types.isArray()) {
                                     for (JsonNode tp : types) {
-                                        String t = tp.asText("").toUpperCase(Locale.ROOT);
-                                        if ("DEFAULT_ADDRESS".equals(t) || "PICKUP_ADDRESS".equals(t)) {
-                                            isDefaultOrPickup = true;
+                                        String tpVal = tp.asText("").trim().toUpperCase(Locale.ROOT);
+                                        if (tpVal.isEmpty()) continue;
+                                        hasAnyType = true;
+                                        if ("DEFAULT_ADDRESS".equals(tpVal)) {
+                                            hasDefaultAddress = true;
+                                        } else if ("PICKUP_ADDRESS".equals(tpVal)) {
+                                            hasPickupAddress = true;
+                                        } else if ("RETURN_ADDRESS".equals(tpVal) || tpVal.contains("RETURN")) {
+                                            hasReturnAddress = true;
                                         }
                                     }
                                 }
+                                // Bỏ qua địa chỉ chỉ dùng để trả hàng (RETURN_ADDRESS) hoặc không phải kho lấy/mặc định
+                                if (hasAnyType && !hasDefaultAddress && !hasPickupAddress && hasReturnAddress) {
+                                    continue;
+                                }
+                                if (hasAnyType && !hasDefaultAddress && !hasPickupAddress) {
+                                    continue;
+                                }
+                                String idStr = String.valueOf(addrId);
+                                if (!seenIds.add(idStr)) continue;
                                 String diaChi = java.util.stream.Stream.of(
                                                 addr.path("address").asText("").trim(),
                                                 addr.path("district").asText("").trim(),
@@ -5721,8 +5807,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                         .maKhoSan(idStr)
                                         .tenKhoSan(label)
                                         .loai("pickup")
-                                        .macDinh(list.isEmpty() && isDefaultOrPickup)
+                                        .macDinh(hasDefaultAddress)
                                         .build());
+                            }
+                            if (!list.isEmpty() && list.stream().noneMatch(ShopifyLocationDto::isMacDinh)) {
+                                list.get(0).setMacDinh(true);
                             }
                         }
                     }
@@ -6255,6 +6344,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         .tenKhoFCentric(mappedKhoName)
                         .kichHoat(true)
                         .laMacDinh(true)
+                        .laMacDinhSan(single.isMacDinh())
                         .build()));
             }
             if (savedCfg != null && savedCfg.getKhoTraHang() != null) {
@@ -6270,7 +6360,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         Map<String, KenhKhoMappingItemDto> savedMap = new HashMap<>();
         if (savedCfg != null && savedCfg.getDanhSachKho() != null) {
             for (KenhKhoMappingItemDto item : savedCfg.getDanhSachKho()) {
-                if (item.getMaKhoSan() != null) {
+                if (item != null && item.getMaKhoSan() != null && !laKhoTraHangMapping(item)) {
                     savedMap.put(item.getMaKhoSan().trim(), item);
                 }
             }
@@ -6283,6 +6373,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 String maSan = sLoc.getMaKhoSan() != null ? sLoc.getMaKhoSan().trim() : "";
                 KenhKhoMappingItemDto existing = savedMap.get(maSan);
                 if (existing != null) {
+                    existing.setLaMacDinhSan(sLoc.isMacDinh());
+                    if (sLoc.getTenKhoSan() != null && !sLoc.getTenKhoSan().isBlank()) {
+                        existing.setTenKhoSan(sLoc.getTenKhoSan());
+                    }
+                    if (sLoc.getLoai() != null && !sLoc.getLoai().isBlank()) {
+                        existing.setLoaiKhoSan(sLoc.getLoai());
+                    }
+                    if (!hoTroDaKhoSan) {
+                        existing.setKichHoat(true);
+                    }
                     if (existing.getKhoIdFCentric() != null) {
                         khoHoatDong.stream().filter(k -> k.getId().equals(existing.getKhoIdFCentric())).findFirst()
                                 .ifPresent(k -> existing.setTenKhoFCentric(k.getTenKho()));
@@ -6302,10 +6402,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             .khoIdFCentric(assignedKhoId)
                             .tenKhoFCentric(assignedName)
                             .kichHoat(true)
-                            .laMacDinh(sLoc.isMacDinh() || i == 0)
+                            .laMacDinh(sLoc.isMacDinh())
+                            .laMacDinhSan(sLoc.isMacDinh())
                             .build());
                 }
             }
+        }
+        if (!mergedList.isEmpty() && mergedList.stream().noneMatch(it -> Boolean.TRUE.equals(it.getLaMacDinh()))) {
+            mergedList.get(0).setLaMacDinh(true);
         }
         result.setDanhSachKho(mergedList);
 
@@ -6330,12 +6434,32 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .map(Kho::getId)
                 .collect(Collectors.toSet());
 
+        KenhKhoMappingConfigDto existingCfg = layCauHinhKhoMappingDaLuu(maKenh);
+        Map<String, Boolean> macDinhSanCu = new HashMap<>();
+        if (existingCfg != null && existingCfg.getDanhSachKho() != null) {
+            for (KenhKhoMappingItemDto cu : existingCfg.getDanhSachKho()) {
+                if (cu != null && cu.getMaKhoSan() != null) {
+                    macDinhSanCu.put(cu.getMaKhoSan().trim(), Boolean.TRUE.equals(cu.getLaMacDinhSan()));
+                }
+            }
+        }
+
         if (request.getDanhSachKho() != null) {
+            List<KenhKhoMappingItemDto> sach = new ArrayList<>();
             for (KenhKhoMappingItemDto item : request.getDanhSachKho()) {
+                if (item == null || laKhoTraHangMapping(item)) {
+                    continue;
+                }
                 if (item.getKhoIdFCentric() != null && !validKhoIds.contains(item.getKhoIdFCentric())) {
                     throw new CommonException(ThongDiep.of("kenhBan.khoKhongTonTai", item.getKhoIdFCentric()), HttpStatus.BAD_REQUEST, null);
                 }
+                String maSan = item.getMaKhoSan() != null ? item.getMaKhoSan().trim() : "";
+                if (!maSan.isEmpty() && macDinhSanCu.containsKey(maSan)) {
+                    item.setLaMacDinhSan(macDinhSanCu.get(maSan));
+                }
+                sach.add(item);
             }
+            request.setDanhSachKho(sach);
         }
 
         // Hướng B: chỉ cho phép bật đa kho tồn trên Shopify; Lazada/TikTok/Shopee giữ cheDoDaKho = false và luôn kích hoạt ánh xạ định tuyến kho đơn
@@ -6378,7 +6502,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
         }
 
-        KenhKhoMappingConfigDto existingCfg = layCauHinhKhoMappingDaLuu(maKenh);
         boolean cheDoThayDoi = existingCfg != null
                 && !Objects.equals(Boolean.TRUE.equals(existingCfg.getCheDoDaKho()), Boolean.TRUE.equals(request.getCheDoDaKho()));
 
@@ -12972,6 +13095,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         // Bỏ qua các SKU đã đẩy thành công và số tồn giữ nguyên -> Tiết kiệm 100% quota API
         // ═══════════════════════════════════════════════════════════════════
         int soBoQuaKhongDoi = 0;
+        boolean epDayToanBo = theoDoi.epDayToanBo();
         List<DongCanCapNhatShopee> dirtyList = new ArrayList<>();
 
         for (TrangThaiDongBoSanPham dong : dongCanDay) {
@@ -12983,15 +13107,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
             boolean daThanhCong = "thanh_cong".equalsIgnoreCase(dong.getTrangThaiDongBo());
             boolean soTonKhongDoi = dong.getSoLuongDaDay() != null && dong.getSoLuongDaDay().equals(soDay);
-            if (daThanhCong && soTonKhongDoi) {
+            if (!epDayToanBo && daThanhCong && soTonKhongDoi) {
                 soBoQuaKhongDoi++;
                 continue;
             }
             dirtyList.add(new DongCanCapNhatShopee(dong, soDay));
         }
 
-        log.info("[SHOPEE-SYNC-DELTA] Tổng số SKU: {}, Bỏ qua không đổi: {}, Cần đẩy (dirty): {}",
-                dongCanDay.size(), soBoQuaKhongDoi, dirtyList.size());
+        theoDoi.daBoQuaKhongDoi(soBoQuaKhongDoi);
+        log.info("[SHOPEE-SYNC-DELTA] Tổng số SKU: {}, Bỏ qua không đổi: {}, Cần đẩy (dirty): {}, Ép đẩy toàn bộ: {}",
+                dongCanDay.size(), soBoQuaKhongDoi, dirtyList.size(), epDayToanBo);
 
         if (dirtyList.isEmpty()) {
             theoDoi.batDauDay(0);

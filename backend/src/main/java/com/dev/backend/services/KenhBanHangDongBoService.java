@@ -37,6 +37,13 @@ public interface KenhBanHangDongBoService {
     DayTonResultDto dayTonTheoQuyTacDaLuu(String maKenh, TheoDoiDayTon theoDoi);
 
     /**
+     * Đẩy tồn theo quy tắc đã lưu với cờ bỏ qua backoff lỗi / ép đẩy toàn bộ SKU bất kể tồn chưa đổi.
+     */
+    default DayTonResultDto dayTonTheoQuyTacDaLuu(String maKenh, TheoDoiDayTon theoDoi, boolean boQuaBackoffLoi, boolean epDayToanBo) {
+        return dayTonTheoQuyTacDaLuu(maKenh, theoDoi);
+    }
+
+    /**
      * Nhận tiến độ của một đợt đẩy tồn. Gọi trên luồng đang đẩy, theo thứ tự:
      * {@code batDauDay} (đã kết nối Shopify) → mỗi SKU {@code dangDay} rồi {@code daDay}.
      * Lỗi cả gian hàng thì dừng giữa chừng, SKU gặp lỗi đó không có {@code daDay}.
@@ -63,6 +70,19 @@ public interface KenhBanHangDongBoService {
         default Duration choKenhRanhToiDa() {
             return Duration.ZERO;
         }
+
+        /** true để thử lại ngay các SKU đang ở trạng thái thất bại thay vì chờ backoff 60 phút. */
+        default boolean boQuaBackoffLoi() {
+            return false;
+        }
+
+        /** true để ép đẩy toàn bộ SKU bất kể số tồn hiện tại khớp lần đẩy trước. */
+        default boolean epDayToanBo() {
+            return false;
+        }
+
+        /** Ghi nhận số SKU bị bỏ qua trong đợt do tồn kho chưa đổi (hoặc đang backoff). */
+        default void daBoQuaKhongDoi(int soSkuKhongDoi) {}
     }
 
     /** Có kênh bán hàng với mã (hoặc id) này không, cùng cách tìm kênh với các thao tác đồng bộ. */
