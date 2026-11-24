@@ -242,7 +242,7 @@ public class DssReplenishmentService {
                             + ",\"alerted\":" + (s != null ? s.getAlertedInCanhBaoCount() : 0) + "}")
                     .nguoiThucHien(user)
                     .ngayThucHien(Instant.now())
-                    .ghiChu("Chạy tính toán DSS nhập hàng toàn hệ thống (" + response.getIncludedWarehouseCount() + " kho)")
+                    .ghiChu("Tính lại gợi ý nhập hàng toàn hệ thống (" + response.getIncludedWarehouseCount() + " kho)")
                     .build());
         } catch (Exception e) {
             log.warn("[DSS] Không thể ghi lịch sử chạy DSS: {}", e.getMessage());
