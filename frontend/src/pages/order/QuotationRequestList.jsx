@@ -203,7 +203,7 @@ export default function QuotationRequestList() {
     const [khoDaTai, setKhoDaTai] = useState(false);
 
     const [pagination, setPagination] = useState({ pageNumber: 0, pageSize: SO_DONG_MAC_DINH, totalElements: 0, totalPages: 0 });
-    // Ô tìm kiếm chỉ áp dụng khi nhấn Enter (giữ hành vi cũ): searchText là chữ đang gõ, keyword là từ khóa đang lọc
+    // Ô tìm kiếm: searchText là chữ đang gõ, keyword là từ khóa đang lọc (áp khi ngừng gõ 300 ms hoặc nhấn Enter)
     const [searchText, setSearchText] = useState('');
     const [keyword, setKeyword] = useState('');
     const [dateRange, setDateRange] = useState({ from: '', to: '' });
@@ -371,6 +371,17 @@ export default function QuotationRequestList() {
         toFirstPage();
     };
 
+    // Gõ là lọc như Đơn mua hàng: ngừng gõ 300 ms thì áp, không gọi API ở mỗi phím
+    useEffect(() => {
+        const value = searchText.trim();
+        if (value === keyword) return undefined;
+        const timer = setTimeout(() => {
+            setKeyword(value);
+            setPagination((p) => ({ ...p, pageNumber: 0 }));
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchText, keyword]);
+
     const hasActiveFilters = Boolean(keyword || khoId || dateRange.from || dateRange.to);
 
     // "Xóa lọc": bỏ mã yêu cầu + kho + ngày, giữ tab đang chọn
@@ -443,7 +454,7 @@ export default function QuotationRequestList() {
                             onChange={e => setSearchText(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') applyKeyword(searchText.trim()); }}
                             onClear={() => { setSearchText(''); applyKeyword(''); }}
-                            placeholder={t("Nhập mã yêu cầu rồi nhấn Enter")}
+                            placeholder={t("Mã yêu cầu")}
                             label={t("Tìm theo mã yêu cầu")}
                             className="sm:w-[300px]"
                         />

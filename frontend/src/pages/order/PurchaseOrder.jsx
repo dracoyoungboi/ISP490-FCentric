@@ -185,9 +185,12 @@ export default function PurchaseOrderList() {
             filterArray.push({ fieldName: 'trangThai', operation: 'IN', value: trangThai, logicType: 'AND' });
         }
 
-        // Filter tìm kiếm theo số đơn mua
+        // Ô tìm: mã đơn mua HOẶC tên nhà cung cấp HOẶC mã yêu cầu gốc (PR…) — máy chủ gom các điều kiện OR thành một nhóm.
+        // Đơn mua luôn có nhà cung cấp và yêu cầu gốc (cột NOT NULL) nên nối bảng không làm rơi đơn nào.
         if (tuKhoa) {
-            filterArray.push({ fieldName: 'soDonMua', operation: 'LIKE', value: tuKhoa, logicType: 'AND' });
+            filterArray.push({ fieldName: 'soDonMua', operation: 'LIKE', value: tuKhoa, logicType: 'OR' });
+            filterArray.push({ fieldName: 'nhaCungCap.tenNhaCungCap', operation: 'LIKE', value: tuKhoa, logicType: 'OR' });
+            filterArray.push({ fieldName: 'yeuCauMuaHang.soYeuCauMuaHang', operation: 'LIKE', value: tuKhoa, logicType: 'OR' });
         }
 
         // Filter kho
@@ -414,8 +417,8 @@ export default function PurchaseOrderList() {
                             onChange={e => setSearchText(e.target.value)}
                             onClear={() => { setSearchText(''); applyKeyword(''); }}
                             onKeyDown={e => { if (e.key === 'Enter') applyKeyword(searchText.trim()); }}
-                            placeholder={t("Nhập mã đơn (VD: PO...)")}
-                            label={t("Tìm theo mã đơn mua hàng")}
+                            placeholder={t("Mã đơn, nhà cung cấp")}
+                            label={t("Tìm đơn mua hàng")}
                             className="sm:w-[300px]"
                         />
 
