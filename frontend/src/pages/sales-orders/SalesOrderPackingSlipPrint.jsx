@@ -24,26 +24,35 @@ export default function SalesOrderPackingSlipPrint() {
         const dsChiTiet = payload?.chiTiet ?? don?.chiTietDonHang ?? [];
         const pxDau = Array.isArray(payload?.phieuXuatKhoList) ? payload.phieuXuatKhoList[0] : null;
         // i18n-giu-nguyen: tên thẻ metadata lưu trong ghi chú đơn hàng từ backend
-        const maVanDonGhiChu = trichTheGhiChu(don.ghiChu, "VẬN ĐƠN");
-        // i18n-giu-nguyen: tên thẻ metadata đơn vị vận chuyển lưu trong ghi chú đơn hàng
+        const rawMaVanDonGhiChu = trichTheGhiChu(don.ghiChu, "VẬN ĐƠN");
+        const maSanGoc = String(don.maDonHangKenh || "").replace(/^SHP-/i, "").trim();
+        const maVanDonGhiChu = rawMaVanDonGhiChu && maSanGoc && rawMaVanDonGhiChu.toUpperCase() === `SPXVN${maSanGoc}`.toUpperCase()
+          ? null : rawMaVanDonGhiChu;
+        // i18n-giu-nguyen: tên thẻ metadata đơn vị vận chuyển và mã chia chọn tuyến lưu trong ghi chú
         const donViGhiChu = trichTheGhiChu(don.ghiChu, "ĐƠN VỊ");
+        const maTuyenGhiChu = trichTheGhiChu(don.ghiChu, "TUYẾN"); // i18n-giu-nguyen: khóa thẻ metadata TUYẾN
+        const maTramGhiChu = trichTheGhiChu(don.ghiChu, "TRẠM"); // i18n-giu-nguyen: khóa thẻ metadata TRẠM
+        const ptttGhiChu = trichTheGhiChu(don.ghiChu, "PTTT");
         const donViChuan = chuanHoaDonViVanChuyen(don.donViVanChuyen || donViGhiChu);
         const tongSl = dsChiTiet.reduce((sum, ct) => sum + Number(ct.soLuongDat ?? ct.soLuong ?? 1), 0);
         const tongKhoiLuongKg = don.tongKhoiLuongKg
           ?? (tongSl > 0 ? Number((tongSl * 0.25 + 0.05).toFixed(2)) : 0.3);
-        const laCod = String(don.trangThaiThanhToan || "").toLowerCase() === "chua_thanh_toan"
-          || String(don.ghiChu || "").toUpperCase().includes("COD");
+        const laCod = ptttGhiChu
+          ? ptttGhiChu.toUpperCase() === "COD"
+          : String(don.trangThaiThanhToan || "").toLowerCase() === "chua_thanh_toan";
         // i18n-giu-nguyen: nhãn in tiền thu hộ trên tem nhiệt vận đơn
         const nhanThanhToan = don.nhanThanhToan
           || (laCod && Number(don.tongCong) > 0
             ? `THU HỘ(COD): ${Number(don.tongCong).toLocaleString("vi-VN")} VNĐ` // i18n-giu-nguyen: nhãn in chứng từ vận đơn
             : "ĐÃ THANH TOÁN (COD: 0 đ)"); // i18n-giu-nguyen: nhãn in chứng từ vận đơn
+        const maVanDonThat = don.maVanDon && !(maSanGoc && String(don.maVanDon).trim().toUpperCase() === `SPXVN${maSanGoc}`.toUpperCase())
+          ? don.maVanDon : maVanDonGhiChu;
         return {
           phieu: {
             donBanHang: don,
             soPhieuXuat: pxDau?.soPhieuXuat || don.soDonHang,
             ngayXuat: don.ngayDatHang || don.ngayTao,
-            maVanDon: don.maVanDon || maVanDonGhiChu,
+            maVanDon: maVanDonThat,
             donViVanChuyen: don.donViVanChuyen || donViGhiChu,
             maKienHang: don.maKienHang,
             tongKhoiLuongKg,
@@ -52,9 +61,9 @@ export default function SalesOrderPackingSlipPrint() {
             donViPickup: don.donViPickup || donViChuan || (laShopee ? "SPX EXPRESS" : undefined),
             donViDelivery: don.donViDelivery || donViChuan || (laShopee ? "SPX EXPRESS" : undefined),
             loaiDichVu: don.loaiDichVu || (laShopee ? (maKenh.includes("SANDBOX") ? "Sandbox SPX Express" : "SPX Express") : undefined),
-            maDinhTuyen: don.maDinhTuyen || (laShopee ? "1-SGN-HUB" : undefined),
-            maTramPhat: don.maTramPhat || (laShopee ? "SG100A-00-00-01" : undefined),
-            tagGiaoNhan: don.tagGiaoNhan || (laShopee ? "WKD" : undefined),
+            maDinhTuyen: don.maDinhTuyen || maTuyenGhiChu || undefined,
+            maTramPhat: don.maTramPhat || maTramGhiChu || undefined,
+            tagGiaoNhan: don.tagGiaoNhan || (laShopee && (don.maDinhTuyen || maTuyenGhiChu) ? "WKD" : undefined),
             chuoiQrCode: don.chuoiQrCode,
             shippingDocUrl: don.shippingDocUrl || payload?.shippingDocUrl || (laShopee ? `/api/v1/don-ban-hang/${don.id}/van-don-san` : null),
           },

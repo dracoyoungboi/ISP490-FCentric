@@ -49,7 +49,11 @@ export function toEcommercePrintModel(payload) {
     const packageWeight = rawWeight != null ? `Tổng KL: ${Number(rawWeight).toFixed(1)} KG` : "Tổng KL: 0.3 KG";
 
     const codLabel = phieu.nhanThanhToan || don.nhanThanhToan ||
-        (don.trangThaiThanhToan === "da_thanh_toan" ? "ĐÃ THANH TOÁN (COD: 0 đ)" : "THU HỘ(COD): 62.200 VNĐ");
+        (don.trangThaiThanhToan === "da_thanh_toan"
+          ? "ĐÃ THANH TOÁN (COD: 0 đ)"
+          : (Number(don.tongCong) > 0
+            ? `THU HỘ(COD): ${Number(don.tongCong).toLocaleString("vi-VN")} VNĐ`
+            : "—"));
 
     const inspectionLabel = phieu.chiDanDongKiem || don.chiDanDongKiem || "ĐƯỢC ĐỒNG KIỂM";
     const maKenhUpper = kenh.maKenh ? String(kenh.maKenh).toUpperCase() : "";
@@ -62,11 +66,11 @@ export function toEcommercePrintModel(payload) {
 
     const pickupBy = phieu.donViPickup || don.donViPickup || (isTikTok ? "J&T EXPRESS" : isShopee ? "SPX EXPRESS" : "BEST EXPRESS");
     const deliveryBy = phieu.donViDelivery || don.donViDelivery || (isTikTok ? "J&T EXPRESS" : isShopee ? "SPX EXPRESS" : "BEST EXPRESS");
-    const serviceType = phieu.loaiDichVu || don.loaiDichVu || (isTikTok ? "Giao Nhanh 24H" : isShopee ? "Sandbox SPX Express" : "STANDARD");
-    const routingCode = phieu.maDinhTuyen || don.maDinhTuyen || (isTikTok ? "473\nH024V02\n018" : isShopee ? "1-SGN-HUB" : "3-BNO-TAP");
-    const stationCode = phieu.maTramPhat || don.maTramPhat || (isTikTok ? "" : isShopee ? "SG100A-00-00-01" : "BN237B-00-00-03");
-    const recipientTag = phieu.tagGiaoNhan || don.tagGiaoNhan || (isTikTok ? "" : "WKD");
-    const qrCodeValue = phieu.chuoiQrCode || don.chuoiQrCode || trackingCode || don.maDonHangKenh || (isTikTok ? "https://www.tiktok.com" : isShopee ? ("SPXVN" + (don.maDonHangKenh || "261115BBMC00TC")) : "BESTMP0055505096VNA");
+    const serviceType = phieu.loaiDichVu || don.loaiDichVu || (isTikTok ? "Giao Nhanh 24H" : isShopee ? "SPX Express" : "STANDARD");
+    const routingCode = phieu.maDinhTuyen || don.maDinhTuyen || (isTikTok ? "473\nH024V02\n018" : isShopee ? "" : "3-BNO-TAP");
+    const stationCode = phieu.maTramPhat || don.maTramPhat || (isTikTok || isShopee ? "" : "BN237B-00-00-03");
+    const recipientTag = phieu.tagGiaoNhan || don.tagGiaoNhan || (isTikTok ? "" : (routingCode ? "WKD" : ""));
+    const qrCodeValue = phieu.chuoiQrCode || don.chuoiQrCode || trackingCode || don.maDonHangKenh || (isTikTok ? "https://www.tiktok.com" : isShopee ? "—" : "BESTMP0055505096VNA");
     const shippingDocUrl = phieu.shippingDocUrl || don.shippingDocUrl || null;
 
     // Format ngày đặt ngắn dạng "07 Nov 2026" & thời gian đầy đủ "2026-11-12 18:04"
@@ -89,7 +93,7 @@ export function toEcommercePrintModel(payload) {
         const delDay = String(delDate.getDate()).padStart(2, "0");
         const delMonth = String(delDate.getMonth() + 1).padStart(2, "0");
         expectedDeliveryFormatted = `${delDay}-${delMonth}-${delDate.getFullYear()}`;
-    } catch (_) {}
+    } catch { /* bỏ qua định dạng ngày không hợp lệ */ }
 
     return {
         documentNumber: dash(phieu.soPhieuXuat || (phieu.id ? `#${phieu.id}` : null)),

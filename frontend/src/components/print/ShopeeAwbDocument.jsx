@@ -171,19 +171,19 @@ export default function ShopeeAwbDocument({ model, company }) {
 
     const channelInfo = model.channelOrderInfo || {};
     const recipient = model.recipient || {};
-    const orderCode = channelInfo.orderCode || "261115BBMC00TC";
+    const orderCode = channelInfo.orderCode || "—";
     const rawChannelTracking = channelInfo.trackingBarcode
         || (channelInfo.trackingCode && channelInfo.trackingCode !== "—" ? channelInfo.trackingCode : null);
-    const trackingCode = activeDoc.resolvedTracking || rawChannelTracking || `SPXVN${orderCode}`;
-    const routingCode = model.routingCode || "1-SGN-HUB";
-    const stationCode = model.stationCode || "SG100A-00-00-01";
-    const recipientTag = model.recipientTag || "WKD";
+    const trackingCode = activeDoc.resolvedTracking || rawChannelTracking || orderCode;
+    const routingCode = model.routingCode || "—";
+    const stationCode = model.stationCode || "";
+    const recipientTag = model.recipientTag || "";
     const codLabel = model.codLabel || "ĐÃ THANH TOÁN (COD: 0 đ)";
     const inspectionLabel = model.inspectionLabel || "ĐƯỢC ĐỒNG KIỂM";
     const packageWeight = model.packageWeight || "Tổng KL: 0.3 KG";
     const pickupBy = model.pickupBy || "SPX EXPRESS";
     const deliveryBy = model.deliveryBy || "SPX EXPRESS";
-    const serviceType = model.serviceType || "Sandbox SPX Express";
+    const serviceType = model.serviceType || "SPX Express";
     const qrValue = activeDoc.resolvedTracking || rawChannelTracking || model.qrCodeValue || trackingCode;
     const items = model.items || [];
     const totalQty = model.totalQuantity || items.reduce((s, it) => s + (it._quantity || 1), 0);
