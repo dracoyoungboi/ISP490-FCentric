@@ -247,7 +247,7 @@ export default function BinMoveHistory() {
           fill
           toolbar={
             <div className="flex flex-wrap items-center gap-3 border-b border-bo-border px-4 py-3">
-              {kho.dsKho.length > 1 ? <ChonKhoKiemKe dsKho={kho.dsKho} value={khoId} onChange={doiKho} className="w-full sm:w-[240px]" /> : null}
+              {kho.dsKho.length > 1 ? <ChonKhoKiemKe dsKho={kho.dsKho} value={khoId} onChange={doiKho} nhan={t("Đang xem kho")} hienNhan className="w-full sm:w-[280px]" /> : null}
               <SearchInput
                 value={tim}
                 onChange={(e) => {
@@ -258,7 +258,7 @@ export default function BinMoveHistory() {
                   setTim("");
                   boTimTrenUrl();
                 }}
-                placeholder={t("Tìm mã phiếu, mã kệ, SKU, mã lô")}
+                placeholder={t("Mã phiếu, mã kệ, SKU, mã lô")}
                 label={t("Tìm phiếu chuyển kệ")}
               />
               <div className="flex rounded-md border border-bo-border p-0.5 text-[13px]" role="group" aria-label={t("Thời gian thực hiện")}>

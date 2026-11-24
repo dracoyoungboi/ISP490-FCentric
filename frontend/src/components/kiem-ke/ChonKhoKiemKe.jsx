@@ -47,6 +47,8 @@ export default function ChonKhoKiemKe({
   nhanMoiKho,
   thongTin,
   nhan = t("Kho"),
+  // Hiện `nhan` trước tên kho như KhoLamViecSelect ("Đang xem kho: Cửa hàng Hà Nội") — dùng ở màn làm việc trong một kho
+  hienNhan = false,
   disabled = false,
   align = "start",
   className,
@@ -66,6 +68,7 @@ export default function ChonKhoKiemKe({
         )}
       >
         <BieuTuongKho kho={khoChon} className="text-bo-muted" />
+        {hienNhan ? <span className="shrink-0 text-bo-muted">{nhan}:</span> : null}
         <span className="truncate font-medium">{chu}</span>
       </div>
     );
@@ -153,6 +156,7 @@ export default function ChonKhoKiemKe({
         >
           <span className="flex min-w-0 items-center gap-2">
             {khoChon ? <BieuTuongKho kho={khoChon} className="text-bo-primary" /> : <Warehouse className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />}
+            {hienNhan ? <span className="shrink-0 text-bo-muted">{nhan}:</span> : null}
             <span className="truncate font-medium">{chu}</span>
           </span>
           <ChevronDown className="size-4 shrink-0 opacity-60" aria-hidden="true" />

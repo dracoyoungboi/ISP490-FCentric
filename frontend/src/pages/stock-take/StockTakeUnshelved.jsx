@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import NutPhanDoan from "@/components/chung-tu/NutPhanDoan";
 import { soVN } from "@/components/chung-tu/bangChungTu";
-import { O_NHAP } from "@/components/chung-tu/kieuHopThoai";
+import SearchInput from "@/components/shared/SearchInput";
 import BangHangChuaCoKe from "@/components/kiem-ke/BangHangChuaCoKe";
 import ChonKhoKiemKe from "@/components/kiem-ke/ChonKhoKiemKe";
 import HopXepKe from "@/components/kiem-ke/HopXepKe";
@@ -31,7 +31,6 @@ import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import useQuayLai from "@/hooks/useQuayLai";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { toast } from "@/lib/thongBaoNhanh";
-import { cn } from "@/lib/utils";
 import { layHangChuaCoKe, laySoDo, xepKeNhieu } from "@/services/stockTakeService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { getKhoLamViecId, setKhoLamViecId } from "@/utils/khoLamViec";
@@ -397,13 +396,16 @@ export default function StockTakeUnshelved() {
               <div className="grid gap-3 border-b border-bo-border px-4 py-3">
                 <div className="flex flex-wrap items-center gap-3">
                   {kho.dsKho.length ? (
-                    <ChonKhoKiemKe dsKho={kho.dsKho} value={kho.khoId} onChange={doiKho} className="w-full sm:w-[240px]" />
+                    <ChonKhoKiemKe dsKho={kho.dsKho} value={kho.khoId} onChange={doiKho} nhan={t("Đang xem kho")} hienNhan className="w-full sm:w-[280px]" />
                   ) : null}
-                  <label className="relative flex min-w-[220px] max-w-sm flex-1 items-center">
-                    <span className="sr-only">{t("Tìm lô")}</span>
-                    <Search className="pointer-events-none absolute left-2.5 size-4 text-bo-muted" aria-hidden="true" />
-                    <input value={tim} onChange={(e) => setTim(e.target.value)} placeholder={t("Tìm mã lô, SKU, tên sản phẩm")} className={cn(O_NHAP, "pl-8")} />
-                  </label>
+                  <SearchInput
+                    label={t("Tìm lô")}
+                    placeholder={t("Mã lô, SKU, tên sản phẩm")}
+                    value={tim}
+                    onChange={(e) => setTim(e.target.value)}
+                    onClear={() => setTim("")}
+                    className="sm:w-[300px]"
+                  />
                   {locChungTu ? (
                     <span className="inline-flex h-8 items-center gap-1.5 rounded-full border border-blue-200 bg-bo-primary-soft pl-3 pr-1 text-[13px] font-medium text-bo-primary-strong">
                       {phieuChuyen ? t("Phiếu chuyển") : t("Phiếu nhập")} <span className="font-mono">{maChungTu ?? `#${phieuChuyen ?? phieuNhap}`}</span>
