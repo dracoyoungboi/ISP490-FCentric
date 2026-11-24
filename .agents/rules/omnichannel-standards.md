@@ -7,9 +7,11 @@
 ## 1. QUY CHUẨN CẤU HÌNH KHO HÀNG (SINGLE VS MULTI-WAREHOUSE — HƯỚNG B)
 1. **Shopify (Sàn DUY NHẤT bật Đồng bộ đa kho phân tán / Multi-Location)**:
    - Giao diện `Cấu hình Shopify` sử dụng `BangMappingKhoSan` (`HO_TRO_DA_KHO = new Set(["SHOPIFY"])`) để ánh xạ nhiều Location trên Shopify với nhiều kho vật lý FCentric, tính buffer + Hamilton/Remainder phân bổ tồn và định tuyến đơn theo Location.
-2. **Lazada, TikTok Shop, Shopee (Single-Warehouse trên sàn — không mở `BangMappingKhoSan`)**:
-   - Backend (`KenhBanHangDongBoServiceImpl.layCauHinhKhoMapping` / `luuCauHinhKhoMapping`) BẮT BUỘC giữ `cheDoDaKho = false` cho mọi kênh không phải Shopify; `layDanhSachKhoShopee` KHÔNG được tự bơm kho ảo `fcentric-kho-*` khi gian hàng Shopee chưa nằm trong whitelist Multi-Warehouse.
-   - **Lazada (Single-Warehouse)**: Áp dụng mô hình kho mặc định trên Seller Center (`DongKhoSan`).
+2. **Lazada, TikTok Shop, Shopee (Single-Warehouse tồn kho trên sàn — tách biệt Định tuyến kho xuất đơn FCentric)**:
+   - Backend (`KenhBanHangDongBoServiceImpl.layCauHinhKhoMapping` / `luuCauHinhKhoMapping`) BẮT BUỘC giữ `cheDoDaKho = false` cho mọi kênh không phải Shopify (không mở `BangMappingKhoSan` chia tồn đa kho); `layDanhSachKhoShopee` KHÔNG được tự bơm kho ảo `fcentric-kho-*` khi gian hàng Shopee chưa nằm trong whitelist Multi-Warehouse.
+   - **Định tuyến kho xuất đơn (`KhoXuatDonSan.jsx`, `KENH_<MA>_KHO_ID`, `KENH_<MA>_KHO_MAPPING` với `cheDoDaKho = false`)**: Cho phép chọn kho xuất đơn FCentric mặc định (khi sàn có 1 kho) hoặc ánh xạ 1–1 từng kho lấy hàng trên sàn sang kho xuất FCentric (khi sàn có ≥ 2 kho, vd TH1 Kho A → `Kho tổng`, TH2 Kho B → `Cửa hàng Hà Nội`). Khi đổi kho lấy hàng ở `DongKhoSan` (`luuCaiDat`) hoặc khi đồng bộ đơn qua `resolveKhoXuatChoDonSan`, hộp `HopGuiSangKho` ("Gửi sang kho") tự động chọn sẵn đúng kho FCentric tương ứng mà không kích hoạt chia tồn đa kho.
+   - **Minh bạch chính sách Seller Center**: Trên Lazada/Shopee/TikTok Shop, việc chọn kho ở FCentric chỉ áp dụng cho đẩy tồn và định tuyến đơn trong FCentric (cờ kho mặc định của sàn quản lý trực tiếp trên Seller Center; riêng TikTok Shop tự động gọi `inventory/update` chuyển tồn SKU sang kho được chọn).
+   - **Lazada (Single-Warehouse tồn kho)**: Áp dụng mô hình kho mặc định / `GET /rc/warehouse/get` (`DongKhoSan`).
    - **TikTok Shop (Single-Warehouse bán hàng)**: BẮT BUỘC lọc bỏ 100% `RETURN_WAREHOUSE` khỏi danh sách kho bán hàng (`type == "SALES_WAREHOUSE"`), tuyệt đối không dùng `subType == "DOMESTIC_WAREHOUSE"` làm điều kiện OR (chống lỗi `12052532`). Khi shop có 1 `SALES_WAREHOUSE`, hiển thị gọn trên `DongKhoSan` + nút Tải lại từ sàn.
    - **Shopee**: Áp dụng mô hình kho mặc định / địa chỉ lấy hàng (`get_address_list`) trên `DongKhoSan`.
    - **Điều phối xuất kho nội bộ FCentric**: Đơn hàng từ Lazada, Shopee, TikTok vẫn mở hộp chọn kho `HopGuiSangKho` linh hoạt giữa các kho hoạt động trong nội bộ FCentric để tối ưu xử lý đơn mà không phụ thuộc Multi-Warehouse trên sàn.
@@ -43,7 +45,7 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
    - **Giai đoạn 3 - Đổi trạng thái thanh toán**: Cập nhật `trangThaiThanhToan = "da_thanh_toan"` khi sàn xác nhận thanh toán.
    - **Giai đoạn 4 - Đổi trạng thái vận chuyển (Tuân thủ tiến trình Phiếu xuất kho WMS)**:
      - `IN_TRANSIT` / `shipped`: Chuyển đơn sang `DA_XUAT_TOAN_BO` (3). **Ràng buộc bắt buộc**: Nếu đơn hàng có phiếu xuất kho đang trong quy trình xuất (`CHO_XUAT` hoặc `NHAP`), BẮT BUỘC giữ nguyên trạng thái kho của đơn (`DA_DONG_GOI` = 8 - Chờ xuất kho hoặc `CHO_DONG_GOI` = 7), TUYỆT ĐỐI KHÔNG tự ý chuyển sang `DA_XUAT_TOAN_BO` khi thủ kho chưa bấm xác nhận xuất kho thực tế.
-     - `DELIVERED` / `COMPLETED`: Chuyển đơn sang `HOAN_THANH` (5) khi đã hoàn tất xuất kho. Nếu kho chưa xuất, giữ nguyên trạng thái kho. Riêng Shopify, `fulfilled` chỉ tương ứng `DA_XUAT_TOAN_BO` (3), không phải đã giao.
+     - `DELIVERED` / `COMPLETED`: Chuyển đơn sang `HOAN_THANH` (5) khi đã hoàn tất xuất kho (hoặc tự động xác nhận phiếu xuất đã đóng gói `CHO_XUAT`). Nếu kho chưa nhặt/chưa đóng gói (`CHO_NHAT_HANG` / `NHAP`) hoặc phiếu xuất đang ở `NHAP`, tuyệt đối giữ nguyên trạng thái kho để không trừ khống tồn, đồng thời gắn cờ `[CẢNH BÁO LỆCH SÀN:]` + bắn thông báo khẩn một lần qua `canhBaoLechTrangThaiSan`. Riêng Shopify, `fulfilled` chỉ tương ứng `DA_XUAT_TOAN_BO` (3), không phải đã giao.
      - `failed_delivery` / `returned`: Chuyển đơn sang `BI_HOAN_TRA` (6).
    - **Giai đoạn 5 - Vận đơn, Mã chia chọn tuyến & Phương thức thanh toán (Shopee / Đa sàn)**:
      - Tuyệt đối KHÔNG tự sinh mã vận đơn giả kiểu `"SPXVN" + orderSn`, KHÔNG ghi thẻ rỗng `[ĐƠN VỊ: ]` vào ghi chú đơn hàng, và KHÔNG hardcode mã tuyến giả `"1-SGN-HUB"` / `"SG100A-00-00-01"`.
