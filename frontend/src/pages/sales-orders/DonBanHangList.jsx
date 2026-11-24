@@ -6,14 +6,12 @@ import apiClient from "@/services/apiClient";
 import { getMineKhoList } from "@/services/khoService";
 import { laKhoTong } from "@/utils/kho";
 import {
-  Calendar,
   Eye,
   FileText,
   SearchX,
   ShoppingCart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import AttentionBar from "@/components/shared/AttentionBar";
@@ -21,6 +19,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";
+import LocKhoangNgay from "@/components/shared/LocKhoangNgay";
 import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -85,7 +84,7 @@ function parseRoles(vaiTro) {
 
 // Điều kiện lọc dùng chung cho danh sách, số trên tab và dòng chú ý (R1):
 // chỉ khác điều kiện trạng thái. Phạm vi theo vai trò do backend tự thêm (kho phụ trách / đơn mình tạo).
-function buildFilterList({ keyword, kenh, ngay, trangThai, thanhToan }) {
+function buildFilterList({ keyword, kenh, tuNgay, denNgay, trangThai, thanhToan }) {
   const filterList = [
     {
       fieldName: "loaiChungTu",
@@ -122,10 +121,12 @@ function buildFilterList({ keyword, kenh, ngay, trangThai, thanhToan }) {
     filterList.push({ fieldName: "trangThaiThanhToan", operation: "EQUALS", value: thanhToan });
   }
 
-  // Ngày đặt: lọc ở máy chủ (trước đây chỉ lọc trên trang đang xem nên tổng số không khớp)
-  if (ngay) {
-    filterList.push({ fieldName: "ngayDatHang", operation: "GREATER_THAN_OR_EQUAL", value: ngay });
-    filterList.push({ fieldName: "ngayDatHang", operation: "LESS_THAN_OR_EQUAL", value: `${ngay}T23:59:59` });
+  // Ngày đặt: khoảng ngày lọc ở máy chủ, bỏ trống một đầu được
+  if (tuNgay) {
+    filterList.push({ fieldName: "ngayDatHang", operation: "GREATER_THAN_OR_EQUAL", value: tuNgay });
+  }
+  if (denNgay) {
+    filterList.push({ fieldName: "ngayDatHang", operation: "LESS_THAN_OR_EQUAL", value: `${denNgay}T23:59:59` });
   }
 
   return filterList;
@@ -161,7 +162,8 @@ export default function DonBanHangList() {
   // ?q= từ "Xem tất cả" của ô tìm kiếm toàn hệ thống: vào thẳng ô tìm của trang
   const [filters, setFilters] = useState(() => ({
     keyword: docTuKhoaUrl(window.location.search).trim(),
-    ngayDatHang: "",
+    tuNgay: "",
+    denNgay: "",
     thanhToan: THANH_TOAN_OPTIONS.some((o) => o.value === thanhToanParam) ? thanhToanParam : "",
     page: 0,
     size: SO_DONG_MAC_DINH,
@@ -223,7 +225,7 @@ export default function DonBanHangList() {
       const res = await donBanHangKenhService.filterDonBan({
         page: filters.page,
         size: filters.size,
-        filters: buildFilterList({ keyword: filters.keyword, kenh, ngay: filters.ngayDatHang, trangThai: tabTrangThai, thanhToan: filters.thanhToan }),
+        filters: buildFilterList({ keyword: filters.keyword, kenh, tuNgay: filters.tuNgay, denNgay: filters.denNgay, trangThai: tabTrangThai, thanhToan: filters.thanhToan }),
         sorts: [{ fieldName: "id", direction: "DESC" }],
       });
       if (requestId !== requestIdRef.current) return;
@@ -262,11 +264,12 @@ export default function DonBanHangList() {
     (ma) => countOrders(buildFilterList({
       keyword: filters.keyword,
       kenh,
-      ngay: filters.ngayDatHang,
+      tuNgay: filters.tuNgay,
+      denNgay: filters.denNgay,
       trangThai: DON_BAN_HANG_TABS.find((tb) => tb.ma === ma)?.trangThai,
       thanhToan: filters.thanhToan,
     })),
-    `${filters.keyword}|${kenh}|${filters.ngayDatHang}|${filters.thanhToan}`
+    `${filters.keyword}|${kenh}|${filters.tuNgay}|${filters.denNgay}|${filters.thanhToan}`
   );
 
   // ── Dòng chú ý: đơn nháp chưa gửi kho trong phạm vi danh sách (QL Kho Tổng chỉ xem đơn nháp Shopify), bỏ qua các bộ lọc khác (R4) ──
@@ -299,19 +302,19 @@ export default function DonBanHangList() {
     setFilters((p) => (p.page === 0 ? p : { ...p, page: 0 }));
   };
 
-  const hasActiveFilters = Boolean(searchText.trim() || filters.ngayDatHang || kenh || filters.thanhToan);
+  const hasActiveFilters = Boolean(searchText.trim() || filters.tuNgay || filters.denNgay || kenh || filters.thanhToan);
 
   // "Xóa lọc": bỏ số đơn + kênh + ngày đặt + thanh toán, giữ tab đang chọn
   const clearFilters = () => {
     setSearchText("");
-    setFilters((p) => ({ ...p, keyword: "", ngayDatHang: "", thanhToan: "", page: 0 }));
+    setFilters((p) => ({ ...p, keyword: "", tuNgay: "", denNgay: "", thanhToan: "", page: 0 }));
     if (kenh) changeKenh("");
   };
 
   // Nút của dòng chú ý: mở tab Nháp, bỏ các bộ lọc khác (kể cả kênh trừ QL Kho Tổng chỉ điều tiết Shopify) để số dòng khớp số trong câu
   const showDrafts = () => {
     setSearchText("");
-    setFilters((p) => ({ ...p, keyword: "", ngayDatHang: "", thanhToan: "", page: 0 }));
+    setFilters((p) => ({ ...p, keyword: "", tuNgay: "", denNgay: "", thanhToan: "", page: 0 }));
     setTab(TAB_NHAP, { kenh: laChiQlkTongShopify ? "shopify" : null });
   };
 
@@ -418,18 +421,12 @@ export default function DonBanHangList() {
               align="end"
             />
 
-            {/* Ngày đặt: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
-            <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
-              <Calendar className="size-4 shrink-0 text-bo-muted" />
-              <span className="shrink-0 text-xs text-bo-muted">{t("Ngày đặt")}</span>
-              <Input
-                type="date"
-                aria-label={t("Ngày đặt")}
-                className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm text-bo-foreground shadow-none focus-visible:ring-0"
-                value={filters.ngayDatHang}
-                onChange={(e) => setFilters((p) => ({ ...p, ngayDatHang: e.target.value, page: 0 }))}
-              />
-            </label>
+            <LocKhoangNgay
+              nhan={t("Ngày đặt")}
+              tuNgay={filters.tuNgay}
+              denNgay={filters.denNgay}
+              onDoi={({ tuNgay, denNgay }) => setFilters((p) => ({ ...p, tuNgay, denNgay, page: 0 }))}
+            />
           </ListToolbar>
         }
         footer={
