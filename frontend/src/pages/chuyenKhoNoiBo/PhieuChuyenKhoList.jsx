@@ -116,7 +116,7 @@ export default function PhieuChuyenKhoList() {
                 q: filters.q || undefined,
                 khoXuatId: filters.khoXuatId || undefined,
                 khoNhapId: filters.khoNhapId || undefined,
-                trangThai: filters.trangThai || undefined,
+                trangThai: (tab === TAB_MAC_DINH && filters.trangThai) || undefined,
                 page: filters.page,
                 size: filters.size,
             });
@@ -152,13 +152,17 @@ export default function PhieuChuyenKhoList() {
 
     const capNhat = useTaiLaiDanhSach({ duLieu: rows, taiNgam: () => fetchData({ silent: true }), bat: !loading });
 
+    // Ô Trạng thái chỉ có ở tab Tất cả (các tab khác đã là một trạng thái, chọn thêm dễ ra rỗng): rời tab Tất cả thì bỏ lọc này
     const changeTab = (value) => {
         setTab(value);
-        setFilters((p) => (p.page === 0 ? p : { ...p, page: 0 }));
+        setFilters((p) => {
+            const boTrangThai = value !== TAB_MAC_DINH && p.trangThai;
+            return p.page === 0 && !boTrangThai ? p : { ...p, page: 0, trangThai: boTrangThai ? "" : p.trangThai };
+        });
     };
 
     const doiLoc = (khoa, giaTri) => setFilters((p) => ({ ...p, [khoa]: giaTri, page: 0 }));
-    const coLoc = Boolean(tuKhoaInput.trim() || filters.khoXuatId || filters.khoNhapId || filters.trangThai);
+    const coLoc = Boolean(tuKhoaInput.trim() || filters.khoXuatId || filters.khoNhapId || (tab === TAB_MAC_DINH && filters.trangThai));
     const xoaLoc = () => {
         setTuKhoaInput("");
         setFilters((p) => ({ ...p, q: "", khoXuatId: "", khoNhapId: "", trangThai: "", page: 0 }));
@@ -197,17 +201,17 @@ export default function PhieuChuyenKhoList() {
                     >
                         <KhoLamViecSelect onChange={(id) => setKhoLamViec(String(id))} />
                         <SearchInput
-                            placeholder={t("Số phiếu, số lệnh...")}
+                            placeholder={t("Số phiếu, số lệnh")}
                             label={t("Số phiếu hoặc số lệnh điều động")}
                             value={tuKhoaInput}
                             onChange={(e) => setTuKhoaInput(e.target.value)}
                             onClear={() => setTuKhoaInput("")}
-                            className="sm:w-[240px]"
+                            className="sm:w-[260px]"
                         />
                         <FilterSelect
                             label={t("Kho xuất")}
                             value={filters.khoXuatId}
-                            options={[{ value: "", label: t("Kho xuất: Tất cả") }, ...luaChonKho]}
+                            options={[{ value: "", label: t("Tất cả kho xuất") }, ...luaChonKho]}
                             onChange={(v) => doiLoc("khoXuatId", v)}
                             onClear={() => doiLoc("khoXuatId", "")}
                             clearLabel={t("Bỏ lọc kho xuất")}
@@ -216,21 +220,23 @@ export default function PhieuChuyenKhoList() {
                         <FilterSelect
                             label={t("Kho nhận")}
                             value={filters.khoNhapId}
-                            options={[{ value: "", label: t("Kho nhận: Tất cả") }, ...luaChonKho]}
+                            options={[{ value: "", label: t("Tất cả kho nhận") }, ...luaChonKho]}
                             onChange={(v) => doiLoc("khoNhapId", v)}
                             onClear={() => doiLoc("khoNhapId", "")}
                             clearLabel={t("Bỏ lọc kho nhận")}
                             className="sm:w-[190px]"
                         />
-                        <FilterSelect
-                            label={t("Trạng thái")}
-                            value={filters.trangThai}
-                            options={LOC_TRANG_THAI}
-                            onChange={(v) => doiLoc("trangThai", v)}
-                            onClear={() => doiLoc("trangThai", "")}
-                            clearLabel={t("Bỏ lọc trạng thái")}
-                            className="sm:w-[190px]"
-                        />
+                        {tab === TAB_MAC_DINH ? (
+                            <FilterSelect
+                                label={t("Trạng thái")}
+                                value={filters.trangThai}
+                                options={LOC_TRANG_THAI}
+                                onChange={(v) => doiLoc("trangThai", v)}
+                                onClear={() => doiLoc("trangThai", "")}
+                                clearLabel={t("Bỏ lọc trạng thái")}
+                                className="sm:w-[190px]"
+                            />
+                        ) : null}
                     </ListToolbar>
                 }
                 footer={
