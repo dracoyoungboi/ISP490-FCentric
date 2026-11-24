@@ -381,7 +381,17 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
     @Transactional(rollbackFor = Exception.class)
     public XacNhanXuatKhoResponse xacNhanXuatKho(Integer id, XacNhanXuatKhoRequest request, Integer nguoiXuatId) {
-        return xuatKho(id, request, nguoiXuatId, false);
+        return xuatKho(id, request, nguoiXuatId, false, false);
+    }
+
+    /**
+     * Tự động xác nhận xuất kho khi đơn sàn đã chuyển trạng thái vận chuyển / hoàn thành (SHIPPED / COMPLETED)
+     * và phiếu xuất đã đóng gói xong ({@code CHO_XUAT}). Bỏ qua kiểm tra kho đang chọn trong ngữ cảnh HTTP và
+     * không phát lại {@link DonHangXuatKhoEvent} sang sàn; vẫn giữ 100% chốt chặn kiểm kê, khóa lô và trừ tồn thật.
+     */
+    @Transactional(noRollbackFor = CommonException.class, rollbackFor = Exception.class)
+    public XacNhanXuatKhoResponse xacNhanXuatKhoTuDongTuSan(Integer id, Integer nguoiXuatId) {
+        return xuatKho(id, null, nguoiXuatId, false, true);
     }
 
     /**
@@ -390,14 +400,21 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
      */
     @Transactional(rollbackFor = Exception.class)
     public void xuatPhieuXuatCon(Integer id, Integer nguoiXuatId) {
-        xuatKho(id, null, nguoiXuatId, true);
+        xuatKho(id, null, nguoiXuatId, true, false);
     }
 
-    private XacNhanXuatKhoResponse xuatKho(Integer id, XacNhanXuatKhoRequest request, Integer nguoiXuatId, boolean tuPhieuChuyen) {
+    private XacNhanXuatKhoResponse xuatKho(
+            Integer id,
+            XacNhanXuatKhoRequest request,
+            Integer nguoiXuatId,
+            boolean tuPhieuChuyen,
+            boolean tuDongTuSan) {
         PhieuXuatKho phieu = repository.findById(id)
                 .orElseThrow(() -> new CommonException(ThongDiep.of("chungTuKho.phieuXuatKhoKhongTimThayID", id)));
-        // Trừ tồn kho của phiếu: phải thao tác từ đúng kho của phiếu
-        KhoDangChon.kiemTra(phieu.getKho(), tenPhieu(phieu));
+        // Trừ tồn kho của phiếu: phải thao tác từ đúng kho của phiếu (trừ luồng tự động từ đồng bộ sàn)
+        if (!tuDongTuSan) {
+            KhoDangChon.kiemTra(phieu.getKho(), tenPhieu(phieu));
+        }
 
         boolean isXuatChuyenKho = "chuyen_kho".equals(phieu.getLoaiXuat()) && phieu.getPhieuChuyenKho() != null;
 
@@ -487,6 +504,8 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             tonKhoTheoLoRepository.lockLotsForUpdateByKhoAndVariants(phieu.getKho().getId(), variantIdsToLock);
         }
 
+        // Tiền kiểm tra toàn bộ lô & chốt chặn kiểm kê trước khi ghi DB để bảo đảm nguyên tử
+        List<TonKhoTheoLo> preValidatedLots = new ArrayList<>(detailedPicks.size());
         for (ChiTietPhieuXuatKho pick : detailedPicks) {
             TonKhoTheoLo tonKho = tonKhoTheoLoRepository
                     .findByKho_IdAndLoHang_Id(phieu.getKho().getId(), pick.getLoHang().getId())
@@ -503,6 +522,15 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 khoaKiemKeGuard.kiemTraXuat(phieu.getKho().getId(), Map.of(pick.getLoHang().getId(), soLuongXuat),
                         Map.of(pick.getLoHang().getId(), soLuongTruoc), "xuất kho");
             }
+            preValidatedLots.add(tonKho);
+        }
+
+        for (int pickIdx = 0; pickIdx < detailedPicks.size(); pickIdx++) {
+            ChiTietPhieuXuatKho pick = detailedPicks.get(pickIdx);
+            TonKhoTheoLo tonKho = preValidatedLots.get(pickIdx);
+
+            BigDecimal soLuongTruoc = tonKho.getSoLuongTon();
+            BigDecimal soLuongXuat = pick.getSoLuongXuat();
 
             // Quy tắc 5: Trừ tồn kho vật lý On Hand
             tonKho.setSoLuongTon(soLuongTruoc.subtract(soLuongXuat));
@@ -699,18 +727,20 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
             // Hạn lưu bằng chứng đóng gói tính từ ngày xuất kho (khiếu nại tính từ lúc khách nhận hàng)
             bangChungDongGoiService.giaHanLuuTu(don.getId(), phieu.getNgayXuat());
 
-            // Phát sự kiện Push Trạng thái sang Sàn TMĐT (Shopify, Shopee...) chạy ngầm sau commit
-            applicationEventPublisher.publishEvent(
-                    DonHangXuatKhoEvent.builder()
-                            .donBanHangId(don.getId())
-                            .soDonHang(don.getSoDonHang())
-                            .kenhBanId(don.getKenhBanHang() != null ? don.getKenhBanHang().getId() : null)
-                            .maDonHangKenh(don.getMaDonHangKenh())
-                            .donViVanChuyen(finalCarrier)
-                            .maVanDon(finalTracking)
-                            .phiVanChuyenThucTe(cuocThucTe)
-                            .build()
-            );
+            // Phát sự kiện Push Trạng thái sang Sàn TMĐT (Shopify, Shopee...) chạy ngầm sau commit (bỏ qua nếu chính sàn kích hoạt)
+            if (!tuDongTuSan && applicationEventPublisher != null) {
+                applicationEventPublisher.publishEvent(
+                        DonHangXuatKhoEvent.builder()
+                                .donBanHangId(don.getId())
+                                .soDonHang(don.getSoDonHang())
+                                .kenhBanId(don.getKenhBanHang() != null ? don.getKenhBanHang().getId() : null)
+                                .maDonHangKenh(don.getMaDonHangKenh())
+                                .donViVanChuyen(finalCarrier)
+                                .maVanDon(finalTracking)
+                                .phiVanChuyenThucTe(cuocThucTe)
+                                .build()
+                );
+            }
         }
 
         for (Integer spId : sanPhamIdsCanCapNhat) {

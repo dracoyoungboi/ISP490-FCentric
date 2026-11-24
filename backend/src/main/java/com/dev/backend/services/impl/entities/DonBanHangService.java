@@ -690,9 +690,11 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                     .orElseThrow(() -> new CommonException(ThongDiep.of("banHang.khoXuatKhongTimThay", khoId), HttpStatus.NOT_FOUND, null));
         } else if (don.getKhoXuat() != null) {
             khoChon = don.getKhoXuat();
-        } else if (don.getKenhBanHang() != null && (OmnichannelOrderSyncJob.isLazada(don.getKenhBanHang().getMaKenh())
-                || OmnichannelOrderSyncJob.isShopee(don.getKenhBanHang().getMaKenh()))) {
-            khoChon = khoRepository.findByTrangThai(1).stream()
+        } else if (don.getKenhBanHang() != null) {
+            Kho routed = kenhBanHangDongBoService != null
+                    ? kenhBanHangDongBoService.resolveKhoXuatChoDonSan(don.getKenhBanHang(), null)
+                    : null;
+            khoChon = routed != null ? routed : khoRepository.findByTrangThai(1).stream()
                     .filter(KhoService::laKhoTong)
                     .findFirst()
                     .orElseThrow(() -> new CommonException(ThongDiep.of("banHang.khongCoKhoTongHoatDong"), HttpStatus.BAD_REQUEST, null));
@@ -705,12 +707,6 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         }
         // Kho đang hoạt động và không phải Kho Trung Chuyển (kho ảo)
         KhoService.kiemTraKhoGiaoDich(khoChon, "Kho xuất hàng");
-        if (don.getKenhBanHang() != null && (OmnichannelOrderSyncJob.isLazada(don.getKenhBanHang().getMaKenh())
-                || OmnichannelOrderSyncJob.isShopee(don.getKenhBanHang().getMaKenh()))) {
-            if (!KhoService.laKhoTong(khoChon)) {
-                throw new CommonException(ThongDiep.of("banHang.donSanChiXuatKhoTong"), HttpStatus.BAD_REQUEST, null);
-            }
-        }
         don.setKhoXuat(khoChon);
 
         don.setTrangThai(ITrangThaiDonBanHang.CHO_NHAT_HANG); // 1: Chờ nhặt hàng
@@ -776,11 +772,9 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         kiemTraPhamVi(don);
 
         List<ChiTietDonBanHang> chiTiets = chiTietDonBanHangRepository.findByDonBanHangId(donHangId);
-        boolean laDonLazada = don.getKenhBanHang() != null && OmnichannelOrderSyncJob.isLazada(don.getKenhBanHang().getMaKenh());
         // Chỉ gợi ý kho nhận được đơn bán: bỏ Kho Trung Chuyển (kho ảo chứa hàng đang chuyển giữa các kho)
         List<Kho> activeKhos = khoRepository.findByTrangThai(1).stream()
                 .filter(k -> !KhoService.laKhoAo(k))
-                .filter(k -> !laDonLazada || KhoService.laKhoTong(k))
                 .toList();
 
         if (activeKhos == null || activeKhos.isEmpty()) {
@@ -1123,13 +1117,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             if (trangThaiHienTai == ITrangThaiDonBanHang.DA_XUAT_TOAN_BO
                     || trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI
                     || trangThaiHienTai == ITrangThaiDonBanHang.CHO_DONG_GOI) {
-                List<PhieuXuatKho> phieuList = phieuXuatKhoRepository.findByDonBanHangId(don.getId());
-                boolean coPhieuChuaXuat = phieuList != null && phieuList.stream()
-                        .anyMatch(p -> p.getTrangThai() != null &&
-                                (p.getTrangThai() == ITrangThaiPhieuXuat.CHO_XUAT || p.getTrangThai() == ITrangThaiPhieuXuat.NHAP));
-                if (coPhieuChuaXuat) {
-                    log.warn("[CHANNEL-DELIVERY] Đơn {} sàn báo {}, nhưng kho FCentric có phiếu xuất chưa hoàn tất xuất kho -> Giữ nguyên trạng thái kho {}",
-                            don.getSoDonHang(), trangThaiSan, trangThaiHienTai);
+                if (!xuLyPhieuXuatChuaXuatKhiSanGiao(don, trangThaiSan)) {
                     return false;
                 }
                 don.setTrangThai(ITrangThaiDonBanHang.HOAN_THANH);
@@ -1137,23 +1125,20 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 don.setNgayCapNhat(Instant.now());
                 repository.save(don);
                 ghiNhatKyDon(don, "giao_thanh_cong_tu_san", "Sàn cập nhật giao hàng thành công (" + trangThaiSan + ")");
+                if (thongBaoXuatKhoService != null) {
+                    thongBaoXuatKhoService.donDaGiao(don.getId());
+                }
                 log.info("[CHANNEL-DELIVERY] Đơn {} đã giao thành công trên sàn -> Chuyển Hoàn thành (5)", don.getSoDonHang());
                 return true;
             }
         } else if (st.contains("shipped") || st.contains("in_transit") || st.contains("fulfilled") || st.contains("to_confirm_receive")) {
-            // Sàn đã xuất giao (shipped / in_transit / fulfilled / to_confirm_receive) -> nếu đang đóng gói (8), chờ đóng gói (7) hoặc chờ nhặt (1) thì chuyển sang Đã xuất kho (3)
-            // TUY NHIÊN: Nếu đơn có phiếu xuất kho đang chờ duyệt/xác nhận (CHO_XUAT hoặc NHAP),
-            // thì BẮT BUỘC giữ nguyên trạng thái kho nội bộ, không được tự ý nhảy cóc sang Đã xuất kho!
-            if (trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI 
+            // Sàn đã xuất giao (shipped / in_transit / fulfilled / to_confirm_receive):
+            // - Nếu phiếu xuất đang ở CHO_XUAT (6 - đã đóng gói): tự động xác nhận xuất kho thật (trừ tồn lô/kệ & ghi thẻ kho).
+            // - Nếu còn phiếu NHAP (0) hoặc vướng chốt chặn kiểm kê: giữ nguyên trạng thái kho và gửi cảnh báo cho thủ kho.
+            if (trangThaiHienTai == ITrangThaiDonBanHang.DA_DONG_GOI
                     || trangThaiHienTai == ITrangThaiDonBanHang.CHO_DONG_GOI
                     || trangThaiHienTai == ITrangThaiDonBanHang.CHO_NHAT_HANG) {
-                List<PhieuXuatKho> phieuList = phieuXuatKhoRepository.findByDonBanHangId(don.getId());
-                boolean coPhieuChuaXuat = phieuList != null && phieuList.stream()
-                        .anyMatch(p -> p.getTrangThai() != null &&
-                                (p.getTrangThai() == ITrangThaiPhieuXuat.CHO_XUAT || p.getTrangThai() == ITrangThaiPhieuXuat.NHAP));
-                if (coPhieuChuaXuat) {
-                    log.info("[CHANNEL-SHIPPED] Đơn {} sàn báo {}, nhưng kho FCentric có phiếu xuất đang chờ duyệt/xác nhận -> Giữ nguyên trạng thái kho {}",
-                            don.getSoDonHang(), trangThaiSan, trangThaiHienTai);
+                if (!xuLyPhieuXuatChuaXuatKhiSanGiao(don, trangThaiSan)) {
                     return false;
                 }
                 don.setTrangThai(ITrangThaiDonBanHang.DA_XUAT_TOAN_BO);
@@ -1197,6 +1182,95 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             }
         }
         return false;
+    }
+
+    private boolean xuLyPhieuXuatChuaXuatKhiSanGiao(DonBanHang don, String trangThaiSan) {
+        if (phieuXuatKhoRepository == null || don == null || don.getId() == null) {
+            return true;
+        }
+        List<PhieuXuatKho> phieuList = phieuXuatKhoRepository.findByDonBanHangId(don.getId());
+        if (phieuList == null || phieuList.isEmpty()) {
+            return true;
+        }
+        List<PhieuXuatKho> phieuNhap = phieuList.stream()
+                .filter(p -> p != null && Integer.valueOf(ITrangThaiPhieuXuat.NHAP).equals(p.getTrangThai()))
+                .toList();
+        List<PhieuXuatKho> phieuChoXuat = phieuList.stream()
+                .filter(p -> p != null && Integer.valueOf(ITrangThaiPhieuXuat.CHO_XUAT).equals(p.getTrangThai()))
+                .toList();
+        if (phieuNhap.isEmpty() && phieuChoXuat.isEmpty()) {
+            return true;
+        }
+
+        if (!phieuNhap.isEmpty()) {
+            log.warn("[CHANNEL-DELIVERY] Đơn {} sàn báo {}, nhưng còn {} phiếu xuất ở Nháp (chưa đóng gói) -> Giữ nguyên trạng thái kho {}",
+                    don.getSoDonHang(), trangThaiSan, phieuNhap.size(), don.getTrangThai());
+            ghiCanhBaoLechTrangThaiSan(don, trangThaiSan, null);
+            return false;
+        }
+
+        if (phieuXuatKhoService == null) {
+            log.info("[CHANNEL-DELIVERY] Đơn {} sàn báo {}, giữ nguyên trạng thái kho {} (phiếu xuất chờ xuất, chưa có PhieuXuatKhoService)",
+                    don.getSoDonHang(), trangThaiSan, don.getTrangThai());
+            return false;
+        }
+
+        for (PhieuXuatKho px : phieuChoXuat) {
+            Integer nguoiXuatId = resolveNguoiXuatTuDong(px, don);
+            if (nguoiXuatId == null) {
+                log.warn("[CHANNEL-DELIVERY] Không xác định được nhân sự xuất kho cho phiếu {} (đơn {})", px.getSoPhieuXuat(), don.getSoDonHang());
+                ghiCanhBaoLechTrangThaiSan(don, trangThaiSan, null);
+                return false;
+            }
+            try {
+                phieuXuatKhoService.xacNhanXuatKhoTuDongTuSan(px.getId(), nguoiXuatId);
+            } catch (Exception ex) {
+                log.warn("[CHANNEL-DELIVERY] Tự động xác nhận phiếu xuất {} (đơn {}) thất bại: {}",
+                        px.getSoPhieuXuat(), don.getSoDonHang(), ex.getMessage());
+                ghiCanhBaoLechTrangThaiSan(don, trangThaiSan, ex.getMessage());
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Integer resolveNguoiXuatTuDong(PhieuXuatKho px, DonBanHang don) {
+        if (px != null && px.getNguoiXuat() != null && px.getNguoiXuat().getId() != null) {
+            return px.getNguoiXuat().getId();
+        }
+        if (px != null && px.getNguoiDuyet() != null && px.getNguoiDuyet().getId() != null) {
+            return px.getNguoiDuyet().getId();
+        }
+        if (don != null && don.getNguoiTao() != null && don.getNguoiTao().getId() != null) {
+            return don.getNguoiTao().getId();
+        }
+        NguoiDungAuthInfo auth = SecurityContextHolder.getUser();
+        if (auth != null && auth.getId() != null) {
+            return auth.getId();
+        }
+        if (nguoiDungRepository != null) {
+            return nguoiDungRepository.findAll(PageRequest.of(0, 1)).stream()
+                    .map(NguoiDung::getId)
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+        }
+        return null;
+    }
+
+    private void ghiCanhBaoLechTrangThaiSan(DonBanHang don, String trangThaiSan, String lyDo) {
+        String tagPrefix = "[CẢNH BÁO LỆCH SÀN:";
+        String currentNote = don.getGhiChu();
+        if (currentNote == null || !currentNote.contains(tagPrefix)) {
+            String detail = tagPrefix + " Sàn báo " + trangThaiSan
+                    + (lyDo != null && !lyDo.isBlank() ? " - " + lyDo.trim() : " - phiếu xuất chưa hoàn tất") + "]";
+            don.setGhiChu(noiGhiChu(currentNote, detail));
+            don.setNgayCapNhat(Instant.now());
+            repository.save(don);
+            if (thongBaoXuatKhoService != null) {
+                thongBaoXuatKhoService.canhBaoLechTrangThaiSan(don, trangThaiSan, lyDo);
+            }
+        }
     }
 
     /** Phát InventoryRestockedEvent cho từng dòng đơn (listener đẩy tồn chạy sau commit). */

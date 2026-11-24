@@ -146,4 +146,20 @@ public interface DonBanHangRepository
             @Param("kenhId") Integer kenhId,
             @Param("tag") String tag,
             @Param("trangThais") List<Integer> trangThais);
+
+    /** Lấy danh sách đơn kênh đang ở trạng thái mở (chờ nhặt, đã xuất chưa hoàn thành, chờ đóng gói/xuất) để đối soát bổ sung ngoài cửa sổ quét. */
+    @Query("""
+        SELECT d FROM DonBanHang d
+        WHERE d.kenhBanHang.id = :kenhId
+          AND d.loaiChungTu = 'don_ban_hang'
+          AND d.maDonHangKenh IS NOT NULL
+          AND d.trangThai IN :trangThais
+          AND d.ngayDatHang >= :tuNgay
+        ORDER BY d.ngayCapNhat ASC
+    """)
+    List<DonBanHang> findOpenChannelOrders(
+            @Param("kenhId") Integer kenhId,
+            @Param("trangThais") List<Integer> trangThais,
+            @Param("tuNgay") Instant tuNgay,
+            Pageable pageable);
 }

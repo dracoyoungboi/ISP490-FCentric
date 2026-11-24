@@ -591,6 +591,35 @@ public class ThongBaoXuatKhoService {
         }
     }
 
+    /** B5: Sàn báo đã giao vận chuyển/hoàn thành nhưng kho vẫn còn phiếu Nháp hoặc bị khóa kiểm kê chưa thể xuất tự động. */
+    public void canhBaoLechTrangThaiSan(DonBanHang don, String trangThaiSan, String lyDo) {
+        if (don == null || don.getId() == null) return;
+        dangKy("cảnh báo lệch trạng thái sàn", () -> {
+            Integer donId = don.getId();
+            String soDon = soDon(don);
+            KenhBanHang kenh = don.getKenhBanHang();
+            String tenSan = kenh != null ? tenKenh(kenh) : tb("san");
+            Integer khoId = don.getKhoXuat() == null ? null : don.getKhoXuat().getId();
+            String ttSan = (trangThaiSan == null || trangThaiSan.isBlank()) ? "?" : trangThaiSan.trim();
+            String lyDoAnToan = (lyDo == null || lyDo.isBlank()) ? tb("chuaHoanTatXuatKho") : lyDo.trim();
+            String moc = ThongBaoService.mocDuyNhat();
+            return new Lan("cảnh báo lệch trạng thái đơn " + soDon, () -> {
+                List<Integer> nhan = nguoiNhan.hoacQuanTri(nguoiNhan.quanLyKho(khoId),
+                        "Đơn " + soDon + " lệch trạng thái sàn");
+                return List.of(new GuiDi(nhan, null, new NoiDung(
+                        ThongBaoService.LOAI_DON_BAN_HANG,
+                        ThongBaoService.TONE_WARNING,
+                        tb("donLechTrangThaiSanTieuDe", soDon, tenSan, ttSan),
+                        tb("donLechTrangThaiSanMoTa", tenSan, ttSan, lyDoAnToan),
+                        "/sales-orders/" + donId,
+                        ThongBaoService.LOAI_DON_BAN_HANG,
+                        donId,
+                        khoId,
+                        "DBH:" + donId + ":LECH_SAN:" + ttSan + ":" + moc)));
+            });
+        });
+    }
+
     // ─────────────────────────────────────────────────────────────
     // TIỆN ÍCH
     // ─────────────────────────────────────────────────────────────
