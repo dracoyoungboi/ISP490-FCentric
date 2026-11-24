@@ -38,6 +38,8 @@ class DssReplenishmentControllerTest {
                 .khoId(1)
                 .tenKho("Kho tổng")
                 .laKhoTong(true)
+                .scope(DssReplenishmentResponse.SCOPE_ALL_WAREHOUSES)
+                .includedWarehouseCount(3)
                 .config(DssConfigDto.builder().mode("BY_ABC_CLASS").build())
                 .summary(DssSummaryDto.builder().totalSkus(3).needReorderCount(1).build())
                 .items(List.of())
@@ -51,6 +53,8 @@ class DssReplenishmentControllerTest {
         var recRes = controller.getRecommendations(1);
         assertEquals(200, recRes.getBody().getStatus());
         assertEquals(1, recRes.getBody().getData().getKhoId());
+        assertEquals(DssReplenishmentResponse.SCOPE_ALL_WAREHOUSES, recRes.getBody().getData().getScope());
+        assertEquals(3, recRes.getBody().getData().getIncludedWarehouseCount());
     }
 
     @Test

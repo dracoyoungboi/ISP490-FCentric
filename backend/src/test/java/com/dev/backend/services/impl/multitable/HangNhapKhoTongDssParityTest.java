@@ -61,7 +61,10 @@ class HangNhapKhoTongDssParityTest {
         dssService = new DssReplenishmentService(dssRepo, dieuHanhHeThongService, lichSuThayDoiService, nguoiDungRepository);
         hangService = new HangNhapKhoTongService(hangRepo, vaiTroRepo, dssService);
 
-        when(dssRepo.resolveWarehouse(1)).thenReturn(new KhoInfo(1, "KHO_TONG", "Kho tổng", true));
+        when(dssRepo.listActiveWarehouses()).thenReturn(List.of(
+                new KhoInfo(1, "KHO_TONG", "Kho tổng", true),
+                new KhoInfo(2, "CH_Q1", "Cửa hàng Quận 1", false),
+                new KhoInfo(3, "CH_Q7", "Cửa hàng Quận 7", false)));
         when(hangRepo.khoTongHoatDong()).thenReturn(List.of(new KhoTong(1, "KHO_TONG", "Kho tổng", "Hà Nội", "QL A")));
         when(hangRepo.maVachTheoBienThe(any())).thenReturn(Map.of(101, "8930000101"));
         when(vaiTroRepo.yeuCauMoTheoBienThe(any())).thenReturn(Map.of());
@@ -139,11 +142,13 @@ class HangNhapKhoTongDssParityTest {
     @DisplayName("Chế độ ABC tự động: tập mã đề xuất, tổng Q, ROP, tồn an toàn và trạng thái khớp 100% giữa 2 màn")
     void doiSoat_cheDoAbcTuDong_khopMotMotVoiDss() {
         List<SkuRawInput> rawInputs = boDuLieu6NhomSku();
-        when(dssRepo.loadRawInputs(eq(1), anyInt(), anyInt(), any(LocalDate.class))).thenReturn(rawInputs);
+        when(dssRepo.loadRawInputsAllWarehouses(anyInt(), anyInt(), any(LocalDate.class))).thenReturn(rawInputs);
 
         DssReplenishmentResponse dssResp = dssService.getRecommendations(1);
         HangNhapKhoTongResponse hangResp = hangService.hangKhoTong(1);
 
+        assertEquals(DssReplenishmentResponse.SCOPE_ALL_WAREHOUSES, dssResp.getScope());
+        assertEquals(3, dssResp.getIncludedWarehouseCount());
         assertParity(dssResp, hangResp);
 
         Map<Integer, BienThe> byId = hangResp.bienThe().stream()
@@ -171,11 +176,13 @@ class HangNhapKhoTongDssParityTest {
         configOverrides.put(DieuHanhHeThongServiceImpl.CAU_HINH_DSS_PHASEOUT_REMAINING_DAYS, "10");
 
         List<SkuRawInput> rawInputs = boDuLieu6NhomSku();
-        when(dssRepo.loadRawInputs(eq(1), anyInt(), anyInt(), any(LocalDate.class))).thenReturn(rawInputs);
+        when(dssRepo.loadRawInputsAllWarehouses(anyInt(), anyInt(), any(LocalDate.class))).thenReturn(rawInputs);
 
         DssReplenishmentResponse dssResp = dssService.getRecommendations(1);
         HangNhapKhoTongResponse hangResp = hangService.hangKhoTong(1);
 
+        assertEquals(DssReplenishmentResponse.SCOPE_ALL_WAREHOUSES, dssResp.getScope());
+        assertEquals(3, dssResp.getIncludedWarehouseCount());
         assertParity(dssResp, hangResp);
         assertEquals(0L, dssResp.getSummary().getTotalSuggestedQty());
         assertEquals(0L, hangResp.bienThe().stream().mapToLong(BienThe::soLuongDeXuat).sum());
