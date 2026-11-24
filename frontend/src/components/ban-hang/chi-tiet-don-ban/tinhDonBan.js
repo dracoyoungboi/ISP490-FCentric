@@ -34,11 +34,45 @@ export const LY_DO_SAN_HUY = Object.freeze({
 
 // Đơn sàn bị sàn hủy: OmnichannelOrderSyncJob ghi lyDoTuChoi = "Hủy từ sàn Shopify: <cancel_reason>"
 const MAU_SAN_HUY = /^Hủy từ sàn\s+([^:]+):\s*(.*)$/i;
-// Ghi chú tự sinh của đơn sàn: "Đơn hàng đồng bộ tự động từ Shopify #1021" (trùng mã đơn nên không hiện)
-const MAU_GHI_CHU_TU_SINH = /^Đơn hàng đồng bộ tự động từ\s|^\[SHOPEE_CHO_XAC_NHAN\]$/i;
+// Thẻ siêu dữ liệu nội bộ lưu trong ghi chú đơn hàng từ backend (không hiển thị nguyên văn ra ô Ghi chú)
+const MAU_THE_NOI_BO_DON_SAN = /\[(?:VẬN ĐƠN|ĐƠN VỊ|TUYẾN|TRẠM|PTTT|COD|KHO SÀN|KIỆN|PDF_AWB):[^\]]*\]|\[SHOPEE_CHO_XAC_NHAN\]/gi;
+// Câu tự sinh của job đồng bộ đơn sàn (trùng thông tin đã hiện ở khối nguồn đơn)
+const MAU_CAU_DONG_BO_TU_DONG = /(?:^|\|\s*)Đơn hàng đồng bộ (?:tự động )?từ\s+[^|\n]+/gi;
 
 const coChu = (x) => x != null && String(x).trim() !== "";
 const pad2 = (n) => String(n).padStart(2, "0");
+
+/** Giá trị ẩn danh PII từ Shopee (`****`) hoặc chuỗi toàn dấu sao/trống: không hiện nút sao chép giả. */
+export function laGiaTriAnPii(value) {
+  const chu = String(value ?? "").trim();
+  return !chu || chu === "—" || /^\*+$/.test(chu);
+}
+
+/** Mã vận đơn giả dạng `SPXVN<maDonHangKenh>` do bản cũ tự sinh fallback: không coi là mã vận đơn thật. */
+export function laMaVanDonGiaShopee(maVanDon, maDonHangKenh) {
+  const vd = String(maVanDon ?? "").trim();
+  if (!vd) return true;
+  const maSan = String(maDonHangKenh ?? "").trim().replace(/^SHP-/i, "").trim();
+  if (!maSan) return false;
+  return vd.toUpperCase() === `SPXVN${maSan}`.toUpperCase();
+}
+
+/**
+ * Loại bỏ các thẻ hệ thống nội bộ (`[VẬN ĐƠN:...]`, `[ĐƠN VỊ: ]`, `[TUYẾN:...]`, `[TRẠM:...]`, `[PTTT:...]`,
+ * `[COD:...]`, `[KHO SÀN:...]`, `[KIỆN:...]`, `[PDF_AWB:...]`, `[SHOPEE_CHO_XAC_NHAN]`) và câu tự sinh đồng bộ;
+ * giữ nguyên cảnh báo (`[KHÁCH YÊU CẦU HỦY]`, `[CẢNH BÁO LỆCH SÀN: ...]`) và ghi chú thật của khách/nhân viên.
+ */
+export function lamSachGhiChuDonSan(ghiChu) {
+  const raw = String(ghiChu ?? "").trim();
+  if (!raw) return "";
+  return raw
+    .replace(MAU_THE_NOI_BO_DON_SAN, "")
+    .replace(MAU_CAU_DONG_BO_TU_DONG, "")
+    .replace(/\s*\|\s*(?:\|\s*)+/g, " | ")
+    .replace(/^\s*\|\s*|\s*\|\s*$/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
 
 /** Mốc giờ ngắn "16:21 · 17/10" (theo giờ máy, cùng kiểu mốc của tiến trình); trống hoặc sai → "". */
 export function gioNgay(value) {
@@ -79,7 +113,7 @@ export const laDonShopify = (don) => maKenhCua(don) === "SHOPIFY";
 export const tenKenhCua = (don) => String(don?.kenhBanHang?.tenKenh ?? "").trim() || t("sàn");
 
 /** Ghi chú tự sinh khi đồng bộ đơn sàn ("Đơn hàng đồng bộ tự động từ Shopify #…") — trùng mã đơn nên ẩn. */
-export const laGhiChuTuSinh = (ghiChu) => MAU_GHI_CHU_TU_SINH.test(String(ghiChu ?? "").trim());
+export const laGhiChuTuSinh = (ghiChu) => lamSachGhiChuDonSan(ghiChu) === "";
 
 /** Đơn Shopee đang ở trạng thái Chờ xác nhận (UNPAID): chỉ xem, chưa gửi sang kho / hủy / in vận đơn. */
 export function laChoXacNhanSan(ct) {

@@ -72,7 +72,7 @@ export default function ChannelSettingsPage() {
     { enabled: ketNoi },
   );
   const khoSan = tenDiaDiemNhanTon(kho);
-  const HO_TRO_DA_KHO = new Set(["SHOPIFY", "LAZADA", "LAZADA_SANDBOX", "TIKTOK", "SHOPEE", "SHOPEE_OFFICIAL", "SHOPEE_SANDBOX"]);
+  const HO_TRO_DA_KHO = new Set(["SHOPIFY"]);
   const hoTroMappingKho = HO_TRO_DA_KHO.has(String(SAN.maKenh ?? "").toUpperCase());
   const khoMapping = useTaiDuLieu(
     () => kenhBanHangService.getKhoMapping(SAN.maKenh).catch(() => null),
@@ -118,6 +118,7 @@ export default function ChannelSettingsPage() {
       khoSan={khoSan}
       dsKhoSan={kho}
       khoMapping={khoMapping}
+      hoTroMappingKho={hoTroMappingKho}
       onConfigSaved={cfg.setData}
       onCauHinhSaved={ch.setData}
       onTaiLaiKetNoi={cfg.reload}
@@ -125,7 +126,7 @@ export default function ChannelSettingsPage() {
   );
 }
 
-function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigSaved, onCauHinhSaved, onTaiLaiKetNoi }) {
+function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, hoTroMappingKho = false, onConfigSaved, onCauHinhSaved, onTaiLaiKetNoi }) {
   const SAN = useSanHienTai();
   const TIEU_DE = t("Cấu hình {{ten}}", { ten: SAN.ten });
   const navigate = useNavigate();
@@ -652,7 +653,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
           />
         </div>
 
-        {khoMappingConfig && khoMappingConfig.soKhoSanHopLe >= 2 ? (
+        {hoTroMappingKho && khoMappingConfig && khoMappingConfig.soKhoSanHopLe >= 2 ? (
           <BangMappingKhoSan
             maKenh={SAN.maKenh}
             tenSan={SAN.ten}

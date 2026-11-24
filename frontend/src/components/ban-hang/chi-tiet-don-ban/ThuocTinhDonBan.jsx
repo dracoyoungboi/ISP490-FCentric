@@ -12,7 +12,7 @@ import { SO_PHIEU_XUAT_HIEN } from "@/config/bangChungTu";
 import { PICK_LIST_STATUS } from "@/constants/outbound";
 import { getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 import { WALKIN_CUSTOMER_CODE } from "@/services/posService";
-import { dsPhieuXuat, ghiChuKhiXuat, laDonSan, laDonTaiQuay, laGhiChuTuSinh, phieuDaXuatCuoi, tenKenhCua } from "./tinhDonBan";
+import { dsPhieuXuat, ghiChuKhiXuat, laDonSan, laDonTaiQuay, laGiaTriAnPii, laMaVanDonGiaShopee, lamSachGhiChuDonSan, phieuDaXuatCuoi, tenKenhCua } from "./tinhDonBan";
 import { coKhoiBangChung } from "./bangChungDon";
 import KhoiBangChungDongGoi from "./KhoiBangChungDongGoi";
 import { t } from "@/i18n";
@@ -50,12 +50,19 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false }) {
     <span className="font-semibold text-bo-foreground">{tenKhach}</span>
   );
 
-  // ── Giao hàng: vận chuyển lấy từ ghi chú của phiếu đã xuất gần nhất (đơn tại quầy không có) ──
+  // ── Giao hàng: ưu tiên dữ liệu đã xuất thực tế, fallback sang metadata đã đồng bộ từ sàn (lọc mã SPXVN giả) ──
   const pxXuat = laPos ? null : phieuDaXuatCuoi(ct);
   const tach = pxXuat ? tachGhiChuPhieuXuat(pxXuat.ghiChu) : null;
   const giaoVan = tach?.giaoVan ?? null;
+  const maVanDonTuPx = laMaVanDonGiaShopee(giaoVan?.maVanDon, don.maDonHangKenh) ? "" : (giaoVan?.maVanDon || "");
+  const maVanDonTuDon = laMaVanDonGiaShopee(don.maVanDon, don.maDonHangKenh) ? "" : (don.maVanDon || "");
+  const maVanDon = maVanDonTuPx || maVanDonTuDon;
+  const donViVanChuyen = giaoVan?.donViVanChuyen || don.donViVanChuyen || "";
+  const maDinhTuyen = don.maDinhTuyen || "";
+  const maTramPhat = don.maTramPhat || "";
+  const thanhToanSanNhan = laSan ? (don.nhanThanhToan || "") : "";
   const ghiChuXuat = ghiChuKhiXuat(tach?.ghiChu);
-  const ghiChuDon = laGhiChuTuSinh(don.ghiChu) ? "" : don.ghiChu;
+  const ghiChuDon = lamSachGhiChuDonSan(don.ghiChu);
 
   // ── Chứng từ liên quan ──
   const px = dsPhieuXuat(ct);
@@ -101,7 +108,15 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false }) {
           className="mt-2.5"
           muc={[
             { ma: "ma", nhan: t("Mã khách hàng"), giaTri: khach?.maKhachHang ? <span className="font-mono">{khach.maKhachHang}</span> : null },
-            { ma: "sdt", nhan: t("Điện thoại"), giaTri: khach?.soDienThoai ? <GiaTriSaoChep giaTri={khach.soDienThoai} nhanSaoChep={t("Sao chép số điện thoại")} className="tabular-nums" /> : null },
+            {
+              ma: "sdt",
+              nhan: t("Điện thoại"),
+              giaTri: !khach?.soDienThoai ? null : laGiaTriAnPii(khach.soDienThoai) ? (
+                <span className={MO}>{khach.soDienThoai}</span>
+              ) : (
+                <GiaTriSaoChep giaTri={khach.soDienThoai} nhanSaoChep={t("Sao chép số điện thoại")} className="tabular-nums" />
+              ),
+            },
             { ma: "email", nhan: "Email", giaTri: khach?.email },
           ]}
         />
@@ -122,14 +137,36 @@ export default function ThuocTinhDonBan({ ct, laBan = false, laKho = false }) {
                 </>
               ) : null,
             },
-            { ma: "dv", nhan: t("Vận chuyển"), an: !giaoVan, giaTri: giaoVan?.donViVanChuyen },
+            { ma: "dv", nhan: t("Vận chuyển"), an: !donViVanChuyen, giaTri: donViVanChuyen },
             {
               ma: "vd",
               nhan: t("Mã vận đơn"),
-              an: !giaoVan,
-              giaTri: giaoVan?.maVanDon ? (
-                <GiaTriSaoChep giaTri={giaoVan.maVanDon} nhanSaoChep={t("Sao chép mã vận đơn")} className="font-mono" />
+              an: !maVanDon,
+              giaTri: maVanDon ? (
+                <GiaTriSaoChep giaTri={maVanDon} nhanSaoChep={t("Sao chép mã vận đơn")} className="font-mono" />
               ) : null,
+            },
+            {
+              ma: "tuyen",
+              nhan: t("Mã chia chọn tuyến"),
+              an: !maDinhTuyen,
+              giaTri: maDinhTuyen ? (
+                <GiaTriSaoChep giaTri={maDinhTuyen} nhanSaoChep={t("Sao chép mã chia chọn tuyến")} className="font-mono" />
+              ) : null,
+            },
+            {
+              ma: "tram",
+              nhan: t("Mã trạm phát"),
+              an: !maTramPhat,
+              giaTri: maTramPhat ? (
+                <GiaTriSaoChep giaTri={maTramPhat} nhanSaoChep={t("Sao chép mã trạm phát")} className="font-mono" />
+              ) : null,
+            },
+            {
+              ma: "ptttSan",
+              nhan: t("Thanh toán sàn"),
+              an: !thanhToanSanNhan,
+              giaTri: thanhToanSanNhan,
             },
             { ma: "gcx", nhan: t("Ghi chú khi xuất"), an: !ghiChuXuat, giaTri: <span className="whitespace-pre-line">{ghiChuXuat}</span> },
           ]}

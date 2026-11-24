@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 
 /**
- * Bảng ánh xạ đa kho (Multi-Location) giữa kho trên sàn và kho FCentric nội bộ (Shopify, Lazada, Shopee, TikTok).
+ * Bảng ánh xạ đa kho phân tán (Multi-Location) dành riêng cho Shopify giữa Location trên Shopify và kho vật lý FCentric.
  * Tự động hiển thị chỉ đọc khi sàn <= 1 kho; kích hoạt cấu hình phân bổ & định tuyến đơn khi >= 2 kho.
  */
 export default function BangMappingKhoSan({
