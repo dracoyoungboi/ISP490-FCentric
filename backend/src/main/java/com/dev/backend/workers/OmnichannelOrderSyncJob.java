@@ -41,8 +41,10 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Objects;
+import java.util.Set;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -228,6 +230,14 @@ public class OmnichannelOrderSyncJob {
     AtomicReference<Instant> lastSyncTime = new AtomicReference<>(Instant.EPOCH);
     // Lần gọi API đơn hàng của sàn thành công gần nhất, theo id kênh (màn Theo dõi đồng bộ)
     Map<Integer, Instant> lanLayDonCuoi = new ConcurrentHashMap<>();
+    // Cooldown 10 phút giữa các lượt đối soát đơn mở nằm ngoài cửa sổ quét gần nhất
+    final Map<Integer, Instant> lanDoiSoatDonMo = new ConcurrentHashMap<>();
+    private static final List<Integer> TRANG_THAI_DON_MO = List.of(
+            ITrangThaiDonBanHang.CHO_NHAT_HANG,
+            ITrangThaiDonBanHang.DA_XUAT_TOAN_BO,
+            ITrangThaiDonBanHang.CHO_DONG_GOI,
+            ITrangThaiDonBanHang.DA_DONG_GOI);
+    private static final Duration OPEN_ORDER_RECONCILE_COOLDOWN = Duration.ofMinutes(10);
 
     @org.springframework.beans.factory.annotation.Autowired
     public OmnichannelOrderSyncJob(
@@ -1034,10 +1044,13 @@ public class OmnichannelOrderSyncJob {
 
             String code = root.path("code").asText("");
             if ("0".equals(code)) {
+                Set<String> daXuLy = new HashSet<>();
                 JsonNode orders = root.path("data").path("orders");
                 if (orders.isArray()) {
                     batDauLuot();
                     for (JsonNode orderNode : orders) {
+                        String oid = orderNode.path("order_id").asText("").trim();
+                        if (!oid.isBlank()) daXuLy.add(oid);
                         try {
                             if (processSingleLazadaOrder(orderNode, kenh, appKey, appSecret, accessToken)) {
                                 syncedCount++;
@@ -1051,6 +1064,7 @@ public class OmnichannelOrderSyncJob {
                     }
                     ketThucLuot(kenh, syncedCount);
                 }
+                doiSoatDonMoLazada(kenh, appKey, appSecret, accessToken, tuNgay, daXuLy);
             } else {
                 log.warn("[JOB-01] Lazada trả mã lỗi khi lấy đơn: {} - {}", code, root.path("message").asText());
             }
@@ -1095,10 +1109,14 @@ public class OmnichannelOrderSyncJob {
             com.dev.backend.dto.response.customize.TikTokOrderSearchResponse response =
                     client.searchOrders(appKey, appSecret, accessToken, shopCipher, req);
 
+            Set<String> daXuLy = new HashSet<>();
             if (response != null && response.getOrders() != null) {
                 batDauLuot();
                 try {
                     for (TikTokOrderDto order : response.getOrders()) {
+                        if (order != null && order.getId() != null && !order.getId().isBlank()) {
+                            daXuLy.add(order.getId().trim());
+                        }
                         boolean ok = processSingleTikTokOrder(order, kenh);
                         if (ok) synced++;
                     }
@@ -1106,6 +1124,7 @@ public class OmnichannelOrderSyncJob {
                     ketThucLuot(kenh, synced);
                 }
             }
+            doiSoatDonMoTikTok(kenh, appKey, appSecret, accessToken, shopCipher, daXuLy);
             lanLayDonCuoi.put(kenh.getId(), Instant.now());
             log.info("[JOB-01] Quét đơn TikTok Shop hoàn tất: {} đơn mới", synced);
         } catch (Exception ex) {
@@ -1294,9 +1313,9 @@ public class OmnichannelOrderSyncJob {
         BigDecimal price = totalPrice.subtract(shippingFee).max(BigDecimal.ZERO);
 
         String address = addr != null && addr.getFullAddress() != null ? addr.getFullAddress() : "";
-        List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
-        Kho defaultKho = khoHoatDong.stream().filter(KhoService::laKhoTong).findFirst()
-                .orElse(khoHoatDong.stream().filter(k -> !KhoService.laKhoAo(k)).findFirst().orElse(null));
+        String whTuDon = (order.getWarehouseId() != null && !order.getWarehouseId().isBlank())
+                ? order.getWarehouseId().trim() : null;
+        Kho defaultKho = resolveKhoXuatDonSan(kenh, whTuDon);
 
         Instant ngayDat = Instant.now();
         if (order.getCreateTime() != null) {
@@ -1311,6 +1330,9 @@ public class OmnichannelOrderSyncJob {
             noteBuilder.append("[KHÁCH YÊU CẦU HỦY] ").append(order.getCancelReason() != null ? order.getCancelReason() : "").append(" | ");
         }
         noteBuilder.append("Đơn hàng đồng bộ tự động từ TikTok Shop #").append(orderId);
+        if (whTuDon != null) {
+            noteBuilder.append(" | [KHO SÀN: ").append(whTuDon).append("]");
+        }
         if (order.getFirstPackageId() != null && !order.getFirstPackageId().isBlank()) {
             noteBuilder.append(" | [KIỆN: ").append(order.getFirstPackageId().trim()).append("]");
         }
@@ -1491,9 +1513,11 @@ public class OmnichannelOrderSyncJob {
         BigDecimal shippingFee = new BigDecimal(orderNode.path("shipping_fee").asText("0.00"));
         BigDecimal totalPrice = price.add(shippingFee);
 
-        List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
-        Kho defaultKho = khoHoatDong.stream().filter(KhoService::laKhoTong).findFirst()
-                .orElse(khoHoatDong.stream().filter(k -> !KhoService.laKhoAo(k)).findFirst().orElse(null));
+        String whTuDon = orderNode.path("warehouse_code").asText("").trim();
+        if (whTuDon.isBlank()) {
+            whTuDon = orderNode.path("warehouse_id").asText("").trim();
+        }
+        Kho defaultKho = resolveKhoXuatDonSan(kenh, whTuDon.isBlank() ? null : whTuDon);
 
         String paymentMethod = orderNode.path("payment_method").asText("").trim();
         boolean daThanhToan = isPaidMethod(paymentMethod);
@@ -1501,6 +1525,9 @@ public class OmnichannelOrderSyncJob {
         String remarks = orderNode.path("remarks").asText("").trim();
         String channelName = isSandbox ? "Lazada Sandbox" : "Lazada";
         String ghiChu = (isSandbox ? "[ĐƠN HÀNG SANDBOX THỬ NGHIỆM] " : "") + "Đơn hàng đồng bộ tự động từ " + channelName + " #" + orderNumber;
+        if (!whTuDon.isBlank()) {
+            ghiChu += " | [KHO SÀN: " + whTuDon + "]";
+        }
         if (!remarks.isBlank()) {
             ghiChu += " | Lời nhắn người mua: " + remarks;
         }
@@ -1921,7 +1948,10 @@ public class OmnichannelOrderSyncJob {
                     ketThucLuot(kenh, synced);
                 }
             }
-            if (kenh.getId() != null) lanLayDonCuoi.put(kenh.getId(), Instant.now());
+            if (kenh.getId() != null) {
+                doiSoatDonMoShopee(kenh, partnerId, partnerKey, accessToken, shopId, isSandbox, new HashSet<>(orderSnList));
+                lanLayDonCuoi.put(kenh.getId(), Instant.now());
+            }
             log.info("[JOB-01] Quét đơn Shopee hoàn tất: {} đơn mới / cập nhật", synced);
         } catch (Exception ex) {
             log.error("[JOB-01] Lỗi khi quét đơn hàng Shopee: {}", ex.getMessage());
@@ -2122,9 +2152,8 @@ public class OmnichannelOrderSyncJob {
         KhachHang khachHang = resolveShopeeCustomer(order, addr, phone);
 
         String address = addr != null && addr.getFullAddress() != null ? addr.getFullAddress() : "";
-        List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
-        Kho defaultKho = khoHoatDong.stream().filter(KhoService::laKhoTong).findFirst()
-                .orElse(khoHoatDong.stream().filter(k -> !KhoService.laKhoAo(k)).findFirst().orElse(null));
+        String whTuDon = order.resolveLocationId();
+        Kho defaultKho = resolveKhoXuatDonSan(kenh, whTuDon);
 
         Instant ngayDat = Instant.now();
         if (order.getCreateTime() != null) {
@@ -2138,6 +2167,9 @@ public class OmnichannelOrderSyncJob {
         String ghiChu = coYeuCauHuy
                 ? "[KHÁCH YÊU CẦU HỦY] " + order.getCancelReason() + " | Đơn hàng đồng bộ từ Shopee #" + orderId
                 : "Đơn hàng đồng bộ tự động từ Shopee #" + orderId;
+        if (whTuDon != null && !whTuDon.isBlank()) {
+            ghiChu += " | [KHO SÀN: " + whTuDon + "]";
+        }
 
         String carrier = order.getShippingCarrier() != null ? order.getShippingCarrier() : "Shopee Xpress";
         String fullGhiChu;
@@ -2284,6 +2316,192 @@ public class OmnichannelOrderSyncJob {
                 .trangThai(1)
                 .build();
         return luuKhachTuSan(kh, INguonNhatKy.shopee);
+    }
+
+    boolean choPhepDoiSoatDonMo(Integer kenhId) {
+        if (kenhId == null) return false;
+        Instant prev = lanDoiSoatDonMo.get(kenhId);
+        return prev == null || !Duration.between(prev, Instant.now()).minus(OPEN_ORDER_RECONCILE_COOLDOWN).isNegative();
+    }
+
+    private List<DonBanHang> layDonMoCanDoiSoat(KenhBanHang kenh, int maxDays, Set<String> daXuLyTrongLuot) {
+        if (kenh == null || kenh.getId() == null || donBanHangRepository == null) {
+            return List.of();
+        }
+        Instant tuNgay = Instant.now().minus(Duration.ofDays(Math.min(Math.max(1, maxDays), 90)));
+        List<DonBanHang> openOrders = donBanHangRepository.findOpenChannelOrders(
+                kenh.getId(),
+                TRANG_THAI_DON_MO,
+                tuNgay,
+                org.springframework.data.domain.PageRequest.of(0, 50));
+        if (openOrders == null || openOrders.isEmpty()) {
+            return List.of();
+        }
+        Set<String> daXuLy = daXuLyTrongLuot != null ? daXuLyTrongLuot : Set.of();
+        return openOrders.stream()
+                .filter(d -> d != null && d.getMaDonHangKenh() != null && !d.getMaDonHangKenh().isBlank())
+                .filter(d -> !daXuLy.contains(d.getMaDonHangKenh().trim()))
+                .toList();
+    }
+
+    int doiSoatDonMoShopee(
+            KenhBanHang kenh,
+            Long partnerId,
+            String partnerKey,
+            String accessToken,
+            Long shopId,
+            boolean isSandbox,
+            Set<String> daXuLyTrongLuot) {
+        if (kenh == null || kenh.getId() == null || shopeeClient == null
+                || partnerId == null || partnerKey == null || accessToken == null || shopId == null) {
+            return 0;
+        }
+        if (!choPhepDoiSoatDonMo(kenh.getId())) {
+            return 0;
+        }
+        List<DonBanHang> canDoiSoat = layDonMoCanDoiSoat(kenh, 90, daXuLyTrongLuot);
+        if (canDoiSoat.isEmpty()) {
+            return 0;
+        }
+        lanDoiSoatDonMo.put(kenh.getId(), Instant.now());
+        List<String> orderSns = canDoiSoat.stream()
+                .map(d -> d.getMaDonHangKenh().trim())
+                .distinct()
+                .toList();
+        int reconciled = 0;
+        try {
+            for (int i = 0; i < orderSns.size(); i += 50) {
+                List<String> batch = orderSns.subList(i, Math.min(i + 50, orderSns.size()));
+                JsonNode detailRes = shopeeClient.getOrderDetail(
+                        String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId), batch, isSandbox);
+                if (detailRes == null) continue;
+                JsonNode details = detailRes.path("response").path("order_list");
+                if (details.isArray()) {
+                    for (JsonNode dNode : details) {
+                        com.dev.backend.dto.response.customize.ShopeeOrderDto dto =
+                                objectMapper.convertValue(dNode, com.dev.backend.dto.response.customize.ShopeeOrderDto.class);
+                        if (dto != null) {
+                            processSingleShopeeOrder(dto, kenh);
+                            reconciled++;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[JOB-01] Đối soát đơn mở Shopee kênh {} gặp lỗi: {}", kenh.getMaKenh(), ex.getMessage());
+        }
+        return reconciled;
+    }
+
+    int doiSoatDonMoTikTok(
+            KenhBanHang kenh,
+            String appKey,
+            String appSecret,
+            String accessToken,
+            String shopCipher,
+            Set<String> daXuLyTrongLuot) {
+        if (kenh == null || kenh.getId() == null || tiktokShopClient == null
+                || appKey == null || appSecret == null || accessToken == null
+                || shopCipher == null || shopCipher.isBlank()) {
+            return 0;
+        }
+        if (!choPhepDoiSoatDonMo(kenh.getId())) {
+            return 0;
+        }
+        List<DonBanHang> canDoiSoat = layDonMoCanDoiSoat(kenh, 90, daXuLyTrongLuot);
+        if (canDoiSoat.isEmpty()) {
+            return 0;
+        }
+        lanDoiSoatDonMo.put(kenh.getId(), Instant.now());
+        List<String> orderIds = canDoiSoat.stream()
+                .map(d -> d.getMaDonHangKenh().trim())
+                .distinct()
+                .toList();
+        int reconciled = 0;
+        try {
+            for (int i = 0; i < orderIds.size(); i += 50) {
+                List<String> batch = orderIds.subList(i, Math.min(i + 50, orderIds.size()));
+                JsonNode res = tiktokShopClient.getOrderDetails(appKey, appSecret, accessToken, shopCipher, String.join(",", batch));
+                if (res == null) continue;
+                JsonNode orders = res.path("data").path("orders");
+                if (orders.isArray()) {
+                    for (JsonNode oNode : orders) {
+                        TikTokOrderDto dto = objectMapper.convertValue(oNode, TikTokOrderDto.class);
+                        if (dto != null) {
+                            processSingleTikTokOrder(dto, kenh);
+                            reconciled++;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[JOB-01] Đối soát đơn mở TikTok Shop kênh {} gặp lỗi: {}", kenh.getMaKenh(), ex.getMessage());
+        }
+        return reconciled;
+    }
+
+    int doiSoatDonMoLazada(
+            KenhBanHang kenh,
+            String appKey,
+            String appSecret,
+            String accessToken,
+            Instant windowTuNgay,
+            Set<String> daXuLyTrongLuot) {
+        if (kenh == null || kenh.getId() == null || lazadaClient == null
+                || appKey == null || appSecret == null || accessToken == null) {
+            return 0;
+        }
+        if (!choPhepDoiSoatDonMo(kenh.getId())) {
+            return 0;
+        }
+        List<DonBanHang> canDoiSoat = layDonMoCanDoiSoat(kenh, 90, daXuLyTrongLuot);
+        if (canDoiSoat.isEmpty()) {
+            return 0;
+        }
+        Instant oldest = canDoiSoat.stream()
+                .map(DonBanHang::getNgayDatHang)
+                .filter(Objects::nonNull)
+                .min(Instant::compareTo)
+                .orElse(Instant.now().minus(Duration.ofDays(30)));
+        if (windowTuNgay != null && !oldest.isBefore(windowTuNgay)) {
+            return 0;
+        }
+        lanDoiSoatDonMo.put(kenh.getId(), Instant.now());
+        Set<String> targetIds = new HashSet<>();
+        for (DonBanHang d : canDoiSoat) {
+            targetIds.add(d.getMaDonHangKenh().trim());
+        }
+        int reconciled = 0;
+        try {
+            JsonNode recRoot = lazadaClient.getOrders(appKey, appSecret, accessToken, oldest.minusSeconds(60), 50, 0, false);
+            if (recRoot != null && "0".equals(recRoot.path("code").asText(""))) {
+                JsonNode orders = recRoot.path("data").path("orders");
+                if (orders.isArray()) {
+                    for (JsonNode oNode : orders) {
+                        String oid = oNode.path("order_id").asText("").trim();
+                        if (!oid.isBlank() && targetIds.contains(oid)) {
+                            processSingleLazadaOrder(oNode, kenh, appKey, appSecret, accessToken);
+                            reconciled++;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("[JOB-01] Đối soát đơn mở Lazada kênh {} gặp lỗi: {}", kenh.getMaKenh(), ex.getMessage());
+        }
+        return reconciled;
+    }
+
+    private Kho resolveKhoXuatDonSan(KenhBanHang kenh, String maKhoSanTuDon) {
+        if (kenhBanHangDongBoService != null && kenh != null) {
+            Kho routed = kenhBanHangDongBoService.resolveKhoXuatChoDonSan(kenh, maKhoSanTuDon);
+            if (routed != null && Integer.valueOf(1).equals(routed.getTrangThai()) && !KhoService.laKhoAo(routed)) {
+                return routed;
+            }
+        }
+        List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
+        return khoHoatDong.stream().filter(KhoService::laKhoTong).findFirst()
+                .orElse(khoHoatDong.stream().filter(k -> !KhoService.laKhoAo(k)).findFirst().orElse(null));
     }
 
     private String extractDomainFromApiUrl(String apiUrl) {
