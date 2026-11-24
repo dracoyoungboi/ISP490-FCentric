@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CircleCheckBig, PackageCheck, Printer, RefreshCw, Send, Truck, Undo2, XCircle } from "lucide-react";
+import { AlertTriangle, CircleCheckBig, PackageCheck, Printer, RefreshCw, Send, Truck, Undo2, XCircle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import PageContainer from "@/components/backoffice/PageContainer";
 import KhungChungTu from "@/components/chung-tu/KhungChungTu";
 import DauChungTu from "@/components/chung-tu/DauChungTu";
@@ -37,6 +46,7 @@ import {
   laDonSan,
   laDonTaiQuay,
   lyDoSanHuy,
+  nenMoHopGuiKhoThuCongKhiLoi,
   tenKenhCua,
   thanhToanDonBan,
   thaoTacDonBan,
@@ -106,7 +116,8 @@ function ChiTietDonBanHang({ id }) {
   const laSan = laDonSan(don);
 
   const [hop, setHop] = useState(""); // "" | "guiKho" | "huy" | "daGiao" | "hoanTra"
-  const [buocThuCongKho, setBuocThuCongKho] = useState(false); // true chỉ khi đơn 3 sàn lỗi kho/tồn cần chọn thủ công
+  const [buocThuCongKho, setBuocThuCongKho] = useState(false); // true chỉ khi API gửi tự động lỗi cần chọn thủ công
+  const [canhBaoThieuTon, setCanhBaoThieuTon] = useState(null); // thông báo chỉ-đọc sau khi đã gửi đơn thiếu tồn sang kho hiện tại
   const [dangChay, setDangChay] = useState(""); // thao tác đang gửi lên máy chủ
   const [loiHop, setLoiHop] = useState(null);
   // Lý do hủy đơn (bắt buộc, lưu vào ghi chú của đơn)
@@ -124,8 +135,8 @@ function ChiTietDonBanHang({ id }) {
   }, []);
 
   // Quay lại tab thì tải lại ngầm (kho đổi trạng thái khi nhặt, đóng gói, xuất); không tải khi đang thao tác
-  useTaiLaiKhiQuayLai(() => q.reload(), { bat: Boolean(ct) && !q.loading && !dangChay && !hop, lanCuoi: q.capNhatLuc });
-  useDonHangRealtime(() => q.reload(), { bat: !isChannelOrderMock && don?.kenhBanHang?.maKenh === "SHOPIFY" && !dangChay && !hop });
+  useTaiLaiKhiQuayLai(() => q.reload(), { bat: Boolean(ct) && !q.loading && !dangChay && !hop && !canhBaoThieuTon, lanCuoi: q.capNhatLuc });
+  useDonHangRealtime(() => q.reload(), { bat: !isChannelOrderMock && don?.kenhBanHang?.maKenh === "SHOPIFY" && !dangChay && !hop && !canhBaoThieuTon });
 
   // ── Tính toán ───────────────────────────────────────────────────────────
   const dong = useMemo(() => dongHangBan(ct?.chiTiet), [ct]);
@@ -166,7 +177,7 @@ function ChiTietDonBanHang({ id }) {
     const khoHienTai = don?.khoXuat;
     if (!khoHienTai?.id) {
       setBuocThuCongKho(true);
-      setLoiHop(t("Đơn sàn chưa có kho xuất hợp lệ hoặc không đủ tồn tại kho hiện tại. Chọn kho xuất thủ công để tiếp tục."));
+      setLoiHop(t("Đơn sàn chưa có kho xuất hợp lệ để gửi tự động. Chọn kho xuất thủ công để tiếp tục."));
       setHop("guiKho");
       return;
     }
@@ -174,11 +185,15 @@ function ChiTietDonBanHang({ id }) {
     setLoiHop(null);
     setDangChay("guiKho");
     try {
-      await chayCoThoiHan(() => donBanHangService.sendToWarehouse(id, { khoId: Number(idKho(khoHienTai)) }));
+      const res = await chayCoThoiHan(() => donBanHangService.sendToWarehouse(id, { khoId: Number(idKho(khoHienTai)) }));
       setHop("");
-      toast.success(t("Đã gửi đơn {{so}} sang {{tenKho}}", { so, tenKho: khoHienTai.tenKho }), {
-        description: t("Đơn chuyển sang Chờ nhặt hàng"),
-      });
+      if (res?.data === "CANH_BAO_THIEU_TON" && res?.message) {
+        setCanhBaoThieuTon(res.message);
+      } else {
+        toast.success(t("Đã gửi đơn {{so}} sang {{tenKho}}", { so, tenKho: khoHienTai.tenKho }), {
+          description: t("Đơn chuyển sang Chờ nhặt hàng"),
+        });
+      }
       q.reload();
     } catch (error) {
       if (laLoiHetThoiHan(error)) {
@@ -190,8 +205,9 @@ function ChiTietDonBanHang({ id }) {
         return;
       }
       const maLoi = getApiErrorCode(error);
+      const status = getApiErrorStatus(error);
       const cau = getApiErrorMessage(error, t("Không gửi được đơn sang kho"));
-      if (maLoi === "DON_SAN_CAN_CHON_KHO_THU_CONG") {
+      if (nenMoHopGuiKhoThuCongKhiLoi({ maLoi, status })) {
         setBuocThuCongKho(true);
         setLoiHop(cau);
         setHop("guiKho");
@@ -213,7 +229,7 @@ function ChiTietDonBanHang({ id }) {
         return;
       }
       setBuocThuCongKho(true);
-      setLoiHop(t("Đơn sàn chưa có kho xuất hợp lệ hoặc không đủ tồn tại kho hiện tại. Chọn kho xuất thủ công để tiếp tục."));
+      setLoiHop(t("Đơn sàn chưa có kho xuất hợp lệ để gửi tự động. Chọn kho xuất thủ công để tiếp tục."));
       setHop("guiKho");
       return;
     }
@@ -488,6 +504,34 @@ function ChiTietDonBanHang({ id }) {
         }
         cotPhai={<ThuocTinhDonBan ct={ct} laBan={laBan} laKho={laKho} />}
       />
+
+      <Dialog
+        open={Boolean(canhBaoThieuTon)}
+        onOpenChange={(mo) => {
+          if (!mo) setCanhBaoThieuTon(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader className="text-left">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="flex-1 pt-0.5">
+                <DialogTitle>{t("Thông báo tồn kho tại kho xuất")}</DialogTitle>
+                <DialogDescription className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+                  {canhBaoThieuTon}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="mt-2 sm:justify-end">
+            <Button type="button" onClick={() => setCanhBaoThieuTon(null)}>
+              {t("Đã hiểu")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <HopGuiSangKho
         mo={hop === "guiKho" && coTheMoHopGuiSangKho(don, buocThuCongKho)}

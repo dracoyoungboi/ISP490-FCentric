@@ -125,6 +125,19 @@ export const coTheMoHopGuiSangKho = (don, batBuocThuCong = false) => {
   return true;
 };
 
+/**
+ * Chỉ mở popup chọn kho thủ công khi API gửi tự động gặp lỗi:
+ * - Mã lỗi DON_SAN_CAN_CHON_KHO_THU_CONG (thiếu hoặc kho xuất ngừng hoạt động)
+ * - Lỗi mạng/kết nối hoặc phản hồi lỗi API hệ thống (status null/0, 404, 5xx)
+ * Các lỗi nghiệp vụ khác (400, 401, 403, 409 khác...) chỉ báo toast, không mở popup chọn kho.
+ */
+export const nenMoHopGuiKhoThuCongKhiLoi = ({ maLoi, status } = {}) => {
+  if (maLoi === "DON_SAN_CAN_CHON_KHO_THU_CONG") return true;
+  if (status == null || status === 0) return true;
+  if (status === 404 || status >= 500) return true;
+  return false;
+};
+
 /** Tên sàn để ghép câu ("Shopify"); thiếu thì "sàn". */
 export const tenKenhCua = (don) => String(don?.kenhBanHang?.tenKenh ?? "").trim() || t("sàn");
 
