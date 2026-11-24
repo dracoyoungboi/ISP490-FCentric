@@ -252,7 +252,7 @@ test("canhBao / cauCanhBao: tách rõ trùng PR, ngừng nhập, tồn dư xả 
   });
   assert.equal(
     cauCanhBao(cb),
-    "1 mã đang nằm trong yêu cầu nhập khác chưa xong (PR202610240009); 1 mã đang ở kịch bản ngừng nhập theo DSS; 1 mã đang có tồn dư cần xả theo DSS; 1 mã bán chậm theo DSS. Kiểm tra kỹ trước khi gửi để tránh mua trùng hoặc tăng tồn chậm.",
+    "1 mã đang nằm trong yêu cầu nhập khác chưa xong (PR202610240009); 1 mã đang ở kịch bản ngừng nhập; 1 mã đang có tồn dư cần xả; 1 mã bán chậm. Kiểm tra kỹ trước khi gửi để tránh mua trùng hoặc tăng tồn chậm.",
   );
   assert.equal(cauCanhBao(canhBao([{ bienTheId: 1 }], cmDss)), "");
 });
