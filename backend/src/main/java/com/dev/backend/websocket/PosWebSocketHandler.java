@@ -20,6 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Quản lý kết nối WebSocket native 2 chiều phục vụ Push Notification real-time cho Quầy POS.
+ * Mỗi kết nối nghe đúng một đơn ghi trên vé đã soát lúc bắt tay (luồng vé: {@link VeKetNoiRealtime}).
  * Tuân thủ Quy tắc 1 (AGENTS.md): Sử dụng thư viện có sẵn (spring-boot-starter-websocket),
  * không cần thêm dependency bên ngoài, hỗ trợ 100% trình duyệt hiện đại (Chrome, Edge, Firefox, Safari).
  */

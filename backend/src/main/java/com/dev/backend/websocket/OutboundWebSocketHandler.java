@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Quản lý kết nối WebSocket native 2 chiều phục vụ Push Notification real-time cho phân hệ Xuất kho (Outbound).
  * Đặc biệt phục vụ màn hình Nhặt hàng (Pick UI) lắng nghe sự kiện Hủy đơn hàng và điều chỉnh số lượng cần nhặt tức thời.
+ * Mỗi kết nối nghe đúng một phiếu nhặt ghi trên vé đã soát lúc bắt tay (luồng vé: {@link VeKetNoiRealtime}).
  * Tuân thủ Quy tắc 1 (AGENTS.md): Sử dụng thư viện có sẵn (spring-boot-starter-websocket), không dùng thư viện ngoài.
  */
 @Component

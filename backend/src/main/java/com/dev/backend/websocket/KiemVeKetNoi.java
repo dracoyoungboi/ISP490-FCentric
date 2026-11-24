@@ -15,8 +15,13 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Chặn bắt tay WebSocket không có vé hợp lệ của đúng kênh (403). Vé hợp lệ thì gắn đăng ký vào phiên để handler biết
- * kết nối được nghe gì; handler không còn đọc orderCode / pickListId / khoId từ đường dẫn.
+ * Người soát vé của kênh realtime (bước 4 trong luồng ở {@link VeKetNoiRealtime}). Chạy lúc bắt tay WebSocket, trước khi
+ * kết nối mở; mỗi kênh một bản, gắn ở {@link com.dev.backend.config.WebSocketConfig}.
+ * <ul>
+ *   <li>Không có {@code ?ve=}, vé sai / đã dùng / hết hạn, hoặc vé xin cho kênh khác: trả 403, kết nối không mở.</li>
+ *   <li>Vé hợp lệ: ghi đăng ký (kênh + mã đơn / phiếu) vào thuộc tính phiên dưới khóa {@link #DANG_KY}. Handler lấy mã từ
+ *   đây qua {@link #maDangKy}, không đọc orderCode / pickListId / khoId trên đường dẫn (người dùng sửa được).</li>
+ * </ul>
  */
 @Slf4j
 public class KiemVeKetNoi implements HandshakeInterceptor {
@@ -36,6 +41,7 @@ public class KiemVeKetNoi implements HandshakeInterceptor {
     public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response,
                                    WebSocketHandler wsHandler, Map<String, Object> attributes) {
         String ve = UriComponentsBuilder.fromUri(request.getURI()).build().getQueryParams().getFirst("ve");
+        // dung() xóa vé ngay cả khi sai kênh: vé đã đưa ra soát là hết, không thử lại ở kênh khác được
         Optional<VeKetNoiRealtime.DangKy> dangKy = veKetNoi.dung(ve).filter(d -> d.kenh() == kenh);
         if (dangKy.isEmpty()) {
             log.warn("WebSocket {}: từ chối kết nối không có vé hợp lệ", kenh);
@@ -47,8 +53,9 @@ public class KiemVeKetNoi implements HandshakeInterceptor {
     }
 
     /**
-     * Mã được nghe của phiên (orderCode, id phiếu nhặt). Phiên không mang đăng ký (lọt qua mà không bắt tay qua lớp này)
-     * thì đóng ngay và trả null.
+     * Mã được nghe của phiên (orderCode, id phiếu nhặt), dùng ở {@code afterConnectionEstablished} của handler. Phiên
+     * không mang đăng ký thì đóng ngay và trả null: chỉ xảy ra nếu sau này ai đó đăng ký handler mà quên gắn lớp này —
+     * chặn mặc định thay vì cho nghe.
      */
     public static Long maDangKy(WebSocketSession session) {
         if (session.getAttributes().get(DANG_KY) instanceof VeKetNoiRealtime.DangKy dangKy) {

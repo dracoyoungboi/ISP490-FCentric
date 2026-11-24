@@ -23,8 +23,17 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * Cấp vé mở kênh realtime (xem {@link VeKetNoiRealtime}). Mỗi API dùng đúng vai trò và luật xem của màn tương ứng,
- * nên ai mở được màn thì nghe được, người khác không xin được vé.
+ * Quầy cấp vé mở kênh realtime (bước 2 trong luồng ở {@link VeKetNoiRealtime}). Mỗi API dùng đúng vai trò và luật xem
+ * của màn tương ứng, nên ai mở được màn thì nghe được, người khác không xin được vé:
+ * <ul>
+ *   <li>Vé thanh toán = quyền của {@code GET /api/v1/pos/payos/payment-links/{orderCode}}
+ *   ({@link PosPayosService#kiemTraXemGiaoDich}).</li>
+ *   <li>Vé phiếu nhặt = quyền của {@code GET /api/v1/nhat-hang/pick-list/{id}}
+ *   ({@link NhatHangService#kiemTraXemPhieuNhat}).</li>
+ * </ul>
+ * Đổi luật quyền của hai màn đó thì vé đổi theo, không phải sửa ở đây. Thêm kênh mới: thêm một {@code Kenh}, một API
+ * cấp vé ở đây (kiểm quyền trước khi gọi {@code capVe}) và gắn {@link com.dev.backend.websocket.KiemVeKetNoi} cho kênh.
+ * Trả về {@code {"ve": "..."}}; quá trần vé thì 429.
  */
 @RestController
 @RequestMapping("/api/v1/realtime/ve")

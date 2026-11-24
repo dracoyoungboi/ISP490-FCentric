@@ -14,6 +14,14 @@ export function diaChiKenh(duongDan, goc = API_BASE_URL, nguonTrang = window.loc
  * nối kèm vé. Không xin được vé (không có quyền, mất mạng, máy chủ bận) hoặc trình duyệt chặn WebSocket thì trả null:
  * màn vẫn chạy nhờ hỏi định kỳ hoặc tải lại, chỉ không nhận tin tức thời.
  *
+ * Vì sao phải xin vé: trình duyệt không gắn được token đăng nhập khi mở WebSocket, còn đặt token lên đường dẫn thì lọt
+ * vào log. Toàn bộ luồng (xin vé → cấp vé → soát vé → chỉ nghe đúng đơn / phiếu trên vé) viết ở đầu tệp máy chủ
+ * `backend/.../websocket/VeKetNoiRealtime.java`.
+ *
+ * Nơi dùng: hộp thanh toán QR ở `pages/pos/PosSalesPage.jsx` (watchPayos) và
+ * `components/outbound/phieu-nhat/useSuKienPhieuNhat.js` (màn Chi tiết phiếu nhặt). Vé chỉ dùng được một lần, nên mỗi
+ * lần mở lại kết nối phải gọi lại hàm này, không giữ vé cũ.
+ *
  * @param {string} duongDanVe API cấp vé, VD `/api/v1/realtime/ve/thanh-toan/123`
  * @param {string} duongDanKenh VD `/ws-pos`
  * @param {Record<string, string>} [thamSoThem] tham số phụ của kênh (VD `{ lang: "en" }`)
