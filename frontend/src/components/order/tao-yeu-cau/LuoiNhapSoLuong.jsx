@@ -12,7 +12,7 @@ const MA_HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 /**
  * Cách nhập "Lưới màu × kích cỡ": mỗi sản phẩm một lưới gồm MỌI biến thể đang bán (kể cả chưa có trong yêu cầu), một
  * hàng mỗi màu, một cột mỗi kích cỡ, hàng / cột Cộng. Gõ số vào ô là thêm / đổi số lượng; xóa trống hoặc 0 là bỏ mã đó
- * (sản phẩm vẫn ở lại lưới). Dưới ô là khả dụng ở Kho tổng (chữ cam: đang có số đề xuất); rê chuột thấy SKU và đề xuất.
+ * (sản phẩm vẫn ở lại lưới). Dưới ô là khả dụng toàn hệ thống (chữ cam: đang có số đề xuất); rê chuột thấy SKU và đề xuất.
  *
  * - `sanPham`: các sản phẩm của trang `[{ khoa, bienThe: [...] }]` (biến thể đã xếp theo màu, cỡ — taoChiMuc).
  * - `dong`: dòng yêu cầu; `onDoiO(bienTheId, chu)`; `onBoSanPham(khoa)`; `phanTrang`: props PhanTrangBang hoặc null.
@@ -113,7 +113,7 @@ export default function LuoiNhapSoLuong({ sanPham, dong, onDoiO, onBoSanPham, ph
         );
       })}
       <p className="px-4 py-3 text-xs leading-4 text-bo-muted sm:px-6">
-        {t("Gõ số lượng vào ô, để trống hoặc 0 là không nhập biến thể đó. Chữ cam dưới ô: Kho tổng đang cần nhập theo gợi ý DSS. Ô “—”: sản phẩm không có màu, cỡ này.")}
+        {t("Gõ số lượng vào ô, để trống hoặc 0 là không nhập biến thể đó. Chữ cam dưới ô: toàn hệ thống đang cần nhập theo gợi ý DSS. Ô “—”: sản phẩm không có màu, cỡ này.")}
       </p>
       {phanTrang ? <PhanTrangBang {...phanTrang} /> : null}
     </section>

@@ -21,6 +21,7 @@ export default function DssCreatePrModal({
   open,
   onOpenChange,
   khoTong,
+  dsKhoTong = [],
   selectedItems,
   qtyMap,
   onSuccess,
@@ -28,14 +29,19 @@ export default function DssCreatePrModal({
   const navigate = useNavigate();
   const [ngayGiao, setNgayGiao] = useState("");
   const [ghiChu, setGhiChu] = useState("");
+  const [selectedKhoId, setSelectedKhoId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const khoList = dsKhoTong.length > 0 ? dsKhoTong : khoTong ? [khoTong] : [];
+  const activeKho = khoList.find((k) => k.id === selectedKhoId) || khoTong || khoList[0] || null;
 
   useEffect(() => {
     if (open) {
       setNgayGiao(defaultDeliveryDateStr(selectedItems));
       setGhiChu(t("Đề xuất tự động từ hệ thống gợi ý nhập hàng (DSS)"));
+      setSelectedKhoId(khoTong?.id ?? dsKhoTong[0]?.id ?? null);
     }
-  }, [open, selectedItems]);
+  }, [open, selectedItems, khoTong?.id, dsKhoTong]);
 
   const validLines = selectedItems
     .filter((it) => !it.prCreationLocked && Number(qtyMap[it.bienTheSanPhamId] ?? it.suggestedOrderQty) > 0)
@@ -52,7 +58,7 @@ export default function DssCreatePrModal({
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!khoTong?.id) {
+    if (!activeKho?.id) {
       toast.error(t("Chưa xác định được Kho tổng nhận hàng."));
       return;
     }
@@ -69,7 +75,7 @@ export default function DssCreatePrModal({
     try {
       const deliveryIso = new Date(`${ngayGiao}T17:00:00`).toISOString();
       const res = await purchaseRequestService.create({
-        khoNhapId: khoTong.id,
+        khoNhapId: activeKho.id,
         ngayGiaoDuKien: deliveryIso,
         ghiChu: ghiChu.trim(),
         chiTietYeuCauMuaHangs: validLines.map((l) => ({
@@ -98,7 +104,7 @@ export default function DssCreatePrModal({
           <DialogTitle>{t("Xác nhận tạo yêu cầu nhập hàng từ DSS")}</DialogTitle>
           <DialogDescription>
             {t("Nhập về {{kho}} với {{soMa}} mã hàng và tổng {{tong}} sản phẩm.", {
-              kho: khoTong?.tenKho || t("Kho tổng"),
+              kho: activeKho?.tenKho || t("Kho tổng"),
               soMa: validLines.length,
               tong: formatNumber(totalUnits),
             })}
@@ -146,8 +152,24 @@ export default function DssCreatePrModal({
               />
             </div>
             <div className="space-y-1">
-              <Label>{t("Kho nhận hàng")}</Label>
-              <Input value={khoTong?.tenKho || t("Kho tổng")} disabled />
+              <Label htmlFor={khoList.length > 1 ? "dss-pr-kho" : undefined}>{t("Kho nhận hàng")}</Label>
+              {khoList.length > 1 ? (
+                <select
+                  id="dss-pr-kho"
+                  value={activeKho?.id ?? ""}
+                  onChange={(e) => setSelectedKhoId(Number(e.target.value))}
+                  aria-label={t("Chọn Kho tổng nhận hàng")}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {khoList.map((k) => (
+                    <option key={k.id} value={k.id}>
+                      {k.tenKho}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input value={activeKho?.tenKho || t("Kho tổng")} disabled />
+              )}
             </div>
           </div>
 

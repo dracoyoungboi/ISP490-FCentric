@@ -71,7 +71,6 @@ export default function DssReplenishmentPage() {
   const canCreatePr = hasAnyRole([userRole], VAI_TRO_TAO_YEU_CAU_NHAP);
 
   const [warehouses, setWarehouses] = useState([]);
-  const [khoId, setKhoId] = useState(null);
   const [data, setData] = useState(null);
   const [draftConfig, setDraftConfig] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -83,22 +82,19 @@ export default function DssReplenishmentPage() {
   const [customQtyMap, setCustomQtyMap] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
 
-  const loadRecommendations = useCallback(async (targetKhoId) => {
+  const loadRecommendations = useCallback(async () => {
     setLoading(true);
     try {
       const [whRes, recRes] = await Promise.all([
         dssService.getWarehouses(),
-        dssService.getRecommendations(targetKhoId),
+        dssService.getRecommendations(),
       ]);
       const whList = whRes?.data?.data ?? [];
       const payload = recRes?.data?.data ?? null;
-      setWarehouses(whList);
+      setWarehouses(payload?.includedWarehouses?.length ? payload.includedWarehouses : whList);
       if (payload) {
         setData(payload);
         setDraftConfig(payload.config);
-        if (!targetKhoId && payload.khoId) {
-          setKhoId(payload.khoId);
-        }
         // Mặc định chọn các mã cần nhập (chưa bị khóa phase-out)
         const autoSelected = new Set();
         for (const it of payload.items || []) {
@@ -117,8 +113,8 @@ export default function DssReplenishmentPage() {
   }, []);
 
   useEffect(() => {
-    loadRecommendations(khoId);
-  }, [khoId, loadRecommendations]);
+    loadRecommendations();
+  }, [loadRecommendations]);
 
   const hasConfigChanges = useMemo(() => {
     if (!data?.config || !draftConfig) return false;
@@ -179,7 +175,7 @@ export default function DssReplenishmentPage() {
     try {
       const res = await dssService.updateConfig({
         ...draftConfig,
-        khoId,
+        khoId: targetKhoTong?.id ?? null,
         recalculateNow: true,
       });
       const payload = res?.data?.data ?? null;
@@ -206,7 +202,7 @@ export default function DssReplenishmentPage() {
   async function handleRecalculateOnly() {
     setSaving(true);
     try {
-      const res = await dssService.recalculate(khoId);
+      const res = await dssService.recalculate(targetKhoTong?.id ?? null);
       const payload = res?.data?.data ?? null;
       if (payload) {
         setData(payload);
@@ -245,12 +241,18 @@ export default function DssReplenishmentPage() {
     [displayItems, selectedIds],
   );
 
-  // Yêu cầu nhập hàng luôn gửi về Kho tổng (nếu người dùng đang xem chi nhánh thì chọn Kho tổng chính)
-  const targetKhoTong = useMemo(() => {
-    const current = warehouses.find((w) => w.id === khoId && w.laKhoTong);
-    if (current) return current;
-    return warehouses.find((w) => w.laKhoTong) || null;
-  }, [warehouses, khoId]);
+  // Yêu cầu nhập hàng luôn gửi về Kho tổng
+  const centralWarehouses = useMemo(
+    () => warehouses.filter((w) => w.laKhoTong),
+    [warehouses],
+  );
+  const targetKhoTong = useMemo(
+    () => centralWarehouses[0] || null,
+    [centralWarehouses],
+  );
+  const includedWarehouses = data?.includedWarehouses ?? warehouses;
+  const soKhoHoatDong = data?.includedWarehouseCount || includedWarehouses.length;
+  const tenCacKho = includedWarehouses.map((w) => w.tenKho).filter(Boolean).join(", ");
 
   const metricItems = [
     {
@@ -272,7 +274,7 @@ export default function DssReplenishmentPage() {
       label: t("Chạm ngưỡng ROP"),
       value: formatNumber(displaySummary.highCount),
       tone: displaySummary.highCount > 0 ? "warning" : undefined,
-      hint: t("Tồn khả dụng thấp hơn hoặc bằng ROP"),
+      hint: t("Tổng tồn khả dụng toàn hệ thống thấp hơn hoặc bằng ROP"),
     },
     {
       label: t("Tổng đề xuất đặt Q"),
@@ -301,20 +303,14 @@ export default function DssReplenishmentPage() {
         title={t("Gợi ý nhập hàng (DSS)")}
         actions={
           <>
-            {warehouses.length > 0 ? (
-              <select
-                value={khoId ?? ""}
-                onChange={(e) => setKhoId(Number(e.target.value))}
-                disabled={loading || saving}
-                aria-label={t("Chọn kho phân tích")}
-                className="h-9 rounded-md border border-bo-border bg-white px-2.5 text-sm text-bo-heading focus:outline-none focus:ring-2 focus:ring-bo-primary/30"
+            {soKhoHoatDong > 0 ? (
+              <span
+                title={tenCacKho || undefined}
+                aria-label={t("Phạm vi tính toán DSS")}
+                className="inline-flex h-9 items-center gap-1.5 rounded-md border border-bo-border bg-bo-surface-subtle px-3 text-xs font-medium text-bo-heading"
               >
-                {warehouses.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.tenKho}
-                  </option>
-                ))}
-              </select>
+                {t("Toàn hệ thống ({{count}} kho)", { count: soKhoHoatDong })}
+              </span>
             ) : null}
 
             {canEditConfig ? (
@@ -404,9 +400,10 @@ export default function DssReplenishmentPage() {
         open={modalOpen}
         onOpenChange={setModalOpen}
         khoTong={targetKhoTong}
+        dsKhoTong={centralWarehouses}
         selectedItems={selectedItems}
         qtyMap={customQtyMap}
-        onSuccess={() => loadRecommendations(khoId)}
+        onSuccess={() => loadRecommendations()}
       />
     </PageContainer>
   );

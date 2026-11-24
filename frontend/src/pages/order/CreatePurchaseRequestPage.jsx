@@ -539,7 +539,7 @@ export default function CreatePurchaseRequestPage() {
           icon={PackagePlus}
           title={t("Chưa có sản phẩm nào")}
           description={soGoiYMoi
-            ? t("{{tenKho}} đang có {{soGoiYMoi}} mã cần bổ sung theo gợi ý DSS. Lấy cả loạt theo số đề xuất, hoặc tìm và quét từng mã ở ô phía trên.", { tenKho: kho?.tenKho || t("Kho tổng"), count: soGoiYMoi, soGoiYMoi: soVN(soGoiYMoi) })
+            ? t("Toàn hệ thống đang có {{soGoiYMoi}} mã cần bổ sung theo gợi ý DSS. Lấy cả loạt theo số đề xuất, hoặc tìm và quét từng mã ở ô phía trên.", { count: soGoiYMoi, soGoiYMoi: soVN(soGoiYMoi) })
             : t("Tìm hoặc quét từng mã ở ô phía trên. Quét lại cùng mã thì cộng thêm 1.")}
           action={soGoiYMoi && !khoa && !duLieuCu ? (
             <Button type="button" onClick={() => setHop("goiY")} className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">

@@ -199,8 +199,8 @@ export default function BangHangYeuCauTao({
                   />
                 </th>
                 <th scope="col" className={O_TIEU_DE}>{t("Sản phẩm")}</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)} title={t("Khả dụng ở Kho tổng")}>{t("Khả dụng")}</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-20 text-right", AN_DIEN_THOAI)} title={t("Phần chưa nhận của đơn mua đã chốt về Kho tổng")}>{t("Đang về")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)} title={t("Tổng khả dụng trên toàn bộ kho đang hoạt động")}>{t("Khả dụng")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-20 text-right", AN_DIEN_THOAI)} title={t("Tổng phần chưa nhận của đơn mua đã chốt trên toàn hệ thống")}>{t("Đang về")}</th>
                 <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)} title={t("Số lượng đặt gợi ý theo mô hình DSS (tính từ sức bán, thời gian giao hàng và tồn an toàn)")}>{t("Đề xuất")}</th>
                 <th scope="col" className={cn(O_TIEU_DE, O_SO_LUONG, "text-right")}>{t("Số lượng nhập")}</th>
                 <th scope="col" className={cn(O_TIEU_DE, O_BO, O_CUOI)}><span className="sr-only">{t("Bỏ dòng")}</span></th>

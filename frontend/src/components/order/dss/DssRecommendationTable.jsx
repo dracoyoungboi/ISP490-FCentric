@@ -68,8 +68,8 @@ export default function DssRecommendationTable({
               </th>
               <th className="px-3 py-3">{t("Sản phẩm / SKU")}</th>
               <th className="px-2.5 py-3 text-center">{t("ABC")}</th>
-              <th className="px-2.5 py-3 text-right">{t("Khả dụng")}</th>
-              <th className="px-2.5 py-3 text-right">{t("Đang về")}</th>
+              <th className="px-2.5 py-3 text-right" title={t("Tổng tồn khả dụng trên toàn bộ kho đang hoạt động")}>{t("Khả dụng")}</th>
+              <th className="px-2.5 py-3 text-right" title={t("Tổng hàng đang về từ đơn mua trên toàn hệ thống")}>{t("Đang về")}</th>
               <th className="px-2.5 py-3 text-right">{t("Bán/ngày")}</th>
               <th className="px-2.5 py-3 text-right">{t("Lead Time")}</th>
               <th className="px-2.5 py-3 text-right">{t("SS / ROP")}</th>
