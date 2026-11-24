@@ -4,19 +4,15 @@
 
 ---
 
-## 1. QUY CHUẨN CẤU HÌNH KHO HÀNG (SINGLE VS MULTI-WAREHOUSE)
-1. **Lazada (Single-Warehouse)**:
-   - Áp dụng mô hình gian hàng 1 kho mặc định.
-   - Giao diện `Cấu hình Lazada` BẮT BUỘC để `chiDoc: t("Kho mặc định")` (text tĩnh, không mở dropdown chọn kho) để người bán không phải thao tác thừa.
-2. **TikTok Shop (Kiến trúc chuẩn hóa Single-Warehouse bán hàng)**:
-   - TikTok Shop trả về nhiều kho từ API `GET /logistics/202309/warehouses`:
-     - `SALES_WAREHOUSE`: Kho lấy hàng / bán hàng (nhận số tồn, bưu tá đến lấy).
-     - `RETURN_WAREHOUSE`: Kho trả hàng (chỉ là địa chỉ hậu cần bưu phẩm nhận hàng hoàn, KHÔNG nhận tồn bán hàng).
-   - **Quy tắc lọc Backend**: Backend BẮT BUỘC lọc bỏ 100% kho `RETURN_WAREHOUSE` khỏi danh sách kho bán hàng. Khi tra cứu kho qua `GET /logistics/202309/warehouses`, cả 2 kho đều có `sub_type = "DOMESTIC_WAREHOUSE"`. Do đó, stream filter **TUYỆT ĐỐI KHÔNG** dùng `subType == "DOMESTIC_WAREHOUSE"` làm điều kiện OR mà BẮT BUỘC kiểm tra `type == "SALES_WAREHOUSE"` và loại trừ hoàn toàn `RETURN_WAREHOUSE` để chống lỗi `12052532` (`warehouse_id must identify a warehouse available to the current shop`).
-   - **Quy tắc hiển thị Frontend (Đồng nhất như Lazada)**: Khi gian hàng có 1 kho bán hàng duy nhất, giao diện hiển thị dạng văn bản chỉ đọc `Tên kho (Kho bán hàng mặc định)` (không mở dropdown chọn kho trùng tên gây nhầm lẫn). Hệ thống tự động gán và lưu `MA_KHO_SAN` của kho này. Chỉ hiển thị dropdown khi thực tế có trên 1 kho bán hàng (`SALES_WAREHOUSE`).
-   - **Dòng chảy FCentric**: Xuất hàng từ Kho Tổng FCentric; khách hủy đơn hoặc hàng hoàn về thì nhập hoàn lại đúng Kho Tổng FCentric; số tồn khả dụng FCentric được đồng bộ trực tiếp vào `SALES_WAREHOUSE` của TikTok Shop.
-3. **Shopee**:
-   - Tương tự Lazada, kênh Shopee mặc định đẩy tồn vào kho mặc định của Shop (`chiDoc: t("Kho mặc định")`).
+## 1. QUY CHUẨN CẤU HÌNH KHO HÀNG (SINGLE VS MULTI-WAREHOUSE — HƯỚNG B)
+1. **Shopify (Sàn DUY NHẤT bật Đồng bộ đa kho phân tán / Multi-Location)**:
+   - Giao diện `Cấu hình Shopify` sử dụng `BangMappingKhoSan` (`HO_TRO_DA_KHO = new Set(["SHOPIFY"])`) để ánh xạ nhiều Location trên Shopify với nhiều kho vật lý FCentric, tính buffer + Hamilton/Remainder phân bổ tồn và định tuyến đơn theo Location.
+2. **Lazada, TikTok Shop, Shopee (Single-Warehouse trên sàn — không mở `BangMappingKhoSan`)**:
+   - Backend (`KenhBanHangDongBoServiceImpl.layCauHinhKhoMapping` / `luuCauHinhKhoMapping`) BẮT BUỘC giữ `cheDoDaKho = false` cho mọi kênh không phải Shopify; `layDanhSachKhoShopee` KHÔNG được tự bơm kho ảo `fcentric-kho-*` khi gian hàng Shopee chưa nằm trong whitelist Multi-Warehouse.
+   - **Lazada (Single-Warehouse)**: Áp dụng mô hình kho mặc định trên Seller Center (`DongKhoSan`).
+   - **TikTok Shop (Single-Warehouse bán hàng)**: BẮT BUỘC lọc bỏ 100% `RETURN_WAREHOUSE` khỏi danh sách kho bán hàng (`type == "SALES_WAREHOUSE"`), tuyệt đối không dùng `subType == "DOMESTIC_WAREHOUSE"` làm điều kiện OR (chống lỗi `12052532`). Khi shop có 1 `SALES_WAREHOUSE`, hiển thị gọn trên `DongKhoSan` + nút Tải lại từ sàn.
+   - **Shopee**: Áp dụng mô hình kho mặc định / địa chỉ lấy hàng (`get_address_list`) trên `DongKhoSan`.
+   - **Điều phối xuất kho nội bộ FCentric**: Đơn hàng từ Lazada, Shopee, TikTok vẫn mở hộp chọn kho `HopGuiSangKho` linh hoạt giữa các kho hoạt động trong nội bộ FCentric để tối ưu xử lý đơn mà không phụ thuộc Multi-Warehouse trên sàn.
 
 ---
 
@@ -49,7 +45,11 @@ Mọi kênh bán (Shopify, Lazada, Shopee, TikTok Shop) khi quét đơn về ph�
      - `IN_TRANSIT` / `shipped`: Chuyển đơn sang `DA_XUAT_TOAN_BO` (3). **Ràng buộc bắt buộc**: Nếu đơn hàng có phiếu xuất kho đang trong quy trình xuất (`CHO_XUAT` hoặc `NHAP`), BẮT BUỘC giữ nguyên trạng thái kho của đơn (`DA_DONG_GOI` = 8 - Chờ xuất kho hoặc `CHO_DONG_GOI` = 7), TUYỆT ĐỐI KHÔNG tự ý chuyển sang `DA_XUAT_TOAN_BO` khi thủ kho chưa bấm xác nhận xuất kho thực tế.
      - `DELIVERED` / `COMPLETED`: Chuyển đơn sang `HOAN_THANH` (5) khi đã hoàn tất xuất kho. Nếu kho chưa xuất, giữ nguyên trạng thái kho. Riêng Shopify, `fulfilled` chỉ tương ứng `DA_XUAT_TOAN_BO` (3), không phải đã giao.
      - `failed_delivery` / `returned`: Chuyển đơn sang `BI_HOAN_TRA` (6).
-   - **Giai đoạn 5 - Mã vận đơn (Tracking Code)**: Luôn cập nhật bổ sung `tracking_number` và `shipping_provider` vào đơn hàng nếu trước đó chưa có.
+   - **Giai đoạn 5 - Vận đơn, Mã chia chọn tuyến & Phương thức thanh toán (Shopee / Đa sàn)**:
+     - Tuyệt đối KHÔNG tự sinh mã vận đơn giả kiểu `"SPXVN" + orderSn`, KHÔNG ghi thẻ rỗng `[ĐƠN VỊ: ]` vào ghi chú đơn hàng, và KHÔNG hardcode mã tuyến giả `"1-SGN-HUB"` / `"SG100A-00-00-01"`.
+     - Sử dụng `ShopeeClient.getTrackingNumber` và `POST /api/v2/logistics/get_shipping_document_data_info` (kèm `package_list.package_number`, có cooldown 15 phút/đơn) để đồng bộ mã vận đơn thật, đơn vị vận chuyển, mã chia chọn tuyến (`first_recipient_sort_code`), mã trạm phát (`second`/`third_recipient_sort_code`), `[PTTT: COD]` / `[PTTT: Ví ShopeePay...]` và `[COD: <amount>]` qua `ShopeeWaybillMetadataHelper` — đồng thời tự chữa (heal) các đơn cũ từng lưu `SPXVN<orderSn>` giả hoặc `[ĐƠN VỊ: ]` rỗng.
+     - Phân biệt rạch ròi đơn **COD** (kể cả sau khi `COMPLETED` sang `da_thanh_toan`) với đơn **Ví điện tử / Online** (kể cả khi `UNPAID` — không nhầm thành COD).
+     - Giao diện chi tiết đơn (`ThuocTinhDonBan.jsx`) ẩn nút sao chép đối với chuỗi ẩn danh PII (`****`), hiển thị rõ Vận chuyển, Mã vận đơn thật, Mã chia chọn tuyến, Mã trạm phát, Thanh toán sàn, và dọn sạch các thẻ hệ thống nội bộ khỏi ô `Ghi chú` qua `lamSachGhiChuDonSan`.
 
 **Shopify — tiến trình xử lý đơn (AUDIT-105, 18/11/2026):** Chờ nhặt (1), chờ đóng gói (7), chờ xuất (8) phải đồng bộ trạng thái gốc `IN_PROGRESS` bằng `fulfillmentOrderReportProgress` từ API `2026-04`, đầu vào `progressReport.reasonNotes`; kho tự quản lý cần `write_merchant_managed_fulfillment_orders`. Phân tích JSON `errors` và `userErrors`, kiểm tra `supportedActions` và trạng thái trả về; không coi HTTP 200 hoặc tag là thành công. Không tạo fulfillment trước khi kho xuất thật. Theo dõi nghiệm thu tại `docs/tien-do-nghiem-thu.md`.
 
