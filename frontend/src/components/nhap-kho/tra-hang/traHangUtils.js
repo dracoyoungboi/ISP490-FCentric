@@ -9,6 +9,7 @@ import {
   TEN_HANG_LOI_NCC,
 } from "../../../constants/nhapKho.js";
 import { t } from "../../../i18n/t.js";
+import { formatCurrency } from "../../../utils/formatters.js";
 
 const tenTheoMa = (ds, ma) => ds.find((x) => x.ma === ma)?.ten ?? ma;
 
@@ -39,14 +40,38 @@ export function moTaKy(bb) {
   }
 }
 
+/** Dòng biên bản có lựa chọn theo dòng của máy chủ (màn chi tiết); danh sách không kèm dòng. */
+const coDongTheoDong = (bb) => Array.isArray(bb?.items) && bb.items.some((d) => d?.trangThaiHang);
+
 /**
- * Việc kho làm được với hàng lỗi còn ở kho, theo lựa chọn của nhà cung cấp: "giaoTra" (nhà cung cấp nhận lại),
- * "tieuHuy" (nhà cung cấp đồng ý tiêu hủy), hoặc null (chưa chọn, phiếu chưa nhập kho, hàng đã rời kho, biên bản hủy).
+ * Hàng lỗi còn ở kho kho phải làm theo lựa chọn của nhà cung cấp cho từng dòng: `giaoTra` (dòng nhận lại), `tieuHuy`
+ * (dòng đồng ý tiêu hủy), mỗi việc { dong, soLuong }. Danh sách không kèm dòng thì lấy số của đầu biên bản (dong rỗng);
+ * biên bản cũ một lựa chọn cho cả biên bản thì theo lựa chọn đó.
+ */
+export function dongKhoCanLam(bb) {
+  const rong = { giaoTra: { dong: [], soLuong: 0 }, tieuHuy: { dong: [], soLuong: 0 } };
+  if (!bb || bb.trangThai === "DA_HUY" || !bb.phieuDaNhap || bb.trangThaiHang !== "O_KHO") return rong;
+  if (coDongTheoDong(bb)) {
+    const theo = (hl) => {
+      const dong = bb.items.filter((d) => d.trangThaiHang === "O_KHO" && d.hangLoiNcc === hl);
+      return { dong, soLuong: dong.reduce((s, d) => s + (Number(d.soLuong) || 0), 0) };
+    };
+    return { giaoTra: theo("NHAN_LAI"), tieuHuy: theo("TIEU_HUY") };
+  }
+  const tong = Number(bb.tongSoLuongLoi) || 0;
+  const nhanLai = bb.soLuongNhanLai != null ? Number(bb.soLuongNhanLai) || 0 : bb.hangLoiNcc === "NHAN_LAI" ? tong : 0;
+  const tieuHuy = bb.soLuongTieuHuy != null ? Number(bb.soLuongTieuHuy) || 0 : bb.hangLoiNcc === "TIEU_HUY" ? tong : 0;
+  return { giaoTra: { dong: [], soLuong: nhanLai }, tieuHuy: { dong: [], soLuong: tieuHuy } };
+}
+
+/**
+ * Việc kho làm được với hàng lỗi còn ở kho, theo lựa chọn của nhà cung cấp: "giaoTra" (còn dòng nhận lại), "tieuHuy"
+ * (chỉ còn dòng đồng ý tiêu hủy), hoặc null (chưa chọn, phiếu chưa nhập kho, hàng đã rời kho, biên bản hủy).
  */
 export function viecKho(bb) {
-  if (!bb || bb.trangThai === "DA_HUY" || !bb.phieuDaNhap || bb.trangThaiHang !== "O_KHO") return null;
-  if (bb.hangLoiNcc === "NHAN_LAI") return "giaoTra";
-  if (bb.hangLoiNcc === "TIEU_HUY") return "tieuHuy";
+  const v = dongKhoCanLam(bb);
+  if (v.giaoTra.soLuong > 0) return "giaoTra";
+  if (v.tieuHuy.soLuong > 0) return "tieuHuy";
   return null;
 }
 
@@ -70,6 +95,7 @@ export function moTaHangLoi(bb) {
   if (bb.trangThaiHang === "DA_TIEU_HUY") {
     return t("nhà cung cấp đồng ý: {{ten}}", { ten: bb.nguoiNhanHang || "—" });
   }
+  if (bb.trangThaiHang === "DA_XU_LY") return t("đã giao trả và tiêu hủy theo từng sản phẩm");
   if (bb.trangThaiHang === "KHONG_RO") return t("biên bản lập trước khi có bước giao trả");
   return t("{{soLoi}} sản phẩm lỗi", { count: Number(bb.tongSoLuongLoi) || 0, soLoi: Number(bb.tongSoLuongLoi) || 0 });
 }
@@ -164,4 +190,26 @@ export function lichSuBienBan(bb) {
 /** Số trừ tiền và tiền đã trừ của biên bản. */
 export function tongTruTien(bb) {
   return { soLuong: Number(bb?.soLuongTruTien) || 0, tien: Number(bb?.tienTruTien) || 0 };
+}
+
+/** Lựa chọn cách bù của một dòng để hiện ở bảng: tên và dòng phụ (nguồn, hàng bù, số tiền). Biên bản chờ ký: null. */
+export function cachBuDong(d, bb) {
+  if (!d?.cachBu) return null;
+  if (d.cachBu === "CHO_CHOT") {
+    return { ten: d.nguonCachBu === "NHAP_KHO" ? t("Chờ chọn lại") : t("Chờ chọn"), phu: null, cho: true };
+  }
+  let phu = null;
+  if (d.nguonCachBu === "TU_DONG") phu = t("quá hạn trả lời");
+  else if (d.nguonCachBu === "DONG_DON") phu = t("đóng đơn mua");
+  if (d.cachBu === "TRU_CONG_NO" && Number(d.giaTri) > 0) phu = [phu, `−${formatCurrency(d.giaTri)}`].filter(Boolean).join(" · ");
+  if (d.cachBu === "DOI_HANG" && bb?.phieuDaNhap) phu = [phu, d.buXong ? t("đã nhận đủ hàng bù") : t("chờ hàng bù")].filter(Boolean).join(" · ");
+  return { ten: tenCachBu(d.cachBu), phu, cho: false };
+}
+
+/** Hàng lỗi của một dòng để hiện ở bảng: đã rời kho, hoặc lựa chọn của nhà cung cấp (chưa chọn: chờ). */
+export function hangLoiDong(d) {
+  if (d?.trangThaiHang === "DA_TRA") return { ten: t("Đã giao trả"), phu: d.nguoiNhanHang || null, cho: false };
+  if (d?.trangThaiHang === "DA_TIEU_HUY") return { ten: t("Đã tiêu hủy"), phu: null, cho: false };
+  if (d?.hangLoiNcc) return { ten: tenHangLoiNcc(d.hangLoiNcc), phu: t("ở kho"), cho: false };
+  return d?.trangThaiHang ? { ten: t("Chờ chọn"), phu: null, cho: true } : null;
 }

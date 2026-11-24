@@ -117,8 +117,9 @@ export default function TheHoaDonNhaCungCap({ phieuNhapKhoId, coTheSua, bienBanT
   // Ô đang lỗi: đánh dấu và trỏ tới câu báo lỗi (id do O tạo: `${id}-loi`) cho trình đọc màn hình
   const moTaLoi = (ten, coLoi) => (coLoi ? { "aria-invalid": true, "aria-describedby": `${fid(ten)}-loi` } : {});
   const coHoaDon = form.coHoaDon === "co";
-  // Hàng lỗi đã chốt trừ tiền: hóa đơn chỉ được ghi hàng đạt nhập ở phiếu
-  const soLoiTru = bienBanTraHang?.phuongAn === "TRU_CONG_NO" ? Number(bienBanTraHang.soLuongTruTien) || 0 : 0;
+  // Hàng lỗi đã trừ tiền (cả biên bản, hoặc một số dòng khi nhà cung cấp chọn theo từng sản phẩm): hóa đơn chỉ được ghi
+  // hàng đạt nhập ở phiếu. Máy chủ chỉ đếm số đã áp vào đơn mua.
+  const soLoiTru = bienBanTraHang && bienBanTraHang.trangThaiHienThi !== "DA_HUY" ? Number(bienBanTraHang.soLuongTruTien) || 0 : 0;
 
   return (
     <section aria-labelledby={fid("tieu-de")} className="rounded-lg border border-bo-border bg-white">

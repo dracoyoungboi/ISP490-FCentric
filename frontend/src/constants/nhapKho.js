@@ -13,7 +13,8 @@ export const LY_DO_LOI = ["Bung chỉ", "Rách vải", "Ố bẩn", "Sai màu / 
  * Biên bản trả hàng nhà cung cấp (FO-099): hai việc tách riêng.
  *  1. Hàng lỗi đi đâu: kho chọn CACH_XU_LY_HANG lúc lập; hàng giữ ở kho thì nhà cung cấp chọn nhận lại / tiêu hủy trên
  *     cổng, kho ghi giao trả / tiêu hủy theo lựa chọn đó.
- *  2. Nhà cung cấp bù gì (TEN_CACH_BU): nhà cung cấp chọn trên Cổng nhà cung cấp cho cả biên bản.
+ *  2. Nhà cung cấp bù gì (TEN_CACH_BU): nhà cung cấp chọn trên Cổng nhà cung cấp cho TỪNG DÒNG sản phẩm lỗi; đầu biên
+ *     bản là tổng của các dòng (HON_HOP: dòng giao bù, dòng trừ tiền).
  * Mã khớp BienBanTraHangNcc / BienBanTraHangServiceImpl ở máy chủ.
  */
 
@@ -32,11 +33,16 @@ export const BEN_KY = [
 ];
 export const BEN_KY_MAC_DINH = "DAI_DIEN_NCC";
 
-/** Tên cách bù của biên bản (nhà cung cấp chọn trên Cổng nhà cung cấp, một phương án cho cả biên bản). */
-export const TEN_CACH_BU = { CHO_CHOT: "Chờ nhà cung cấp chọn", DOI_HANG: "Giao bù hàng", TRU_CONG_NO: "Trừ tiền hàng" };
+/** Tên cách bù (của một dòng, hoặc tổng của biên bản: HON_HOP khi dòng giao bù dòng trừ tiền). */
+export const TEN_CACH_BU = {
+  CHO_CHOT: "Chờ nhà cung cấp chọn",
+  DOI_HANG: "Giao bù hàng",
+  TRU_CONG_NO: "Trừ tiền hàng",
+  HON_HOP: "Trừ tiền và giao bù",
+};
 
-/** Nhà cung cấp chọn cho hàng lỗi còn ở kho (trên Cổng nhà cung cấp). */
-export const TEN_HANG_LOI_NCC = { NHAN_LAI: "Nhận lại hàng lỗi", TIEU_HUY: "Đồng ý tiêu hủy" };
+/** Nhà cung cấp chọn cho hàng lỗi còn ở kho (trên Cổng nhà cung cấp); HON_HOP: dòng nhận lại, dòng tiêu hủy. */
+export const TEN_HANG_LOI_NCC = { NHAN_LAI: "Nhận lại hàng lỗi", TIEU_HUY: "Đồng ý tiêu hủy", HON_HOP: "Nhận lại và tiêu hủy" };
 
 /** Cách giao trả hàng lỗi sau khi nhập kho (nhà cung cấp đã chọn nhận lại). */
 export const CACH_GIAO_TRA = [
@@ -49,6 +55,7 @@ export const TRANG_THAI_HANG_LOI = {
   O_KHO: { label: "Đang ở kho chờ trả" },
   DA_TRA: { label: "Đã giao trả" },
   DA_TIEU_HUY: { label: "Đã tiêu hủy" },
+  DA_XU_LY: { label: "Đã trả và tiêu hủy" },
   KHONG_RO: { label: "Không rõ (dữ liệu cũ)" },
 };
 

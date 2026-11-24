@@ -360,10 +360,24 @@ export function bienBanHieuLuc(dsBienBan) {
   );
 }
 
-/** Biên bản mà hàng lỗi còn chờ: đã nhập kho và nhà cung cấp chưa chọn, hoặc giao bù mà chưa nhận đủ hàng bù. */
+/**
+ * Biên bản mà hàng lỗi còn chờ: đã nhập kho và còn dòng nhà cung cấp chưa chọn, hoặc có dòng giao bù mà chưa nhận đủ
+ * hàng bù (cả biên bản giao bù, hoặc dòng giao bù dòng trừ tiền).
+ */
 export function bienBanConCho(bb) {
   if (!bb?.phieuDaNhap) return false;
-  return bb.phuongAn === "CHO_CHOT" || (bb.phuongAn === "DOI_HANG" && !bb.buXong);
+  return bb.phuongAn === "CHO_CHOT" || ((bb.phuongAn === "DOI_HANG" || bb.phuongAn === "HON_HOP") && !bb.buXong);
+}
+
+/**
+ * Số lỗi của một biến thể trong biên bản còn chờ bên mua theo dõi: chờ nhà cung cấp chọn và giao bù. Máy chủ mới trả
+ * theo dòng (`soLuongChoChon`, `soLuongGiaoBu`); biên bản cũ một cách cho cả biên bản thì là toàn bộ số lỗi.
+ */
+function soLoiConCho(d) {
+  if (d?.soLuongChoChon != null || d?.soLuongGiaoBu != null) {
+    return { choChon: Math.max(0, docSo(d.soLuongChoChon)), giaoBu: Math.max(0, docSo(d.soLuongGiaoBu)) };
+  }
+  return null;
 }
 
 /**
@@ -375,9 +389,18 @@ export function nhanBuTheoBienThe(dsBienBan) {
   const kq = {};
   for (const bb of bienBanHieuLuc(dsBienBan)) {
     if (!bienBanConCho(bb)) continue;
-    const loai = bb.phuongAn === "CHO_CHOT" ? "choChot" : "choHangBu";
     for (const d of Array.isArray(bb.theoBienThe) ? bb.theoBienThe : []) {
       if (d?.bienTheSanPhamId == null || !(docSo(d.soLuongLoi) > 0)) continue;
+      const cho = soLoiConCho(d);
+      let loai;
+      if (cho) {
+        // Theo dòng: biến thể toàn dòng trừ tiền thì không còn chờ; giao bù đã đủ (dòng đơn hết thiếu) cũng không
+        if (cho.choChon > 0) loai = "choChot";
+        else if (cho.giaoBu > 0 && !(docSo(d.conThieuDongDon) <= 0)) loai = "choHangBu";
+        else continue;
+      } else {
+        loai = bb.phuongAn === "CHO_CHOT" ? "choChot" : "choHangBu";
+      }
       if (kq[d.bienTheSanPhamId] !== "choChot") kq[d.bienTheSanPhamId] = loai;
     }
   }
@@ -405,7 +428,10 @@ export function hangLoiChuyenKhiDongDon(dsBienBan, chiTiets) {
       const id = d?.bienTheSanPhamId;
       if (id == null) continue;
       const thieu = conLai.has(id) ? conLai.get(id) : Math.max(0, docSo(d.conThieuDongDon));
-      const chuyen = Math.max(0, Math.min(docSo(d.soLuongLoi), thieu));
+      // Chỉ phần chờ chọn / giao bù chuyển; dòng đã trừ tiền nằm sẵn trong "đã nhận" của dòng đơn
+      const cho = soLoiConCho(d);
+      const soCho = cho ? cho.choChon + cho.giaoBu : docSo(d.soLuongLoi);
+      const chuyen = Math.max(0, Math.min(soCho, thieu));
       conLai.set(id, thieu - chuyen);
       cuaBienBan += chuyen;
     }
@@ -422,6 +448,11 @@ export function tomTatPhuongAn(bb, dinhDangTien = String) {
   if (!bb?.phieuDaNhap) return "";
   if (bb.phuongAn === "TRU_CONG_NO") return t("trừ tiền {{tien}}", { tien: dinhDangTien(docSo(bb.tienTruTien)) });
   if (bb.phuongAn === "DOI_HANG") return bb.buXong ? t("giao bù, đã đủ") : t("giao bù");
+  if (bb.phuongAn === "HON_HOP") {
+    return bb.buXong
+      ? t("trừ tiền {{tien}}, giao bù đã đủ", { tien: dinhDangTien(docSo(bb.tienTruTien)) })
+      : t("trừ tiền {{tien}}, giao bù", { tien: dinhDangTien(docSo(bb.tienTruTien)) });
+  }
   if (bb.phuongAn === "CHO_CHOT") return t("chờ nhà cung cấp chọn");
   return "";
 }

@@ -27,9 +27,12 @@ import { t } from "@/i18n";
 import HopGhiHangLoi from "./HopGhiHangLoi";
 import { NhanTrangThaiHangLoi, NhanTrangThaiTraHang } from "./NhanTraHang";
 import {
+  cachBuDong,
   choNccTraLoi,
   choKyBienBan,
+  dongKhoCanLam,
   duongDanInBienBan,
+  hangLoiDong,
   lichSuBienBan,
   moTaKy,
   quaHan,
@@ -39,7 +42,6 @@ import {
   tenHangLoiNcc,
   tenNguoiGiao,
   tongTruTien,
-  viecKho,
 } from "./traHangUtils";
 
 const KHUNG_HOP = "flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden rounded-xl border-bo-border p-0 sm:max-w-[min(820px,calc(100%-2rem))]";
@@ -224,6 +226,28 @@ function TheViec({ nhan, trangThai, children, nut }) {
   );
 }
 
+/** Ô "Nhà cung cấp chọn" của một dòng: cách bù (kèm nguồn / số tiền / hàng bù) và hàng lỗi của riêng dòng. */
+function LuaChonDong({ d, bb }) {
+  const cb = cachBuDong(d, bb);
+  const hl = hangLoiDong(d);
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5 text-[13px] leading-5">
+      {cb ? (
+        <span className={cn("font-medium", cb.cho ? "text-bo-warning" : "text-bo-foreground")}>
+          {cb.ten}
+          {cb.phu ? <span className="font-normal text-bo-muted tabular-nums"> · {cb.phu}</span> : null}
+        </span>
+      ) : null}
+      {hl ? (
+        <span className={hl.cho ? "text-bo-warning" : "text-slate-600"}>
+          {t("Hàng lỗi: {{ten}}", { ten: hl.ten })}
+          {hl.phu ? <span className="text-bo-muted"> · {hl.phu}</span> : null}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 /** "Nguyễn Văn A · 14:30 23/11/2026" */
 const nguoiVaLuc = (nguoi, luc) => [nguoi, luc ? formatDateTime(luc) : null].filter(Boolean).join(" · ") || "—";
 
@@ -234,7 +258,8 @@ function NoiDung({ bb, onDong, onDaDoi }) {
   const laKho = hasAnyRole(VAI_TRO_KHO);
   const laQuanLyKho = hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO]);
   const daHuy = bb.trangThai === "DA_HUY";
-  const viec = viecKho(bb);
+  // Việc kho theo lựa chọn của nhà cung cấp cho từng dòng: dòng nhận lại chờ giao trả, dòng đồng ý tiêu hủy
+  const viec = dongKhoCanLam(bb);
   const choTraLoi = !daHuy && choNccTraLoi(bb);
   const tru = tongTruTien(bb);
   const lichSu = lichSuBienBan(bb);
@@ -247,6 +272,8 @@ function NoiDung({ bb, onDong, onDaDoi }) {
   const traNgay = bb.cachXuLyHang === "TRA_NGAY";
   const oKho = !daHuy && bb.trangThaiHang === "O_KHO";
   const choKy = choKyBienBan(bb);
+  // Cột lựa chọn của nhà cung cấp cho từng dòng: khi biên bản đã gửi nhà cung cấp và máy chủ trả lựa chọn theo dòng
+  const coLuaChon = !daHuy && !choKy && dongLoi.some((d) => d.trangThaiHang);
   const inBienBan = () => moTrangIn(duongDanInBienBan(bb.id), navigate);
   // Ghi chú nhà cung cấp gửi khi chọn trên cổng (cách bù và hàng lỗi thường cùng một lần nên trùng thì hiện một lần);
   // cách bù do đóng đơn / quá hạn thì ghi chú đó không phải của nhà cung cấp
@@ -257,25 +284,43 @@ function NoiDung({ bb, onDong, onDaDoi }) {
     goiY = <DongThongBao>{t("Biên bản lập trước khi có bước giao trả nên không rõ hàng lỗi đã đi chưa. Nhà cung cấp chọn nhận lại hay tiêu hủy trên Cổng nhà cung cấp, kho làm theo.")}</DongThongBao>;
   }
 
-  // ── Thẻ Hàng lỗi: kho làm theo lựa chọn của nhà cung cấp ──
-  let nutKho = null;
-  if (viec === "giaoTra" && laKho) {
-    nutKho = <Button variant="outline" onClick={() => setHopGhi("giaoTra")} className={`h-8 px-3 ${NUT_VIEN}`}>{t("Ghi đã giao trả")}</Button>;
-  } else if (viec === "tieuHuy" && laQuanLyKho) {
-    nutKho = <Button variant="outline" onClick={() => setHopGhi("tieuHuy")} className={`h-8 px-3 ${NUT_VIEN}`}>{t("Ghi tiêu hủy")}</Button>;
-  }
+  // ── Thẻ Hàng lỗi: kho làm theo lựa chọn của nhà cung cấp (mỗi việc một nút, có thể cùng lúc) ──
+  const nutGiaoTra = viec.giaoTra.soLuong > 0 && laKho;
+  const nutTieuHuy = viec.tieuHuy.soLuong > 0 && laQuanLyKho;
+  const nutKho = nutGiaoTra || nutTieuHuy ? (
+    <>
+      {nutGiaoTra ? (
+        <Button variant="outline" onClick={() => setHopGhi("giaoTra")} className={`h-8 px-3 ${NUT_VIEN}`}>
+          {viec.tieuHuy.soLuong > 0 ? t("Ghi đã giao trả ({{count}} sản phẩm)", { count: viec.giaoTra.soLuong }) : t("Ghi đã giao trả")}
+        </Button>
+      ) : null}
+      {nutTieuHuy ? (
+        <Button variant="outline" onClick={() => setHopGhi("tieuHuy")} className={`h-8 px-3 ${NUT_VIEN}`}>
+          {viec.giaoTra.soLuong > 0 ? t("Ghi tiêu hủy ({{count}} sản phẩm)", { count: viec.tieuHuy.soLuong }) : t("Ghi tiêu hủy")}
+        </Button>
+      ) : null}
+    </>
+  ) : null;
+  const soChuaChon = (bb.items ?? []).filter((d) => d.trangThaiHang === "O_KHO" && !d.hangLoiNcc).reduce((s, d) => s + Number(d.soLuong || 0), 0);
+  // Đã giao trả / tiêu hủy một phần: nói số còn ở kho thay vì tổng số lỗi
+  const soOKho = coLuaChon ? dongLoi.filter((d) => d.trangThaiHang === "O_KHO").reduce((s, d) => s + Number(d.soLuong || 0), 0) : tongLoi;
   let viecConLai = null;
   if (choKy) viecConLai = null;
   else if (oKho && !bb.hangLoiNcc) viecConLai = t("Chờ nhà cung cấp chọn nhận lại hay đồng ý tiêu hủy.");
   else if (oKho && !bb.phieuDaNhap) viecConLai = t("Làm theo lựa chọn này sau khi phiếu nhập kho.");
-  else if (viec === "tieuHuy" && !laQuanLyKho) viecConLai = t("Quản lý kho ghi tiêu hủy.");
+  else if (oKho && soChuaChon > 0) viecConLai = t("Còn {{count}} sản phẩm chờ nhà cung cấp chọn nhận lại hay tiêu hủy.", { count: soChuaChon });
+  else if (viec.tieuHuy.soLuong > 0 && !laQuanLyKho) viecConLai = t("Quản lý kho ghi tiêu hủy.");
   const theHangLoi = (
     <TheViec
       nhan={t("Hàng lỗi")}
       trangThai={
         <>
           <NhanTrangThaiHangLoi ma={bb.trangThaiHang} />
-          <span className="text-[13px] text-bo-muted">{t("{{count}} sản phẩm", { count: tongLoi })}</span>
+          <span className="text-[13px] text-bo-muted">
+            {oKho && soOKho < tongLoi
+              ? t("còn {{con}}/{{count}} sản phẩm ở kho", { con: soOKho, count: tongLoi })
+              : t("{{count}} sản phẩm", { count: tongLoi })}
+          </span>
         </>
       }
       nut={nutKho}
@@ -297,7 +342,9 @@ function NoiDung({ bb, onDong, onDaDoi }) {
         <>
           <Dong nhan={t("Ở kho từ")}>{bb.ngayNhapKho ? formatDate(bb.ngayNhapKho) : t("Chưa nhập kho")}</Dong>
           <Dong nhan={t("Nhà cung cấp chọn")}>
-            {bb.hangLoiNcc ? tenHangLoiNcc(bb.hangLoiNcc) : <span className="text-bo-muted">{t("Chưa chọn")}</span>}
+            {bb.hangLoiNcc === "HON_HOP"
+              ? t("Nhận lại {{nhanLai}} · tiêu hủy {{tieuHuy}} sản phẩm", { nhanLai: Number(bb.soLuongNhanLai) || 0, tieuHuy: Number(bb.soLuongTieuHuy) || 0 })
+              : bb.hangLoiNcc ? tenHangLoiNcc(bb.hangLoiNcc) : <span className="text-bo-muted">{t("Chưa chọn")}</span>}
           </Dong>
           {bb.hangLoiNcc ? <Dong nhan={t("Xác nhận bởi")}>{nguoiVaLuc(bb.nguoiChonHangLoi, bb.thoiDiemChonHangLoi)}</Dong> : null}
         </>
@@ -317,10 +364,10 @@ function NoiDung({ bb, onDong, onDaDoi }) {
       <>
         <span className="text-sm font-semibold text-bo-foreground">{tenCachBu(bb.phuongAn)}</span>
         {!bb.phieuDaNhap ? <span className="text-[13px] text-bo-muted">{t("áp khi nhập kho")}</span> : null}
-        {bb.phieuDaNhap && bb.phuongAn === "TRU_CONG_NO" && tru.tien > 0 ? (
+        {bb.phieuDaNhap && (bb.phuongAn === "TRU_CONG_NO" || bb.phuongAn === "HON_HOP") && tru.tien > 0 ? (
           <span className="text-sm font-semibold tabular-nums text-bo-foreground">−{formatCurrency(tru.tien)}</span>
         ) : null}
-        {bb.phieuDaNhap && bb.phuongAn === "DOI_HANG" ? (
+        {bb.phieuDaNhap && (bb.phuongAn === "DOI_HANG" || bb.phuongAn === "HON_HOP") ? (
           <span className={cn("text-[13px]", bb.buXong ? "text-bo-success" : "text-bo-muted")}>
             {bb.buXong ? t("đã nhận đủ hàng bù") : t("chờ hàng bù")}
           </span>
@@ -376,16 +423,17 @@ function NoiDung({ bb, onDong, onDaDoi }) {
 
           {goiY}
 
-          {/* Một bảng sản phẩm lỗi: theo lô và lý do, kèm đơn giá và giá trị khi đã nhập kho */}
+          {/* Một bảng sản phẩm lỗi: theo lô và lý do, lựa chọn của nhà cung cấp cho từng dòng, đơn giá và giá trị khi đã nhập kho */}
           <section className="min-w-0">
             <h3 className="mb-2 text-sm font-semibold text-bo-foreground">{t("Sản phẩm lỗi")}</h3>
             <div className="min-w-0 overflow-x-auto rounded-lg border border-bo-border">
-              <table className="w-full min-w-[560px] text-sm">
+              <table className={cn("w-full text-sm", coLuaChon ? "min-w-[720px]" : "min-w-[560px]")}>
                 <thead>
                   <tr className="border-b border-bo-border bg-bo-surface-subtle">
                     <th className={TH}>{t("Sản phẩm")}</th>
                     <th className={TH}>{t("Lô")}</th>
                     <th className={TH}>{t("Lý do")}</th>
+                    {coLuaChon ? <th className={TH}>{t("Nhà cung cấp chọn")}</th> : null}
                     <th className={`${TH} text-right`}>{t("SL")}</th>
                     {coGia ? <th className={`${TH} text-right`}>{t("Đơn giá")}</th> : null}
                     {coGia ? <th className={`${TH} text-right`}>{t("Giá trị")}</th> : null}
@@ -406,6 +454,7 @@ function NoiDung({ bb, onDong, onDaDoi }) {
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs text-slate-600">{d.maLo || "—"}</td>
                         <td className="px-3 py-2.5 text-slate-700">{t(d.lyDo)}</td>
+                        {coLuaChon ? <td className="px-3 py-2.5"><LuaChonDong d={d} bb={bb} /></td> : null}
                         <td className="px-3 py-2.5 text-right tabular-nums text-bo-foreground last:pr-4">{d.soLuong}</td>
                         {coGia ? <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-slate-600">{gia != null ? formatCurrency(gia) : "—"}</td> : null}
                         {coGia ? (
@@ -419,7 +468,7 @@ function NoiDung({ bb, onDong, onDaDoi }) {
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-bo-border font-semibold">
-                    <td className="h-11 pl-4 pr-3 text-bo-foreground" colSpan={3}>{t("Tổng")}</td>
+                    <td className="h-11 pl-4 pr-3 text-bo-foreground" colSpan={coLuaChon ? 4 : 3}>{t("Tổng")}</td>
                     <td className="px-3 text-right tabular-nums text-bo-foreground last:pr-4">{tongLoi}</td>
                     {coGia ? <td /> : null}
                     {coGia ? <td className="whitespace-nowrap pl-3 pr-4 text-right tabular-nums text-bo-foreground">{formatCurrency(tongGiaTri)}</td> : null}
@@ -463,7 +512,14 @@ function NoiDung({ bb, onDong, onDaDoi }) {
         </DialogFooter>
 
         {/* Hộp con đặt trong cây của hộp cha: lớp đóng / bẫy tiêu điểm của Radix lồng đúng thứ tự */}
-        <HopGhiHangLoi open={Boolean(hopGhi)} onOpenChange={(m) => !m && setHopGhi(null)} cheDo={hopGhi ?? "giaoTra"} bienBan={bb} onXong={onDaDoi} />
+        <HopGhiHangLoi
+          open={Boolean(hopGhi)}
+          onOpenChange={(m) => !m && setHopGhi(null)}
+          cheDo={hopGhi ?? "giaoTra"}
+          bienBan={bb}
+          dong={hopGhi === "tieuHuy" ? viec.tieuHuy.dong : viec.giaoTra.dong}
+          onXong={onDaDoi}
+        />
       </DialogContent>
     </>
   );
