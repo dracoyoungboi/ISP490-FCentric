@@ -87,6 +87,89 @@ export function pxMoiMmXemTruoc(kho, rongPx = 280) {
     return Math.min(8, Math.floor((rongPx / kho.rongTem) * 10) / 10);
 }
 
+/** Tên / biến thể dài được co chữ tới tỉ lệ này của cỡ gốc trước khi xuống dòng hoặc cắt "…". */
+export const CO_CHU_TOI_THIEU = 0.85;
+/** Tên xuống 2 dòng chỉ khi vạch còn cao ít nhất chừng này (mm); thấp hơn thì súng quét cầm tay khó đọc. */
+export const CAO_VACH_TOI_THIEU_MM = 7;
+
+/** Cắt chuỗi cho vừa `rong` mm, thêm "…"; `doRong(chu)` trả bề rộng mm ở cỡ đang xét. */
+function catVua(chu, rong, doRong) {
+    if (doRong(chu) <= rong) return { chu, cat: false };
+    let thap = 0;
+    let cao = chu.length;
+    while (thap < cao) {
+        const giua = Math.ceil((thap + cao) / 2);
+        if (doRong(`${chu.slice(0, giua).trimEnd()}…`) <= rong) thap = giua;
+        else cao = giua - 1;
+    }
+    return { chu: `${chu.slice(0, thap).trimEnd()}…`, cat: true };
+}
+
+/** Chia `chu` thành tối đa 2 dòng theo từ; dòng 2 còn dài thì cắt "…". Từ đầu đã dài hơn một dòng thì null. */
+function chiaHaiDong(chu, rong, doRong) {
+    const tu = chu.split(/\s+/).filter(Boolean);
+    let dong1 = "";
+    let i = 0;
+    while (i < tu.length) {
+        const thu = dong1 ? `${dong1} ${tu[i]}` : tu[i];
+        if (doRong(thu) > rong) break;
+        dong1 = thu;
+        i += 1;
+    }
+    if (!dong1) return null;
+    const dong2 = catVua(tu.slice(i).join(" "), rong, doRong);
+    return { dong: [dong1, dong2.chu], cat: dong2.cat };
+}
+
+/**
+ * Bố cục chữ trên một tem khi tên / "Màu - Kích cỡ" dài hơn bề ngang tem (trừ lề):
+ * 1. Tên vừa một dòng: giữ nguyên.
+ * 2. Co chữ (không nhỏ hơn CO_CHU_TOI_THIEU cỡ gốc) mà vừa một dòng: co.
+ * 3. Không thì xuống 2 dòng cỡ gốc nếu vạch vẫn cao ≥ CAO_VACH_TOI_THIEU_MM (vạch thấp lại vừa đủ chỗ dòng thêm).
+ * 4. Không đủ chỗ: một dòng cỡ nhỏ nhất, cắt "…" (`catTen` = true để màn hình báo).
+ * "Màu - Kích cỡ" chỉ co rồi cắt, không xuống dòng.
+ * `doRong(chu, coMm, dam)` trả bề rộng chữ (mm) ở cỡ `coMm`; `coTenCuaHang`, `coSku`: tem có dòng đó.
+ * Trả { ten: [dòng…], coTen, bienThe, coBienThe, caoVach, catTen, catBienThe } (cỡ, cao theo mm).
+ */
+export function boCucChuTem(dong, kho, { coTenCuaHang = false, coSku = false } = {}, doRong) {
+    const rong = kho.rongTem - 2 * kho.leNgang;
+    const { coChu, dongCao } = kho;
+    const doCo = (co, dam) => (chu) => doRong(chu, co, dam);
+
+    const bienThe = nhanBienThe(dong);
+    const rongBienThe = bienThe ? doRong(bienThe, 1, false) : 0;
+    const coBienThe = rongBienThe * coChu.bienThe > rong
+        ? Math.max(coChu.bienThe * CO_CHU_TOI_THIEU, rong / rongBienThe)
+        : coChu.bienThe;
+    const btCat = catVua(bienThe, rong, doCo(coBienThe, false));
+    const kq = {
+        ten: [String(dong?.tenSanPham ?? "")],
+        coTen: coChu.ten,
+        bienThe: btCat.chu,
+        coBienThe,
+        caoVach: kho.caoVach,
+        catTen: false,
+        catBienThe: btCat.cat,
+    };
+
+    const ten = kq.ten[0];
+    const rongTen = ten ? doRong(ten, 1, true) : 0;
+    if (rongTen * coChu.ten <= rong) return kq;
+    const coCan = rong / rongTen;
+    if (coCan >= coChu.ten * CO_CHU_TOI_THIEU) return { ...kq, coTen: coCan };
+
+    const caoNoiDung = kho.caoTem - 2 * kho.leDoc;
+    const dongKhac = (coTenCuaHang ? dongCao.cuaHang + 0.4 : 0) + dongCao.bienThe + dongCao.gia + (coSku ? dongCao.sku : 0);
+    const vachHaiDong = Math.min(kho.caoVach, Math.floor((caoNoiDung - dongKhac - 2 * dongCao.ten) * 10) / 10);
+    if (vachHaiDong >= CAO_VACH_TOI_THIEU_MM) {
+        const hai = chiaHaiDong(ten, rong, doCo(coChu.ten, true));
+        if (hai) return { ...kq, ten: hai.dong, caoVach: vachHaiDong, catTen: hai.cat };
+    }
+    const coNho = coChu.ten * CO_CHU_TOI_THIEU;
+    const mot = catVua(ten, rong, doCo(coNho, true));
+    return { ...kq, ten: [mot.chu], coTen: coNho, catTen: mot.cat };
+}
+
 /** Số tem mặc định của một dòng: theo số lượng nhập của phiếu hoặc 1 tem (BA bỏ in theo tồn). */
 export function soTemMacDinh(dong, cheDo) {
     if (cheDo === CHE_DO_SO_TEM.nhap) return gioiHanSoTem(dong?.soLuong);

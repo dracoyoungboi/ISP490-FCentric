@@ -1,7 +1,9 @@
-import { MO_DUN_MM, VUNG_TRANG_MO_DUN, giaTrenTem, maVachTem, nhanBienThe } from "./tinhTem.js";
+import { MO_DUN_MM, VUNG_TRANG_MO_DUN, boCucChuTem, giaTrenTem, maVachTem } from "./tinhTem.js";
+import { PHONG_TEM, doRongChuTemMm, usePhongTemDaTai } from "./doChuTem.js";
 
 /**
- * Một tem sản phẩm: tên (1 dòng, cắt …), "Màu - Kích cỡ", mã vạch CODE128 của ma_vach_sku, dãy số dưới vạch, giá đậm.
+ * Một tem sản phẩm: tên, "Màu - Kích cỡ", mã vạch CODE128 của ma_vach_sku, dãy số dưới vạch, giá đậm.
+ * Tên dài thì co chữ, xuống 2 dòng hoặc cắt "…" theo boCucChuTem (tinhTem.js).
  * Tên cửa hàng và SKU chỉ hiện khi cấu hình bật. Không viền.
  *
  * Mọi kích thước tính bằng mm theo khổ `kho` (components/print/paperStyles.js · KHO_TEM), không max-width hay scale:
@@ -9,10 +11,12 @@ import { MO_DUN_MM, VUNG_TRANG_MO_DUN, giaTrenTem, maVachTem, nhanBienThe } from
  */
 export default function TemSanPham({ dong, kho, inTenCuaHang = false, tenCuaHang, inSku = false, pxMoiMm }) {
     const d = (mm) => (pxMoiMm ? `${mm * pxMoiMm}px` : `${mm}mm`);
+    usePhongTemDaTai();
     const vach = maVachTem(dong?.maVachSku);
     const coTenCuaHang = inTenCuaHang && Boolean(tenCuaHang);
     const coSku = inSku && Boolean(dong?.maSku);
     const { coChu, dongCao } = kho;
+    const chu = boCucChuTem(dong, kho, { coTenCuaHang, coSku }, doRongChuTemMm);
     // Dãy số dưới vạch: mã dài hơn mã tự sinh (10 số) thì bỏ giãn chữ và thu cỡ chữ theo độ dài (tối thiểu 80%), để
     // không bị cắt mất chữ số khi đứng cạnh giá lớn
     const soKyTu = String(dong?.maVachSku ?? "").length;
@@ -43,24 +47,32 @@ export default function TemSanPham({ dong, kho, inTenCuaHang = false, tenCuaHang
                 overflow: "hidden",
                 background: "#fff",
                 color: "#000",
-                fontFamily: "Inter, Arial, sans-serif",
+                fontFamily: PHONG_TEM,
+                // Cùng cỡ quang học với lúc đo chữ (doChuTem.js): bản xem trước phóng to không làm chữ hẹp đi
+                fontVariationSettings: '"opsz" 14',
                 flex: "none",
             }}
         >
             <div style={{ minWidth: 0 }}>
                 {coTenCuaHang ? <div style={motDong(coChu.cuaHang, dongCao.cuaHang, { fontWeight: 600 })}>{tenCuaHang}</div> : null}
                 {/* Có dòng tên cửa hàng: chừa khoảng cho dấu chồng chữ hoa của tên (Ấ, Ế, Ổ) khỏi chạm dòng trên */}
-                <div style={motDong(coChu.ten, dongCao.ten, { fontWeight: 700, ...(coTenCuaHang ? { marginTop: d(0.4) } : {}) })}>
-                    {dong?.tenSanPham}
-                </div>
-                <div style={motDong(coChu.bienThe, dongCao.bienThe)}>{nhanBienThe(dong)}</div>
+                {chu.ten.map((dongTen, i) => (
+                    <div
+                        // Tối đa 2 dòng, thứ tự cố định
+                        key={i}
+                        style={motDong(chu.coTen, dongCao.ten, { fontWeight: 700, ...(coTenCuaHang && i === 0 ? { marginTop: d(0.4) } : {}) })}
+                    >
+                        {dongTen}
+                    </div>
+                ))}
+                <div style={motDong(chu.coBienThe, dongCao.bienThe)}>{chu.bienThe}</div>
             </div>
             {vach ? (
                 <svg
                     role="img"
                     aria-label={`Mã vạch ${dong.maVachSku}`}
                     width={d(vach.rongMm)}
-                    height={d(kho.caoVach)}
+                    height={d(chu.caoVach)}
                     viewBox={`0 0 ${vach.soMoDun + 2 * VUNG_TRANG_MO_DUN} 1`}
                     preserveAspectRatio="none"
                     shapeRendering="crispEdges"
