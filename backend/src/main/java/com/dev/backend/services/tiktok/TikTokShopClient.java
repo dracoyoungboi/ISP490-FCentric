@@ -81,13 +81,17 @@ public class TikTokShopClient {
     }
 
     /**
-     * Tạo URL chuyển hướng người bán sang TikTok Shop Seller Center để ủy quyền Partner App.
+     * Tạo URL chuyển hướng người bán sang TikTok Shop Seller Center để ủy quyền Custom App.
      * Tự động sinh mã state ngẫu nhiên chống tấn công CSRF.
      */
     public String generateAuthUrl(String appKey, String redirectUri) {
         return generateAuthUrl(appKey, redirectUri, java.util.UUID.randomUUID().toString());
     }
 
+    /**
+     * Tạo URL ủy quyền TikTok Shop theo chuẩn Custom App:
+     * {@code https://auth.tiktok-shops.com/oauth/authorize?app_key=<appKey>&state=<state>}.
+     */
     public String generateAuthUrl(String appKey, String redirectUri, String state) {
         if (appKey == null || appKey.isBlank()) {
             throw new LoiThamSoException(ThongDiep.of("kenhBan.appKeyTrongKhiTaoUrlTikTok"));
@@ -95,8 +99,24 @@ public class TikTokShopClient {
         String cleanAppKey = appKey.trim();
         String cleanState = (state != null && !state.isBlank()) ? state.trim() : java.util.UUID.randomUUID().toString();
 
+        StringBuilder urlBuilder = new StringBuilder(TikTokShopConstants.AUTH_URL_CUSTOM);
+        urlBuilder.append("?app_key=").append(URLEncoder.encode(cleanAppKey, StandardCharsets.UTF_8));
+        urlBuilder.append("&state=").append(URLEncoder.encode(cleanState, StandardCharsets.UTF_8));
+        return urlBuilder.toString();
+    }
+
+    /**
+     * Tạo URL ủy quyền TikTok Shop dành riêng cho Partner App có {@code service_id} độc lập.
+     */
+    public String generatePartnerAuthUrl(String serviceId, String redirectUri, String state) {
+        if (serviceId == null || serviceId.isBlank()) {
+            throw new LoiThamSoException(ThongDiep.of("kenhBan.appKeyTrongKhiTaoUrlTikTok"));
+        }
+        String cleanServiceId = serviceId.trim();
+        String cleanState = (state != null && !state.isBlank()) ? state.trim() : java.util.UUID.randomUUID().toString();
+
         StringBuilder urlBuilder = new StringBuilder(TikTokShopConstants.AUTH_URL_PARTNER);
-        urlBuilder.append("?service_id=").append(URLEncoder.encode(cleanAppKey, StandardCharsets.UTF_8));
+        urlBuilder.append("?service_id=").append(URLEncoder.encode(cleanServiceId, StandardCharsets.UTF_8));
         urlBuilder.append("&state=").append(URLEncoder.encode(cleanState, StandardCharsets.UTF_8));
         if (redirectUri != null && !redirectUri.isBlank()) {
             urlBuilder.append("&redirect_uri=").append(URLEncoder.encode(redirectUri.trim(), StandardCharsets.UTF_8));
