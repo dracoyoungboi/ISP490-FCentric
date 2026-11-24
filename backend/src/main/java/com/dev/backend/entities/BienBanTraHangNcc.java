@@ -17,10 +17,13 @@ import java.util.Set;
  * Biên bản trả hàng nhà cung cấp. Chỉ dùng các cột sẵn có của bảng (BA chốt 23/11/2026: không thêm cột); chi tiết từng
  * việc (lập, gửi email, nhà cung cấp trả lời, giao trả, tiêu hủy) nằm ở lich_su_thay_doi — xem NhatKyTraHangNcc.
  * <ul>
- *   <li>{@code trangThai}: hàng lỗi đang ở đâu — CHO_TRA_HANG (ở kho chờ trả), DA_TRA_HANG, DA_TIEU_HUY — hoặc DA_HUY.</li>
- *   <li>{@code phuongAnXuLy}: nhà cung cấp bù gì — CHO_CHOT, DOI_HANG (giao bù), TRU_CONG_NO (trừ tiền).</li>
+ *   <li>{@code trangThai}: hàng lỗi đang ở đâu — CHO_TRA_HANG (còn dòng ở kho chờ trả), DA_TRA_HANG, DA_TIEU_HUY,
+ *   DA_XU_LY (mọi dòng đã rời kho, có dòng trả có dòng tiêu hủy) — hoặc DA_HUY.</li>
+ *   <li>{@code phuongAnXuLy}: nhà cung cấp bù gì — CHO_CHOT (còn dòng chưa chọn), DOI_HANG (giao bù), TRU_CONG_NO
+ *   (trừ tiền), HON_HOP (dòng giao bù, dòng trừ tiền).</li>
  * </ul>
- * Nhà cung cấp quyết cả hai việc trên Cổng nhà cung cấp (cách bù và nhận lại / tiêu hủy hàng lỗi), kho chỉ làm theo.
+ * Nhà cung cấp quyết cả hai việc cho TỪNG DÒNG sản phẩm lỗi trên Cổng nhà cung cấp, kho chỉ làm theo. Lựa chọn của từng
+ * dòng nằm ở nhật ký; hai cột trên là tổng của các dòng, ghi lại sau mỗi việc.
  */
 @AllArgsConstructor
 @Getter
@@ -39,6 +42,8 @@ public class BienBanTraHangNcc {
     public static final String DA_TRA_HANG = "DA_TRA_HANG";
     /** Nhà cung cấp không lấy lại, kho đã tiêu hủy. */
     public static final String DA_TIEU_HUY = "DA_TIEU_HUY";
+    /** Mọi dòng hàng lỗi đã rời kho, dòng giao trả dòng tiêu hủy (nhà cung cấp chọn khác nhau theo dòng). */
+    public static final String DA_XU_LY = "DA_XU_LY";
     /**
      * Biên bản bị hủy (phiếu nhập bị hủy, hoặc phiếu hết hàng lỗi). Không xóa dòng: số biên bản đã cấp (có thể đã in,
      * đã giao người giao hàng / nhà cung cấp) không bao giờ được cấp lại cho biên bản khác.
@@ -51,6 +56,8 @@ public class BienBanTraHangNcc {
     public static final String PA_DOI_HANG = "DOI_HANG";
     /** Không giao lại: số lỗi cộng vào "đã nhận" của dòng đơn mua (đơn không chờ nữa), tiền hàng giảm theo. */
     public static final String PA_TRU_CONG_NO = "TRU_CONG_NO";
+    /** Mọi dòng đã có cách bù, có dòng giao bù có dòng trừ tiền. */
+    public static final String PA_HON_HOP = "HON_HOP";
     /** Mã của biên bản lập trước 22/11/2026: giao bù. */
     static final String PA_CU_DOI_HANG_MOI = "DOI_HANG_MOI";
     /** Mã của biên bản lập trước 22/11/2026: hàng lỗi theo tài xế về, đơn đã trừ số lỗi. */
@@ -77,27 +84,30 @@ public class BienBanTraHangNcc {
     public static final String HANG_O_KHO = "O_KHO";
     public static final String HANG_DA_TRA = "DA_TRA";
     public static final String HANG_DA_TIEU_HUY = "DA_TIEU_HUY";
+    /** Mọi dòng đã rời kho, dòng trả dòng tiêu hủy. */
+    public static final String HANG_DA_XU_LY = "DA_XU_LY";
 
     public static final String GIAO_TAI_XE = "TAI_XE";
     public static final String GIAO_NCC_LAY = "NCC_LAY";
     public static final String GIAO_VAN_CHUYEN = "VAN_CHUYEN";
 
-    private static final Set<String> TRANG_THAI_HANG_DA_ROI_KHO = Set.of(DA_TRA_HANG, DA_TIEU_HUY);
+    private static final Set<String> TRANG_THAI_HANG_DA_ROI_KHO = Set.of(DA_TRA_HANG, DA_TIEU_HUY, DA_XU_LY);
 
     /** Biên bản còn hiệu lực (chưa hủy). */
     public boolean dangHieuLuc() {
         return !DA_HUY.equals(trangThai);
     }
 
-    /** Hàng lỗi còn ở kho chờ trả (biên bản còn hiệu lực). */
+    /** Còn ít nhất một dòng hàng lỗi ở kho chờ trả (biên bản còn hiệu lực). */
     public boolean hangConOKho() {
         return dangHieuLuc() && !TRANG_THAI_HANG_DA_ROI_KHO.contains(trangThai) && !PA_CU_TRA_TAI_XE.equals(phuongAnXuLy);
     }
 
-    /** O_KHO | DA_TRA | DA_TIEU_HUY (biên bản cũ trả tài xế: đã trả). Biên bản đã hủy: null. */
+    /** O_KHO (còn dòng ở kho) | DA_TRA | DA_TIEU_HUY | DA_XU_LY (biên bản cũ trả tài xế: đã trả). Biên bản đã hủy: null. */
     public String maHangLoi() {
         if (!dangHieuLuc()) return null;
         if (DA_TIEU_HUY.equals(trangThai)) return HANG_DA_TIEU_HUY;
+        if (DA_XU_LY.equals(trangThai)) return HANG_DA_XU_LY;
         if (DA_TRA_HANG.equals(trangThai) || PA_CU_TRA_TAI_XE.equals(phuongAnXuLy)) return HANG_DA_TRA;
         return HANG_O_KHO;
     }
@@ -140,13 +150,13 @@ public class BienBanTraHangNcc {
     @Builder.Default
     Integer tongSoLuongLoi = 0;
 
-    /** CHO_CHOT | DOI_HANG | TRU_CONG_NO (đọc qua {@link #phuongAn()} để quy đổi mã cũ). */
+    /** CHO_CHOT | DOI_HANG | TRU_CONG_NO | HON_HOP (đọc qua {@link #phuongAn()} để quy đổi mã cũ). */
     @Size(max = 50)
     @Column(name = "phuong_an_xu_ly", length = 50)
     @Builder.Default
     String phuongAnXuLy = PA_CHO_CHOT;
 
-    /** CHO_TRA_HANG | DA_TRA_HANG | DA_TIEU_HUY | DA_HUY. */
+    /** CHO_TRA_HANG | DA_TRA_HANG | DA_TIEU_HUY | DA_XU_LY | DA_HUY. */
     @Size(max = 50)
     @Column(name = "trang_thai", length = 50)
     @Builder.Default

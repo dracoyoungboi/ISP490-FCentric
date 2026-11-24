@@ -300,6 +300,9 @@ public class CongNhaCungCapService {
         if (BienBanTraHangNcc.HANG_DA_TRA.equals(tt)) {
             moTa = b.getNguoiNhanHang() == null ? null
                     : b.getNguoiNhanHang() + (b.getBienSoXe() == null ? "" : " (" + b.getBienSoXe() + ")");
+        } else if (BienBanTraHangNcc.HANG_DA_XU_LY.equals(tt)) {
+            // Dòng giao trả, dòng tiêu hủy: không có một người nhận / một kho chung để kể
+            moTa = null;
         } else {
             moTa = b.getTenKho();
         }
@@ -339,8 +342,11 @@ public class CongNhaCungCapService {
 
     public CongNcc.BienBan traLoiBienBan(String maPhien, Integer id, CongNccRequest.TraLoiBienBan traLoi) {
         Phien p = layPhien(maPhien);
-        return bienBanCong(bienBanTraHangService.traLoiTuCong(id, p.ids(), traLoi.phienBan(), traLoi.phuongAn(),
-                traLoi.hangLoi(), traLoi.nguoiXacNhan(), traLoi.ghiChu()));
+        List<BienBanTraHangService.LuaChonDong> theoDong = traLoi.dong() == null ? null : traLoi.dong().stream()
+                .map(d -> d == null ? null : new BienBanTraHangService.LuaChonDong(d.id(), d.phuongAn(), d.hangLoi()))
+                .toList();
+        return bienBanCong(bienBanTraHangService.traLoiTuCong(id, p.ids(), traLoi.phienBan(), theoDong, traLoi.phuongAn(),
+                traLoi.hangLoi(), traLoi.nguoiXacNhan(), traLoi.ghiChu(), Boolean.TRUE.equals(traLoi.camKet())));
     }
 
     private CongNcc.BienBan bienBanCong(BienBanTraHangDto b) {
@@ -357,10 +363,13 @@ public class CongNhaCungCapService {
         BigDecimal tongGt = BigDecimal.ZERO;
         for (BienBanTraHangDto.ChiTietItemDto it : b.getItems() == null ? List.<BienBanTraHangDto.ChiTietItemDto>of() : b.getItems()) {
             int sl = it.getSoLuong() == null ? 0 : it.getSoLuong();
-            BigDecimal donGia = gia.get(it.getBienTheSanPhamId());
+            BigDecimal donGia = it.getDonGia() != null ? it.getDonGia() : gia.get(it.getBienTheSanPhamId());
             BigDecimal giaTri = donGia == null ? null : donGia.multiply(BigDecimal.valueOf(sl));
-            dong.add(new CongNcc.DongLoi(it.getTenBienThe(), it.getMauSac(), it.getKichCo(), it.getSku(), it.getMaLo(),
-                    it.getLyDo(), sl, donGia, giaTri));
+            dong.add(new CongNcc.DongLoi(it.getId(), it.getTenBienThe(), it.getMauSac(), it.getKichCo(), it.getSku(),
+                    it.getMaLo(), it.getLyDo(), sl, donGia, giaTri, it.getCachBu(), it.getNguonCachBu(),
+                    danhSach(it.getCachBuMo()), Boolean.TRUE.equals(it.getBuXong()), it.getHangLoiNcc(),
+                    it.getTrangThaiHang(), danhSach(it.getHangLoiMo()), it.getNguoiNhanHang(), it.getThoiDiemRoiKho(),
+                    it.getSoLuongTru() == null ? 0 : it.getSoLuongTru(), it.getTienTru()));
             tongSl += sl;
             if (giaTri != null) tongGt = tongGt.add(giaTri);
         }
@@ -378,7 +387,7 @@ public class CongNhaCungCapService {
                 b.getHanTraLoi(), phienBan(b),
                 new CongNcc.HangLoi(b.getTrangThaiHang(), b.getCachXuLyHang(), b.getNguoiNhanHang(), b.getBienSoXe(), b.getThoiDiemTra()),
                 dong, tongSl, tongGt, tienTru,
-                BienBanTraHangNcc.PA_TRU_CONG_NO.equals(b.getPhuongAn()) && b.getSoLuongTruTien() != null ? b.getSoLuongTruTien() : 0,
+                b.getSoLuongTruTien() != null ? b.getSoLuongTruTien() : 0,
                 Boolean.TRUE.equals(b.getBuXong()), conChoGiao(b), cachBu, hangLoi,
                 nguoiPhuTrach(don == null ? null : don.getNguoiTao()), b.getNguoiLienHeNcc());
     }
@@ -441,12 +450,14 @@ public class CongNhaCungCapService {
     }
 
     /**
-     * Tiền trừ của biên bản trừ tiền: số đã trừ vào đơn mua; nhà cung cấp chọn trước khi nhập kho (chưa áp) thì là giá trị
-     * hàng lỗi dự kiến. Biên bản khác phương án: null.
+     * Tiền trừ của biên bản: số đã trừ vào đơn mua (kể cả khi các dòng còn lại đang chờ chọn lại); nhà cung cấp chọn trước
+     * khi nhập kho (chưa áp) thì là giá trị các dòng trừ tiền. Không dòng nào trừ tiền: null.
      */
     private static BigDecimal tienTruCua(BienBanTraHangDto b) {
-        if (!BienBanTraHangNcc.PA_TRU_CONG_NO.equals(b.getPhuongAn())) return null;
-        return b.getTienTruTien() != null && b.getTienTruTien().signum() > 0 ? b.getTienTruTien() : b.getGiaTriLoi();
+        if (b.getTienTruTien() != null && b.getTienTruTien().signum() > 0) return b.getTienTruTien();
+        // Chưa nhập kho: giá trị các dòng trừ tiền (biên bản cũ không có dòng: cả giá trị hàng lỗi)
+        if (b.getGiaTriTruTien() != null && b.getGiaTriTruTien().signum() > 0) return b.getGiaTriTruTien();
+        return BienBanTraHangNcc.PA_TRU_CONG_NO.equals(b.getPhuongAn()) ? b.getGiaTriLoi() : null;
     }
 
     private static List<String> danhSach(List<String> ds) {
@@ -460,7 +471,10 @@ public class CongNhaCungCapService {
 
     /** Giao bù chưa xong: số lỗi đơn mua còn chờ nhà cung cấp giao (theo còn thiếu của dòng đơn cùng biến thể). */
     private static int conChoGiao(BienBanTraHangDto b) {
-        if (!BienBanTraHangNcc.PA_DOI_HANG.equals(b.getPhuongAn()) || Boolean.TRUE.equals(b.getBuXong()) || b.getTheoBienThe() == null) {
+        if (Boolean.TRUE.equals(b.getBuXong())) return 0;
+        // Tính theo các dòng giao bù (có cả khi biên bản vừa giao bù vừa trừ tiền)
+        if (b.getSoLuongChoHangBu() != null) return b.getSoLuongChoHangBu();
+        if (!BienBanTraHangNcc.PA_DOI_HANG.equals(b.getPhuongAn()) || b.getTheoBienThe() == null) {
             return 0;
         }
         int n = 0;

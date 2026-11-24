@@ -177,6 +177,9 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
 
         // Kể cả biên bản đã hủy của phiếu: lập lại thì dùng lại đúng số đó (một phiếu một số biên bản)
         BienBanTraHangNcc bienBan = bienBanTraHangNccRepository.findByPhieuNhapKho_Id(phieuNhapKhoId).orElse(null);
+        // Khóa và nạp lại biên bản đang có: nhà cung cấp trả lời cùng lúc trên cổng thì lần lưu dưới đây không ghi đè cách
+        // bù vừa chọn bằng số cũ đã đọc
+        if (bienBan != null && entityManager != null) entityManager.refresh(bienBan, LockModeType.PESSIMISTIC_WRITE);
         // Hàng lỗi đã trả ngay cho người giao hàng: biên bản là chứng từ của hàng đã rời kho, không lập lại / hủy được nữa
         if (bienBan != null && bienBan.dangHieuLuc() && !bienBan.hangConOKho()) {
             throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.bienBanTraNgayKhongSua", bienBan.getMaBienBan()));
@@ -207,17 +210,6 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
 
         NguoiDung nguoiTao = nguoiDungRepository.findById(nguoiTaoId)
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.nguoiTaoKhongTimThay", nguoiTaoId)));
-        if (bienBan == null) {
-            bienBan = BienBanTraHangNcc.builder()
-                    .maBienBan(sinhMaBienBan())
-                    .phieuNhapKho(phieu)
-                    .nhaCungCap(phieu.getNhaCungCap())
-                    .nguoiTao(nguoiTao)
-                    .build();
-        } else {
-            // Lập lại: thay toàn bộ dòng cũ bằng số kiểm đếm hiện tại, giữ số biên bản
-            chiTietTraHangNccRepository.deleteAll(chiTietTraHangNccRepository.findByBienBanTraHangNcc_Id(bienBan.getId()));
-        }
 
         // Lập lại mà hàng lỗi và người ký không đổi (cùng lô, lý do, số lượng; vẫn giữ ở kho), chỉ sửa ghi chú: tờ đã ký
         // và nhà cung cấp đang cầm đúng biên bản này nên giữ việc ký, câu trả lời; không ghi lần lập mới, không gửi email
@@ -225,12 +217,24 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
         boolean khongDoiHang = lapCu != null && !traNgay && BienBanTraHangNcc.GIU_KHO.equals(lapCu.cachXuLy())
                 && nguoiKy.equals(lapCu.nguoiKy())
                 && demTheoLoVaLyDo(dongBienBanHieuLuc).equals(demTheoLoVaLyDo(dongMoi));
+        if (bienBan == null) {
+            bienBan = BienBanTraHangNcc.builder()
+                    .maBienBan(sinhMaBienBan())
+                    .phieuNhapKho(phieu)
+                    .nhaCungCap(phieu.getNhaCungCap())
+                    .nguoiTao(nguoiTao)
+                    .build();
+        } else if (!khongDoiHang) {
+            // Lập lại có đổi hàng lỗi: thay toàn bộ dòng cũ bằng số kiểm đếm hiện tại, giữ số biên bản. Hàng lỗi không đổi
+            // thì giữ nguyên các dòng (đúng tờ đã ký): lựa chọn của nhà cung cấp gắn theo từng dòng
+            chiTietTraHangNccRepository.deleteAll(chiTietTraHangNccRepository.findByBienBanTraHangNcc_Id(bienBan.getId()));
+        }
         // Lập (lại) có đổi hàng lỗi là biên bản mới với nhà cung cấp: câu trả lời trước (nếu có) không còn hiệu lực
         if (!khongDoiHang) bienBan.setPhuongAnXuLy(BienBanTraHangNcc.PA_CHO_CHOT);
         bienBan.setGhiChu(ghiChu);
         // Giao luôn: hàng lỗi rời kho lúc người giao hàng ký nhận (ghiKy), tới lúc đó vẫn ở kho
         bienBan.setTrangThai(BienBanTraHangNcc.CHO_TRA_HANG);
-        bienBan.setTongSoLuongLoi(dongMoi.stream().mapToInt(ChiTietTraHangNcc::getSoLuongLoi).sum());
+        if (!khongDoiHang) bienBan.setTongSoLuongLoi(dongMoi.stream().mapToInt(ChiTietTraHangNcc::getSoLuongLoi).sum());
         BienBanTraHangNcc savedHeader;
         try {
             savedHeader = bienBanTraHangNccRepository.saveAndFlush(bienBan);
@@ -239,10 +243,12 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
             throw new CommonException(HttpStatus.CONFLICT,
                     ThongDiep.of("chungTuKho.soBienBanTraHangTrung", bienBan.getMaBienBan()));
         }
-        for (ChiTietTraHangNcc dong : dongMoi) {
-            dong.setBienBanTraHangNcc(savedHeader);
+        if (!khongDoiHang) {
+            for (ChiTietTraHangNcc dong : dongMoi) {
+                dong.setBienBanTraHangNcc(savedHeader);
+            }
+            chiTietTraHangNccRepository.saveAll(dongMoi);
         }
-        chiTietTraHangNccRepository.saveAll(dongMoi);
         if (entityManager != null) {
             // Nạp lại danh sách dòng của biên bản (email dựng từ đúng các dòng vừa lưu, kể cả khi lập lại)
             entityManager.flush();
@@ -362,7 +368,7 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
         if (nk.choKy()) {
             throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.bienBanChoNguoiGiaoKy", bb.getMaBienBan()));
         }
-        if (!choTraLoi(bb, nk).co()) {
+        if (!choTraLoi(bb, nk, dungDong(bb, nk, dongCua(bb.getId()))).co()) {
             throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.khongGuiLaiEmailBienBan", bb.getMaBienBan()));
         }
         String email = bb.getNhaCungCap().getEmail();
@@ -386,8 +392,12 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
      */
     private boolean conChoKhiGui(Integer bienBanId) {
         return bienBanTraHangNccRepository.findById(bienBanId)
-                .map(b -> BienBanTraHangNcc.PA_CHO_CHOT.equals(b.phuongAn())
-                        || b.hangConOKho() && nhatKy.doc(bienBanId).luaChonHangLoi() == null)
+                .map(b -> {
+                    if (BienBanTraHangNcc.PA_CHO_CHOT.equals(b.phuongAn())) return true;
+                    if (!b.hangConOKho()) return false;
+                    NhatKyTraHangNcc.NhatKy nk = nhatKy.doc(bienBanId);
+                    return dungDong(b, nk, dongCua(bienBanId)).stream().anyMatch(d -> d.oKho() && d.hangLoi() == null);
+                })
                 .orElse(false);
     }
 
@@ -662,7 +672,191 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // NHÀ CUNG CẤP TRẢ LỜI (cách bù cho cả biên bản, hàng lỗi còn ở kho)
+    // TỪNG DÒNG: lựa chọn của nhà cung cấp và hàng lỗi theo dòng biên bản
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Một dòng biên bản (lô × lý do) và lựa chọn đang áp dụng, dựng từ nhật ký: cách bù ({@code cachBu} CHO_CHOT |
+     * DOI_HANG | TRU_CONG_NO), nhà cung cấp chọn gì cho hàng lỗi ({@code hangLoi} NHAN_LAI | TIEU_HUY | null) và hàng lỗi
+     * của dòng đang ở đâu ({@code viTri} O_KHO | DA_TRA | DA_TIEU_HUY). {@code lanCachBu} / {@code lanHangLoi}: lần ghi
+     * ra lựa chọn (nguồn, người xác nhận, lúc); null với lựa chọn suy từ cột của biên bản cũ.
+     */
+    record Dong(ChiTietTraHangNcc ct, String cachBu, NhatKyTraHangNcc.TraLoi lanCachBu, String hangLoi,
+                NhatKyTraHangNcc.TraLoi lanHangLoi, String viTri, NhatKyTraHangNcc.GiaoTra giaoTra, Integer soTru) {
+
+        /** Dòng trừ tiền cả dòng (hoặc chưa trừ tiền). */
+        Dong(ChiTietTraHangNcc ct, String cachBu, NhatKyTraHangNcc.TraLoi lanCachBu, String hangLoi,
+             NhatKyTraHangNcc.TraLoi lanHangLoi, String viTri, NhatKyTraHangNcc.GiaoTra giaoTra) {
+            this(ct, cachBu, lanCachBu, hangLoi, lanHangLoi, viTri, giaoTra, null);
+        }
+
+        /** Số lỗi của dòng trừ tiền: cả dòng, hoặc phần đã trừ khi chỉ trừ một phần; dòng khác: 0. */
+        int soLuongTru() {
+            if (!BienBanTraHangNcc.PA_TRU_CONG_NO.equals(cachBu)) return 0;
+            return soTru == null ? soLuong() : Math.min(soTru, soLuong());
+        }
+
+        Integer id() {
+            return ct.getId();
+        }
+
+        Integer bienThe() {
+            return ct.getBienTheSanPham() == null ? null : ct.getBienTheSanPham().getId();
+        }
+
+        int soLuong() {
+            return ct.getSoLuongLoi() == null ? 0 : ct.getSoLuongLoi();
+        }
+
+        boolean oKho() {
+            return BienBanTraHangNcc.HANG_O_KHO.equals(viTri);
+        }
+
+        String nguonCachBu() {
+            return lanCachBu == null ? null : lanCachBu.nguon();
+        }
+
+        Dong voiCachBu(String moi) {
+            return voiCachBu(moi, null);
+        }
+
+        /** Đổi cách bù; {@code soTruMoi}: trừ tiền một phần dòng (null: cả dòng). */
+        Dong voiCachBu(String moi, Integer soTruMoi) {
+            return new Dong(ct, moi, null, hangLoi, lanHangLoi, viTri, giaoTra, soTruMoi);
+        }
+
+        Dong voiHangLoi(String moi) {
+            return new Dong(ct, cachBu, lanCachBu, moi, null, viTri, giaoTra, soTru);
+        }
+
+        Dong voiViTri(String moi) {
+            return new Dong(ct, cachBu, lanCachBu, hangLoi, lanHangLoi, moi, giaoTra, soTru);
+        }
+    }
+
+    /** Dòng của một biên bản, theo id dòng. */
+    private List<ChiTietTraHangNcc> dongCua(Integer bienBanId) {
+        if (bienBanId == null) return List.of();
+        return chiTietTraHangNccRepository.timTheoBienBan(List.of(bienBanId));
+    }
+
+    /** Dòng của nhiều biên bản (một truy vấn), theo id biên bản. */
+    private Map<Integer, List<ChiTietTraHangNcc>> dongTheoBienBan(Collection<Integer> bienBanIds) {
+        Map<Integer, List<ChiTietTraHangNcc>> kq = new HashMap<>();
+        if (bienBanIds.isEmpty()) return kq;
+        for (ChiTietTraHangNcc c : chiTietTraHangNccRepository.timTheoBienBan(bienBanIds)) {
+            if (c.getBienBanTraHangNcc() == null) continue;
+            kq.computeIfAbsent(c.getBienBanTraHangNcc().getId(), k -> new ArrayList<>()).add(c);
+        }
+        return kq;
+    }
+
+    /** Mã cách bù hiện hành: mã cũ DOI_HANG_MOI = giao bù, TRA_TAI_XE = trừ tiền, trống = chờ chọn. */
+    private static String chuanCachBu(String ma) {
+        if (ma == null || ma.isBlank()) return BienBanTraHangNcc.PA_CHO_CHOT;
+        if ("DOI_HANG_MOI".equals(ma)) return BienBanTraHangNcc.PA_DOI_HANG;
+        if (BienBanTraHangNcc.PA_CU_TRA_TAI_XE.equals(ma)) return BienBanTraHangNcc.PA_TRU_CONG_NO;
+        return ma;
+    }
+
+    /**
+     * Trạng thái từng dòng: lựa chọn riêng của dòng trong nhật ký, không có thì lựa chọn chung (cách ghi cũ), không có nữa
+     * thì theo cột của biên bản (biên bản lập trước khi có nhật ký). Hàng lỗi: biên bản đã trả / tiêu hủy cả (cột trạng
+     * thái) thì mọi dòng theo đó, không thì theo lần giao trả / tiêu hủy của dòng.
+     */
+    static List<Dong> dungDong(BienBanTraHangNcc b, NhatKyTraHangNcc.NhatKy nk, List<ChiTietTraHangNcc> cts) {
+        String paDau = b.phuongAn();
+        String paMacDinh = BienBanTraHangNcc.PA_HON_HOP.equals(paDau) ? BienBanTraHangNcc.PA_CHO_CHOT : paDau;
+        String hangDau = b.dangHieuLuc() ? b.maHangLoi() : BienBanTraHangNcc.HANG_O_KHO;
+        List<ChiTietTraHangNcc> sapXep = new ArrayList<>(cts);
+        sapXep.sort(Comparator.comparing(ChiTietTraHangNcc::getId, Comparator.nullsLast(Comparator.naturalOrder())));
+        List<Dong> kq = new ArrayList<>();
+        for (ChiTietTraHangNcc ct : sapXep) {
+            NhatKyTraHangNcc.LuaChon cb = nk.cachBuDong(ct.getId());
+            NhatKyTraHangNcc.LuaChon hl = nk.hangLoiDong(ct.getId());
+            NhatKyTraHangNcc.GiaoTra gt = nk.giaoTraDong(ct.getId());
+            String viTri;
+            if (BienBanTraHangNcc.HANG_DA_TRA.equals(hangDau) || BienBanTraHangNcc.HANG_DA_TIEU_HUY.equals(hangDau)) {
+                viTri = hangDau;
+            } else if (gt != null) {
+                viTri = gt.tieuHuy() ? BienBanTraHangNcc.HANG_DA_TIEU_HUY : BienBanTraHangNcc.HANG_DA_TRA;
+            } else {
+                viTri = BienBanTraHangNcc.HANG_O_KHO;
+            }
+            kq.add(new Dong(ct, cb != null ? chuanCachBu(cb.giaTri()) : paMacDinh, cb == null ? null : cb.lan(),
+                    hl == null ? null : hl.giaTri(), hl == null ? null : hl.lan(), viTri, gt, cb == null ? null : cb.soTru()));
+        }
+        return kq;
+    }
+
+    /** Cách bù của cả biên bản: CHO_CHOT khi còn dòng chưa có, các dòng cùng một cách thì cách đó, khác nhau thì HON_HOP. */
+    static String tongCachBu(List<Dong> ds) {
+        Set<String> cac = ds.stream().map(Dong::cachBu).collect(Collectors.toSet());
+        if (cac.isEmpty() || cac.contains(BienBanTraHangNcc.PA_CHO_CHOT)) return BienBanTraHangNcc.PA_CHO_CHOT;
+        return cac.size() == 1 ? cac.iterator().next() : BienBanTraHangNcc.PA_HON_HOP;
+    }
+
+    /** Hàng lỗi của cả biên bản: còn dòng ở kho thì chờ trả; rời kho hết thì đã trả / đã tiêu hủy / vừa trả vừa hủy. */
+    static String tongViTri(List<Dong> ds) {
+        if (ds.isEmpty() || ds.stream().anyMatch(Dong::oKho)) return BienBanTraHangNcc.CHO_TRA_HANG;
+        boolean tra = ds.stream().anyMatch(d -> BienBanTraHangNcc.HANG_DA_TRA.equals(d.viTri()));
+        boolean huy = ds.stream().anyMatch(d -> BienBanTraHangNcc.HANG_DA_TIEU_HUY.equals(d.viTri()));
+        if (tra && huy) return BienBanTraHangNcc.DA_XU_LY;
+        return huy ? BienBanTraHangNcc.DA_TIEU_HUY : BienBanTraHangNcc.DA_TRA_HANG;
+    }
+
+    /** Lựa chọn hàng lỗi của cả biên bản: một cách cho mọi dòng đã chọn, HON_HOP khi khác nhau, null khi chưa dòng nào. */
+    static String tongHangLoi(List<Dong> ds) {
+        Set<String> cac = ds.stream().map(Dong::hangLoi).filter(Objects::nonNull).collect(Collectors.toSet());
+        if (cac.isEmpty()) return null;
+        return cac.size() == 1 ? cac.iterator().next() : BienBanTraHangNcc.PA_HON_HOP;
+    }
+
+    /** Ghi lại hai cột tổng của biên bản theo trạng thái mới của các dòng. */
+    private void dongBoDau(BienBanTraHangNcc bb, List<Dong> ds) {
+        if (ds.isEmpty() || !bb.dangHieuLuc()) return;
+        String pa = tongCachBu(ds);
+        String tt = tongViTri(ds);
+        if (Objects.equals(pa, bb.getPhuongAnXuLy()) && Objects.equals(tt, bb.getTrangThai())) return;
+        bb.setPhuongAnXuLy(pa);
+        bb.setTrangThai(tt);
+        bienBanTraHangNccRepository.save(bb);
+    }
+
+    /**
+     * Biên bản cũ chưa có cách bù trong nhật ký: mọi dòng lấy cách bù từ cột của biên bản. Trước lần ghi riêng cho một
+     * phần dòng ({@code seGhi}), chép cách bù hiện hành của các dòng còn lại xuống nhật ký theo từng dòng (nguồn dữ liệu
+     * cũ, không phải một lần trả lời) — không thì cột biên bản đổi sang tổng mới và các dòng này về chờ chọn. Gọi trước
+     * {@link #dongBoDau}.
+     */
+    private void giuCachBuCu(BienBanTraHangNcc bb, List<Dong> ds, Set<Integer> seGhi) {
+        Map<Integer, NhatKyTraHangNcc.ChonDong> giu = new LinkedHashMap<>();
+        for (Dong d : ds) {
+            if (d.lanCachBu() != null || d.id() == null || seGhi.contains(d.id())
+                    || BienBanTraHangNcc.PA_CHO_CHOT.equals(d.cachBu())) continue;
+            giu.put(d.id(), new NhatKyTraHangNcc.ChonDong(d.cachBu(), null, d.soTru()));
+        }
+        if (giu.isEmpty()) return;
+        String pa = bb.phuongAn();
+        nhatKy.ghiTraLoi(bb, NhatKyTraHangNcc.TraLoi.theoDong(pa, pa, giu, NhatKyTraHangNcc.NGUON_DU_LIEU_CU, null,
+                Map.of(), BigDecimal.ZERO, null, false));
+    }
+
+    /** Số lỗi theo biến thể của các dòng. */
+    static Map<Integer, Integer> theoBienThe(Collection<Dong> ds) {
+        Map<Integer, Integer> kq = new LinkedHashMap<>();
+        for (Dong d : ds) {
+            if (d.bienThe() != null && d.soLuong() > 0) kq.merge(d.bienThe(), d.soLuong(), Integer::sum);
+        }
+        return kq;
+    }
+
+    private static int tongSoLuong(Collection<Dong> ds) {
+        return ds.stream().mapToInt(Dong::soLuong).sum();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // NHÀ CUNG CẤP TRẢ LỜI (cách bù và hàng lỗi của từng dòng)
     // ─────────────────────────────────────────────────────────────
 
     /** Việc nhà cung cấp còn phải trả lời: chọn cách bù, chọn nhận lại / tiêu hủy hàng lỗi còn ở kho. */
@@ -684,15 +878,18 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
     }
 
     /**
-     * Việc nhà cung cấp chưa trả lời (biên bản đã gửi). Cách bù: còn chờ và đơn mua chưa kết thúc (đóng đơn đã chuyển hàng lỗi chưa bù
-     * sang trừ tiền). Hàng lỗi: còn ở kho mà nhà cung cấp chưa chọn nhận lại hay tiêu hủy.
+     * Việc nhà cung cấp chưa trả lời (biên bản đã gửi). Cách bù: còn dòng chờ chọn và đơn mua chưa kết thúc (đóng đơn đã
+     * chuyển hàng lỗi chưa bù sang trừ tiền). Hàng lỗi: còn dòng ở kho mà nhà cung cấp chưa chọn nhận lại hay tiêu hủy.
      */
-    static ChoTraLoi choTraLoi(BienBanTraHangNcc b, NhatKyTraHangNcc.NhatKy nk) {
+    static ChoTraLoi choTraLoi(BienBanTraHangNcc b, NhatKyTraHangNcc.NhatKy nk, List<Dong> ds) {
         DonMuaHang don = b.getPhieuNhapKho().getDonMuaHang();
         // Chưa ghi người giao hàng đã ký: biên bản chưa gửi nhà cung cấp, chưa có gì để trả lời
         if (!b.dangHieuLuc() || don == null || nk.choKy()) return ChoTraLoi.KHONG;
-        return new ChoTraLoi(BienBanTraHangNcc.PA_CHO_CHOT.equals(b.phuongAn()) && !donKetThuc(don.getTrangThai()),
-                b.hangConOKho() && nk.luaChonHangLoi() == null);
+        // Biên bản không có dòng nào: không có gì để nhà cung cấp chọn (không nhắc, không tự chuyển, không treo ở chờ)
+        if (ds.isEmpty()) return ChoTraLoi.KHONG;
+        boolean donXong = donKetThuc(don.getTrangThai());
+        return new ChoTraLoi(!donXong && ds.stream().anyMatch(d -> BienBanTraHangNcc.PA_CHO_CHOT.equals(d.cachBu())),
+                ds.stream().anyMatch(d -> d.oKho() && d.hangLoi() == null));
     }
 
     private static boolean donKetThuc(Integer ttDon) {
@@ -700,52 +897,97 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
     }
 
     /**
-     * Lựa chọn nhà cung cấp còn chọn hoặc đổi được.
+     * Lựa chọn nhà cung cấp còn chọn hoặc đổi được của từng dòng.
      * <ul>
      *   <li>Cách bù: phiếu chưa nhập kho thì đổi tự do (chưa áp vào đơn mua). Đã nhập kho: chọn khi còn chờ; giao bù đổi
-     *   sang trừ tiền khi chưa có hàng nào của các sản phẩm lỗi về sau biên bản (không tách được hàng bù với hàng giao
-     *   thiếu); trừ tiền là chốt cuối. Đơn mua đã đóng / hủy: không chọn nữa.</li>
-     *   <li>Hàng lỗi: chọn và đổi được tới khi kho ghi đã giao trả / tiêu hủy.</li>
+     *   sang trừ tiền khi chưa có hàng nào của biến thể đó về sau biên bản (không tách được hàng bù với hàng giao thiếu);
+     *   trừ tiền là chốt cuối. Đơn mua đã đóng / hủy, hoặc hệ thống đã chuyển khi quá hạn trả lời: không đổi nữa.</li>
+     *   <li>Hàng lỗi: chọn và đổi được tới khi kho ghi dòng đó đã giao trả / tiêu hủy.</li>
      * </ul>
      */
-    private LuaChonMo luaChonMo(BienBanTraHangNcc b) {
+    private Map<Integer, LuaChonMo> luaChonMo(BienBanTraHangNcc b, List<Dong> ds) {
+        Map<Integer, LuaChonMo> kq = new HashMap<>();
         PhieuNhapKho phieu = b.getPhieuNhapKho();
         DonMuaHang don = phieu.getDonMuaHang();
-        if (!b.dangHieuLuc() || don == null) return LuaChonMo.DONG;
-        Set<String> hangLoi = b.hangConOKho() ? HANG_LOI_HOP_LE : Set.of();
-        String pa = b.phuongAn();
+        if (!b.dangHieuLuc() || don == null) {
+            for (Dong d : ds) kq.put(d.id(), LuaChonMo.DONG);
+            return kq;
+        }
         boolean daNhap = laPhieuDaNhap(phieu);
-        Set<String> cachBu;
-        if (donKetThuc(don.getTrangThai()) || daNhap && BienBanTraHangNcc.PA_TRU_CONG_NO.equals(pa)) {
-            cachBu = Set.of();
-        } else if (!daNhap || BienBanTraHangNcc.PA_CHO_CHOT.equals(pa)) {
-            cachBu = PHUONG_AN_CHOT_HOP_LE;
-        } else {
-            Map<Integer, Integer> loi = soLoiTheoBienThe(phieu.getId());
-            Long datSau = phieu.getNgayNhap() == null || loi.isEmpty() ? null
-                    : chiTietPhieuNhapKhoRepository.datNhapSau(don.getId(), phieu.getNgayNhap(), loi.keySet());
-            cachBu = datSau != null && datSau > 0 ? Set.of() : Set.of(BienBanTraHangNcc.PA_TRU_CONG_NO);
+        boolean donXong = donKetThuc(don.getTrangThai());
+        Map<Integer, Boolean> coHangVeSau = new HashMap<>();
+        for (Dong d : ds) {
+            Set<String> hangLoi = d.oKho() ? HANG_LOI_HOP_LE : Set.of();
+            String cb = d.cachBu();
+            Set<String> cachBu;
+            if (donXong || NhatKyTraHangNcc.NGUON_TU_DONG.equals(d.nguonCachBu())
+                    || daNhap && BienBanTraHangNcc.PA_TRU_CONG_NO.equals(cb)) {
+                cachBu = Set.of();
+            } else if (!daNhap || BienBanTraHangNcc.PA_CHO_CHOT.equals(cb)) {
+                cachBu = PHUONG_AN_CHOT_HOP_LE;
+            } else {
+                Integer bt = d.bienThe();
+                boolean ve = bt != null && phieu.getNgayNhap() != null && coHangVeSau.computeIfAbsent(bt, k -> {
+                    Long sau = chiTietPhieuNhapKhoRepository.datNhapSau(don.getId(), phieu.getNgayNhap(), Set.of(k));
+                    return sau != null && sau > 0;
+                });
+                cachBu = ve ? Set.of() : Set.of(BienBanTraHangNcc.PA_TRU_CONG_NO);
+            }
+            kq.put(d.id(), new LuaChonMo(cachBu, hangLoi));
+        }
+        return kq;
+    }
+
+    /** Hợp các lựa chọn còn mở của mọi dòng (đầu biên bản). */
+    private static LuaChonMo gopMo(Collection<LuaChonMo> ds) {
+        Set<String> cachBu = new TreeSet<>();
+        Set<String> hangLoi = new TreeSet<>();
+        for (LuaChonMo m : ds) {
+            cachBu.addAll(m.cachBu());
+            hangLoi.addAll(m.hangLoi());
         }
         return new LuaChonMo(cachBu, hangLoi);
     }
 
+    private static String kiemCachBu(String ma, Integer dongId) {
+        String pa = gon(ma);
+        if (pa != null && !PHUONG_AN_CHOT_HOP_LE.contains(pa)) throw traLoiSai("chungTuKho.cachBuKhongHopLe", "phuongAn", dongId);
+        return pa;
+    }
+
+    private static String kiemHangLoi(String ma, Integer dongId) {
+        String hl = gon(ma);
+        if (hl != null && !HANG_LOI_HOP_LE.contains(hl)) throw traLoiSai("chungTuKho.hangLoiKhongHopLe", "hangLoi", dongId);
+        return hl;
+    }
+
     /**
-     * Nhà cung cấp trả lời trên cổng (không có tài khoản: phiên cổng đã xác thực email và các nhà cung cấp của email đó).
-     * Lần đầu phải chọn mọi việc còn mở; sau đó chỉ đổi được theo {@link #luaChonMo}. Phiếu đã nhập kho thì trừ tiền áp
-     * ngay vào đơn mua; chưa nhập kho thì lúc nhập kho sẽ áp. {@code phienBan}: lần lập nhà cung cấp đang xem (id dòng
-     * nhật ký lập; null với biên bản cũ không có nhật ký lập), luôn phải khớp lần lập cuối: kho vừa lập lại, hoặc không
-     * gửi mà biên bản có lần lập, thì 409 — không ghi câu trả lời cho số lỗi cũ.
+     * Nhà cung cấp trả lời trên cổng (không có tài khoản: phiên cổng đã xác thực email và các nhà cung cấp của email đó),
+     * theo từng dòng. Lần đầu phải chọn mọi việc còn mở của mọi dòng; sau đó chỉ đổi được theo {@link #luaChonMo}. Lựa
+     * chọn chung ({@code phuongAn} / {@code hangLoi}, cách gửi cũ) áp cho mọi dòng còn đổi được. Phiếu đã nhập kho thì trừ
+     * tiền áp ngay vào đơn mua; chưa nhập kho thì lúc nhập kho sẽ áp. {@code phienBan}: lần lập nhà cung cấp đang xem (id
+     * dòng nhật ký lập; null với biên bản cũ không có nhật ký lập), luôn phải khớp lần lập cuối: kho vừa lập lại, hoặc
+     * không gửi mà biên bản có lần lập, thì 409 — không ghi câu trả lời cho số lỗi cũ.
      */
     @Override
     @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
-    public BienBanTraHangDto traLoiTuCong(Integer id, Collection<Integer> nhaCungCapIds, Integer phienBan, String phuongAn,
-                                         String hangLoi, String nguoiXacNhan, String ghiChu) {
+    public BienBanTraHangDto traLoiTuCong(Integer id, Collection<Integer> nhaCungCapIds, Integer phienBan,
+                                         List<LuaChonDong> theoDong, String phuongAn, String hangLoi,
+                                         String nguoiXacNhan, String ghiChu, boolean camKet) {
         BienBanTraHangNcc docTruoc = bienBanCuaCong(id, nhaCungCapIds);
         // Kiểm dữ liệu gửi lên trước khi giữ khóa
-        String pa = gon(phuongAn);
-        if (pa != null && !PHUONG_AN_CHOT_HOP_LE.contains(pa)) throw traLoiSai("chungTuKho.cachBuKhongHopLe", "phuongAn");
-        String hl = gon(hangLoi);
-        if (hl != null && !HANG_LOI_HOP_LE.contains(hl)) throw traLoiSai("chungTuKho.hangLoiKhongHopLe", "hangLoi");
+        String paChung = kiemCachBu(phuongAn, null);
+        String hlChung = kiemHangLoi(hangLoi, null);
+        Map<Integer, LuaChonDong> yeuCau = new LinkedHashMap<>();
+        if (theoDong != null) {
+            for (LuaChonDong l : theoDong) {
+                if (l == null || l.dongId() == null || yeuCau.containsKey(l.dongId())) {
+                    throw traLoiSai("chungTuKho.congDongKhongHopLe", "dong", l == null ? null : l.dongId());
+                }
+                yeuCau.put(l.dongId(), new LuaChonDong(l.dongId(), kiemCachBu(l.phuongAn(), l.dongId()),
+                        kiemHangLoi(l.hangLoi(), l.dongId())));
+            }
+        }
         String nguoi = kiemNguoiXacNhanCong(nguoiXacNhan);
         String gc = gon(ghiChu);
         if (soKyTu(gc) > GHI_CHU_TOI_DA) {
@@ -763,59 +1005,99 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
             throw khongConNhan("chungTuKho.congBienBanVuaCapNhat", bb);
         }
         if (!bb.dangHieuLuc()) throw khongConNhan("chungTuKho.congBienBanDaHuy", bb);
-        LuaChonMo mo = luaChonMo(bb);
-        if (!mo.co()) {
-            throw khongConNhan(donKetThuc(don.getTrangThai()) ? "chungTuKho.congDonDaKetThuc" : "chungTuKho.congDaXuLyXong", bb);
+        boolean donXong = donKetThuc(don.getTrangThai());
+        List<Dong> ds = dungDong(bb, nkKhoa, dongCua(bb.getId()));
+        Map<Integer, LuaChonMo> mo = luaChonMo(bb, ds);
+        if (mo.values().stream().noneMatch(LuaChonMo::co)) {
+            throw khongConNhan(donXong ? "chungTuKho.congDonDaKetThuc" : "chungTuKho.congDaXuLyXong", bb);
         }
-        String paCu = bb.phuongAn();
-        String hlCu = nkKhoa.luaChonHangLoi();
-        boolean doiCachBu = pa != null && !pa.equals(paCu);
-        boolean doiHangLoi = hl != null && !hl.equals(hlCu);
-        if (doiCachBu && !mo.cachBu().contains(pa)) {
-            throw khongConNhan(donKetThuc(don.getTrangThai()) ? "chungTuKho.congDonDaKetThuc" : "chungTuKho.congCachBuDaChot", bb);
+        Set<Integer> idDong = ds.stream().map(Dong::id).collect(Collectors.toSet());
+        for (Integer dongId : yeuCau.keySet()) {
+            if (!idDong.contains(dongId)) throw traLoiSai("chungTuKho.congDongKhongThuocBienBan", "dong", dongId);
         }
-        if (doiHangLoi && !mo.hangLoi().contains(hl)) throw khongConNhan("chungTuKho.congHangLoiDaXuLy", bb);
-        if (pa == null && BienBanTraHangNcc.PA_CHO_CHOT.equals(paCu) && !mo.cachBu().isEmpty()) {
-            throw traLoiSai("chungTuKho.cachBuKhongHopLe", "phuongAn");
+
+        boolean daNhap = laPhieuDaNhap(phieu);
+        List<Dong> moi = new ArrayList<>();
+        Map<Integer, NhatKyTraHangNcc.ChonDong> doi = new LinkedHashMap<>();
+        Map<Integer, Integer> tru = new LinkedHashMap<>();
+        // Lựa chọn chung gặp dòng đã chốt thì bỏ qua dòng đó; không đổi được dòng nào thì báo như lựa chọn đã chốt
+        LoiCoMaException loiKhoaChung = null;
+        boolean doiCachBuNao = false;
+        for (Dong d : ds) {
+            LuaChonDong yc = yeuCau.get(d.id());
+            boolean paRieng = yc != null && yc.phuongAn() != null;
+            boolean hlRieng = yc != null && yc.hangLoi() != null;
+            String pa = paRieng ? yc.phuongAn() : paChung;
+            String hl = hlRieng ? yc.hangLoi() : hlChung;
+            LuaChonMo m = mo.getOrDefault(d.id(), LuaChonMo.DONG);
+            boolean doiCb = pa != null && !pa.equals(d.cachBu());
+            boolean doiHl = hl != null && !hl.equals(d.hangLoi());
+            if (doiCb && !m.cachBu().contains(pa)) {
+                LoiCoMaException loi = khongConNhan(donXong ? "chungTuKho.congDonDaKetThuc" : "chungTuKho.congCachBuDaChot", bb);
+                if (paRieng) throw loi;
+                if (loiKhoaChung == null) loiKhoaChung = loi;
+                doiCb = false;
+            }
+            if (doiHl && !m.hangLoi().contains(hl)) {
+                LoiCoMaException loi = khongConNhan("chungTuKho.congHangLoiDaXuLy", bb);
+                if (hlRieng) throw loi;
+                if (loiKhoaChung == null) loiKhoaChung = loi;
+                doiHl = false;
+            }
+            // Dòng còn chờ mà lần này không chọn: lần đầu phải trả lời đủ mọi dòng
+            if (!doiCb && BienBanTraHangNcc.PA_CHO_CHOT.equals(d.cachBu()) && !m.cachBu().isEmpty()) {
+                throw traLoiSai("chungTuKho.cachBuKhongHopLe", "phuongAn", d.id());
+            }
+            if (!doiHl && d.hangLoi() == null && !m.hangLoi().isEmpty()) {
+                throw traLoiSai("chungTuKho.hangLoiKhongHopLe", "hangLoi", d.id());
+            }
+            Dong sau = d;
+            if (doiCb) {
+                sau = sau.voiCachBu(pa);
+                doiCachBuNao = true;
+                if (daNhap && BienBanTraHangNcc.PA_TRU_CONG_NO.equals(pa) && d.bienThe() != null) {
+                    tru.merge(d.bienThe(), d.soLuong(), Integer::sum);
+                }
+            }
+            if (doiHl) sau = sau.voiHangLoi(hl);
+            if (doiCb || doiHl) doi.put(d.id(), new NhatKyTraHangNcc.ChonDong(doiCb ? pa : null, doiHl ? hl : null));
+            moi.add(sau);
         }
-        if (hl == null && hlCu == null && !mo.hangLoi().isEmpty()) throw traLoiSai("chungTuKho.hangLoiKhongHopLe", "hangLoi");
-        if (!doiCachBu && !doiHangLoi) {
+        if (doi.isEmpty()) {
+            if (loiKhoaChung != null) throw loiKhoaChung;
             throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.TRA_LOI_KHONG_HOP_LE,
                     ThongDiep.of("chungTuKho.congKhongCoGiThayDoi"));
         }
 
-        boolean daNhap = laPhieuDaNhap(phieu);
-        Map<Integer, Integer> tru = Map.of();
         BigDecimal tien = BigDecimal.ZERO;
-        if (doiCachBu && daNhap && BienBanTraHangNcc.PA_TRU_CONG_NO.equals(pa)) {
-            Map<Integer, Integer> loi = soLoiTheoBienThe(phieu.getId());
+        if (!tru.isEmpty()) {
             // Phiếu nhập Nháp khác của đơn đang giữ phần còn thiếu: chưa trừ được, nhà cung cấp chọn giao bù hoặc chờ
-            if (timVuotConThieu(don, dongDon, loi) != null) throw khongConNhan("chungTuKho.congChuaTruTienDuoc", bb);
-            tien = congTruTienVaoDon(dongDon, loi);
-            tru = loi;
+            if (timVuotConThieu(don, dongDon, tru) != null) throw khongConNhan("chungTuKho.congChuaTruTienDuoc", bb);
+            tien = congTruTienVaoDon(dongDon, tru);
         }
-        String paMoi = doiCachBu ? pa : paCu;
-        String hlMoi = doiHangLoi ? hl : hlCu;
-        if (doiCachBu) {
-            bb.setPhuongAnXuLy(pa);
-            bienBanTraHangNccRepository.save(bb);
-        }
-        nhatKy.ghiTraLoi(bb, NhatKyTraHangNcc.TraLoi.ghi(paMoi, paCu, doiHangLoi ? hl : null,
-                NhatKyTraHangNcc.NGUON_CONG_NCC, nguoi, tru, tien, gc));
-        if (daNhap && doiCachBu) capNhatNhanDu(don, dongDon, null);
+        String paCu = bb.phuongAn();
+        giuCachBuCu(bb, ds, doi.keySet());
+        dongBoDau(bb, moi);
+        nhatKy.ghiTraLoi(bb, NhatKyTraHangNcc.TraLoi.theoDong(tongCachBu(moi), paCu, doi,
+                NhatKyTraHangNcc.NGUON_CONG_NCC, nguoi, tru, tien, gc, camKet));
+        if (daNhap && doiCachBuNao) capNhatNhanDu(don, dongDon, null);
         if (entityManager != null) entityManager.flush();
 
-        if (thongBaoMuaHangService != null) thongBaoMuaHangService.nccDaTraLoi(bb, phieu, paMoi, hlMoi);
-        if (daNhap) baoViecConLai(bb, phieu, hlMoi, null);
+        baoNccDaTraLoi(bb, phieu, moi);
+        if (daNhap) baoViecConLai(bb, phieu, moi, null);
         BienBanTraHangDto kq = toDto(bb, true);
         if (emailNghiepVuService != null) emailNghiepVuService.guiDaGhiNhanTraLoi(bb, kq, false);
-        log.info("[RTV-CONG] Biên bản `{}`: nhà cung cấp chọn {} / hàng lỗi {} (người xác nhận: {}){}", bb.getMaBienBan(),
-                paMoi, hlMoi, nguoi, daNhap ? "" : ", áp vào đơn lúc nhập kho");
+        log.info("[RTV-CONG] Biên bản `{}`: nhà cung cấp chọn {} dòng (cách bù {}, hàng lỗi {}; người xác nhận: {}){}",
+                bb.getMaBienBan(), doi.size(), tongCachBu(moi), tongHangLoi(moi), nguoi,
+                daNhap ? "" : ", áp vào đơn lúc nhập kho");
         return kq;
     }
 
-    private static LoiCoMaException traLoiSai(String khoa, String o) {
-        return new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.TRA_LOI_KHONG_HOP_LE, ThongDiep.of(khoa), Map.of("o", o));
+    private static LoiCoMaException traLoiSai(String khoa, String o, Integer dongId) {
+        Map<String, Object> duLieu = new LinkedHashMap<>();
+        duLieu.put("o", o);
+        if (dongId != null) duLieu.put("dong", dongId);
+        return new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.TRA_LOI_KHONG_HOP_LE, ThongDiep.of(khoa), duLieu);
     }
 
     private static LoiCoMaException khongConNhan(String khoa, BienBanTraHangNcc bb) {
@@ -839,9 +1121,10 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
     }
 
     /**
-     * Phiếu nhập vừa hoàn tất (đã là COMPLETED, dòng đơn mua đã cộng hàng đạt và đang bị khóa): số lỗi đã khóa.
-     * Nhà cung cấp đã chọn trừ tiền thì áp ngay vào đơn mua; đã chọn giao bù thì đơn vẫn chờ số đó; chưa chọn thì báo mua
-     * hàng biên bản đang chờ nhà cung cấp trả lời. Hàng lỗi nhà cung cấp đã chọn nhận lại / tiêu hủy thì báo kho làm.
+     * Phiếu nhập vừa hoàn tất (đã là COMPLETED, dòng đơn mua đã cộng hàng đạt và đang bị khóa): số lỗi đã khóa. Dòng nhà
+     * cung cấp đã chọn trừ tiền thì áp ngay vào đơn mua; biến thể nào không trừ được (vượt phần đơn còn chờ) thì các dòng
+     * đó về chờ chọn và nhà cung cấp nhận email chọn lại. Dòng giao bù: đơn vẫn chờ số đó. Còn dòng chưa chọn thì báo mua
+     * hàng biên bản đang chờ nhà cung cấp; dòng hàng lỗi đã có lựa chọn thì báo kho làm.
      */
     @Override
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -849,6 +1132,7 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
         DonMuaHang don = phieu.getDonMuaHang();
         if (bienBan == null || !bienBan.dangHieuLuc() || don == null) return;
         // Biên bản lập trước khi có cổng (không có nhật ký lập): phương án cũ do kho chọn, nhà cung cấp chưa được hỏi
+        boolean datLaiCu = false;
         if (!BienBanTraHangNcc.PA_CHO_CHOT.equals(bienBan.phuongAn()) && nhatKy.idLapCuoi(bienBan.getId()) == null) {
             // Mã cũ "trả tài xế" là dấu duy nhất cho biết hàng lỗi đã rời kho: ghi sang trạng thái trước khi bỏ mã
             if (BienBanTraHangNcc.PA_CU_TRA_TAI_XE.equals(bienBan.getPhuongAnXuLy())) {
@@ -856,46 +1140,76 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
             }
             bienBan.setPhuongAnXuLy(BienBanTraHangNcc.PA_CHO_CHOT);
             bienBanTraHangNccRepository.save(bienBan);
+            datLaiCu = true;
         }
-        String hangLoi = nhatKy.doc(bienBan.getId()).luaChonHangLoi();
-        String phuongAn = bienBan.phuongAn();
-        if (BienBanTraHangNcc.PA_TRU_CONG_NO.equals(phuongAn)) {
+        NhatKyTraHangNcc.NhatKy nk = nhatKy.doc(bienBan.getId());
+        List<Dong> ds = dungDong(bienBan, nk, dongCua(bienBan.getId()));
+        // Dòng vẫn có lựa chọn trong nhật ký (cách ghi cũ) thì hai cột tổng theo các dòng, không để lệch với dòng
+        if (datLaiCu) dongBoDau(bienBan, ds);
+        List<Dong> moi = ds;
+        List<Dong> canTru = ds.stream().filter(d -> BienBanTraHangNcc.PA_TRU_CONG_NO.equals(d.cachBu())).toList();
+        if (!canTru.isEmpty()) {
             Map<Integer, ChiTietDonMuaHang> dongDon = khoaDongDon(don);
-            Map<Integer, Integer> loi = soLoiTheoBienThe(phieu.getId());
-            ThongDiep vuot = timVuotConThieu(don, dongDon, loi);
-            if (vuot == null) {
-                BigDecimal tien = congTruTienVaoDon(dongDon, loi);
-                nhatKy.ghiTruTien(bienBan, loi, tien);
+            Map<Integer, Integer> loi = truTheoBienThe(canTru);
+            Map<Integer, ThongDiep> vuot = vuotTheoBienThe(don, dongDon, loi);
+            Map<Integer, Integer> apDuoc = new LinkedHashMap<>(loi);
+            apDuoc.keySet().removeAll(vuot.keySet());
+            if (!apDuoc.isEmpty()) {
+                BigDecimal tien = congTruTienVaoDon(dongDon, apDuoc);
+                nhatKy.ghiTruTien(bienBan, apDuoc, tien);
                 log.info("[RTV-NHAP-KHO] Biên bản `{}`: áp trừ tiền nhà cung cấp đã chọn ({} sản phẩm)",
-                        bienBan.getMaBienBan(), loi.values().stream().mapToInt(Integer::intValue).sum());
-                baoViecConLai(bienBan, phieu, hangLoi, nguoiNhapId);
-                return;
+                        bienBan.getMaBienBan(), apDuoc.values().stream().mapToInt(Integer::intValue).sum());
             }
-            // Số lỗi vượt phần còn thiếu của đơn (phiếu Nháp khác đang giữ hàng): không trừ được, nhà cung cấp chọn lại
-            log.warn("[RTV-NHAP-KHO] Biên bản `{}`: không áp được trừ tiền nhà cung cấp đã chọn ({}), chuyển chờ chọn",
-                    bienBan.getMaBienBan(), vuot.tiengViet());
-            bienBan.setPhuongAnXuLy(BienBanTraHangNcc.PA_CHO_CHOT);
-            bienBanTraHangNccRepository.save(bienBan);
-            nhatKy.ghiTraLoi(bienBan, NhatKyTraHangNcc.TraLoi.ghi(BienBanTraHangNcc.PA_CHO_CHOT,
-                    BienBanTraHangNcc.PA_TRU_CONG_NO, null, NhatKyTraHangNcc.NGUON_NHAP_KHO, null, Map.of(),
-                    BigDecimal.ZERO, vuot.tiengViet()));
-        } else if (BienBanTraHangNcc.PA_DOI_HANG.equals(phuongAn)) {
-            baoViecConLai(bienBan, phieu, hangLoi, nguoiNhapId);
-            return;
+            if (!vuot.isEmpty() && daQuaHan(nk)) {
+                // Đã quá hạn trả lời: mời chọn lại cũng sẽ bị việc định kỳ chuyển ngay. Áp luôn luật quá hạn cho các dòng
+                // này: trừ tiền phần đơn còn chờ, phần đơn đã nhận ở đợt khác coi như đã giao bù
+                PhanBo pb = phanBoTruTien(don, dongDon, ds,
+                        d -> BienBanTraHangNcc.PA_TRU_CONG_NO.equals(d.cachBu()) && vuot.containsKey(d.bienThe()));
+                moi = pb.moi();
+                BigDecimal tien = pb.tru().isEmpty() ? BigDecimal.ZERO : congTruTienVaoDon(dongDon, pb.tru());
+                String paCu = bienBan.phuongAn();
+                giuCachBuCu(bienBan, ds, pb.doi().keySet());
+                dongBoDau(bienBan, moi);
+                nhatKy.ghiTraLoi(bienBan, NhatKyTraHangNcc.TraLoi.theoDong(tongCachBu(moi), paCu, pb.doi(),
+                        NhatKyTraHangNcc.NGUON_TU_DONG, null, pb.tru(), tien, null, false));
+                if (entityManager != null) entityManager.flush();
+                log.warn("[RTV-NHAP-KHO] Biên bản `{}` quá hạn, không trừ đủ tiền nhà cung cấp đã chọn: trừ {} sản phẩm, {} coi như đã giao bù",
+                        bienBan.getMaBienBan(), pb.soTru(), pb.soBu());
+                if (thongBaoMuaHangService != null) thongBaoMuaHangService.quaHanTruTien(bienBan, phieu, pb.soTru(), pb.soBu());
+                if (emailNghiepVuService != null) emailNghiepVuService.guiDaGhiNhanTraLoi(bienBan, toDto(bienBan, true), true);
+            } else if (!vuot.isEmpty()) {
+                // Số lỗi vượt phần còn thiếu của đơn (phiếu Nháp khác đang giữ hàng): không trừ được, nhà cung cấp chọn lại
+                Map<Integer, NhatKyTraHangNcc.ChonDong> doi = new LinkedHashMap<>();
+                List<Dong> sau = new ArrayList<>();
+                for (Dong d : ds) {
+                    if (BienBanTraHangNcc.PA_TRU_CONG_NO.equals(d.cachBu()) && vuot.containsKey(d.bienThe())) {
+                        doi.put(d.id(), new NhatKyTraHangNcc.ChonDong(BienBanTraHangNcc.PA_CHO_CHOT, null));
+                        sau.add(d.voiCachBu(BienBanTraHangNcc.PA_CHO_CHOT));
+                    } else {
+                        sau.add(d);
+                    }
+                }
+                moi = sau;
+                String lyDo = vuot.values().stream().map(ThongDiep::tiengViet).distinct().collect(Collectors.joining("; "));
+                String paCu = bienBan.phuongAn();
+                giuCachBuCu(bienBan, ds, doi.keySet());
+                dongBoDau(bienBan, moi);
+                nhatKy.ghiTraLoi(bienBan, NhatKyTraHangNcc.TraLoi.theoDong(tongCachBu(moi), paCu, doi,
+                        NhatKyTraHangNcc.NGUON_NHAP_KHO, null, Map.of(), BigDecimal.ZERO, lyDo, false));
+                log.warn("[RTV-NHAP-KHO] Biên bản `{}`: không áp được trừ tiền nhà cung cấp đã chọn cho {} dòng ({}), về chờ chọn",
+                        bienBan.getMaBienBan(), doi.size(), lyDo);
+                if (entityManager != null) entityManager.flush();
+                // Nhà cung cấp phải biết để chọn lại (hạn trả lời không đổi)
+                if (emailNghiepVuService != null) {
+                    emailNghiepVuService.guiCanChonLaiCachBu(bienBan, toDto(bienBan, true), List.copyOf(doi.keySet()));
+                }
+            }
         }
         if (thongBaoMuaHangService == null) return;
-        thongBaoMuaHangService.bienBanTraHang(bienBan, phieu, nguoiNhapId);
-        // Cách bù còn chờ nhưng hàng lỗi đã có lựa chọn: kho vẫn làm được
-        if (hangLoi != null && bienBan.hangConOKho()) thongBaoMuaHangService.hangLoiCanXuLy(bienBan, phieu, hangLoi, nguoiNhapId);
-    }
-
-    /** Số lỗi theo biến thể của phiếu (từ lô đã khóa). */
-    private Map<Integer, Integer> soLoiTheoBienThe(Integer phieuId) {
-        Map<Integer, Integer> kq = new LinkedHashMap<>();
-        for (Object[] r : chiTietPhieuNhapKhoRepository.soLoiTheoBienThe(List.of(phieuId))) {
-            kq.merge(((Number) r[1]).intValue(), ((Number) r[2]).intValue(), Integer::sum);
-        }
-        return kq;
+        boolean conCho = ds.isEmpty() ? BienBanTraHangNcc.PA_CHO_CHOT.equals(bienBan.phuongAn())
+                : moi.stream().anyMatch(d -> BienBanTraHangNcc.PA_CHO_CHOT.equals(d.cachBu()));
+        if (conCho) thongBaoMuaHangService.bienBanTraHang(bienBan, phieu, nguoiNhapId);
+        baoViecConLai(bienBan, phieu, moi, nguoiNhapId);
     }
 
     /** Khóa các dòng của đơn mua (theo biến thể) rồi khóa đơn — cùng thứ tự với nhập kho và đóng đơn. */
@@ -908,11 +1222,82 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
         return dongDon;
     }
 
+    /** Đã qua hạn trả lời (hết ngày thứ 7 kể từ email biên bản đầu tiên). */
+    private static boolean daQuaHan(NhatKyTraHangNcc.NhatKy nk) {
+        return nk.emailDauLuc() != null && Instant.now().isAfter(hanTraLoi(nk.emailDauLuc()));
+    }
+
+    /**
+     * Kết quả chia số lỗi theo phần đơn còn chờ: trạng thái mới của các dòng, phần đổi để ghi nhật ký, số trừ tiền theo
+     * biến thể (áp vào đơn mua), tổng số trừ tiền và số coi như đã giao bù.
+     */
+    private record PhanBo(List<Dong> moi, Map<Integer, NhatKyTraHangNcc.ChonDong> doi, Map<Integer, Integer> tru,
+                          int soTru, int soBu) {
+    }
+
+    /**
+     * Các dòng {@code chon} chuyển trừ tiền theo phần đơn còn trừ được của từng biến thể ({@link #soDuocTru}), lần lượt
+     * theo thứ tự dòng: còn đủ thì trừ tiền cả dòng; còn một phần thì trừ tiền phần đó, phần kia đơn đã nhận ở đợt giao
+     * khác nên coi như đã giao bù; hết thì cả dòng coi như đã giao bù. Bên mua không chờ hàng bù nhà cung cấp chưa hứa.
+     */
+    private PhanBo phanBoTruTien(DonMuaHang don, Map<Integer, ChiTietDonMuaHang> dongDon, List<Dong> ds,
+                                 java.util.function.Predicate<Dong> chon) {
+        Map<Integer, Integer> conDuoc = new HashMap<>();
+        Map<Integer, Integer> tru = new LinkedHashMap<>();
+        Map<Integer, NhatKyTraHangNcc.ChonDong> doi = new LinkedHashMap<>();
+        List<Dong> moi = new ArrayList<>();
+        int soTru = 0;
+        int soBu = 0;
+        for (Dong d : ds) {
+            if (!chon.test(d)) {
+                moi.add(d);
+                continue;
+            }
+            int sl = d.soLuong();
+            Integer bt = d.bienThe();
+            int duoc = bt == null ? sl : conDuoc.computeIfAbsent(bt, k -> soDuocTru(don, dongDon, k));
+            int n = Math.min(sl, duoc);
+            if (bt != null && duoc != Integer.MAX_VALUE) conDuoc.put(bt, duoc - n);
+            String cach = n > 0 ? BienBanTraHangNcc.PA_TRU_CONG_NO : BienBanTraHangNcc.PA_DOI_HANG;
+            Integer soTruDong = n > 0 && n < sl ? n : null;
+            if (n > 0 && bt != null) tru.merge(bt, n, Integer::sum);
+            soTru += n;
+            soBu += sl - n;
+            if (cach.equals(d.cachBu()) && Objects.equals(soTruDong, d.soTru())) {
+                moi.add(d);
+            } else {
+                doi.put(d.id(), new NhatKyTraHangNcc.ChonDong(cach, null, soTruDong));
+                moi.add(d.voiCachBu(cach, soTruDong));
+            }
+        }
+        return new PhanBo(moi, doi, tru, soTru, soBu);
+    }
+
+    /** Số lỗi trừ tiền theo biến thể của các dòng (dòng trừ một phần: phần đã trừ). */
+    static Map<Integer, Integer> truTheoBienThe(Collection<Dong> ds) {
+        Map<Integer, Integer> kq = new LinkedHashMap<>();
+        for (Dong d : ds) {
+            if (d.bienThe() != null && d.soLuongTru() > 0) kq.merge(d.bienThe(), d.soLuongTru(), Integer::sum);
+        }
+        return kq;
+    }
+
+    /** Số lỗi của biến thể còn trừ tiền được: còn thiếu của dòng đơn − phần phiếu Nháp khác của đơn đang giữ. */
+    private int soDuocTru(DonMuaHang don, Map<Integer, ChiTietDonMuaHang> dongDon, Integer bienThe) {
+        ChiTietDonMuaHang dong = bienThe == null ? null : dongDon.get(bienThe);
+        // Biến thể không có trên đơn: không có gì để trừ vào (cùng cách với congTruTienVaoDon)
+        if (dong == null) return Integer.MAX_VALUE;
+        BigDecimal giuBd = chiTietPhieuNhapKhoRepository.sumDuKienPhieuNhapCungDon(don.getId(), bienThe);
+        int dangGiu = giuBd == null ? 0 : giuBd.intValue();
+        return Math.max(0, dong.conThieu().intValue() - dangGiu);
+    }
+
     /**
      * Trừ tiền làm dòng đơn hết chờ số lỗi, nên số lỗi phải ≤ còn thiếu − phần phiếu Nháp khác của đơn đang giữ. Trả câu
-     * lỗi của biến thể đầu tiên vượt, hoặc null khi trừ được.
+     * lỗi của từng biến thể vượt (rỗng: trừ được hết).
      */
-    private ThongDiep timVuotConThieu(DonMuaHang don, Map<Integer, ChiTietDonMuaHang> dongDon, Map<Integer, Integer> loi) {
+    private Map<Integer, ThongDiep> vuotTheoBienThe(DonMuaHang don, Map<Integer, ChiTietDonMuaHang> dongDon, Map<Integer, Integer> loi) {
+        Map<Integer, ThongDiep> kq = new LinkedHashMap<>();
         for (Map.Entry<Integer, Integer> e : loi.entrySet()) {
             ChiTietDonMuaHang dong = dongDon.get(e.getKey());
             if (dong == null) continue;
@@ -924,12 +1309,18 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
             String sku = dong.getBienTheSanPham().getMaSku();
             if (dangGiu > 0) {
                 List<String> dsGiu = chiTietPhieuNhapKhoRepository.soPhieuNhapGiuCungDon(don.getId(), e.getKey());
-                return ThongDiep.of("chungTuKho.truTienPhieuGiu", sku, soLoi, dangGiu,
-                        dsGiu == null || dsGiu.isEmpty() ? "" : String.join(", ", dsGiu));
+                kq.put(e.getKey(), ThongDiep.of("chungTuKho.truTienPhieuGiu", sku, soLoi, dangGiu,
+                        dsGiu == null || dsGiu.isEmpty() ? "" : String.join(", ", dsGiu)));
+            } else {
+                kq.put(e.getKey(), ThongDiep.of("chungTuKho.truTienVuotConThieu", sku, soLoi, conThieu));
             }
-            return ThongDiep.of("chungTuKho.truTienVuotConThieu", sku, soLoi, conThieu);
         }
-        return null;
+        return kq;
+    }
+
+    /** Câu lỗi của biến thể đầu tiên vượt phần còn thiếu, hoặc null khi trừ được hết. */
+    private ThongDiep timVuotConThieu(DonMuaHang don, Map<Integer, ChiTietDonMuaHang> dongDon, Map<Integer, Integer> loi) {
+        return vuotTheoBienThe(don, dongDon, loi).values().stream().findFirst().orElse(null);
     }
 
     /** Cộng số lỗi trừ tiền vào "đã nhận" của từng dòng đơn (đơn không chờ số đó nữa). Trả số tiền trừ theo đơn giá dòng. */
@@ -956,14 +1347,49 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
         }
     }
 
-    /**
-     * Phiếu đã nhập kho, vừa có cách bù hoặc lựa chọn hàng lỗi: cách bù đã có thì thông báo "chờ nhà cung cấp" coi như
-     * xong; hàng lỗi còn ở kho mà nhà cung cấp đã chọn thì báo kho giao trả / tiêu hủy.
-     */
-    private void baoViecConLai(BienBanTraHangNcc bb, PhieuNhapKho phieu, String hangLoi, Integer nguoiId) {
+    /** Mua hàng: nhà cung cấp vừa trả lời (số sản phẩm theo từng cách); hết dòng chờ chọn thì thông báo "chờ nhà cung cấp" xong. */
+    private void baoNccDaTraLoi(BienBanTraHangNcc bb, PhieuNhapKho phieu, List<Dong> ds) {
         if (thongBaoMuaHangService == null) return;
-        if (!BienBanTraHangNcc.PA_CHO_CHOT.equals(bb.phuongAn())) thongBaoMuaHangService.bienBanDaChotXong(bb);
-        if (hangLoi != null && bb.hangConOKho()) thongBaoMuaHangService.hangLoiCanXuLy(bb, phieu, hangLoi, nguoiId);
+        thongBaoMuaHangService.nccDaTraLoi(bb, phieu, soTheo(ds, BienBanTraHangNcc.PA_DOI_HANG, null),
+                soTheo(ds, BienBanTraHangNcc.PA_TRU_CONG_NO, null), soTheo(ds, null, BienBanTraHangNcc.HL_NHAN_LAI),
+                soTheo(ds, null, BienBanTraHangNcc.HL_TIEU_HUY),
+                ds.stream().anyMatch(d -> BienBanTraHangNcc.PA_CHO_CHOT.equals(d.cachBu())));
+    }
+
+    /** Tổng số lỗi các dòng có cách bù {@code cachBu} (hoặc lựa chọn hàng lỗi {@code hangLoi}, chỉ dòng còn ở kho). */
+    private static int soTheo(List<Dong> ds, String cachBu, String hangLoi) {
+        return ds.stream()
+                .filter(d -> cachBu != null ? cachBu.equals(d.cachBu()) : d.oKho() && hangLoi.equals(d.hangLoi()))
+                .mapToInt(Dong::soLuong).sum();
+    }
+
+    /**
+     * Phiếu đã nhập kho, vừa có cách bù hoặc lựa chọn hàng lỗi: hết dòng chờ chọn cách bù thì thông báo "chờ nhà cung cấp"
+     * coi như xong; dòng hàng lỗi còn ở kho mà nhà cung cấp đã chọn thì báo kho giao trả / tiêu hủy (số theo từng việc).
+     */
+    private void baoViecConLai(BienBanTraHangNcc bb, PhieuNhapKho phieu, List<Dong> ds, Integer nguoiId) {
+        if (thongBaoMuaHangService == null) return;
+        if (ds.isEmpty()) {
+            // Biên bản không có dòng (dữ liệu cũ): theo cột của biên bản
+            if (!BienBanTraHangNcc.PA_CHO_CHOT.equals(bb.phuongAn())) thongBaoMuaHangService.bienBanDaChotXong(bb);
+            return;
+        }
+        if (ds.stream().noneMatch(d -> BienBanTraHangNcc.PA_CHO_CHOT.equals(d.cachBu()))) {
+            thongBaoMuaHangService.bienBanDaChotXong(bb);
+        }
+        baoKhoHangLoi(bb, phieu, ds, nguoiId);
+    }
+
+    /** Kho: còn dòng nhà cung cấp đã chọn mà chưa làm thì báo (sửa thông báo cũ), không còn thì thông báo xong. */
+    private void baoKhoHangLoi(BienBanTraHangNcc bb, PhieuNhapKho phieu, List<Dong> ds, Integer nguoiId) {
+        if (thongBaoMuaHangService == null) return;
+        int nhanLai = soTheo(ds, null, BienBanTraHangNcc.HL_NHAN_LAI);
+        int tieuHuy = soTheo(ds, null, BienBanTraHangNcc.HL_TIEU_HUY);
+        if (nhanLai + tieuHuy > 0 && laPhieuDaNhap(phieu)) {
+            thongBaoMuaHangService.hangLoiCanXuLy(bb, phieu, nhanLai, tieuHuy, nguoiId);
+        } else if (nhanLai + tieuHuy == 0) {
+            thongBaoMuaHangService.hangLoiDaRoiKho(bb);
+        }
     }
 
     /** Người bên nhà cung cấp xác nhận trên cổng: cùng luật họ tên người dùng (HoTen). */
@@ -997,18 +1423,21 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
     @Transactional(readOnly = true)
     public List<Integer> dsChoNccTraLoi() {
         List<BienBanTraHangNcc> ds = bienBanTraHangNccRepository.timDangChoXuLy();
-        Map<Integer, NhatKyTraHangNcc.NhatKy> nk = nhatKy.doc(ds.stream().map(BienBanTraHangNcc::getId).toList());
+        List<Integer> ids = ds.stream().map(BienBanTraHangNcc::getId).toList();
+        Map<Integer, NhatKyTraHangNcc.NhatKy> nk = nhatKy.doc(ids);
+        Map<Integer, List<ChiTietTraHangNcc>> dong = dongTheoBienBan(ids);
         return ds.stream()
-                .filter(b -> nk.get(b.getId()).emailDauLuc() != null && choTraLoi(b, nk.get(b.getId())).co())
+                .filter(b -> nk.get(b.getId()).emailDauLuc() != null
+                        && choTraLoi(b, nk.get(b.getId()), dungDong(b, nk.get(b.getId()), dong.getOrDefault(b.getId(), List.of()))).co())
                 .map(BienBanTraHangNcc::getId)
                 .toList();
     }
 
     /**
      * Xét hạn trả lời của một biên bản (mỗi biên bản một giao dịch). Còn {@value #NHAC_TRUOC_HAN_NGAY} ngày tới hạn thì
-     * gửi email nhắc một lần. Quá hạn mà chưa chọn cách bù thì chuyển trừ tiền: bên mua có quyền từ chối nhận hàng không
-     * đạt, không cần nhà cung cấp đồng ý. Hàng lỗi chưa chọn thì vẫn giữ ở kho: tiêu hủy hàng của nhà cung cấp phải có
-     * nhà cung cấp đồng ý.
+     * gửi email nhắc một lần. Quá hạn mà còn dòng chưa chọn cách bù thì chuyển trừ tiền: bên mua có quyền từ chối nhận
+     * hàng không đạt, không cần nhà cung cấp đồng ý. Hàng lỗi chưa chọn thì vẫn giữ ở kho: tiêu hủy hàng của nhà cung cấp
+     * phải có nhà cung cấp đồng ý.
      */
     @Override
     @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
@@ -1016,7 +1445,7 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
         BienBanTraHangNcc bb = bienBanTraHangNccRepository.findById(id).orElse(null);
         if (bb == null) return;
         NhatKyTraHangNcc.NhatKy nk = nhatKy.doc(id);
-        ChoTraLoi cho = choTraLoi(bb, nk);
+        ChoTraLoi cho = choTraLoi(bb, nk, dungDong(bb, nk, dongCua(id)));
         if (!cho.co() || nk.emailDauLuc() == null) return;
         Instant han = hanTraLoi(nk.emailDauLuc());
         if (now.isAfter(han)) {
@@ -1029,38 +1458,66 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
         }
     }
 
+    /**
+     * Quá hạn: các dòng chưa chọn cách bù chuyển trừ tiền (bên mua từ chối nhận hàng lỗi). Phiếu đã nhập kho mà đơn không
+     * còn chờ đủ số của dòng (hàng đã về ở đợt khác, hoặc phiếu Nháp khác đang giữ) thì dòng đó coi như đã giao bù: không
+     * để biên bản kẹt ở chờ chọn mãi. Chưa nhập kho: trừ tiền áp lúc nhập kho.
+     */
     private void truTienQuaHan(BienBanTraHangNcc docTruoc) {
         PhieuNhapKho phieu = docTruoc.getPhieuNhapKho();
         DonMuaHang don = phieu.getDonMuaHang();
         Map<Integer, ChiTietDonMuaHang> dongDon = khoaDongDon(don);
         BienBanTraHangNcc bb = khoaLai(docTruoc);
         NhatKyTraHangNcc.NhatKy nk = nhatKy.doc(bb.getId());
+        List<Dong> ds = dungDong(bb, nk, dongCua(bb.getId()));
         // Nhà cung cấp vừa trả lời / đơn vừa đóng trong lúc chờ khóa
-        if (!choTraLoi(bb, nk).cachBu()) return;
+        if (!choTraLoi(bb, nk, ds).cachBu() || ds.isEmpty()) return;
         boolean daNhap = laPhieuDaNhap(phieu);
-        Map<Integer, Integer> tru = Map.of();
-        BigDecimal tien = BigDecimal.ZERO;
+        java.util.function.Predicate<Dong> cho = d -> BienBanTraHangNcc.PA_CHO_CHOT.equals(d.cachBu());
+        List<Dong> moi;
+        Map<Integer, NhatKyTraHangNcc.ChonDong> doi;
+        Map<Integer, Integer> tru;
+        int soTru;
+        int soBu;
         if (daNhap) {
-            Map<Integer, Integer> loi = soLoiTheoBienThe(phieu.getId());
-            ThongDiep vuot = timVuotConThieu(don, dongDon, loi);
-            if (vuot != null) {
-                log.warn("[RTV-HAN] Biên bản `{}` quá hạn nhưng chưa trừ tiền được: {}", bb.getMaBienBan(), vuot.tiengViet());
-                return;
+            // Đã nhập kho: trừ tiền theo phần đơn còn chờ, phần đơn đã nhận ở đợt khác coi như đã giao bù
+            PhanBo pb = phanBoTruTien(don, dongDon, ds, cho);
+            moi = pb.moi();
+            doi = pb.doi();
+            tru = pb.tru();
+            soTru = pb.soTru();
+            soBu = pb.soBu();
+        } else {
+            // Chưa nhập kho: cả dòng trừ tiền, áp vào đơn lúc nhập kho
+            moi = new ArrayList<>();
+            doi = new LinkedHashMap<>();
+            tru = Map.of();
+            soTru = 0;
+            soBu = 0;
+            for (Dong d : ds) {
+                if (!cho.test(d)) {
+                    moi.add(d);
+                    continue;
+                }
+                soTru += d.soLuong();
+                doi.put(d.id(), new NhatKyTraHangNcc.ChonDong(BienBanTraHangNcc.PA_TRU_CONG_NO, null));
+                moi.add(d.voiCachBu(BienBanTraHangNcc.PA_TRU_CONG_NO));
             }
-            tien = congTruTienVaoDon(dongDon, loi);
-            tru = loi;
         }
-        bb.setPhuongAnXuLy(BienBanTraHangNcc.PA_TRU_CONG_NO);
-        bienBanTraHangNccRepository.save(bb);
-        nhatKy.ghiTraLoi(bb, NhatKyTraHangNcc.TraLoi.ghi(BienBanTraHangNcc.PA_TRU_CONG_NO, BienBanTraHangNcc.PA_CHO_CHOT,
-                null, NhatKyTraHangNcc.NGUON_TU_DONG, null, tru, tien, null));
+        if (doi.isEmpty()) return;
+        BigDecimal tien = tru.isEmpty() ? BigDecimal.ZERO : congTruTienVaoDon(dongDon, tru);
+        String paCu = bb.phuongAn();
+        giuCachBuCu(bb, ds, doi.keySet());
+        dongBoDau(bb, moi);
+        nhatKy.ghiTraLoi(bb, NhatKyTraHangNcc.TraLoi.theoDong(tongCachBu(moi), paCu, doi, NhatKyTraHangNcc.NGUON_TU_DONG,
+                null, tru, tien, null, false));
         if (daNhap) capNhatNhanDu(don, dongDon, null);
         if (entityManager != null) entityManager.flush();
-        if (thongBaoMuaHangService != null) thongBaoMuaHangService.quaHanTruTien(bb, phieu);
-        if (daNhap) baoViecConLai(bb, phieu, nk.luaChonHangLoi(), null);
+        if (thongBaoMuaHangService != null) thongBaoMuaHangService.quaHanTruTien(bb, phieu, soTru, soBu);
+        if (daNhap) baoViecConLai(bb, phieu, moi, null);
         if (emailNghiepVuService != null) emailNghiepVuService.guiDaGhiNhanTraLoi(bb, toDto(bb, true), true);
-        log.info("[RTV-HAN] Biên bản `{}` quá hạn trả lời: chuyển trừ tiền{}", bb.getMaBienBan(),
-                daNhap ? "" : ", áp vào đơn lúc nhập kho");
+        log.info("[RTV-HAN] Biên bản `{}` quá hạn trả lời: {} sản phẩm chuyển trừ tiền, {} coi như đã giao bù{}",
+                bb.getMaBienBan(), soTru, soBu, daNhap ? "" : ", áp vào đơn lúc nhập kho");
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -1068,8 +1525,9 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * Đơn mua đóng nhận thiếu: hàng lỗi chờ chọn / chờ giao bù chuyển sang trừ tiền (tối đa phần còn thiếu của dòng đơn).
-     * Gọi trong giao dịch đóng đơn, sau khi đã khóa dòng đơn và đơn.
+     * Đơn mua đóng nhận thiếu: dòng hàng lỗi chờ chọn / chờ giao bù chuyển sang trừ tiền (tối đa phần còn thiếu của dòng
+     * đơn, chia theo thứ tự dòng); dòng đơn không còn thiếu thì coi như đã bù. Gọi trong giao dịch đóng đơn, sau khi đã
+     * khóa dòng đơn và đơn.
      */
     @Override
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -1079,29 +1537,48 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
         Map<Integer, ChiTietDonMuaHang> dongDon = new HashMap<>();
         for (ChiTietDonMuaHang c : don.getChiTietDonMuaHangs()) dongDon.putIfAbsent(c.getBienTheSanPham().getId(), c);
         String ghiChu = lyDo == null ? null : (lyDo.length() > GHI_CHU_TOI_DA ? lyDo.substring(0, GHI_CHU_TOI_DA) : lyDo);
+        Map<Integer, List<ChiTietTraHangNcc>> dongBb = dongTheoBienBan(dsBienBan.stream().map(BienBanTraHangNcc::getId).toList());
         for (BienBanTraHangNcc bb : dsBienBan) {
-            String pa = bb.phuongAn();
-            if (BienBanTraHangNcc.PA_TRU_CONG_NO.equals(pa)) continue;
-            Map<Integer, Integer> loi = soLoiTheoBienThe(bb.getPhieuNhapKho().getId());
-            if (BienBanTraHangNcc.PA_DOI_HANG.equals(pa) && buXong(loi.keySet(), dongDon, don.getTrangThai())) continue;
+            NhatKyTraHangNcc.NhatKy nk = nhatKy.doc(bb.getId());
+            List<Dong> ds = dungDong(bb, nk, dongBb.getOrDefault(bb.getId(), List.of()));
+            Map<Integer, Integer> conThieu = new HashMap<>();
             Map<Integer, Integer> tru = new LinkedHashMap<>();
-            for (Map.Entry<Integer, Integer> e : loi.entrySet()) {
-                ChiTietDonMuaHang dong = dongDon.get(e.getKey());
-                if (dong == null) continue;
-                int n = Math.min(e.getValue(), dong.conThieu().intValue());
-                if (n > 0) tru.put(e.getKey(), n);
+            Map<Integer, NhatKyTraHangNcc.ChonDong> doi = new LinkedHashMap<>();
+            List<Dong> moi = new ArrayList<>();
+            for (Dong d : ds) {
+                boolean cho = BienBanTraHangNcc.PA_CHO_CHOT.equals(d.cachBu());
+                if (!cho && !BienBanTraHangNcc.PA_DOI_HANG.equals(d.cachBu())) {
+                    moi.add(d);
+                    continue;
+                }
+                ChiTietDonMuaHang dong = d.bienThe() == null ? null : dongDon.get(d.bienThe());
+                int con = dong == null ? 0 : conThieu.computeIfAbsent(d.bienThe(), bt -> dong.conThieu().intValue());
+                int n = Math.min(d.soLuong(), Math.max(0, con));
+                // Không còn thiếu gì để trừ (nhà cung cấp đã giao đủ ở đợt sau): coi như đã bù
+                String cach = n > 0 ? BienBanTraHangNcc.PA_TRU_CONG_NO : BienBanTraHangNcc.PA_DOI_HANG;
+                // Đơn chỉ còn thiếu một phần của dòng: trừ tiền phần đó, phần kia đã giao ở đợt sau
+                Integer soTruDong = n > 0 && n < d.soLuong() ? n : null;
+                if (n > 0) {
+                    tru.merge(d.bienThe(), n, Integer::sum);
+                    conThieu.put(d.bienThe(), con - n);
+                }
+                if (cach.equals(d.cachBu())) {
+                    moi.add(d);
+                } else {
+                    doi.put(d.id(), new NhatKyTraHangNcc.ChonDong(cach, null, soTruDong));
+                    moi.add(d.voiCachBu(cach, soTruDong));
+                }
             }
+            if (doi.isEmpty()) continue;
             BigDecimal tien = congTruTienVaoDon(dongDon, tru);
-            // Không còn thiếu gì để trừ (nhà cung cấp đã giao đủ ở đợt sau): coi như đã bù
-            String moi = tru.isEmpty() ? BienBanTraHangNcc.PA_DOI_HANG : BienBanTraHangNcc.PA_TRU_CONG_NO;
-            bb.setPhuongAnXuLy(moi);
-            bienBanTraHangNccRepository.save(bb);
-            nhatKy.ghiTraLoi(bb, NhatKyTraHangNcc.TraLoi.ghi(moi, pa, null, NhatKyTraHangNcc.NGUON_DONG_DON, null,
-                    tru, tien, ghiChu));
+            String paCu = bb.phuongAn();
+            giuCachBuCu(bb, ds, doi.keySet());
+            dongBoDau(bb, moi);
+            nhatKy.ghiTraLoi(bb, NhatKyTraHangNcc.TraLoi.theoDong(tongCachBu(moi), paCu, doi, NhatKyTraHangNcc.NGUON_DONG_DON,
+                    null, tru, tien, ghiChu, false));
             log.info("[RTV-DONG-DON] Đơn `{}` đóng: biên bản `{}` ({} → {}, trừ {} sản phẩm)", don.getSoDonMua(),
-                    bb.getMaBienBan(), pa, moi, tru.values().stream().mapToInt(Integer::intValue).sum());
-            baoViecConLai(bb, bb.getPhieuNhapKho(), nhatKy.doc(bb.getId()).luaChonHangLoi(),
-                    nguoiDong == null ? null : nguoiDong.getId());
+                    bb.getMaBienBan(), paCu, tongCachBu(moi), tru.values().stream().mapToInt(Integer::intValue).sum());
+            baoViecConLai(bb, bb.getPhieuNhapKho(), moi, nguoiDong == null ? null : nguoiDong.getId());
         }
     }
 
@@ -1129,18 +1606,69 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
         return kq;
     }
 
+    /** Số lỗi theo biến thể của phiếu (từ lô đã khóa). */
+    private Map<Integer, Integer> soLoiTheoBienThe(Integer phieuId) {
+        Map<Integer, Integer> kq = new LinkedHashMap<>();
+        for (Object[] r : chiTietPhieuNhapKhoRepository.soLoiTheoBienThe(List.of(phieuId))) {
+            kq.merge(((Number) r[1]).intValue(), ((Number) r[2]).intValue(), Integer::sum);
+        }
+        return kq;
+    }
+
     // ─────────────────────────────────────────────────────────────
-    // KHO LÀM THEO LỰA CHỌN CỦA NHÀ CUNG CẤP
+    // KHO LÀM THEO LỰA CHỌN CỦA NHÀ CUNG CẤP (theo dòng)
     // ─────────────────────────────────────────────────────────────
 
-    /** Nhà cung cấp đã chọn nhận lại: kho ghi đã giao (nhà cung cấp đến lấy hoặc gửi vận chuyển). */
+    /**
+     * Các dòng kho ghi lần này: {@code dongIds} (thiếu: mọi dòng còn ở kho có lựa chọn {@code canChon}); mỗi dòng phải
+     * thuộc biên bản, còn ở kho và nhà cung cấp đã chọn {@code canChon}. Biên bản không có dòng (dữ liệu cũ): theo lựa
+     * chọn chung, trả rỗng.
+     */
+    private List<Dong> chonDongGhiHang(BienBanTraHangNcc bb, NhatKyTraHangNcc.NhatKy nk, List<Dong> ds,
+                                       List<Integer> dongIds, String canChon, String khoaLoi) {
+        if (ds.isEmpty()) {
+            if (!canChon.equals(nk.luaChonHangLoi())) {
+                throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of(khoaLoi, bb.getMaBienBan()));
+            }
+            return List.of();
+        }
+        List<Dong> kq = new ArrayList<>();
+        if (dongIds == null || dongIds.isEmpty()) {
+            for (Dong d : ds) if (d.oKho() && canChon.equals(d.hangLoi())) kq.add(d);
+        } else {
+            Map<Integer, Dong> theoId = new HashMap<>();
+            for (Dong d : ds) theoId.put(d.id(), d);
+            for (Integer dongId : new LinkedHashSet<>(dongIds)) {
+                Dong d = theoId.get(dongId);
+                if (d == null) {
+                    throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.dongKhongThuocBienBan", bb.getMaBienBan()));
+                }
+                if (!d.oKho()) {
+                    throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.hangLoiKhongConOKho", bb.getMaBienBan()));
+                }
+                if (!canChon.equals(d.hangLoi())) throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of(khoaLoi, bb.getMaBienBan()));
+                kq.add(d);
+            }
+        }
+        if (kq.isEmpty()) throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of(khoaLoi, bb.getMaBienBan()));
+        return kq;
+    }
+
+    /** Trạng thái các dòng sau khi kho ghi {@code chon} rời kho ({@code viTri} DA_TRA / DA_TIEU_HUY). */
+    private static List<Dong> sauKhiRoiKho(List<Dong> ds, List<Dong> chon, String viTri) {
+        Set<Integer> ids = chon.stream().map(Dong::id).collect(Collectors.toSet());
+        return ds.stream().map(d -> ids.contains(d.id()) ? d.voiViTri(viTri) : d).toList();
+    }
+
+    /** Nhà cung cấp đã chọn nhận lại: kho ghi các dòng đã giao (nhà cung cấp đến lấy hoặc gửi vận chuyển). */
     @Override
     @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public BienBanTraHangDto ghiDaGiaoTra(Integer id, GiaoTraHangLoiRequest request) {
         BienBanTraHangNcc bienBan = khoaDeGhiHang(id);
-        if (!BienBanTraHangNcc.HL_NHAN_LAI.equals(nhatKy.doc(id).luaChonHangLoi())) {
-            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.giaoTraCanNccNhanLai", bienBan.getMaBienBan()));
-        }
+        NhatKyTraHangNcc.NhatKy nk = nhatKy.doc(id);
+        List<Dong> ds = dungDong(bienBan, nk, dongCua(id));
+        List<Dong> chon = chonDongGhiHang(bienBan, nk, ds, request == null ? null : request.getDongIds(),
+                BienBanTraHangNcc.HL_NHAN_LAI, "chungTuKho.giaoTraCanNccNhanLai");
         String cachGiao = request == null || request.getCachGiao() == null ? null : request.getCachGiao().trim();
         if (cachGiao == null || !CACH_GIAO_HOP_LE.contains(cachGiao)) {
             throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.cachGiaoKhongHopLe"));
@@ -1164,43 +1692,71 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
         Instant thoiDiem = kiemThoiDiem(bienBan, request.getThoiDiem());
         String ghiChu = kiemGhiChu(request.getGhiChu());
 
-        bienBan.setTrangThai(BienBanTraHangNcc.DA_TRA_HANG);
-        bienBanTraHangNccRepository.save(bienBan);
-        nhatKy.ghiGiaoTra(bienBan, cachGiao, nguoiNhan, maVanDon, thoiDiem, ghiChu);
-        if (thongBaoMuaHangService != null) thongBaoMuaHangService.hangLoiDaRoiKho(bienBan);
-        log.info("[RTV-GIAO-TRA] Biên bản `{}` đã giao trả ({}, {})", bienBan.getMaBienBan(), cachGiao, nguoiNhan);
+        List<Dong> moi = sauKhiRoiKho(ds, chon, BienBanTraHangNcc.HANG_DA_TRA);
+        if (ds.isEmpty()) {
+            bienBan.setTrangThai(BienBanTraHangNcc.DA_TRA_HANG);
+            bienBanTraHangNccRepository.save(bienBan);
+        } else {
+            dongBoDau(bienBan, moi);
+        }
+        nhatKy.ghiGiaoTra(bienBan, cachGiao, nguoiNhan, maVanDon, thoiDiem, ghiChu,
+                ds.isEmpty() ? null : chon.stream().map(Dong::id).toList());
+        if (ds.isEmpty()) {
+            if (thongBaoMuaHangService != null) thongBaoMuaHangService.hangLoiDaRoiKho(bienBan);
+        } else {
+            baoKhoHangLoi(bienBan, bienBan.getPhieuNhapKho(), moi, null);
+        }
+        log.info("[RTV-GIAO-TRA] Biên bản `{}` đã giao trả {} dòng ({}, {})", bienBan.getMaBienBan(),
+                ds.isEmpty() ? "mọi" : chon.size(), cachGiao, nguoiNhan);
         return toDto(bienBan, true);
     }
 
     /**
-     * Nhà cung cấp đã đồng ý tiêu hủy trên cổng: kho ghi đã tiêu hủy (người đồng ý lấy từ câu trả lời của nhà cung cấp).
-     * Thời điểm tiêu hủy không được trước lúc nhà cung cấp đồng ý.
+     * Nhà cung cấp đã đồng ý tiêu hủy trên cổng: kho ghi các dòng đã tiêu hủy (người đồng ý lấy từ câu trả lời của nhà
+     * cung cấp). Thời điểm tiêu hủy không được trước lúc nhà cung cấp đồng ý (lần đồng ý muộn nhất của các dòng ghi).
      */
     @Override
     @Transactional(rollbackFor = Exception.class, isolation = Isolation.READ_COMMITTED)
     public BienBanTraHangDto ghiTieuHuy(Integer id, GiaoTraHangLoiRequest request) {
         BienBanTraHangNcc bienBan = khoaDeGhiHang(id);
-        NhatKyTraHangNcc.TraLoi dongY = nhatKy.doc(id).hangLoi();
-        if (dongY == null || !BienBanTraHangNcc.HL_TIEU_HUY.equals(dongY.hangLoi())) {
-            throw new CommonException(HttpStatus.CONFLICT, ThongDiep.of("chungTuKho.tieuHuyCanNccDongY", bienBan.getMaBienBan()));
-        }
+        NhatKyTraHangNcc.NhatKy nk = nhatKy.doc(id);
+        List<Dong> ds = dungDong(bienBan, nk, dongCua(id));
+        List<Dong> chon = chonDongGhiHang(bienBan, nk, ds, request == null ? null : request.getDongIds(),
+                BienBanTraHangNcc.HL_TIEU_HUY, "chungTuKho.tieuHuyCanNccDongY");
+        List<NhatKyTraHangNcc.TraLoi> dongY = ds.isEmpty()
+                ? (nk.hangLoi() == null ? List.of() : List.of(nk.hangLoi()))
+                : chon.stream().map(Dong::lanHangLoi).filter(Objects::nonNull).toList();
         Instant thoiDiem = kiemThoiDiem(bienBan, request == null ? null : request.getThoiDiem());
-        if (dongY.luc() != null && thoiDiem.isBefore(dongY.luc().minus(Duration.ofMinutes(1)))) {
+        Instant dongYCuoi = dongY.stream().map(NhatKyTraHangNcc.TraLoi::luc).filter(Objects::nonNull)
+                .max(Comparator.naturalOrder()).orElse(null);
+        if (dongYCuoi != null && thoiDiem.isBefore(dongYCuoi.minus(Duration.ofMinutes(1)))) {
             throw new CommonException(HttpStatus.BAD_REQUEST, ThongDiep.of("chungTuKho.tieuHuyTruocLucDongY",
-                    DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy").format(dongY.luc().atZone(MUI_GIO_VN))));
+                    DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy").format(dongYCuoi.atZone(MUI_GIO_VN))));
         }
         String ghiChu = kiemGhiChu(request == null ? null : request.getGhiChu());
+        String nguoiDongY = dongY.stream().map(NhatKyTraHangNcc.TraLoi::nguoiXacNhan).filter(Objects::nonNull)
+                .distinct().collect(Collectors.joining(", "));
 
-        bienBan.setTrangThai(BienBanTraHangNcc.DA_TIEU_HUY);
-        bienBanTraHangNccRepository.save(bienBan);
-        nhatKy.ghiTieuHuy(bienBan, dongY.nguoiXacNhan(), thoiDiem, ghiChu);
-        if (thongBaoMuaHangService != null) thongBaoMuaHangService.hangLoiDaRoiKho(bienBan);
-        log.info("[RTV-TIEU-HUY] Biên bản `{}` tiêu hủy hàng lỗi (nhà cung cấp đồng ý: {})", bienBan.getMaBienBan(),
-                dongY.nguoiXacNhan());
+        List<Dong> moi = sauKhiRoiKho(ds, chon, BienBanTraHangNcc.HANG_DA_TIEU_HUY);
+        if (ds.isEmpty()) {
+            bienBan.setTrangThai(BienBanTraHangNcc.DA_TIEU_HUY);
+            bienBanTraHangNccRepository.save(bienBan);
+        } else {
+            dongBoDau(bienBan, moi);
+        }
+        nhatKy.ghiTieuHuy(bienBan, nguoiDongY.isEmpty() ? null : nguoiDongY, thoiDiem, ghiChu,
+                ds.isEmpty() ? null : chon.stream().map(Dong::id).toList());
+        if (ds.isEmpty()) {
+            if (thongBaoMuaHangService != null) thongBaoMuaHangService.hangLoiDaRoiKho(bienBan);
+        } else {
+            baoKhoHangLoi(bienBan, bienBan.getPhieuNhapKho(), moi, null);
+        }
+        log.info("[RTV-TIEU-HUY] Biên bản `{}` tiêu hủy {} dòng hàng lỗi (nhà cung cấp đồng ý: {})", bienBan.getMaBienBan(),
+                ds.isEmpty() ? "mọi" : chon.size(), nguoiDongY);
         return toDto(bienBan, true);
     }
 
-    /** Khóa biên bản để ghi việc hàng: phải còn hiệu lực, phiếu đã nhập kho, hàng còn ở kho, đúng kho đang chọn. */
+    /** Khóa biên bản để ghi việc hàng: phải còn hiệu lực, phiếu đã nhập kho, còn dòng ở kho, đúng kho đang chọn. */
     private BienBanTraHangNcc khoaDeGhiHang(Integer id) {
         BienBanTraHangNcc bienBan = bienBanTraHangNccRepository.khoaTheoId(id)
                 .orElseThrow(() -> new CommonException(HttpStatus.NOT_FOUND, ThongDiep.of("chungTuKho.bienBanTraHangKhongTimThay", id)));
@@ -1281,14 +1837,18 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
     // TRẠNG THÁI VÀ DTO
     // ─────────────────────────────────────────────────────────────
 
-    /** Số lỗi theo biến thể của từng phiếu, dòng đơn mua của các đơn và nhật ký các biên bản, nạp một lần cho danh sách. */
+    /**
+     * Số lỗi theo biến thể của từng phiếu, dòng đơn mua của các đơn, nhật ký và dòng của các biên bản, nạp một lần cho
+     * danh sách.
+     */
     private record NguCanh(Map<Integer, Map<Integer, Integer>> loiTheoPhieu,
                            Map<Integer, Map<Integer, ChiTietDonMuaHang>> dongDonTheoDon,
-                           Map<Integer, NhatKyTraHangNcc.NhatKy> nhatKyTheoBienBan) {
+                           Map<Integer, NhatKyTraHangNcc.NhatKy> nhatKyTheoBienBan,
+                           Map<Integer, List<ChiTietTraHangNcc>> dongTheoBienBan) {
     }
 
     private NguCanh napNguCanh(Collection<BienBanTraHangNcc> ds) {
-        if (ds.isEmpty()) return new NguCanh(Map.of(), Map.of(), Map.of());
+        if (ds.isEmpty()) return new NguCanh(Map.of(), Map.of(), Map.of(), Map.of());
         Map<Integer, Map<Integer, Integer>> loi = new HashMap<>();
         for (Object[] r : chiTietPhieuNhapKhoRepository.soLoiTheoBienThe(
                 ds.stream().map(b -> b.getPhieuNhapKho().getId()).collect(Collectors.toSet()))) {
@@ -1304,11 +1864,12 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
                         .putIfAbsent(c.getBienTheSanPham().getId(), c);
             }
         }
-        Map<Integer, NhatKyTraHangNcc.NhatKy> nk = nhatKy.doc(ds.stream().map(BienBanTraHangNcc::getId).toList());
-        return new NguCanh(loi, dongDon, nk);
+        List<Integer> ids = ds.stream().map(BienBanTraHangNcc::getId).toList();
+        Map<Integer, NhatKyTraHangNcc.NhatKy> nk = nhatKy.doc(ids);
+        return new NguCanh(loi, dongDon, nk, dongTheoBienBan(ids));
     }
 
-    /** Giao bù đã xong: đơn đã đóng / hủy, hoặc mọi dòng đơn của các biến thể lỗi hết còn thiếu. */
+    /** Giao bù đã xong: đơn đã đóng / hủy, hoặc mọi dòng đơn của các biến thể hết thiếu. */
     private static boolean buXong(Collection<Integer> bienThe, Map<Integer, ChiTietDonMuaHang> dongDon, Integer ttDon) {
         if (Objects.equals(ttDon, DON_DA_DONG) || Objects.equals(ttDon, DON_DA_HUY)) return true;
         for (Integer bt : bienThe) {
@@ -1319,18 +1880,28 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
     }
 
     /**
-     * Trạng thái hiển thị: chờ người giao hàng ký (chưa gửi nhà cung cấp), chờ nhà cung cấp trả lời, rồi việc kho làm theo lựa chọn của nhà cung cấp (giao
-     * trả / tiêu hủy), rồi chờ hàng bù.
+     * Trạng thái hiển thị: chờ người giao hàng ký (chưa gửi nhà cung cấp), chờ nhà cung cấp trả lời, rồi việc kho làm theo
+     * lựa chọn của nhà cung cấp (còn dòng nhận lại chưa giao trả thì chờ giao trả, còn dòng đồng ý tiêu hủy thì chờ tiêu
+     * hủy), rồi chờ hàng bù của các dòng giao bù. {@code buXongDong}: dòng giao bù đã nhận đủ hàng bù.
      */
-    static String trangThaiHienThi(BienBanTraHangNcc b, NhatKyTraHangNcc.NhatKy nk, boolean buXong) {
+    static String trangThaiHienThi(BienBanTraHangNcc b, NhatKyTraHangNcc.NhatKy nk, List<Dong> ds,
+                                   java.util.function.Predicate<Dong> buXongDong) {
         if (!b.dangHieuLuc()) return TT_DA_HUY;
         if (nk.choKy()) return TT_CHO_KY;
         if (!laPhieuDaNhap(b.getPhieuNhapKho())) return TT_MOI_LAP;
-        if (choTraLoi(b, nk).co()) return TT_CHO_CHOT;
-        if (b.hangConOKho()) {
-            return BienBanTraHangNcc.HL_TIEU_HUY.equals(nk.luaChonHangLoi()) ? TT_CHO_TIEU_HUY : TT_CHO_GIAO_TRA;
+        if (choTraLoi(b, nk, ds).co()) return TT_CHO_CHOT;
+        if (ds.isEmpty()) {
+            // Biên bản không có dòng (dữ liệu cũ): theo cột của biên bản
+            if (b.hangConOKho()) {
+                return BienBanTraHangNcc.HL_TIEU_HUY.equals(nk.luaChonHangLoi()) ? TT_CHO_TIEU_HUY : TT_CHO_GIAO_TRA;
+            }
+            return TT_HOAN_TAT;
         }
-        if (BienBanTraHangNcc.PA_DOI_HANG.equals(b.phuongAn()) && !buXong) return TT_CHO_HANG_BU;
+        if (ds.stream().anyMatch(d -> d.oKho() && BienBanTraHangNcc.HL_NHAN_LAI.equals(d.hangLoi()))) return TT_CHO_GIAO_TRA;
+        if (ds.stream().anyMatch(d -> d.oKho() && BienBanTraHangNcc.HL_TIEU_HUY.equals(d.hangLoi()))) return TT_CHO_TIEU_HUY;
+        if (ds.stream().anyMatch(d -> BienBanTraHangNcc.PA_DOI_HANG.equals(d.cachBu()) && !buXongDong.test(d))) {
+            return TT_CHO_HANG_BU;
+        }
         return TT_HOAN_TAT;
     }
 
@@ -1352,21 +1923,12 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
     }
 
     /**
-     * Số lỗi theo biến thể để hiển thị: đã nhập kho theo lô (đã khóa); phiếu Nháp lô còn đổi nên theo dòng biên bản
-     * ({@code items} null thì đọc dòng biên bản).
+     * Số lỗi theo biến thể để hiển thị: đã nhập kho theo lô (đã khóa); phiếu Nháp lô còn đổi nên theo dòng biên bản.
      */
-    private Map<Integer, Integer> loiHienThi(BienBanTraHangNcc b, NguCanh nguCanh, List<BienBanTraHangDto.ChiTietItemDto> items) {
+    private static Map<Integer, Integer> loiHienThi(BienBanTraHangNcc b, NguCanh nguCanh, List<Dong> ds) {
         Map<Integer, Integer> loi = nguCanh.loiTheoPhieu().getOrDefault(b.getPhieuNhapKho().getId(), Map.of());
         if (!loi.isEmpty()) return loi;
-        Map<Integer, Integer> tuDong = new LinkedHashMap<>();
-        if (items != null) {
-            for (BienBanTraHangDto.ChiTietItemDto it : items) tuDong.merge(it.getBienTheSanPhamId(), it.getSoLuong(), Integer::sum);
-        } else {
-            for (ChiTietTraHangNcc c : chiTietTraHangNccRepository.findByBienBanTraHangNcc_Id(b.getId())) {
-                tuDong.merge(c.getBienTheSanPham().getId(), c.getSoLuongLoi() == null ? 0 : c.getSoLuongLoi(), Integer::sum);
-            }
-        }
-        return tuDong;
+        return theoBienThe(ds);
     }
 
     private BienBanTraHangDto toDto(BienBanTraHangNcc b, boolean coDongLoi) {
@@ -1382,14 +1944,42 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
                 : nguCanh.dongDonTheoDon().getOrDefault(don.getId(), Map.of());
         NhatKyTraHangNcc.NhatKy nk = nguCanh.nhatKyTheoBienBan().getOrDefault(b.getId(), NhatKyTraHangNcc.NhatKy.TRONG);
         boolean daNhap = laPhieuDaNhap(phieu);
+        List<Dong> ds = dungDong(b, nk, nguCanh.dongTheoBienBan().getOrDefault(b.getId(), List.of()));
+        java.util.function.Predicate<Dong> buXongDong = d -> d.bienThe() == null || buXong(List.of(d.bienThe()), dongDon, ttDon);
 
+        // Cách xử lý hàng lỗi lúc lập; biên bản lập trước khi có nhật ký: suy từ mã cũ "trả tài xế" (nhập kho đã đổi mã
+        // đó thành đã trả hàng, chưa có việc giao trả nào ghi sau)
+        NhatKyTraHangNcc.Lap lap = nk.lap();
+        boolean cuTraTaiXe = BienBanTraHangNcc.PA_CU_TRA_TAI_XE.equals(b.getPhuongAnXuLy())
+                || BienBanTraHangNcc.DA_TRA_HANG.equals(b.getTrangThai()) && nk.giaoTra() == null;
+        String cachXuLy = lap != null && lap.cachXuLy() != null ? lap.cachXuLy()
+                : cuTraTaiXe ? BienBanTraHangNcc.TRA_NGAY : BienBanTraHangNcc.GIU_KHO;
+        boolean traNgay = BienBanTraHangNcc.TRA_NGAY.equals(cachXuLy);
+        NhatKyTraHangNcc.Ky ky = nk.ky();
+
+        // Lựa chọn còn mở chỉ cần ở màn chi tiết (cổng nhà cung cấp): tính giao bù đổi được không phải đọc phiếu về sau
+        Map<Integer, LuaChonMo> mo = coDongLoi ? luaChonMo(b, ds) : Map.of();
         List<BienBanTraHangDto.ChiTietItemDto> items = null;
         Map<Integer, BienTheSanPham> bienThe = new HashMap<>();
         if (coDongLoi) {
-            items = chiTietTraHangNccRepository.findDetailByBienBanId(b.getId()).stream().map(c -> {
+            items = new ArrayList<>();
+            for (Dong d : ds) {
+                ChiTietTraHangNcc c = d.ct();
                 BienTheSanPham bt = c.getBienTheSanPham();
                 bienThe.putIfAbsent(bt.getId(), bt);
-                return BienBanTraHangDto.ChiTietItemDto.builder()
+                ChiTietDonMuaHang dongCuaDon = dongDon.get(bt.getId());
+                BigDecimal donGia = dongCuaDon == null ? null : dongCuaDon.getDonGia();
+                NhatKyTraHangNcc.TraLoi lanCb = d.lanCachBu();
+                // Cách bù chép từ cột biên bản cũ: không có người chọn / lúc chọn
+                if (lanCb != null && NhatKyTraHangNcc.NGUON_DU_LIEU_CU.equals(lanCb.nguon())) lanCb = null;
+                NhatKyTraHangNcc.TraLoi lanHl = d.lanHangLoi();
+                String nguonCb = lanCb != null ? lanCb.nguon()
+                        : !BienBanTraHangNcc.PA_CHO_CHOT.equals(d.cachBu()) && daNhap ? NhatKyTraHangNcc.NGUON_DU_LIEU_CU : null;
+                // Hàng lỗi của dòng rời kho: lần giao trả / tiêu hủy, hoặc trả ngay cho người giao hàng lúc ký
+                NhatKyTraHangNcc.GiaoTra gt = d.giaoTra();
+                boolean traNgayDong = gt == null && traNgay && !d.oKho();
+                LuaChonMo m = mo.getOrDefault(d.id(), LuaChonMo.DONG);
+                items.add(BienBanTraHangDto.ChiTietItemDto.builder()
                         .id(c.getId())
                         .bienTheSanPhamId(bt.getId())
                         .sku(bt.getMaSku())
@@ -1401,11 +1991,34 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
                         .soLuong(c.getSoLuongLoi())
                         .anhBangChungUrl(c.getAnhBangChungUrl())
                         .ghiChu(c.getGhiChu())
-                        .build();
-            }).toList();
+                        .donGia(donGia)
+                        .giaTri(donGia == null ? null : donGia.multiply(BigDecimal.valueOf(d.soLuong())))
+                        .soLuongTru(d.soLuongTru())
+                        .tienTru(donGia == null ? null : donGia.multiply(BigDecimal.valueOf(d.soLuongTru())))
+                        .cachBu(d.cachBu())
+                        .nguonCachBu(nguonCb)
+                        .nguoiXacNhanCachBu(lanCb == null ? null
+                                : NhatKyTraHangNcc.NGUON_CONG_NCC.equals(lanCb.nguon()) ? lanCb.nguoiXacNhan() : lanCb.nguoi())
+                        .thoiDiemCachBu(lanCb == null ? null : lanCb.luc())
+                        .buXong(BienBanTraHangNcc.PA_DOI_HANG.equals(d.cachBu()) && buXongDong.test(d))
+                        .hangLoiNcc(d.hangLoi())
+                        .nguoiChonHangLoi(lanHl == null ? null : lanHl.nguoiXacNhan())
+                        .thoiDiemChonHangLoi(lanHl == null ? null : lanHl.luc())
+                        .trangThaiHang(d.viTri())
+                        .thoiDiemRoiKho(gt != null ? gt.thoiDiem() : traNgayDong && lap != null ? (ky != null ? ky.luc() : lap.luc()) : null)
+                        .nguoiNhanHang(gt != null ? gt.nguoiNhan() : traNgayDong && lap != null ? lap.nguoiKy().hoTen() : null)
+                        .cachGiao(gt != null ? gt.cachGiao() : traNgayDong ? BienBanTraHangNcc.GIAO_TAI_XE : null)
+                        .maVanDon(gt == null ? null : gt.maVanDon())
+                        .cachBuMo(List.copyOf(new TreeSet<>(m.cachBu())))
+                        .hangLoiMo(List.copyOf(new TreeSet<>(m.hangLoi())))
+                        .build());
+            }
         }
-        Map<Integer, Integer> loi = coDongLoi ? loiHienThi(b, nguCanh, items)
-                : nguCanh.loiTheoPhieu().getOrDefault(phieu.getId(), Map.of());
+        Map<Integer, Integer> loi = loiHienThi(b, nguCanh, ds);
+        Map<Integer, Integer> giaoBuTheoBienThe = theoBienThe(ds.stream()
+                .filter(d -> BienBanTraHangNcc.PA_DOI_HANG.equals(d.cachBu())).toList());
+        Map<Integer, Integer> choChonTheoBienThe = theoBienThe(ds.stream()
+                .filter(d -> BienBanTraHangNcc.PA_CHO_CHOT.equals(d.cachBu())).toList());
         BigDecimal giaTriLoi = BigDecimal.ZERO;
         List<BienBanTraHangDto.TheoBienTheDto> theoBienThe = new ArrayList<>();
         for (Map.Entry<Integer, Integer> e : loi.entrySet()) {
@@ -1423,19 +2036,32 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
                     .soLuongLoi(e.getValue())
                     .donGia(donGia)
                     .conThieuDongDon(dong == null ? null : dong.conThieu())
+                    // Biên bản không có dòng (dữ liệu cũ): để trống, giao diện tính theo cách bù của cả biên bản
+                    .soLuongGiaoBu(ds.isEmpty() ? null : giaoBuTheoBienThe.getOrDefault(e.getKey(), 0))
+                    .soLuongChoChon(ds.isEmpty() ? null : choChonTheoBienThe.getOrDefault(e.getKey(), 0))
                     .build());
         }
         String phuongAn = b.phuongAn();
-        boolean buXong = BienBanTraHangNcc.PA_DOI_HANG.equals(phuongAn) && buXong(loi.keySet(), dongDon, ttDon);
-
-        // Cách xử lý hàng lỗi lúc lập; biên bản lập trước khi có nhật ký: suy từ mã cũ "trả tài xế" (nhập kho đã đổi mã
-        // đó thành đã trả hàng, chưa có việc giao trả nào ghi sau)
-        NhatKyTraHangNcc.Lap lap = nk.lap();
-        boolean cuTraTaiXe = BienBanTraHangNcc.PA_CU_TRA_TAI_XE.equals(b.getPhuongAnXuLy())
-                || BienBanTraHangNcc.DA_TRA_HANG.equals(b.getTrangThai()) && nk.giaoTra() == null;
-        String cachXuLy = lap != null && lap.cachXuLy() != null ? lap.cachXuLy()
-                : cuTraTaiXe ? BienBanTraHangNcc.TRA_NGAY : BienBanTraHangNcc.GIU_KHO;
-        boolean traNgay = BienBanTraHangNcc.TRA_NGAY.equals(cachXuLy);
+        List<Dong> giaoBu = ds.stream().filter(d -> BienBanTraHangNcc.PA_DOI_HANG.equals(d.cachBu())).toList();
+        boolean buXong = ds.isEmpty()
+                ? BienBanTraHangNcc.PA_DOI_HANG.equals(phuongAn) && buXong(loi.keySet(), dongDon, ttDon)
+                : !giaoBu.isEmpty() && giaoBu.stream().allMatch(buXongDong);
+        // Giá trị các dòng trừ tiền; số lỗi giao bù đơn còn chờ (theo còn thiếu của dòng đơn cùng biến thể)
+        BigDecimal giaTriTru = BigDecimal.ZERO;
+        for (Dong d : ds) {
+            ChiTietDonMuaHang dong = d.bienThe() == null ? null : dongDon.get(d.bienThe());
+            if (d.soLuongTru() > 0 && dong != null && dong.getDonGia() != null) {
+                giaTriTru = giaTriTru.add(dong.getDonGia().multiply(BigDecimal.valueOf(d.soLuongTru())));
+            }
+        }
+        int choHangBu = 0;
+        if (!donKetThuc(ttDon)) {
+            for (Map.Entry<Integer, Integer> e : theoBienThe(giaoBu).entrySet()) {
+                ChiTietDonMuaHang dong = dongDon.get(e.getKey());
+                int thieu = dong == null ? e.getValue() : dong.conThieu().intValue();
+                choHangBu += Math.max(0, Math.min(e.getValue(), thieu));
+            }
+        }
 
         // Cách bù: chỉ khi đã có phương án; không có dòng nhật ký (biên bản cũ) thì nguồn là dữ liệu cũ
         NhatKyTraHangNcc.TraLoi chot = BienBanTraHangNcc.PA_CHO_CHOT.equals(phuongAn) ? null : nk.cachBu();
@@ -1450,7 +2076,6 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
 
         // Hàng lỗi rời kho: giao trả / tiêu hủy ghi sau nhập kho, hoặc trả ngay cho người giao hàng lúc ghi đã ký
         NhatKyTraHangNcc.GiaoTra gt = nk.giaoTra();
-        NhatKyTraHangNcc.Ky ky = nk.ky();
         // Biên bản cũ (mã trả tài xế, không nhật ký) vẫn là đã trả, chỉ không có tên / lúc
         boolean daTraNgay = traNgay && b.dangHieuLuc() && !b.hangConOKho();
         boolean coLap = daTraNgay && lap != null;
@@ -1459,10 +2084,10 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
         String nguoiGhiTra = gt != null ? gt.nguoiGhi() : coLap ? (ky != null ? ky.nguoi() : lap.nguoi()) : null;
         String cachGiao = gt != null ? gt.cachGiao() : daTraNgay ? BienBanTraHangNcc.GIAO_TAI_XE : null;
 
-        ChoTraLoi cho = choTraLoi(b, nk);
+        ChoTraLoi cho = choTraLoi(b, nk, ds);
         NhatKyTraHangNcc.TraLoi chonHangLoi = nk.hangLoi();
-        // Lựa chọn còn mở chỉ cần ở màn chi tiết (cổng nhà cung cấp): tính giao bù đổi được không phải đọc phiếu về sau
-        LuaChonMo mo = coDongLoi ? luaChonMo(b) : null;
+        String hangLoiNcc = ds.isEmpty() ? nk.luaChonHangLoi() : tongHangLoi(ds);
+        LuaChonMo moGop = coDongLoi ? gopMo(mo.values()) : null;
 
         return BienBanTraHangDto.builder()
                 .id(b.getId())
@@ -1487,12 +2112,18 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
                 .lapCuoiLuc(lap == null ? null : lap.luc())
                 .phuongAn(phuongAn)
                 .buXong(buXong)
+                .soLuongGiaoBu(tongSoLuong(giaoBu))
+                .soLuongChoChonCachBu(tongSoLuong(ds.stream().filter(d -> BienBanTraHangNcc.PA_CHO_CHOT.equals(d.cachBu())).toList()))
+                .soLuongNhanLai(soTheo(ds, null, BienBanTraHangNcc.HL_NHAN_LAI))
+                .soLuongTieuHuy(soTheo(ds, null, BienBanTraHangNcc.HL_TIEU_HUY))
+                .giaTriTruTien(giaTriTru)
+                .soLuongChoHangBu(ds.isEmpty() ? null : choHangBu)
                 .nguonChot(nguonChot)
                 .nguoiXacNhanNcc(chot == null ? null : chot.nguoiXacNhan())
                 .ghiChuChot(chot == null ? null : chot.ghiChu())
                 .nguoiChot(chot == null ? null : chot.nguoi())
                 .thoiDiemChot(chot == null ? null : chot.luc())
-                .hangLoiNcc(chonHangLoi == null ? null : chonHangLoi.hangLoi())
+                .hangLoiNcc(hangLoiNcc)
                 .nguoiChonHangLoi(chonHangLoi == null ? null : chonHangLoi.nguoiXacNhan())
                 .thoiDiemChonHangLoi(chonHangLoi == null ? null : chonHangLoi.luc())
                 .ghiChuChonHangLoi(chonHangLoi == null ? null : chonHangLoi.ghiChu())
@@ -1500,8 +2131,8 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
                 .choNccChonHangLoi(cho.hangLoi())
                 .hanTraLoi(nk.emailDauLuc() == null ? null : hanTraLoi(nk.emailDauLuc()))
                 .daNhacHan(nk.daNhac())
-                .cachBuMo(mo == null ? null : List.copyOf(new TreeSet<>(mo.cachBu())))
-                .hangLoiMo(mo == null ? null : List.copyOf(new TreeSet<>(mo.hangLoi())))
+                .cachBuMo(moGop == null ? null : List.copyOf(moGop.cachBu()))
+                .hangLoiMo(moGop == null ? null : List.copyOf(moGop.hangLoi()))
                 .soLuongTruTien(soTru)
                 .tienTruTien(tienTru)
                 .ghiChu(b.getGhiChu())
@@ -1510,7 +2141,7 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
                 .tongSoLuongLoi(b.getTongSoLuongLoi())
                 .giaTriLoi(giaTriLoi)
                 .trangThai(b.dangHieuLuc() ? BienBanTraHangNcc.CHO_TRA_HANG : BienBanTraHangNcc.DA_HUY)
-                .trangThaiHienThi(trangThaiHienThi(b, nk, buXong))
+                .trangThaiHienThi(trangThaiHienThi(b, nk, ds, buXongDong))
                 .cachXuLyHang(cachXuLy)
                 .trangThaiHang(b.dangHieuLuc() ? b.maHangLoi() : BienBanTraHangNcc.HANG_O_KHO)
                 .nguoiNhanHang(nguoiNhan)

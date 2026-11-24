@@ -34,14 +34,27 @@ public interface BienBanTraHangService {
     BienBanTraHangDto chiTiet(Integer id);
 
     /**
-     * Nhà cung cấp trả lời trên Cổng nhà cung cấp ({@code nhaCungCapIds}: các nhà cung cấp của email phiên cổng): cách bù
-     * ({@code phuongAn} DOI_HANG / TRU_CONG_NO) và hàng lỗi còn ở kho ({@code hangLoi} NHAN_LAI / TIEU_HUY); null là không
-     * đổi. Lần đầu phải chọn mọi việc còn mở. Phiếu chưa nhập kho: trừ tiền áp vào đơn lúc nhập kho; đã nhập kho: áp
-     * ngay. {@code phienBan}: lần lập nhà cung cấp đang xem (null chỉ với biên bản cũ không có nhật ký lập); không khớp lần lập
-     * cuối thì 409.
+     * Nhà cung cấp trả lời trên Cổng nhà cung cấp ({@code nhaCungCapIds}: các nhà cung cấp của email phiên cổng), cho TỪNG
+     * DÒNG sản phẩm lỗi: cách bù (DOI_HANG / TRU_CONG_NO) và hàng lỗi còn ở kho (NHAN_LAI / TIEU_HUY). {@code theoDong}:
+     * lựa chọn của từng dòng (null là không đổi); dòng không có trong danh sách lấy {@code phuongAn} / {@code hangLoi}
+     * chung (cách gửi cũ: một lựa chọn cho mọi dòng). Lần đầu phải chọn mọi việc còn mở của mọi dòng. Phiếu chưa nhập kho:
+     * trừ tiền áp vào đơn lúc nhập kho; đã nhập kho: áp ngay. {@code phienBan}: lần lập nhà cung cấp đang xem (null chỉ với
+     * biên bản cũ không có nhật ký lập); không khớp lần lập cuối thì 409. {@code camKet}: người xác nhận đã đánh dấu câu cam
+     * kết trong hộp xác nhận (ghi vào nhật ký).
      */
-    BienBanTraHangDto traLoiTuCong(Integer id, Collection<Integer> nhaCungCapIds, Integer phienBan, String phuongAn,
-                                   String hangLoi, String nguoiXacNhan, String ghiChu);
+    BienBanTraHangDto traLoiTuCong(Integer id, Collection<Integer> nhaCungCapIds, Integer phienBan,
+                                   List<LuaChonDong> theoDong, String phuongAn, String hangLoi, String nguoiXacNhan,
+                                   String ghiChu, boolean camKet);
+
+    /** Cách gửi cũ: một lựa chọn cho mọi dòng. */
+    default BienBanTraHangDto traLoiTuCong(Integer id, Collection<Integer> nhaCungCapIds, Integer phienBan, String phuongAn,
+                                           String hangLoi, String nguoiXacNhan, String ghiChu) {
+        return traLoiTuCong(id, nhaCungCapIds, phienBan, null, phuongAn, hangLoi, nguoiXacNhan, ghiChu, false);
+    }
+
+    /** Lựa chọn của một dòng biên bản ({@code dongId}: id dòng chi_tiet_tra_hang_ncc); null là không đổi. */
+    record LuaChonDong(Integer dongId, String phuongAn, String hangLoi) {
+    }
 
     /** Biên bản của các nhà cung cấp (Cổng nhà cung cấp, không có phạm vi kho), mới trước, không kèm dòng hàng lỗi. */
     List<BienBanTraHangDto> dsChoCong(Collection<Integer> nhaCungCapIds);
@@ -61,10 +74,16 @@ public interface BienBanTraHangService {
     /** Số hàng lỗi đã trừ tiền theo biến thể của đơn mua (đã nằm trong "đã nhận" của dòng đơn). */
     Map<Integer, Integer> truTienTheoBienThe(Integer donMuaHangId);
 
-    /** Kho ghi đã giao trả hàng lỗi cho nhà cung cấp (chỉ khi nhà cung cấp đã chọn nhận lại). */
+    /**
+     * Kho ghi đã giao trả hàng lỗi cho nhà cung cấp: các dòng {@code request.dongIds} (thiếu: mọi dòng còn ở kho nhà cung
+     * cấp chọn nhận lại); mỗi dòng phải còn ở kho và nhà cung cấp đã chọn nhận lại.
+     */
     BienBanTraHangDto ghiDaGiaoTra(Integer id, GiaoTraHangLoiRequest request);
 
-    /** Quản lý kho ghi tiêu hủy hàng lỗi (chỉ khi nhà cung cấp đã đồng ý tiêu hủy trên cổng). */
+    /**
+     * Quản lý kho ghi tiêu hủy hàng lỗi: các dòng {@code request.dongIds} (thiếu: mọi dòng còn ở kho nhà cung cấp đồng ý
+     * tiêu hủy); mỗi dòng phải còn ở kho và nhà cung cấp đã đồng ý tiêu hủy trên cổng.
+     */
     BienBanTraHangDto ghiTieuHuy(Integer id, GiaoTraHangLoiRequest request);
 
     /** Id các biên bản đã gửi email mà nhà cung cấp còn việc phải trả lời (việc định kỳ xét hạn). */
