@@ -691,7 +691,6 @@
   "Kéo một dòng thả vào danh mục khác để chuyển nhánh": "Drag a row onto another category to move its branch",
   "{{tong}} danh mục · {{goc}} danh mục gốc · {{ngung}} ngừng hoạt động · sâu nhất {{sauNhat}} cấp": "Categories: {{tong}} · Root: {{goc}} · Inactive: {{ngung}} · Max depth: {{sauNhat}}",
   "Tìm danh mục": "Search categories",
-  "Tìm theo tên hoặc mã danh mục": "Search by category name or code",
   "Không tải lại được danh mục ({{error}}). Bảng đang hiện dữ liệu lần tải trước.": "Couldn't reload categories ({{error}}). The table shows data from the previous load.",
   "lỗi kết nối": "connection error",
   "Chỉ tải được danh mục đang hoạt động, chưa có các danh mục ngừng hoạt động.": "Only active categories could be loaded; inactive categories are missing.",
@@ -821,5 +820,6 @@
   "Bắt buộc khi có đơn bán tại quầy trả QR payOS: AMIS chỉ ghi sổ tài khoản ngân hàng khi có số tài khoản. Phải là tài khoản đã khai báo trên AMIS.": "Required for in-store payOS QR sales: AMIS only posts to the bank account when the account number is given. It must be an account set up in AMIS.",
   "{{count}} loại chứng từ và tem sản phẩm, mỗi loại một mẫu đang dùng. Chỉ quản trị viên sửa được mẫu in._one": "{{count}} document type and product labels, one active template each. Only administrators can edit print templates.",
   "{{count}} loại chứng từ và tem sản phẩm, mỗi loại một mẫu đang dùng. Chỉ quản trị viên sửa được mẫu in._other": "{{count}} document types and product labels, one active template each. Only administrators can edit print templates.",
-  "Gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -; không bắt đầu bằng KH-SHP-, KH-TTS-, KH-LZD-, KH-SP- (dành cho khách từ sàn)": "1–10 characters: unaccented capital letters, digits or . _ -; can't start with KH-SHP-, KH-TTS-, KH-LZD- or KH-SP- (reserved for marketplace customers)"
+  "Gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -; không bắt đầu bằng KH-SHP-, KH-TTS-, KH-LZD-, KH-SP- (dành cho khách từ sàn)": "1–10 characters: unaccented capital letters, digits or . _ -; can't start with KH-SHP-, KH-TTS-, KH-LZD- or KH-SP- (reserved for marketplace customers)",
+  "Tên hoặc mã danh mục": "Category name or code"
 }

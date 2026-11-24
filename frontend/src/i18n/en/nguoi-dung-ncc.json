@@ -344,7 +344,7 @@
   "Thêm người dùng": "Add user",
   "Lọc người dùng theo trạng thái": "Filter users by status",
   "Tìm người dùng": "Search users",
-  "Tên, tên đăng nhập, email hoặc SĐT": "Name, username, email or phone",
+  "Tên, tài khoản, SĐT": "Name, username, phone",
   "Lọc theo vai trò": "Filter by role",
   "Đang tải danh sách người dùng": "Loading users",
   "Không tìm thấy người dùng phù hợp": "No matching users found",
@@ -532,7 +532,7 @@
   "Liên kết từ": "Linked from",
   "máy chủ chưa có API mã vạch nhà cung cấp": "the server doesn't have the supplier barcode API yet",
   "Tìm mã vạch nhà cung cấp": "Search supplier barcodes",
-  "Quét hoặc nhập mã vạch, mã hàng, SKU, tên, màu": "Scan or enter a barcode, item code, SKU, name or color",
+  "Mã vạch, SKU, tên, màu": "Barcode, SKU, name, color",
   "Lọc theo nhà cung cấp": "Filter by supplier",
   "Gỡ liên kết mã vạch?": "Unlink barcode?",
   "Mã {{maVach}} của {{tenNhaCungCap}} sẽ không còn tự nhận là {{bienThe}}. Lần quét sau, mã được hỏi lại như mã chưa có trong hệ thống.": "Code {{maVach}} from {{tenNhaCungCap}} will no longer be recognized as {{bienThe}}. Next time it's scanned, the code will be treated as an unknown code again.",
@@ -609,7 +609,6 @@
   "Đã cho phép \"{{tenNhaCungCap}}\" hoạt động lại": "\"{{tenNhaCungCap}}\" reactivated",
   "Đã ngừng hoạt động \"{{tenNhaCungCap}}\"": "\"{{tenNhaCungCap}}\" deactivated",
   "Lọc nhà cung cấp theo trạng thái": "Filter suppliers by status",
-  "Tìm mã, tên, MST, liên hệ, SĐT...": "Search code, name, tax code, contact, phone...",
   "Không tìm thấy nhà cung cấp phù hợp": "No matching suppliers found",
   "Chọn tab Tất cả để xem mọi nhà cung cấp.": "Choose the All tab to see every supplier.",
   "Chưa có nhà cung cấp": "No suppliers yet",
@@ -1129,5 +1128,7 @@
   "{{count}} sản phẩm đã giao trả hoặc tiêu hủy_one": "{{count}} unit already returned or disposed of",
   "{{count}} sản phẩm đã giao trả hoặc tiêu hủy_other": "{{count}} units already returned or disposed of",
   "tiêu hủy {{count}} sản phẩm lỗi; việc tiêu hủy không thể hoàn tác_one": "dispose of {{count}} defective unit; disposal can't be undone",
-  "tiêu hủy {{count}} sản phẩm lỗi; việc tiêu hủy không thể hoàn tác_other": "dispose of {{count}} defective units; disposal can't be undone"
+  "tiêu hủy {{count}} sản phẩm lỗi; việc tiêu hủy không thể hoàn tác_other": "dispose of {{count}} defective units; disposal can't be undone",
+  "Mã, tên, MST, SĐT": "Code, name, tax ID, phone",
+  "Bỏ lọc nhà cung cấp": "Clear supplier filter"
 }

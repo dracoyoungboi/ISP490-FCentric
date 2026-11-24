@@ -305,7 +305,7 @@
   "Xem đợt đang kiểm kê": "View in progress",
   "Sơ đồ khóa": "Lock map",
   "Lọc đợt kiểm kê theo trạng thái": "Filter stock takes by status",
-  "Tìm đợt, kho, người chủ trì": "Search stock take, warehouse, lead",
+  "Đợt, kho, người chủ trì": "Session, warehouse, lead",
   "Tìm đợt kiểm kê": "Search stock takes",
   "Lọc theo kho": "Filter by warehouse",
   "Xem mọi kho": "View all warehouses",
@@ -421,7 +421,6 @@
   "Chỉ ghi sổ kệ, tồn kho không đổi.": "Only shelf records change; stock stays the same.",
   "Hàng đã vào kho nhưng chưa ghi ở kệ nào: người nhặt hàng không thấy chỗ lấy, kiểm kê toàn kho chưa bắt đầu được.": "Goods are in the warehouse but not recorded on any shelf: pickers can't see where to pick, and full-warehouse stock takes can't start.",
   "Xếp kệ chỉ ghi sổ kệ, tồn kho không đổi.": "Shelving only updates shelf records; stock stays the same.",
-  "Tìm mã lô, SKU, tên sản phẩm": "Search lot code, SKU, product name",
   "Bỏ lọc chứng từ, xem cả kho": "Clear document filter and view the whole warehouse",
   "Cách xem": "View as",
   "Theo chứng từ": "By document",
@@ -784,5 +783,6 @@
   "Sau điều chỉnh, các chứng từ đang chờ sẽ thiếu hàng (vẫn duyệt được):": "After the adjustment, these pending documents will be short (you can still approve):",
   "Đang kiểm kê {{so}}": "{{so}} in stock take",
   "Đang kiểm kê {{so}} (đợt {{ma}}): tạm không bán, xuất hay chuyển được tới khi đợt kết thúc.": "{{so}} in stock take {{ma}}: can't be sold, issued or transferred until the stock take ends.",
-  "Đợt {{ma}}: phần này tạm không bán, xuất hay chuyển được tới khi đợt kết thúc.": "Stock take {{ma}}: this quantity can't be sold, issued or transferred until it ends."
+  "Đợt {{ma}}: phần này tạm không bán, xuất hay chuyển được tới khi đợt kết thúc.": "Stock take {{ma}}: this quantity can't be sold, issued or transferred until it ends.",
+  "Mã lô, SKU, tên sản phẩm": "Lot code, SKU, product name"
 }

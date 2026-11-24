@@ -309,7 +309,7 @@
   "Danh mục hàng hóa": "Product catalog",
   "Tìm hàng hóa": "Search products",
   "Quét mã hoặc gõ tên / mã hàng (F3)": "Scan or type a name / code (F3)",
-  "Tên hoặc mã hàng (F3)": "Name or code (F3)",
+  "Tên, mã hàng (F3)": "Name, item code (F3)",
   "Đang gõ ở ô khác — bấm để về ô tìm kiếm": "Typing in another field — click to return to search",
   "Con trỏ đang ở ô khác. Máy quét vẫn nhận mã — bấm để gõ tìm kiếm.": "The cursor is in another field. The scanner still reads codes — click to type a search.",
   "Đang gõ ở ô khác": "Typing elsewhere",
@@ -488,7 +488,6 @@
   "Không nhận được phản hồi từ máy chủ. Kiểm tra kết nối rồi thử lại.": "No response from the server. Check the connection and try again.",
   "Không tải được danh sách sản phẩm: {{chu}}.": "Couldn't load the product list: {{chu}}.",
   "Tìm hoặc quét sản phẩm": "Search or scan products",
-  "Tìm tên, mã SKU hoặc quét mã vạch rồi Enter": "Search name or SKU, or scan a barcode, then Enter",
   "Sản phẩm khớp": "Matching products",
   "Đang tải danh sách sản phẩm…": "Loading product list…",
   "Chưa tải được danh sách sản phẩm.": "Couldn't load the product list.",
@@ -587,7 +586,7 @@
   "chưa gửi kho.": "not yet sent to the warehouse.",
   "Lọc đơn bán hàng theo trạng thái": "Filter sales orders by status",
   "Tìm đơn bán hàng": "Search sales orders",
-  "Số đơn, mã đơn sàn, SĐT khách...": "Order number, marketplace order ID, customer phone...",
+  "Số đơn, mã sàn, SĐT": "Order no., marketplace ID, phone",
   "Kênh bán": "Sales channel",
   "Ngày đặt": "Order date",
   "Đang tải danh sách đơn bán hàng": "Loading sales order list",
@@ -745,7 +744,7 @@
   "Tài khoản của bạn chưa được giao cửa hàng nào. Liên hệ quản trị viên để được phân quyền.": "Your account isn't assigned to any store yet. Ask an admin for access.",
   "Chưa có cửa hàng": "No store assigned",
   "Tìm hóa đơn gốc": "Find original receipt",
-  "Mã hóa đơn, mã phiếu trả hoặc số điện thoại khách": "Receipt number, return slip number or customer phone",
+  "Mã hóa đơn, phiếu trả, SĐT": "Receipt, return slip, phone",
   "Nhận trả hóa đơn bán tại quầy ở mọi cửa hàng, trong vòng 03 ngày kể từ lúc thanh toán.": "Accept returns of in-store receipts from any store, within 3 days of payment.",
   "Đang tải hóa đơn gốc": "Loading original receipt",
   "Phương thức hoàn tiền": "Refund method",
@@ -962,5 +961,6 @@
   "Cần {{can}} · Còn {{con}}": "Need {{can}} · Have {{con}}",
   "Thiếu {{so}} tại kho": "{{so}} short at warehouse",
   "Kho đang thiếu hàng cho đơn này. Xem dải cảnh báo trên đơn để chuyển thêm hàng về kho.": "The warehouse is short on stock for this order. See the warning on the order to transfer more stock in.",
-  "Lập phiếu chuyển kho": "Create transfer order"
+  "Lập phiếu chuyển kho": "Create transfer order",
+  "Tất cả thanh toán": "All payment statuses"
 }

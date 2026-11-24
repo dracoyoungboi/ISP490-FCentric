@@ -400,7 +400,6 @@
   "Đã thêm khách hàng": "Customer added",
   "Đã thêm khách hàng {{maKhachHang}}": "Customer {{maKhachHang}} added",
   "Tìm khách hàng": "Search customers",
-  "Tìm theo tên, mã, SĐT, email...": "Search by name, code, phone, email...",
   "Lọc theo trạng thái": "Filter by status",
   "Đang tải danh sách khách hàng": "Loading customer list",
   "Không tải được danh sách khách hàng. Vui lòng thử lại.": "Couldn't load the customer list. Please try again.",
@@ -546,5 +545,6 @@
   "Bạn không có quyền in phiếu này.": "You don't have permission to print this document.",
   "Không tìm thấy phiếu để in. Phiếu có thể đã bị xóa.": "Couldn't find the document to print. It may have been deleted.",
   "Không tải được bản in. Kiểm tra mạng rồi bấm In lại.": "Couldn't load the printout. Check your connection and print again.",
-  "Không mở được hộp in. Bấm In lại.": "Couldn't open the print dialog. Try printing again."
+  "Không mở được hộp in. Bấm In lại.": "Couldn't open the print dialog. Try printing again.",
+  "Tên, mã, SĐT, email": "Name, code, phone, email"
 }

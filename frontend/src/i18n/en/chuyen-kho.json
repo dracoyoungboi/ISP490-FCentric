@@ -342,7 +342,6 @@
   "Không tải được danh sách kho: {{loiKho}}.": "Couldn't load the warehouse list: {{loiKho}}.",
   "Không tải được danh sách sản phẩm: {{chu}}.": "Couldn't load the product list: {{chu}}.",
   "Tìm hoặc quét sản phẩm": "Search or scan products",
-  "Tìm tên, mã SKU hoặc quét mã vạch rồi Enter": "Search name or SKU, or scan a barcode, then Enter",
   "Đang có {{so}} · +1": "Already {{so}} · +1",
   "Đang tải danh sách sản phẩm…": "Loading product list…",
   "Chưa tải được danh sách sản phẩm.": "Couldn't load the product list.",
@@ -492,11 +491,8 @@
   "Tất cả trạng thái": "All statuses",
   "Tạo yêu cầu chuyển": "Create transfer request",
   "Lọc phiếu chuyển kho": "Filter transfer orders",
-  "Số phiếu, số lệnh...": "Order or dispatch number...",
   "Số phiếu hoặc số lệnh điều động": "Order number or dispatch order number",
-  "Kho xuất: Tất cả": "Source warehouse: All",
   "Bỏ lọc kho xuất": "Clear source warehouse filter",
-  "Kho nhận: Tất cả": "Receiving warehouse: All",
   "Bỏ lọc kho nhận": "Clear receiving warehouse filter",
   "Bỏ lọc trạng thái": "Clear status filter",
   "Đang tải danh sách phiếu chuyển kho": "Loading transfer orders",
@@ -778,5 +774,7 @@
   "quét SKU": "SKU scan",
   "mã vạch FCentric": "FCentric barcode",
   "mã vạch NCC": "supplier barcode",
-  "mã FCentric": "FCentric code"
+  "mã FCentric": "FCentric code",
+  "Tất cả kho nhận": "All destination warehouses",
+  "Số phiếu, số lệnh": "Transfer or dispatch number"
 }

@@ -634,7 +634,7 @@
   "Bỏ lọc kho": "Clear warehouse filter",
   "Bỏ lọc kênh": "Clear channel filter",
   "Tìm sản phẩm": "Search products",
-  "Mã SP, SKU, tên sản phẩm...": "Product code, SKU, product name...",
+  "Tên, mã SP, SKU": "Name, product code, SKU",
   "Kho: {{tenKho}}": "Warehouse: {{tenKho}}",
   "{{tuNgay}} – {{denNgay}}, so với {{tuNgayTruoc}} – {{denNgayTruoc}}": "{{tuNgay}} – {{denNgay}}, vs {{tuNgayTruoc}} – {{denNgayTruoc}}",
   "Đang tải báo cáo sản phẩm": "Loading product report",
@@ -757,7 +757,6 @@
   "Bạn không có quyền truy cập trang này.": "You don't have access to this page.",
   "Lọc tồn kho theo tình trạng": "Filter stock by status",
   "Tìm kiếm tồn kho": "Search stock",
-  "SKU, mã SP, tên sản phẩm...": "SKU, product code, product name...",
   "Tổng tồn kho": "Total stock",
   "Đang xuất": "Being issued",
   "Tổng giá trị tồn": "Total stock value",
@@ -896,7 +895,6 @@
   "Nối tiếp lô": "Follows batch",
   "Thiết lập": "Settings",
   "Thử đổi số lô hoặc ghi chú cần tìm.": "Try a different batch number or note.",
-  "Tìm số lô, ghi chú...": "Search batch number, note...",
   "Việc": "Task",
   "Xem lô {{soLo}}": "View batch {{soLo}}",
   "chênh lệch {{tien}}": "difference {{tien}}",
@@ -979,5 +977,6 @@
   "Cần biết": "Good to know",
   "Lô lấy mọi chứng từ chưa giao tính đến hết ngày chọn, nên không sót và không trùng. Chứng từ có lỗi được để lại lô sau.": "A batch picks up every unsent document up to the end of the chosen date, so nothing is missed or duplicated. Documents with errors wait for the next batch.",
   "Tạo lô là đã giao: chứng từ trong lô bị khóa. Muốn sửa thì xóa trên AMIS, mở khóa chứng từ hoặc hủy lô mới nhất, rồi tạo lô mới.": "Creating a batch marks it as sent and locks its documents. To change one, delete it in AMIS, unlock it or cancel the latest batch, then create a new batch.",
-  "Giá vốn để AMIS tự tính. Số hóa đơn điện tử để trống, kế toán phát hành trên MISA meInvoice.": "AMIS calculates the cost of goods. E-invoice numbers are left blank for the accountant to issue in MISA meInvoice."
+  "Giá vốn để AMIS tự tính. Số hóa đơn điện tử để trống, kế toán phát hành trên MISA meInvoice.": "AMIS calculates the cost of goods. E-invoice numbers are left blank for the accountant to issue in MISA meInvoice.",
+  "Số lô, ghi chú": "Batch number, note"
 }

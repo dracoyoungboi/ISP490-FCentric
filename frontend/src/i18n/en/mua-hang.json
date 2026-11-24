@@ -112,8 +112,6 @@
   "Tất cả kho": "All warehouses",
   "Tạo đơn mua hàng": "Create purchase order",
   "Lọc đơn mua hàng theo trạng thái": "Filter purchase orders by status",
-  "Nhập mã đơn (VD: PO...)": "Enter order code (e.g. PO...)",
-  "Tìm theo mã đơn mua hàng": "Search by purchase order code",
   "Lọc theo kho nhập": "Filter by receiving warehouse",
   "Đang tải danh sách đơn mua hàng": "Loading purchase orders",
   "Không thể tải danh sách đơn mua hàng. Vui lòng thử lại.": "Could not load purchase orders. Please try again.",
@@ -389,7 +387,6 @@
   "Đã chốt": "Accepted",
   "Xem chi tiết báo giá": "View quotation details",
   "Lọc yêu cầu báo giá theo trạng thái": "Filter requests for quotation by status",
-  "Nhập mã yêu cầu rồi nhấn Enter": "Enter a request code and press Enter",
   "Tìm theo mã yêu cầu": "Search by request code",
   "Đang tải danh sách yêu cầu báo giá": "Loading requests for quotation",
   "Không thể tải danh sách yêu cầu báo giá. Vui lòng thử lại.": "Could not load requests for quotation. Please try again.",
@@ -737,7 +734,7 @@
   "Nhiều sản phẩm khớp “{{tho}}”, chọn trong danh sách (phím ↑ ↓ rồi Enter).": "Several products match “{{tho}}”; pick one from the list (↑ ↓ then Enter).",
   "Không tìm thấy sản phẩm “{{tho}}”.": "Product “{{tho}}” not found.",
   "Thêm sản phẩm: tìm hoặc quét mã": "Add product: search or scan",
-  "Thêm sản phẩm: tìm tên, mã SKU hoặc quét mã vạch rồi Enter": "Add product: search name or SKU, or scan a barcode, then press Enter",
+  "Tên, SKU hoặc quét mã vạch": "Name, SKU or scan a barcode",
   "Sản phẩm khớp": "Matching products",
   "{{tong}} biến thể_one": "{{tong}} variant",
   "{{tong}} biến thể_other": "{{tong}} variants",
@@ -824,7 +821,7 @@
   "Đang xem trước mô phỏng theo kịch bản mới. Bấm Lưu & Tính lại ROP để cập nhật ngưỡng cảnh báo hệ thống.": "Previewing live simulation for the updated preset. Click Save & recalculate ROP to persist alert thresholds.",
   "Lưu & Tính lại ROP": "Save & recalculate ROP",
   "Tổng quan gợi ý nhập hàng": "Replenishment summary",
-  "Tìm theo tên sản phẩm hoặc mã SKU…": "Search by product name or SKU…",
+  "Tên, mã sản phẩm hoặc SKU": "Product name, code or SKU",
   "Lập từ màn Gợi ý nhập hàng": "Created from Reorder suggestions",
   "Chưa xác định được Kho tổng nhận hàng.": "Could not determine receiving central warehouse.",
   "Chọn ít nhất 1 sản phẩm có số lượng đặt lớn hơn 0.": "Select at least 1 product with quantity above 0.",
@@ -952,5 +949,7 @@
   "Lượng nên đặt, đã trừ khả dụng và hàng đang về.": "Quantity to order, net of available and incoming stock.",
   "Tồn không đủ bán đến khi hàng về.": "Stock won't last until the next delivery.",
   "Không bán 30 ngày, hoặc tồn trên 60 ngày bán.": "No sales in 30 days, or over 60 days of stock.",
-  "Tự tính lại lúc 02:00 hằng ngày. Đổi tham số chỉ xem trước; bấm Lưu & Tính lại ROP để áp dụng.": "Recalculated daily at 2:00 AM. Parameter changes are a preview until you click Save & recalculate ROP."
+  "Tự tính lại lúc 02:00 hằng ngày. Đổi tham số chỉ xem trước; bấm Lưu & Tính lại ROP để áp dụng.": "Recalculated daily at 2:00 AM. Parameter changes are a preview until you click Save & recalculate ROP.",
+  "Mã đơn, nhà cung cấp": "PO number, supplier",
+  "Tìm đơn mua hàng": "Search purchase orders"
 }
