@@ -95,20 +95,18 @@ public class DssReplenishmentRepository {
                 rs.getInt("la_kho_tong") == 1));
     }
 
-    public List<SkuRawInput> loadRawInputs(Integer khoId, int observationDaysN, int leadTimeSampleM, LocalDate todayVn) {
-        KhoInfo khoInfo = resolveWarehouse(khoId);
-        return loadRawInputs(khoId, khoInfo == null || khoInfo.laKhoTong(), observationDaysN, leadTimeSampleM, todayVn);
-    }
-
-    public List<SkuRawInput> loadRawInputs(
-            Integer khoId, boolean laKhoTong, int observationDaysN, int leadTimeSampleM, LocalDate todayVn) {
-        List<VariantStockRow> variants = loadVariantsWithStock(khoId);
+    /**
+     * Nạp dữ liệu gốc (tồn kho, hàng đang về, sức bán, Lead Time, yêu cầu nhập đang mở)
+     * tổng hợp trên toàn bộ các kho đang hoạt động ({@code trang_thai = 1} và loại trừ {@code KHO_TRANSIT}).
+     */
+    public List<SkuRawInput> loadRawInputsAllWarehouses(int observationDaysN, int leadTimeSampleM, LocalDate todayVn) {
+        List<VariantStockRow> variants = loadVariantsWithStockAllWarehouses();
         if (variants.isEmpty()) {
             return List.of();
         }
 
         List<Integer> bienTheIds = variants.stream().map(VariantStockRow::bienTheId).toList();
-        Map<Integer, Long> incomingMap = loadIncomingByVariant(khoId);
+        Map<Integer, Long> incomingMap = loadIncomingAllWarehouses();
         Map<Integer, TongQuanVaiTroRepository.YeuCauMo> openPrMap = vaiTroRepo.yeuCauMoTheoBienThe(bienTheIds);
         Map<Integer, List<Double>> leadTimeMap = loadLeadTimeSamples(leadTimeSampleM);
 
@@ -130,10 +128,6 @@ public class DssReplenishmentRepository {
         String posSelect = hasPosTable
                 ? "CASE WHEN pos.id IS NOT NULL THEN 1 ELSE 0 END AS la_pos"
                 : "0 AS la_pos";
-        String warehouseFilter = laKhoTong
-                ? "JOIN kho kx ON kx.id = d.kho_xuat_id AND kx.trang_thai = 1 AND kx.ma_kho <> 'KHO_TRANSIT'"
-                : "";
-        String warehouseWhere = laKhoTong ? "" : "AND d.kho_xuat_id = :khoId";
 
         String sqlSales = """
                 SELECT ct.bien_the_san_pham_id AS bien_the_id,
@@ -144,19 +138,15 @@ public class DssReplenishmentRepository {
                        COALESCE(ct.thanh_tien, ct.so_luong_dat * ct.don_gia) - COALESCE(ct.tien_giam_gia, 0) AS doanh_thu
                 FROM chi_tiet_don_ban_hang ct
                 JOIN don_ban_hang d ON d.id = ct.don_ban_hang_id
-                %s
+                JOIN kho kx ON kx.id = d.kho_xuat_id AND kx.trang_thai = 1 AND kx.ma_kho <> 'KHO_TRANSIT'
                 LEFT JOIN kenh_ban_hang kb ON kb.id = d.kenh_ban_id
                 %s
                 WHERE d.loai_chung_tu = 'don_ban_hang'
                   AND d.trang_thai NOT IN (0, 4)
-                  %s
                   AND d.ngay_dat_hang >= :sinceUtc
-                """.formatted(posSelect, warehouseFilter, posJoin, warehouseWhere);
+                """.formatted(posSelect, posJoin);
 
         MapSqlParameterSource salesParams = new MapSqlParameterSource("sinceUtc", Timestamp.from(sinceUtc));
-        if (!laKhoTong) {
-            salesParams.addValue("khoId", khoId);
-        }
 
         jdbc.query(sqlSales,
                 salesParams,
@@ -227,8 +217,18 @@ public class DssReplenishmentRepository {
     }
 
     /**
+     * Giữ overload cũ để tương thích ngược; toàn bộ phép tính luôn tổng hợp trên tất cả kho đang hoạt động.
+     *
+     * @deprecated Dùng {@link #loadRawInputsAllWarehouses(int, int, LocalDate)}.
+     */
+    @Deprecated
+    public List<SkuRawInput> loadRawInputs(Integer khoId, int observationDaysN, int leadTimeSampleM, LocalDate todayVn) {
+        return loadRawInputsAllWarehouses(observationDaysN, leadTimeSampleM, todayVn);
+    }
+
+    /**
      * Đồng bộ ngưỡng đặt hàng lại (ROP) và trạng thái cảnh báo vào {@code canh_bao}
-     * ({@code loai_canh_bao = 'ton_kho_thap'}).
+     * ({@code loai_canh_bao = 'ton_kho_thap'}). {@code khoId} truyền vào là Kho tổng neo cảnh báo toàn hệ thống.
      * @return số bản ghi đang ở trạng thái cảnh báo ({@code trang_thai = 0}) sau khi cập nhật
      */
     public int syncLowStockAlerts(Integer khoId, List<com.dev.backend.dto.dss.DssRecommendationItemDto> items) {
@@ -330,7 +330,7 @@ public class DssReplenishmentRepository {
         return activeAlertCount;
     }
 
-    private List<VariantStockRow> loadVariantsWithStock(Integer khoId) {
+    private List<VariantStockRow> loadVariantsWithStockAllWarehouses() {
         return jdbc.query("""
                         SELECT sp.id AS san_pham_id, bt.id AS bien_the_id, sp.ma_san_pham, bt.ma_sku,
                                sp.ten_san_pham, ms.ten_mau, ms.ma_mau_hex, sz.ten_size, cl.ten_chat_lieu,
@@ -366,13 +366,12 @@ public class DssReplenishmentRepository {
                                    SUM(tk.so_luong_kha_dung) AS ftu
                             FROM ton_kho_theo_lo tk
                             JOIN lo_hang lh ON lh.id = tk.lo_hang_id
-                            WHERE tk.kho_id = :khoId
+                            JOIN kho k      ON k.id = tk.kho_id AND k.trang_thai = 1 AND k.ma_kho <> 'KHO_TRANSIT'
                             GROUP BY lh.bien_the_san_pham_id
                         ) t ON t.bien_the_id = bt.id
                         WHERE bt.trang_thai = 1 AND sp.trang_thai IN (0, 1)
                         ORDER BY sp.ten_san_pham, bt.id
                         """,
-                new MapSqlParameterSource("khoId", khoId),
                 (rs, i) -> new VariantStockRow(
                         rs.getInt("san_pham_id"),
                         rs.getInt("bien_the_id"),
@@ -392,19 +391,18 @@ public class DssReplenishmentRepository {
                         rs.getBigDecimal("don_gia_nhap")));
     }
 
-    private Map<Integer, Long> loadIncomingByVariant(Integer khoId) {
+    private Map<Integer, Long> loadIncomingAllWarehouses() {
         Map<Integer, Long> map = new HashMap<>();
         jdbc.query("""
                         SELECT ct.bien_the_san_pham_id,
                                COALESCE(SUM(ct.so_luong_dat - COALESCE(ct.so_luong_da_nhan, 0)), 0) AS dang_ve
                         FROM chi_tiet_don_mua_hang ct
                         JOIN don_mua_hang dm ON dm.id = ct.don_mua_hang_id
+                        JOIN kho k           ON k.id = dm.kho_nhap_id AND k.trang_thai = 1 AND k.ma_kho <> 'KHO_TRANSIT'
                         WHERE dm.trang_thai IN (3, 5)
-                          AND dm.kho_nhap_id = :khoId
                           AND ct.so_luong_dat > COALESCE(ct.so_luong_da_nhan, 0)
                         GROUP BY ct.bien_the_san_pham_id
                         """,
-                new MapSqlParameterSource("khoId", khoId),
                 rs -> {
                     map.put(rs.getInt("bien_the_san_pham_id"), roundLong(rs.getBigDecimal("dang_ve")));
                 });
