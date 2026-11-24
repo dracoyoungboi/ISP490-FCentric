@@ -8,6 +8,7 @@
  */
 import { docSo, tinhTienDoNhan, trangThaiGiao } from "../../order/chi-tiet-don-mua/tinhNhanHang.js";
 import { t } from "../../../i18n/t.js";
+import { tomTatPhaiTra } from "../../order/danh-sach-don-mua/phaiTraDonMua.js";
 
 /** Trạng thái đơn mua (DON_MUA_HANG_STATUS) theo luồng đang chạy. */
 export const TRANG_THAI_DON = {
@@ -120,7 +121,8 @@ export function giaoHangTheoDon(chot, phieus, homNay = new Date()) {
 export function tinhChiSo(chot, baoGia, giaoTheoDon, { coNgayNhap = true } = {}) {
   // Đơn đã hủy không mua gì nên không tính vào giá trị đơn mua
   const muaThat = chot.filter((d) => Number(d?.trangThai) !== TRANG_THAI_DON.DA_HUY);
-  const giaTri = muaThat.reduce((tong, d) => tong + docSo(d?.tongTien), 0);
+  // Giá trị mua thật: số phải trả của từng đơn (đã trừ hàng lỗi trừ tiền, đơn đóng thiếu chỉ tính phần đã nhận)
+  const giaTri = muaThat.reduce((tong, d) => tong + docSo(tomTatPhaiTra(d).phaiTra), 0);
 
   let dungHan = 0;
   let daXet = 0;
