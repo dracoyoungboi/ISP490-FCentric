@@ -10,6 +10,9 @@ import {
   laDonSan,
   laDonTaiQuay,
   laGhiChuTuSinh,
+  laGiaTriAnPii,
+  laMaVanDonGiaShopee,
+  lamSachGhiChuDonSan,
   lyDoKhoaHuy,
   lyDoSanHuy,
   phieuDaXuatCuoi,
@@ -276,7 +279,27 @@ test("Shopee UNPAID Chờ xác nhận: chỉ cho xem, khóa Gửi sang kho & H�
   assert.equal(tb[0].ma, "choXacNhanSan");
   assert.match(tb[0].chu, /Chờ xác nhận nên chỉ xem được/);
 
-  const readyCt = ct({ ...shopee, trangThai: 0, ghiChu: "Đơn hàng đồng bộ tự động từ Shopee #261120TEST" });
+  const readyCt = ct({ ...shopify, ...shopee, kenhBanHang: { maKenh: "SHOPEE_OFFICIAL", tenKenh: "Shopee" }, trangThai: 0, ghiChu: "Đơn hàng đồng bộ tự động từ Shopee #261120TEST" });
   assert.equal(thaoTacDonBan(readyCt, ban).nutGuiKho, true);
   assert.equal(thaoTacDonBan(readyCt, ban).menuHuy, true);
+});
+
+test("lamSachGhiChuDonSan, laGiaTriAnPii, laMaVanDonGiaShopee: dọn sạch thẻ nội bộ & ẩn nút sao chép PII", () => {
+  const ghiChuLoiThucTe = "[VẬN ĐƠN: SPXVN261120S3WBWNQG] [ĐƠN VỊ: ] | Đơn hàng đồng bộ tự động từ Shopee #261120S3WBWNQG";
+  assert.equal(lamSachGhiChuDonSan(ghiChuLoiThucTe), "");
+  assert.equal(laGhiChuTuSinh(ghiChuLoiThucTe), true);
+
+  const ghiChuCoVanDonVaTuyen = "[KHÁCH YÊU CẦU HỦY] Đổi ý | [VẬN ĐƠN: SPXVN05123456] [ĐƠN VỊ: SPX Express] | [TUYẾN: 20-HAN-DD] | [PTTT: COD] | Đơn hàng đồng bộ tự động từ Shopee #261120S3WBWNQG";
+  assert.equal(lamSachGhiChuDonSan(ghiChuCoVanDonVaTuyen), "[KHÁCH YÊU CẦU HỦY] Đổi ý");
+
+  const ghiChuKhachNhan = "Giao giờ hành chính | [PTTT: Ví ShopeePay] | [TUYẾN: 1-SGN-HUB] | Đơn hàng đồng bộ tự động từ Shopee #261121EW";
+  assert.equal(lamSachGhiChuDonSan(ghiChuKhachNhan), "Giao giờ hành chính");
+
+  assert.equal(laGiaTriAnPii("****"), true);
+  assert.equal(laGiaTriAnPii("—"), true);
+  assert.equal(laGiaTriAnPii("0901234567"), false);
+
+  assert.equal(laMaVanDonGiaShopee("SPXVN261120S3WBWNQG", "261120S3WBWNQG"), true);
+  assert.equal(laMaVanDonGiaShopee("SPXVN05999888", "261120S3WBWNQG"), false);
+  assert.equal(laMaVanDonGiaShopee("", "261120S3WBWNQG"), true);
 });
