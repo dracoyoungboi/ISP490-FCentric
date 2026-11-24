@@ -2,7 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { KHO_TEM, getLabelPageCss, layKhoTem, leCuonTem } from "./paperStyles.js";
 import {
+    CAO_VACH_TOI_THIEU_MM,
     LY_DO_BO_QUA,
+    boCucChuTem,
     cheDoMacDinh,
     dungLanIn,
     giaTrenTem,
@@ -114,4 +116,68 @@ test("xem trước: phóng một tem vừa khung, tối đa 8 px/mm", () => {
     assert.equal(pxMoiMmXemTruoc(K50), 5.6);
     assert.ok(K50.rongTem * pxMoiMmXemTruoc(K50) <= 280);
     assert.equal(pxMoiMmXemTruoc(K35, 200), 5.7);
+});
+
+// Đo giả: mỗi ký tự rộng 0,66 cỡ chữ (đậm) / 0,58 (thường) — tem 35 mm chứa 21 ký tự tên đậm cỡ 2,2 mm
+const doGia = (chu, co, dam) => chu.length * (dam ? 0.66 : 0.58) * co;
+const tenTem = (tenSanPham, them = {}) => sku(1, { tenSanPham, ...them });
+
+test("tên tem vừa một dòng: giữ cỡ gốc, vạch 8 mm, không báo cắt", () => {
+    const b = boCucChuTem(tenTem("Áo thun basic"), K35, {}, doGia);
+    assert.deepEqual(b.ten, ["Áo thun basic"]);
+    assert.equal(b.coTen, K35.coChu.ten);
+    assert.equal(b.caoVach, K35.caoVach);
+    assert.equal(b.catTen, false);
+});
+
+test("tên hơi dài: co chữ (không dưới 85%) để vừa một dòng", () => {
+    const b = boCucChuTem(tenTem("ÁO KHOÁC CLIMAWARM HYBRID"), K35, { coTenCuaHang: true }, doGia);
+    assert.equal(b.ten.length, 1);
+    assert.ok(b.coTen < K35.coChu.ten && b.coTen >= K35.coChu.ten * 0.85);
+    assert.ok(doGia(b.ten[0], b.coTen, true) <= 31 + 1e-9);
+    assert.equal(b.catTen, false);
+});
+
+test("tên rất dài: xuống 2 dòng theo từ khi vạch còn đủ cao", () => {
+    const ten = "QUẦN JOGGER NỈ BÔNG DÂY RÚT PHẢN QUANG";
+    const khong = boCucChuTem(tenTem(ten), K35, {}, doGia);
+    assert.deepEqual(khong.ten, ["QUẦN JOGGER NỈ BÔNG", "DÂY RÚT PHẢN QUANG"]);
+    assert.equal(khong.coTen, K35.coChu.ten);
+    assert.equal(khong.caoVach, 8, "không in tên cửa hàng, SKU: vừa sẵn, vạch giữ 8 mm");
+    assert.equal(khong.catTen, false);
+    const cuaHang = boCucChuTem(tenTem(ten), K35, { coTenCuaHang: true }, doGia);
+    assert.equal(cuaHang.ten.length, 2);
+    assert.equal(cuaHang.caoVach, 7.6, "có dòng tên cửa hàng: vạch thấp lại 0,4 mm");
+    assert.ok(cuaHang.caoVach >= CAO_VACH_TOI_THIEU_MM);
+});
+
+test("in cả tên cửa hàng và SKU: không đủ chỗ 2 dòng, co 85% rồi cắt … và báo", () => {
+    const b = boCucChuTem(tenTem("QUẦN JOGGER NỈ BÔNG DÂY RÚT PHẢN QUANG"), K35, { coTenCuaHang: true, coSku: true }, doGia);
+    assert.equal(b.ten.length, 1);
+    assert.ok(b.ten[0].endsWith("…"));
+    assert.equal(b.coTen, K35.coChu.ten * 0.85);
+    assert.equal(b.caoVach, K35.caoVach, "vạch giữ nguyên cao");
+    assert.equal(b.catTen, true);
+    assert.ok(doGia(b.ten[0], b.coTen, true) <= 31);
+});
+
+test("tên dài hơn 2 dòng: dòng 2 cắt … và báo; tem 50 × 30 vẫn đủ chỗ 2 dòng khi bật cả hai", () => {
+    const ten = "QUẦN JOGGER NỈ BÔNG DÂY RÚT PHẢN QUANG PHONG CÁCH THỂ THAO HÀN QUỐC";
+    const b = boCucChuTem(tenTem(ten), K35, {}, doGia);
+    assert.equal(b.ten.length, 2);
+    assert.ok(b.ten[1].endsWith("…"));
+    assert.equal(b.catTen, true);
+    const k50 = boCucChuTem(tenTem(ten), K50, { coTenCuaHang: true, coSku: true }, doGia);
+    assert.equal(k50.ten.length, 2);
+    assert.ok(k50.caoVach >= CAO_VACH_TOI_THIEU_MM && k50.caoVach < K50.caoVach);
+});
+
+test("Màu - Kích cỡ dài: co tới 85% rồi cắt …, không xuống dòng", () => {
+    const vua = boCucChuTem(tenTem("Áo", { tenMau: "Xanh rêu đậm", kichCo: "XXL" }), K35, {}, doGia);
+    assert.equal(vua.bienThe, "Xanh rêu đậm - XXL");
+    assert.equal(vua.catBienThe, false);
+    const dai = boCucChuTem(tenTem("Áo", { tenMau: "Xanh rêu đậm pha xám tro nhạt", kichCo: "XXL" }), K35, {}, doGia);
+    assert.ok(dai.bienThe.endsWith("…"));
+    assert.equal(dai.coBienThe, K35.coChu.bienThe * 0.85);
+    assert.equal(dai.catBienThe, true);
 });
