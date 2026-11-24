@@ -17,6 +17,7 @@ import DssScenarioCards from "@/components/order/dss/DssScenarioCards";
 import DssParameterPanel from "@/components/order/dss/DssParameterPanel";
 import DssRecommendationTable from "@/components/order/dss/DssRecommendationTable";
 import DssCreatePrModal from "@/components/order/dss/DssCreatePrModal";
+import GiaiThichGoiYNhapHang from "@/components/order/dss/GiaiThichGoiYNhapHang";
 import { simulateDssItem } from "@/components/order/dss/dssFormula";
 
 const VAI_TRO_SUA_CAU_HINH_DSS = [
@@ -301,6 +302,7 @@ export default function DssReplenishmentPage() {
     <PageContainer className="space-y-4">
       <PageHeader
         title={t("Gợi ý nhập hàng")}
+        giaiThich={<GiaiThichGoiYNhapHang />}
         actions={
           <>
             {soKhoHoatDong > 0 ? (
