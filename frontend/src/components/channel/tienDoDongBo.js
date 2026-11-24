@@ -74,6 +74,10 @@ export function ketQuaDongBo(p) {
   if (p?.trangThai === DB_TRANG_THAI.LOI) return { tone: "loi", tieuDe: t("Đồng bộ dừng giữa chừng"), nhan: t("Đồng bộ lỗi") };
   if (p?.trangThai === DB_TRANG_THAI.DA_DUNG) return { tone: "dung", tieuDe: t("Đã dừng đồng bộ"), nhan: t("Đã dừng") };
   if (p?.soLoi) return { tone: "canh", tieuDe: t("Đồng bộ xong"), nhan: t("Xong · {{soLoi}} SKU lỗi", { count: Number(p.soLoi), soLoi: formatNumber(p.soLoi) }) };
+  const daBoQua = Number(p?.soBoQuaKhongDoi) || 0;
+  if (Number(p?.tongSku) === 0 && daBoQua > 0) {
+    return { tone: "ok", tieuDe: t("Đồng bộ xong"), nhan: t("Không có biến động") };
+  }
   return { tone: "ok", tieuDe: t("Đồng bộ xong"), nhan: t("Đã đồng bộ") };
 }
 
@@ -101,12 +105,18 @@ export function cacBuocDongBo(p, tenSan = "Shopify") {
   else docSp = { tt: "dung", phu: t("Đã dừng") };
 
   const loi = p?.soLoi ? t(" · {{soLoi}} lỗi", { count: Number(p.soLoi), soLoi: formatNumber(p.soLoi) }) : "";
+  const daBoQua = Number(p?.soBoQuaKhongDoi) || 0;
   let dayTon;
   if (giaiDoan < 1) dayTon = chay ? { tt: "cho", phu: t("Chờ") } : { tt: "boqua", phu: t("Chưa đẩy") };
   else if (giaiDoan === 1 && chay) dayTon = { tt: "dang", phu: `${formatNumber(p.daXuLy)}/${formatNumber(tong)} SKU${loi}` };
   else if (giaiDoan === 1 && tt === DB_TRANG_THAI.LOI) dayTon = { tt: "loi", phu: t("Dừng ở SKU {{thuTu}}/{{tong}}", { thuTu: formatNumber(Number(p.daXuLy) + 1), tong: formatNumber(tong) }) };
   else if (giaiDoan === 1 && tt === DB_TRANG_THAI.DA_DUNG) dayTon = { tt: "dung", phu: t("Đã đẩy {{daXuLy}}/{{tong}} SKU", { count: Number(tong), daXuLy: formatNumber(p.daXuLy), tong: formatNumber(tong) }) };
-  else dayTon = { tt: p?.soLoi ? "canh" : "xong", phu: `${formatNumber(p?.soThanhCong)}/${formatNumber(tong)} SKU${loi}` };
+  else if (Number(tong) === 0 && daBoQua > 0 && !p?.soLoi) {
+    dayTon = { tt: "xong", phu: t("{{so}} SKU không đổi", { so: formatNumber(daBoQua), count: daBoQua }) };
+  } else {
+    const khongDoiPhu = daBoQua > 0 ? t(" · {{so}} không đổi", { so: formatNumber(daBoQua) }) : "";
+    dayTon = { tt: p?.soLoi ? "canh" : "xong", phu: `${formatNumber(p?.soThanhCong)}/${formatNumber(tong)} SKU${loi}${khongDoiPhu}` };
+  }
 
   let layDon;
   if (giaiDoan < 2) layDon = chay ? { tt: "cho", phu: t("Đơn 24 giờ qua") } : { tt: "boqua", phu: t("Chưa lấy") };

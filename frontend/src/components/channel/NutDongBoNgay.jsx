@@ -83,6 +83,15 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null, l
     void batDau();
   };
 
+  const epDayToanBoLai = () => {
+    if (lyDoKhoa) return;
+    if (!sanSang) {
+      toast.info(CHUA_SAN_SANG);
+      return;
+    }
+    void batDau({ epDayToanBo: true });
+  };
+
   const doiMo = (moMoi) => {
     if (moMoi) {
       if (banViecKhac) return;
@@ -193,6 +202,7 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null, l
               onDong={() => doiMo(false)}
               onDung={dung}
               onBatDauLai={batDauLai}
+              onEpDayToanBo={epDayToanBoLai}
               lyDoKhoa={lyDoKhoa}
               dangGui={dangGui}
               onDen={den}
@@ -224,7 +234,7 @@ function VongTienDo({ pct }) {
   );
 }
 
-function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauLai, lyDoKhoa, dangGui, onDen }) {
+function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauLai, onEpDayToanBo, lyDoKhoa, dangGui, onDen }) {
   const chay = dangChayDongBo(p);
   const kq = chay ? null : ketQuaDongBo(p);
   const buoc = cacBuocDongBo(p, tenSan);
@@ -235,6 +245,8 @@ function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauL
       ? t("Bắt đầu {{gio}}{{nguoi}} · đã chạy {{thoiGian}}", { gio: gioPhut(p.batDau) ?? "", nguoi, thoiGian: dongHoDaChay(p.daChayMs) })
       : t("Lúc {{gio}} · mất {{thoiGian}}{{nguoi}}", { gio: gioPhut(p.ketThuc) ?? "—", thoiGian: thoiLuong(p.daChayMs), nguoi });
   const chuaDay = soChuaDay(p);
+  const daBoQua = Number(p?.soBoQuaKhongDoi) || 0;
+  const khongCoBienDong = Number(p?.tongSku) === 0 && daBoQua > 0 && !p?.soLoi;
 
   return (
     <div>
@@ -314,8 +326,18 @@ function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauL
         ) : p.trangThai === "xong" ? (
           <>
             <span className="min-w-0 flex-1 text-[12.5px] text-bo-muted">
-              {p.soLoi || p.soDonMoi ? null : t("Tồn kho đã khớp, không có đơn mới")}
+              {p.soLoi || p.soDonMoi
+                ? null
+                : khongCoBienDong
+                  ? t("Tồn kho các SKU đã khớp với FCentric, chưa cần đẩy lại. Nếu nghi ngờ lệch trên sàn, bạn có thể đẩy lại toàn bộ tồn.")
+                  : t("Tồn kho đã khớp, không có đơn mới")}
             </span>
+            {daBoQua > 0 && !p.epDayToanBo && !lyDoKhoa && onEpDayToanBo ? (
+              <button type="button" onClick={onEpDayToanBo} disabled={dangGui} className={NUT_NHO}>
+                <RefreshCw className={cn("size-3", dangGui && "animate-spin")} />
+                {t("Đẩy lại toàn bộ tồn")}
+              </button>
+            ) : null}
             {p.soLoi ? (
               <button type="button" className={cn(LIEN_KET, "text-bo-danger hover:text-bo-danger")} onClick={() => onDen("/products?trangThai=loi")}>
                 {t("Xem SKU lỗi")}
@@ -354,10 +376,18 @@ function BangTienDo({ phien: p, pct, conLaiMs, tenSan, onDong, onDung, onBatDauL
 /** Dòng phụ dưới một bước: SKU đang đẩy, lý do dừng, vài SKU lỗi đầu tiên. */
 function ChiTietBuoc({ ma, tt, phien: p }) {
   const dong = "mt-1 text-xs leading-[1.45] [overflow-wrap:anywhere]";
+  const daBoQua = Number(p?.soBoQuaKhongDoi) || 0;
   if (tt === "dang" && ma === "day-ton" && p.skuDangDay) {
     return (
       <p className={cn(dong, "text-bo-muted")}>
         {t("Đang đẩy")} <code className="font-mono text-[11.5px] text-bo-foreground">{p.skuDangDay}</code>
+      </p>
+    );
+  }
+  if (ma === "day-ton" && tt === "xong" && Number(p?.tongSku) === 0 && daBoQua > 0 && !p?.soLoi) {
+    return (
+      <p className={cn(dong, "text-bo-muted")}>
+        {t("Bỏ qua {{so}} SKU có tồn kho chưa đổi", { so: formatNumber(daBoQua), count: daBoQua })}
       </p>
     );
   }

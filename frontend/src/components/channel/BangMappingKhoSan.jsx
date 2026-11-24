@@ -113,9 +113,9 @@ export default function BangMappingKhoSan({
                         <span className="flex items-center gap-1.5">
                           <Building2 className="size-4 text-bo-muted shrink-0" />
                           <span>{kho.tenKhoSan || t("Địa điểm {{id}}", { id: kho.maKhoSan })}</span>
-                          {kho.laMacDinh && (
+                          {kho.laMacDinhSan && (
                             <span className="ml-1 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-                              {t("Mặc định sàn")}
+                              {t("Mặc định trên sàn")}
                             </span>
                           )}
                         </span>

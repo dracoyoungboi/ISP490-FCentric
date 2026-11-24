@@ -4,7 +4,7 @@ import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import DanhSachChonKho from "@/components/ban-hang/DanhSachChonKho";
 import { cauKhoThieu, coTimKho, idKho, khoChonDuoc, khoChonSan, locKho, xepKho } from "@/components/ban-hang/chonKho";
-import { laDonSan } from "@/components/ban-hang/chi-tiet-don-ban/tinhDonBan";
+import { coTheMoHopGuiSangKho, laDonSan } from "@/components/ban-hang/chi-tiet-don-ban/tinhDonBan";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { donBanHangService } from "@/services/donBanHangService";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -20,14 +20,18 @@ const giongId = (a, b) => a != null && b != null && String(a) === String(b);
  * - `mo`, `onDoiMo`: như HopXacNhanChungTu. `don`: donBanHang (mã, kho hiện tại).
  * - `onXacNhan(kho)`: màn gọi API gửi sang kho; `dangChay`, `loi` (câu lỗi hiện trong hộp) do màn quản lý.
  */
-export default function HopGuiSangKho({ mo, onDoiMo, don, dangChay = false, loi, onXacNhan }) {
+export default function HopGuiSangKho({ mo, onDoiMo, don, batBuocThuCong = false, dangChay = false, loi, onXacNhan }) {
+  // Lớp bảo vệ thứ 2: không cho mở popup / gọi API kho-kha-dung cho đơn 3 sàn nếu không phải luồng lỗi thủ công
+  const duocMoHop = coTheMoHopGuiSangKho(don, batBuocThuCong);
+  const moHop = Boolean(mo && duocMoHop);
+
   const [tuKhoa, setTuKhoa] = useState("");
   const [chonTay, setChonTay] = useState(null);
   // Mở lại hộp: bỏ lựa chọn và từ khóa của lần trước (đặt lại ngay trong lúc vẽ, không cần effect)
-  const [moTruoc, setMoTruoc] = useState(mo);
-  if (moTruoc !== mo) {
-    setMoTruoc(mo);
-    if (mo) {
+  const [moTruoc, setMoTruoc] = useState(moHop);
+  if (moTruoc !== moHop) {
+    setMoTruoc(moHop);
+    if (moHop) {
       setTuKhoa("");
       setChonTay(null);
     }
@@ -37,7 +41,7 @@ export default function HopGuiSangKho({ mo, onDoiMo, don, dangChay = false, loi,
   const coDinhTuyenSan = laDonSan(don) && Boolean(don?.khoXuat?.id);
 
   const tai = useCallback(async () => khoChonDuoc(await donBanHangService.getKhoKhaDung(donId)), [donId]);
-  const q = useTaiDuLieu(tai, `kho-kha-dung-${donId}`, { enabled: Boolean(mo && donId) });
+  const q = useTaiDuLieu(tai, `kho-kha-dung-${donId}`, { enabled: Boolean(moHop && donId) });
 
   const dsKho = useMemo(() => xepKho(Array.isArray(q.data) ? q.data : []), [q.data]);
   const khoHienTaiId = don?.khoXuat?.id ?? null;
@@ -50,7 +54,7 @@ export default function HopGuiSangKho({ mo, onDoiMo, don, dangChay = false, loi,
 
   return (
     <HopXacNhanChungTu
-      mo={mo}
+      mo={moHop}
       onDoiMo={onDoiMo}
       rong
       tieuDe={t("Gửi sang kho")}
@@ -76,7 +80,7 @@ export default function HopGuiSangKho({ mo, onDoiMo, don, dangChay = false, loi,
         <p className="py-6 text-center text-sm text-bo-muted">{t("Không có kho nào đang hoạt động để gửi đơn.")}</p>
       ) : (
         <>
-          {coDinhTuyenSan ? (
+          {!batBuocThuCong && coDinhTuyenSan ? (
             <p className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[13px] text-sky-900">
               {t("Đơn sàn được định tuyến mặc định tới {{tenKho}} theo ánh xạ kho. Bạn có thể chọn kho khác nếu cần điều phối.", {
                 tenKho: don?.khoXuat?.tenKho ?? t("kho đã ánh xạ"),

@@ -29,9 +29,11 @@ import {
   buocDonBan,
   cauLechDong,
   cauLechTong,
+  coTheMoHopGuiSangKho,
   dongHangBan,
   gioNgay,
   hauQuaHuy,
+  laDonBaSan,
   laDonSan,
   laDonTaiQuay,
   lyDoSanHuy,
@@ -53,7 +55,7 @@ import { toast } from "@/lib/thongBaoNhanh";
 import { donBanHangService } from "@/services/donBanHangService";
 import { donBanHangKenhService, isChannelOrderMock } from "@/services/donBanHangKenhService";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
-import { getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
+import { getApiErrorCode, getApiErrorMessage, getApiErrorStatus } from "@/utils/apiError";
 import { formatCurrency } from "@/utils/formatters";
 import { getMineKhoList } from "@/services/khoService";
 import { laKhoTong } from "@/utils/kho";
@@ -104,6 +106,7 @@ function ChiTietDonBanHang({ id }) {
   const laSan = laDonSan(don);
 
   const [hop, setHop] = useState(""); // "" | "guiKho" | "huy" | "daGiao" | "hoanTra"
+  const [buocThuCongKho, setBuocThuCongKho] = useState(false); // true chỉ khi đơn 3 sàn lỗi kho/tồn cần chọn thủ công
   const [dangChay, setDangChay] = useState(""); // thao tác đang gửi lên máy chủ
   const [loiHop, setLoiHop] = useState(null);
   // Lý do hủy đơn (bắt buộc, lưu vào ghi chú của đơn)
@@ -159,13 +162,72 @@ function ChiTietDonBanHang({ id }) {
   const thanhToan = thanhToanDonBan(ct);
 
   // ── Thao tác ────────────────────────────────────────────────────────────
+  const guiThangKhoHienTai = async () => {
+    const khoHienTai = don?.khoXuat;
+    if (!khoHienTai?.id) {
+      setBuocThuCongKho(true);
+      setLoiHop(t("Đơn sàn chưa có kho xuất hợp lệ hoặc không đủ tồn tại kho hiện tại. Chọn kho xuất thủ công để tiếp tục."));
+      setHop("guiKho");
+      return;
+    }
+    setBuocThuCongKho(false);
+    setLoiHop(null);
+    setDangChay("guiKho");
+    try {
+      await chayCoThoiHan(() => donBanHangService.sendToWarehouse(id, { khoId: Number(idKho(khoHienTai)) }));
+      setHop("");
+      toast.success(t("Đã gửi đơn {{so}} sang {{tenKho}}", { so, tenKho: khoHienTai.tenKho }), {
+        description: t("Đơn chuyển sang Chờ nhặt hàng"),
+      });
+      q.reload();
+    } catch (error) {
+      if (laLoiHetThoiHan(error)) {
+        if (daGoRef.current) return;
+        setHop("");
+        toast.error(CAU_HET_THOI_HAN, { description: MO_TA_HET_THOI_HAN });
+        q.reload();
+        khoaToiKhiGocXong(error);
+        return;
+      }
+      const maLoi = getApiErrorCode(error);
+      const cau = getApiErrorMessage(error, t("Không gửi được đơn sang kho"));
+      if (maLoi === "DON_SAN_CAN_CHON_KHO_THU_CONG") {
+        setBuocThuCongKho(true);
+        setLoiHop(cau);
+        setHop("guiKho");
+        q.reload();
+        return;
+      }
+      setHop("");
+      toast.error(cau);
+      q.reload();
+    } finally {
+      setDangChay("");
+    }
+  };
+
   const moHop = (loai) => {
+    if (loai === "guiKho" && laDonBaSan(don)) {
+      if (!coTheMoHopGuiSangKho(don, false)) {
+        void guiThangKhoHienTai();
+        return;
+      }
+      setBuocThuCongKho(true);
+      setLoiHop(t("Đơn sàn chưa có kho xuất hợp lệ hoặc không đủ tồn tại kho hiện tại. Chọn kho xuất thủ công để tiếp tục."));
+      setHop("guiKho");
+      return;
+    }
+    setBuocThuCongKho(false);
     setLoiHop(null);
     if (loai === "huy") setLyDoHuy("");
     setHop(loai);
   };
   const doiMoHop = (mo) => {
-    if (!mo) setHop("");
+    if (!mo) {
+      setHop("");
+      setBuocThuCongKho(false);
+      setLoiHop(null);
+    }
   };
 
   // Khóa nút thao tác tới khi lời gọi gốc kết thúc (tối đa THOI_HAN_CHO_GOC_MS) rồi tải lại; màn gỡ thì hủy chờ
@@ -217,10 +279,21 @@ function ChiTietDonBanHang({ id }) {
   };
 
   const guiSangKho = (kho) =>
-    thucHien("guiKho", () => donBanHangService.sendToWarehouse(id, { khoId: Number(idKho(kho)) }), {
-      cauLoi: t("Không gửi được đơn sang kho"),
-      thanhCong: () => toast.success(t("Đã gửi đơn {{so}} sang {{tenKho}}", { so, tenKho: kho.tenKho }), { description: t("Đơn chuyển sang Chờ nhặt hàng") }),
-    });
+    thucHien(
+      "guiKho",
+      () =>
+        donBanHangService.sendToWarehouse(id, {
+          khoId: Number(idKho(kho)),
+          ...(laDonBaSan(don) && buocThuCongKho ? { thuCongKhiLoi: true } : {}),
+        }),
+      {
+        cauLoi: t("Không gửi được đơn sang kho"),
+        thanhCong: () => {
+          setBuocThuCongKho(false);
+          toast.success(t("Đã gửi đơn {{so}} sang {{tenKho}}", { so, tenKho: kho.tenKho }), { description: t("Đơn chuyển sang Chờ nhặt hàng") });
+        },
+      },
+    );
   // Máy chủ trả thành công mà không làm gì khi đơn đã hủy (vd. sàn vừa hủy): đọc lại đơn để không báo nhầm "đã gửi sang sàn"
   const huyDon = () =>
     thucHien(
@@ -417,9 +490,10 @@ function ChiTietDonBanHang({ id }) {
       />
 
       <HopGuiSangKho
-        mo={hop === "guiKho"}
+        mo={hop === "guiKho" && coTheMoHopGuiSangKho(don, buocThuCongKho)}
         onDoiMo={doiMoHop}
         don={don}
+        batBuocThuCong={buocThuCongKho}
         dangChay={dangChay === "guiKho"}
         loi={loiHop}
         onXacNhan={guiSangKho}

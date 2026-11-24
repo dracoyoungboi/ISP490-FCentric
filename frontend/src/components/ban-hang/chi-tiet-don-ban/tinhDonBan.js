@@ -109,6 +109,22 @@ export const laDonShopee = (don) => ["SHOPEE", "SHOPEE_SANDBOX", "SHOPEE_OFFICIA
 /** Đơn sàn Shopify: không có tem vận đơn sàn (người bán tự giao hoặc dùng đơn vị vận chuyển ngoài). */
 export const laDonShopify = (don) => maKenhCua(don) === "SHOPIFY";
 
+/** Đơn sàn TikTok Shop / TikTok. */
+export const laDonTikTok = (don) => ["TIKTOK", "TIKTOK_SHOP"].includes(maKenhCua(don));
+
+/** Đơn thuộc 3 sàn Shopee, Lazada, TikTok Shop: gửi sang kho đi thẳng kho hiện tại của đơn, chỉ mở popup khi lỗi. */
+export const laDonBaSan = (don) => laDonShopee(don) || laDonLazada(don) || laDonTikTok(don);
+
+/**
+ * Luật chặn hiển thị hộp chọn kho thủ công khi bấm Gửi sang kho:
+ * Đơn thuộc 3 sàn (Shopee, Lazada, TikTok) đã có `don.khoXuat.id` bị chặn mở popup trừ khi vào luồng lỗi thủ công (`batBuocThuCong = true`).
+ */
+export const coTheMoHopGuiSangKho = (don, batBuocThuCong = false) => {
+  if (!don) return false;
+  if (laDonBaSan(don) && Boolean(don?.khoXuat?.id) && !batBuocThuCong) return false;
+  return true;
+};
+
 /** Tên sàn để ghép câu ("Shopify"); thiếu thì "sàn". */
 export const tenKenhCua = (don) => String(don?.kenhBanHang?.tenKenh ?? "").trim() || t("sàn");
 

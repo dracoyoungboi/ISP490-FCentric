@@ -235,7 +235,8 @@ const realApi = {
   layDon: (maKenh, { tu, den } = {}) => apiClient.post(`${BASE}/${ma(maKenh)}/lay-don`, { tu, den }).then(data),
 
   // ── Đồng bộ ngay: máy chủ chạy nền (đẩy tồn theo quy tắc đã lưu rồi lấy đơn 24 giờ qua), trang hỏi tiến độ ──
-  batDauDongBoNgay: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/dong-bo-ngay`).then(data),
+  batDauDongBoNgay: (maKenh, { epDayToanBo = false } = {}) =>
+    apiClient.post(`${BASE}/${ma(maKenh)}/dong-bo-ngay`, null, epDayToanBo ? { params: { epDayToanBo: true } } : undefined).then(data),
   /** Đợt gần nhất của kênh; null nếu chưa có đợt nào từ khi máy chủ khởi động. */
   layDongBoNgay: (maKenh) => apiClient.get(`${BASE}/${ma(maKenh)}/dong-bo-ngay`).then(data),
   dungDongBoNgay: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/dong-bo-ngay/dung`).then(data),
@@ -341,6 +342,8 @@ function mockChupDongBo(maKenh) {
     daXuLy,
     soThanhCong: daXuLy,
     soLoi: 0,
+    soBoQuaKhongDoi: 0,
+    epDayToanBo: Boolean(p.epDayToanBo),
     soChuaDay: trangThai === "dang_chay" ? null : tongSku - daXuLy,
     skuDangDay: trangThai === "dang_chay" && giaiDoan === "day_ton" ? `MAU-${String(daXuLy + 1).padStart(3, "0")}` : null,
     soDonMoi: xong ? 2 : null,
@@ -529,11 +532,11 @@ const mockApi = {
     return { soDonMoi: res.soSuKien ?? 0, soDonCapNhat: 0, thongDiep: t("Nhận {{count}} đơn hàng mới", { count: res.soSuKien ?? 0 }) };
   },
 
-  async batDauDongBoNgay(maKenh) {
+  async batDauDongBoNgay(maKenh, { epDayToanBo = false } = {}) {
     await mockDelay(150, 300);
     if (mockChupDongBo(maKenh)?.trangThai !== "dang_chay") {
       await mockKiemTraDaKetNoi(maKenh);
-      mockPhienDongBo[maMau(maKenh)] = { maPhien: `mau-${Date.now()}`, batDauLuc: Date.now(), dungLuc: null };
+      mockPhienDongBo[maMau(maKenh)] = { maPhien: `mau-${Date.now()}`, batDauLuc: Date.now(), dungLuc: null, epDayToanBo: Boolean(epDayToanBo) };
     }
     return mockChupDongBo(maKenh);
   },

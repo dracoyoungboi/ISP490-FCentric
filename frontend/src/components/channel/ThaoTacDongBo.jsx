@@ -1,5 +1,5 @@
 import { useId } from "react";
-import { Ellipsis } from "lucide-react";
+import { Ellipsis, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import NutDongBoNgay from "./NutDongBoNgay";
@@ -29,9 +29,26 @@ export default function ThaoTacDongBo({ tienDo, tenSan, onDen, thaoTac = [], vie
       ? t("{{viec}}, chờ xong rồi chạy việc khác.", { viec: viecPhu.replace(/…$/, "") })
       : khoaThaoTac || null;
 
+  const tatCaThaoTac = tienDo?.batDau
+    ? [
+        ...thaoTac,
+        {
+          ma: "ep-day-toan-bo",
+          nhan: t("Đẩy lại toàn bộ tồn"),
+          moTa: t("Đẩy toàn bộ tồn ngay cả khi số lượng chưa đổi."),
+          Icon: RefreshCw,
+          khoaRieng: lyDoKhoaDongBo || (!tienDo.sanSang ? t("Chưa tải xong thông tin gian hàng.") : null),
+          onChon: () => {
+            if (lyDoKhoaDongBo || !tienDo.sanSang) return;
+            void tienDo.batDau({ epDayToanBo: true });
+          },
+        },
+      ]
+    : thaoTac;
+
   return (
     <div className="flex max-w-full items-center gap-2">
-      {thaoTac.length ? (
+      {tatCaThaoTac.length ? (
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button type="button" variant="outline" size="icon" aria-label={t("Thao tác khác")} title={t("Thao tác khác")} className={NUT_BA_CHAM}>
@@ -43,8 +60,8 @@ export default function ThaoTacDongBo({ tienDo, tenSan, onDen, thaoTac = [], vie
             aria-describedby={lyDoKhoa ? idLyDo : undefined}
             className="z-50 w-[320px] max-w-[calc(100vw-32px)] rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg"
           >
-            {thaoTac.map(({ ma, nhan, moTa, Icon, onChon }) => (
-              <DropdownMenuItem key={ma} disabled={Boolean(lyDoKhoa)} onSelect={onChon} className={MUC_MENU}>
+            {tatCaThaoTac.map(({ ma, nhan, moTa, Icon, onChon, khoaRieng }) => (
+              <DropdownMenuItem key={ma} disabled={Boolean(lyDoKhoa || khoaRieng)} onSelect={onChon} className={MUC_MENU}>
                 {Icon ? <Icon className="mt-0.5 size-4 text-slate-400" aria-hidden="true" /> : null}
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="font-medium text-bo-foreground">{nhan}</span>

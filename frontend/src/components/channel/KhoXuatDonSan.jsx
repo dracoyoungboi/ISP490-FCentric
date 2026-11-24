@@ -121,9 +121,14 @@ export default function KhoXuatDonSan({ tenSan, mappingConfig, onChange, disable
                       <span className="flex flex-wrap items-center gap-1.5">
                         <Building2 className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />
                         <span>{tenHienThi}</span>
-                        {kho.laMacDinh ? (
+                        {kho.laMacDinhSan ? (
                           <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-                            {t("Mặc định sàn")}
+                            {t("Mặc định trên sàn")}
+                          </span>
+                        ) : null}
+                        {kho.laMacDinh ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                            {t("Đang chọn đẩy tồn")}
                           </span>
                         ) : null}
                       </span>

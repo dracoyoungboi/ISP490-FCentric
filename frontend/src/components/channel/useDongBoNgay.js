@@ -146,12 +146,12 @@ export default function useDongBoNgay(maKenh, { enabled = true, onXong, onMatKet
   }, [chay, phien, soLanLoi, maKenh, nhan]);
 
   /** Bắt đầu một đợt; trả ảnh chụp đầu tiên, lỗi thì báo và trả null. */
-  const batDau = useCallback(async () => {
+  const batDau = useCallback(async ({ epDayToanBo = false } = {}) => {
     if (!enabled || dangGuiRef.current) return null;
     dangGuiRef.current = true;
     setDangGui(true);
     try {
-      const p = await kenhBanHangService.batDauDongBoNgay(maKenh);
+      const p = await kenhBanHangService.batDauDongBoNgay(maKenh, { epDayToanBo });
       if (p?.maPhien) theoDoi(p.maPhien);
       nhan(p);
       return p;
