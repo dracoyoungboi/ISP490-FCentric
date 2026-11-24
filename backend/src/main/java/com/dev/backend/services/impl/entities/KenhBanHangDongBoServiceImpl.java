@@ -11,6 +11,7 @@ import com.dev.backend.dto.request.DayTonKenhRequest;
 import com.dev.backend.dto.request.TikTokInventoryUpdateRequest;
 import com.dev.backend.constants.TikTokShopConstants;
 import com.dev.backend.services.tiktok.TikTokShopClient;
+import com.dev.backend.utils.ShopeeWaybillMetadataHelper;
 import com.dev.backend.dto.request.KenhBanHangCaiDatRequest;
 import com.dev.backend.dto.request.LayDonHangKenhRequest;
 import com.dev.backend.dto.response.customize.*;
@@ -5725,30 +5726,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             log.debug("[SHOPEE-WAREHOUSE] Không khởi tạo được ShopeeClient cho {}: {}", maKenh, ex.getMessage());
         }
 
-        if (list.size() <= 1 && khoRepository != null) {
-            try {
-                List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
-                if (khoHoatDong != null) {
-                    for (Kho k : khoHoatDong) {
-                        if (k == null || k.getId() == null) continue;
-                        if (k.getMaKho() != null && "KHO_TRANSIT".equalsIgnoreCase(k.getMaKho().trim())) continue;
-                        if (k.getTenKho() != null && k.getTenKho().toLowerCase(Locale.ROOT).contains("transit")) continue;
-                        String code = "fcentric-kho-" + k.getId();
-                        if (!seenIds.add(code)) continue;
-                        String ten = (k.getTenKho() != null && !k.getTenKho().isBlank()) ? k.getTenKho().trim() : ("Kho #" + k.getId());
-                        list.add(ShopifyLocationDto.builder()
-                                .maKhoSan(code)
-                                .tenKhoSan(ten + " (Đồng bộ lên Shopee)")
-                                .loai("fulfillment")
-                                .macDinh(list.isEmpty() && KhoService.laKhoTong(k))
-                                .build());
-                    }
-                }
-            } catch (Exception ex) {
-                log.debug("[SHOPEE-WAREHOUSE] Lỗi đọc danh sách kho nội bộ cho Shopee {}: {}", maKenh, ex.getMessage());
-            }
-        }
-
         if (list.isEmpty()) {
             list.add(ShopifyLocationDto.builder()
                     .maKhoSan("shopee-default-warehouse")
@@ -6229,13 +6206,17 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .dsKhoFCentricKhaDung(dsKhoFCentricOpt)
                 .build();
 
-        // Quy tắc kích hoạt Đa kho tự động:
-        // - Khi sàn chỉ có 1 kho (hoặc <= 1): BẮT BUỘC cheDoDaKho = false
-        // - Khi sàn có từ 2 kho trở lên: cheDoDaKho theo cấu hình người dùng bật, mặc định bật nếu chưa lưu
+        // Hướng B (Omnichannel Single vs Multi-Warehouse):
+        // - Chỉ SHOPIFY hỗ trợ chế độ Đồng bộ đa kho phân tán khi sàn có >= 2 kho hợp lệ.
+        // - Shopee, Lazada, TikTok Shop luôn hoạt động ở chế độ Đơn kho mặc định trên sàn (cheDoDaKho = false).
+        boolean hoTroDaKhoSan = OmnichannelOrderSyncJob.isShopify(maKenh);
         if (soKhoSanHopLe <= 1) {
             result.setCheDoDaKho(false);
             if (dsKhoSan != null && !dsKhoSan.isEmpty()) {
-                ShopifyLocationDto single = dsKhoSan.get(0);
+                ShopifyLocationDto single = dsKhoSan.stream()
+                        .filter(ShopifyLocationDto::isMacDinh)
+                        .findFirst()
+                        .orElse(dsKhoSan.get(0));
                 String singleCode = single.getMaKhoSan() != null ? single.getMaKhoSan().trim() : "";
                 KenhKhoMappingItemDto savedSingle = null;
                 if (savedCfg != null && savedCfg.getDanhSachKho() != null) {
@@ -6257,11 +6238,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                         .laMacDinh(true)
                         .build()));
             }
+            if (savedCfg != null && savedCfg.getKhoTraHang() != null) {
+                result.setKhoTraHang(savedCfg.getKhoTraHang());
+            }
             return result;
         }
 
-        // Sàn có từ 2 kho trở lên: nếu đã lưu thì lấy giá trị đã lưu, nếu lần đầu phát hiện >= 2 kho thì mặc định bật
-        boolean daKho = savedCfg != null ? Boolean.TRUE.equals(savedCfg.getCheDoDaKho()) : true;
+        // Chỉ Shopify được bật đa kho tự động khi >= 2 kho; các sàn khác luôn khóa cheDoDaKho = false
+        boolean daKho = hoTroDaKhoSan && (savedCfg != null ? Boolean.TRUE.equals(savedCfg.getCheDoDaKho()) : true);
         result.setCheDoDaKho(daKho);
 
         Map<String, KenhKhoMappingItemDto> savedMap = new HashMap<>();
@@ -6333,6 +6317,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     throw new CommonException(ThongDiep.of("kenhBan.khoKhongTonTai", item.getKhoIdFCentric()), HttpStatus.BAD_REQUEST, null);
                 }
             }
+        }
+
+        // Hướng B: chỉ cho phép bật đa kho trên Shopify
+        if (!OmnichannelOrderSyncJob.isShopify(maKenh)) {
+            request.setCheDoDaKho(false);
         }
 
         // Đảm bảo nếu bật đa kho thì có ít nhất 1 kho mặc định
@@ -10708,16 +10697,16 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 return false;
             }
 
-            // 2. Lấy mã vận đơn nếu đơn FCentric chưa có mã vận đơn thật (dừng ngay nếu sàn trả lỗi rõ ràng)
+            // 2. Lấy mã vận đơn + thông tin tuyến/COD thật từ Shopee (tự chữa nếu đang lưu mã giả SPXVN<orderSn> hoặc ĐVVC rỗng)
             String existingNote = existingDon != null && existingDon.getGhiChu() != null ? existingDon.getGhiChu() : "";
-            boolean daCoVanDonThat = existingNote.contains("[VẬN ĐƠN:") && !existingNote.contains("SPXVN" + orderSn);
-            String trackingNo = "";
+            boolean daCoVanDonThat = ShopeeWaybillMetadataHelper.extractTracking(existingNote, orderSn) != null;
+            String trackingNo = daCoVanDonThat ? ShopeeWaybillMetadataHelper.extractTracking(existingNote, orderSn) : "";
             if (!daCoVanDonThat) {
                 for (int attempt = 0; attempt < 2; attempt++) {
                     try {
                         JsonNode trackRes = client.getTrackingNumber(orderSn);
                         String candidate = trackRes != null ? trackRes.path("response").path("tracking_number").asText("") : "";
-                        if (candidate != null && !candidate.isBlank()) {
+                        if (!ShopeeWaybillMetadataHelper.isFakeShopeeTracking(candidate, orderSn)) {
                             trackingNo = candidate.trim();
                             break;
                         }
@@ -10738,25 +10727,66 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             }
 
-            if (!trackingNo.isBlank()) {
-                DonBanHang don = existingDon != null ? existingDon : (donBanHangRepository != null
-                        ? donBanHangRepository.findByMaDonHangKenh(orderSn)
-                                .or(() -> donBanHangRepository.findBySoDonHang("SHP-" + orderSn))
-                                .orElse(null)
-                        : null);
-                if (don != null) {
-                    String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
-                    if (!currentNote.contains("[VẬN ĐƠN:")) {
-                        String trackingInfo = "[VẬN ĐƠN: " + trackingNo + " - Shopee]";
-                        don.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + trackingInfo);
-                        don.setNgayCapNhat(Instant.now());
-                        donBanHangRepository.save(don);
-                        log.info("[SHOPEE-PREPARE] Đã gắn mã vận đơn Shopee {} vào đơn {}", trackingNo, don.getSoDonHang());
+            ShopeeWaybillMetadataHelper.ShippingDocDataInfo docData = null;
+            try {
+                JsonNode docRes = client.getShippingDocumentDataInfo(orderSn, null);
+                docData = ShopeeWaybillMetadataHelper.parseShippingDocDataInfo(docRes);
+                if (docData != null && trackingNo.isBlank()
+                        && !ShopeeWaybillMetadataHelper.isFakeShopeeTracking(docData.trackingNumber(), orderSn)) {
+                    trackingNo = docData.trackingNumber().trim();
+                }
+            } catch (Exception docInfoEx) {
+                log.debug("[SHOPEE-PREPARE] Không lấy được get_shipping_document_data_info cho đơn {}: {}", orderSn, docInfoEx.getMessage());
+            }
+
+            DonBanHang don = existingDon != null ? existingDon : (donBanHangRepository != null
+                    ? donBanHangRepository.findByMaDonHangKenh(orderSn)
+                            .or(() -> donBanHangRepository.findBySoDonHang("SHP-" + orderSn))
+                            .orElse(null)
+                    : null);
+            if (don != null) {
+                String currentNote = don.getGhiChu() != null ? don.getGhiChu() : "";
+                String updatedNote = currentNote;
+                if (!trackingNo.isBlank()) {
+                    updatedNote = ShopeeWaybillMetadataHelper.upsertTag(updatedNote, ShopeeWaybillMetadataHelper.TAG_VAN_DON, trackingNo);
+                } else if (ShopeeWaybillMetadataHelper.extractTracking(updatedNote, orderSn) == null) {
+                    updatedNote = ShopeeWaybillMetadataHelper.removeTag(updatedNote, ShopeeWaybillMetadataHelper.TAG_VAN_DON);
+                }
+                if (docData != null) {
+                    if (docData.shippingCarrier() != null) {
+                        updatedNote = ShopeeWaybillMetadataHelper.upsertTag(updatedNote, ShopeeWaybillMetadataHelper.TAG_DON_VI, docData.shippingCarrier());
+                    } else if (ShopeeWaybillMetadataHelper.extractCarrier(updatedNote) == null) {
+                        updatedNote = ShopeeWaybillMetadataHelper.removeTag(updatedNote, ShopeeWaybillMetadataHelper.TAG_DON_VI);
                     }
+                    if (docData.maDinhTuyen() != null) {
+                        updatedNote = ShopeeWaybillMetadataHelper.upsertTag(updatedNote, ShopeeWaybillMetadataHelper.TAG_TUYEN, docData.maDinhTuyen());
+                    }
+                    if (docData.maTramPhat() != null) {
+                        updatedNote = ShopeeWaybillMetadataHelper.upsertTag(updatedNote, ShopeeWaybillMetadataHelper.TAG_TRAM, docData.maTramPhat());
+                    }
+                    if (Boolean.TRUE.equals(docData.cod())) {
+                        updatedNote = ShopeeWaybillMetadataHelper.upsertTag(updatedNote, ShopeeWaybillMetadataHelper.TAG_PTTT, "COD");
+                        if (docData.codAmount() != null) {
+                            updatedNote = ShopeeWaybillMetadataHelper.upsertTag(updatedNote, ShopeeWaybillMetadataHelper.TAG_COD,
+                                    docData.codAmount().stripTrailingZeros().toPlainString());
+                        }
+                    } else if (Boolean.FALSE.equals(docData.cod())) {
+                        String existingPttt = ShopeeWaybillMetadataHelper.extractTag(updatedNote, ShopeeWaybillMetadataHelper.TAG_PTTT);
+                        if (existingPttt == null || "COD".equalsIgnoreCase(existingPttt)) {
+                            updatedNote = ShopeeWaybillMetadataHelper.upsertTag(updatedNote, ShopeeWaybillMetadataHelper.TAG_PTTT, "Thanh toán online");
+                        }
+                        updatedNote = ShopeeWaybillMetadataHelper.removeTag(updatedNote, ShopeeWaybillMetadataHelper.TAG_COD);
+                    }
+                }
+                if (!java.util.Objects.equals(currentNote, updatedNote)) {
+                    don.setGhiChu(updatedNote);
+                    don.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(don);
+                    log.info("[SHOPEE-PREPARE] Đã cập nhật thông tin vận đơn/tuyến Shopee (tracking={}) vào đơn {}", trackingNo, don.getSoDonHang());
                 }
             }
 
-            // 3. Tạo trước phiếu vận đơn trên Shopee khi đã có tracking (giảm lỗi create_shipping_document trước khi ship xong)
+            // 3. Tạo trước phiếu vận đơn trên Shopee khi đã có tracking thật (giảm lỗi create_shipping_document trước khi ship xong)
             if (!trackingNo.isBlank() || daCoVanDonThat) {
                 try {
                     client.createShippingDocument(orderSn, trackingNo, "THERMAL_AIR_WAYBILL");
