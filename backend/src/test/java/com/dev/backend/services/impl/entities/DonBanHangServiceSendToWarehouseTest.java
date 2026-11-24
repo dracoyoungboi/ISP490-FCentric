@@ -387,14 +387,15 @@ class DonBanHangServiceSendToWarehouseTest {
         CommonException doiKhoEx = assertThrows(CommonException.class, () -> service.sendToWarehouse(130, 2, false));
         assertEquals(HttpStatus.BAD_REQUEST, doiKhoEx.getHttpStatus());
 
-        // Gửi đúng kho hiện tại (và đủ tồn) thành công luôn, không cần thuCongKhiLoi
-        service.sendToWarehouse(130, 1, false);
+        // Gửi đúng kho hiện tại (và đủ tồn) thành công luôn, không cần thuCongKhiLoi và không có cảnh báo
+        String canhBaoDuTon = service.sendToWarehouse(130, 1, false);
+        assertNull(canhBaoDuTon);
         assertEquals(1, donLazada.getTrangThai());
         assertEquals(kho1, donLazada.getKhoXuat());
     }
 
     @Test
-    void donBaSan_thieuTonHoacThieuKho_baoLoiDeMoPopupThuCong_vaChoPhepKhiThuCong() {
+    void donBaSan_thieuTonVanGuiKhoHienTaiVaTraCanhBao_thieuKhoHoacNgungBaoLoiThuCong() {
         KenhBanHang tiktok = KenhBanHang.builder().id(10).maKenh("TIKTOK").tenKenh("TikTok Shop").build();
         com.dev.backend.entities.BienTheSanPham bt = com.dev.backend.entities.BienTheSanPham.builder().id(102).maSku("SKU-102").build();
         com.dev.backend.entities.ChiTietDonBanHang ct = com.dev.backend.entities.ChiTietDonBanHang.builder()
@@ -413,23 +414,18 @@ class DonBanHangServiceSendToWarehouseTest {
         when(chiTietDonBanHangRepository.findByDonBanHangId(131)).thenReturn(List.of(ct));
         when(tonKhoTheoLoRepository.sumKhaDungLoTheoKhoBan(List.of(102)))
                 .thenReturn(List.<Object[]>of(new Object[]{102, 1, java.math.BigDecimal.valueOf(3)}));
-
-        var ex = assertThrows(
-                com.dev.backend.exception.customize.LoiCoMaException.class,
-                () -> service.sendToWarehouse(131, 1, false)
-        );
-        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
-        assertEquals(com.dev.backend.exception.customize.MaLoi.DON_SAN_CAN_CHON_KHO_THU_CONG, ex.getMa());
-        verify(donBanHangRepository, never()).save(donThieuTon);
-
-        // Fallback chọn kho thủ công (kho2) cho phép gửi qua thành công
-        when(khoRepository.findById(2)).thenReturn(Optional.of(kho2));
         when(donBanHangRepository.save(any(DonBanHang.class))).thenAnswer(inv -> inv.getArgument(0));
-        service.sendToWarehouse(131, 2, true);
-        assertEquals(1, donThieuTon.getTrangThai());
-        assertEquals(kho2, donThieuTon.getKhoXuat());
 
-        // Đơn 3 sàn thiếu khoXuat hoàn toàn cũng báo DON_SAN_CAN_CHON_KHO_THU_CONG
+        // Thiếu tồn tại kho hiện tại: vẫn gửi đơn sang kho1 (trangThai = 1) và trả thông báo cảnh báo chuyển kho nội bộ
+        String canhBaoThieuTon = service.sendToWarehouse(131, 1, false);
+        assertNotNull(canhBaoThieuTon);
+        assertTrue(canhBaoThieuTon.contains("Kho Kho Hà Nội không đủ tồn khả dụng (SKU-102: cần 10, còn 3) cho đơn này."));
+        assertTrue(canhBaoThieuTon.contains("Vui lòng sau khi nhận đơn về kho thì sẽ phải chuyển kho nội bộ để đủ lượng tồn."));
+        assertEquals(1, donThieuTon.getTrangThai());
+        assertEquals(kho1, donThieuTon.getKhoXuat());
+        verify(donBanHangRepository).save(donThieuTon);
+
+        // Đơn 3 sàn thiếu khoXuat hoàn toàn vẫn báo DON_SAN_CAN_CHON_KHO_THU_CONG để mở popup chọn kho thủ công
         KenhBanHang shopee = KenhBanHang.builder().id(11).maKenh("SHOPEE").tenKenh("Shopee").build();
         DonBanHang donThieuKho = DonBanHang.builder()
                 .id(132)
@@ -446,6 +442,33 @@ class DonBanHangServiceSendToWarehouseTest {
                 com.dev.backend.exception.customize.LoiCoMaException.class,
                 () -> service.sendToWarehouse(132, null, false)
         );
+        assertEquals(HttpStatus.CONFLICT, exThieuKho.getStatus());
         assertEquals(com.dev.backend.exception.customize.MaLoi.DON_SAN_CAN_CHON_KHO_THU_CONG, exThieuKho.getMa());
+
+        // Đơn 3 sàn có khoXuat đang ngừng hoạt động cũng báo DON_SAN_CAN_CHON_KHO_THU_CONG
+        Kho khoNgung = Kho.builder().id(9).maKho("KHO-OFF").tenKho("Kho Ngừng").trangThai(0).build();
+        DonBanHang donKhoNgung = DonBanHang.builder()
+                .id(133)
+                .soDonHang("LZD-133")
+                .maDonHangKenh("LZD133")
+                .kenhBanHang(KenhBanHang.builder().id(12).maKenh("LAZADA").tenKenh("Lazada").build())
+                .loaiChungTu("don_ban_hang")
+                .trangThai(0)
+                .khoXuat(khoNgung)
+                .build();
+        when(donBanHangRepository.findById(133)).thenReturn(Optional.of(donKhoNgung));
+        var exKhoNgung = assertThrows(
+                com.dev.backend.exception.customize.LoiCoMaException.class,
+                () -> service.sendToWarehouse(133, 9, false)
+        );
+        assertEquals(HttpStatus.CONFLICT, exKhoNgung.getStatus());
+        assertEquals(com.dev.backend.exception.customize.MaLoi.DON_SAN_CAN_CHON_KHO_THU_CONG, exKhoNgung.getMa());
+
+        // Fallback chọn kho thủ công (kho2) cho phép gửi qua thành công khi thuCongKhiLoi = true
+        when(khoRepository.findById(2)).thenReturn(Optional.of(kho2));
+        String canhBaoThuCong = service.sendToWarehouse(132, 2, true);
+        assertNull(canhBaoThuCong);
+        assertEquals(1, donThieuKho.getTrangThai());
+        assertEquals(kho2, donThieuKho.getKhoXuat());
     }
 }

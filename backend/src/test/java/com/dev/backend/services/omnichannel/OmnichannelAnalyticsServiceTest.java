@@ -215,5 +215,32 @@ class OmnichannelAnalyticsServiceTest {
         assertEquals(17, skuANormal.getRecommendedBufferPercent());
         assertEquals(4, skuANormal.getRecommendedRealtimeThreshold());
     }
+
+    @Test
+    void getOverview_locDungTheoKenh_vaLocOversellTheoMaKenh() {
+        Instant now = Instant.now();
+        List<LichSuDongBoMetric> shopeeLogs = List.of(
+                LichSuDongBoMetric.builder().id(11L).channel("SHOPEE").syncDirection("PUSH_STOCK")
+                        .triggerSource("MANUAL").latencyMs(120).httpStatus(200).errorCategory("NONE").createdAt(now).build()
+        );
+        when(metricRepository.findInWindow(any(), eq("SHOPEE"))).thenReturn(shopeeLogs);
+        rateLimitState.updateFromHeader("SHOPEE", "10/40", 200);
+        rateLimitState.updateFromHeader("LAZADA", "20/40", 200);
+
+        OmnichannelAnalyticsOverviewDto dto = service.getOverview("24h", "SHOPEE_OFFICIAL");
+
+        assertEquals("SHOPEE", dto.getChannel());
+        assertEquals(1L, dto.getTotalCalls());
+        assertEquals(1, dto.getChannelBuckets().size());
+        assertEquals("SHOPEE", dto.getChannelBuckets().get(0).getChannel());
+        verify(metricRepository).findInWindow(any(), eq("SHOPEE"));
+
+        var sqlCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        var paramsCaptor = org.mockito.ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(jdbc).queryForMap(sqlCaptor.capture(), paramsCaptor.capture());
+        assertTrue(sqlCaptor.getValue().contains("JOIN kenh_ban_hang kb ON kb.id = d.kenh_ban_id"));
+        assertTrue(sqlCaptor.getValue().contains("UPPER(kb.ma_kenh) IN (:channelCodes)"));
+        assertEquals(List.of("SHOPEE", "SHOPEE_OFFICIAL"), paramsCaptor.getValue().getValue("channelCodes"));
+    }
 }
 

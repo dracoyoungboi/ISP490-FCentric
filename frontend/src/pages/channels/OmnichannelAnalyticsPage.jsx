@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Activity, AlertTriangle, Check, RefreshCw, ShieldAlert } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { t } from "@/i18n";
+import { chuanHoaKenhBaoCao, layKenhTuSearchParams } from "@/components/channel/kenhBaoCaoDongBo";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import omnichannelAnalyticsService from "@/services/omnichannelAnalyticsService";
@@ -71,8 +73,11 @@ export default function OmnichannelAnalyticsPage() {
   const userRole = localStorage.getItem("role") || "";
   const isAdmin = hasAnyRole([userRole], [ROLES.QUAN_TRI_VIEN]);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const channel = layKenhTuSearchParams(searchParams);
+  const reqIdRef = useRef(0);
+
   const [range, setRange] = useState("24h");
-  const [channel, setChannel] = useState("ALL");
   const [days, setDays] = useState(14);
 
   const [overview, setOverview] = useState(null);
@@ -83,13 +88,35 @@ export default function OmnichannelAnalyticsPage() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [editMap, setEditMap] = useState({});
 
+  const handleChannelChange = useCallback(
+    (nextVal) => {
+      const normalized = chuanHoaKenhBaoCao(nextVal);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete("kenh");
+          if (normalized === "ALL") {
+            next.delete("channel");
+          } else {
+            next.set("channel", normalized);
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   const loadData = useCallback(async () => {
+    const reqId = ++reqIdRef.current;
     setLoading(true);
     try {
       const [ovRes, recRes] = await Promise.all([
         omnichannelAnalyticsService.getOverview(range, channel),
         omnichannelAnalyticsService.getSyncRecommendations(days, channel),
       ]);
+      if (reqId !== reqIdRef.current) return;
       const ov = ovRes?.data?.data ?? null;
       const rc = recRes?.data?.data ?? null;
       setOverview(ov);
@@ -109,14 +136,20 @@ export default function OmnichannelAnalyticsPage() {
       setEditMap(initialEdits);
       setSelectedIds(autoChecked);
     } catch (err) {
+      if (reqId !== reqIdRef.current) return;
       toast.error(getApiErrorMessage(err, t("Không tải được dữ liệu hiệu năng đồng bộ đa kênh.")));
     } finally {
-      setLoading(false);
+      if (reqId === reqIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [range, channel, days]);
 
   useEffect(() => {
     loadData();
+    return () => {
+      reqIdRef.current += 1;
+    };
   }, [loadData]);
 
   const recommendations = useMemo(() => recData?.items ?? [], [recData]);
@@ -214,16 +247,18 @@ export default function OmnichannelAnalyticsPage() {
     { value: "7d", label: t("7 ngày qua") },
   ];
 
+  const tenKenhDangLoc = KENH_LOC.find((k) => k.value === channel)?.label ?? nhanSanChuan(channel);
+
   return (
     <PageContainer className="space-y-4">
       <PageHeader
-        title={t("Báo cáo đồng bộ kênh")}
+        title={channel === "ALL" ? t("Báo cáo đồng bộ kênh") : t("Báo cáo đồng bộ kênh — {{kenh}}", { kenh: tenKenhDangLoc })}
         giaiThich={<GiaiThichBaoCao />}
         actions={
           <>
             <select
               value={channel}
-              onChange={(e) => setChannel(e.target.value)}
+              onChange={(e) => handleChannelChange(e.target.value)}
               aria-label={t("Lọc theo kênh bán")}
               className="h-9 rounded-md border border-bo-border bg-white px-2.5 text-sm text-bo-heading focus:outline-none focus:ring-2 focus:ring-bo-primary/30"
             >

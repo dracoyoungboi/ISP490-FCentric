@@ -234,7 +234,7 @@ public class OmnichannelAnalyticsService {
                     .build());
         }
 
-        OversellStats oversell = computeOversellStats(since);
+        OversellStats oversell = computeOversellStats(since, channelFilter);
         double oosRecoveryMinutes = computeAvgOosRecoveryMinutes(since);
 
         return OmnichannelAnalyticsOverviewDto.builder()
@@ -525,20 +525,32 @@ public class OmnichannelAnalyticsService {
 
     private record OversellStats(long oversellCount, double oversellRatePercent) {}
 
-    private OversellStats computeOversellStats(Instant since) {
+    private OversellStats computeOversellStats(Instant since, String channelFilter) {
         try {
-            Map<String, Object> res = jdbc.queryForMap("""
+            List<String> channelCodes = expandChannelCodes(channelFilter);
+            String channelJoin = channelCodes.isEmpty()
+                    ? ""
+                    : "JOIN kenh_ban_hang kb ON kb.id = d.kenh_ban_id";
+            String channelWhere = channelCodes.isEmpty()
+                    ? "AND d.kenh_ban_id IS NOT NULL"
+                    : "AND UPPER(kb.ma_kenh) IN (:channelCodes)";
+            MapSqlParameterSource params = new MapSqlParameterSource("since", Timestamp.from(since));
+            if (!channelCodes.isEmpty()) {
+                params.addValue("channelCodes", channelCodes);
+            }
+            String sql = """
                             SELECT COUNT(*) AS tong_don,
                                    COALESCE(SUM(CASE WHEN d.trang_thai = 4
                                          AND (LOWER(COALESCE(d.ly_do_tu_choi, '')) LIKE '%hết hàng%'
                                               OR LOWER(COALESCE(d.ghi_chu, '')) LIKE '%thiếu hàng%')
                                         THEN 1 ELSE 0 END), 0) AS don_huy_thieu_hang
                             FROM don_ban_hang d
-                            WHERE d.loai_chung_tu = 'don_ban_hang'
-                              AND d.kenh_ban_id IS NOT NULL
-                              AND d.ngay_dat_hang >= :since
-                            """,
-                    new MapSqlParameterSource("since", Timestamp.from(since)));
+                            """
+                            + (channelJoin.isEmpty() ? "" : channelJoin + "\n")
+                            + "WHERE d.loai_chung_tu = 'don_ban_hang'\n"
+                            + "  " + channelWhere + "\n"
+                            + "  AND d.ngay_dat_hang >= :since";
+            Map<String, Object> res = jdbc.queryForMap(sql, params);
             long totalOnline = res.get("tong_don") != null ? ((Number) res.get("tong_don")).longValue() : 0L;
             long cancelledShortage = res.get("don_huy_thieu_hang") != null ? ((Number) res.get("don_huy_thieu_hang")).longValue() : 0L;
             Long negativeLotCount = jdbc.queryForObject("""

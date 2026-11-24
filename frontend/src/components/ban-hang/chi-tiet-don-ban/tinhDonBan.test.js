@@ -18,6 +18,7 @@ import {
   lamSachGhiChuDonSan,
   lyDoKhoaHuy,
   lyDoSanHuy,
+  nenMoHopGuiKhoThuCongKhiLoi,
   phieuDaXuatCuoi,
   tachTenDong,
   thanhToanDonBan,
@@ -332,4 +333,21 @@ test("coTheMoHopGuiSangKho: chan popup voi don 3 san da co kho, chi mo khi bat b
   // Đơn Shopify và đơn bán trực tiếp vẫn mở popup chọn kho bình thường
   assert.equal(coTheMoHopGuiSangKho(donShopify, false), true);
   assert.equal(coTheMoHopGuiSangKho(donTrucTiep, false), true);
+});
+
+test("nenMoHopGuiKhoThuCongKhiLoi: chi mo popup chon kho khi loi API gui tu dong hoac thieu/ngung kho", () => {
+  // Mở popup chọn kho thủ công khi có mã DON_SAN_CAN_CHON_KHO_THU_CONG hoặc lỗi API hệ thống/mạng
+  assert.equal(nenMoHopGuiKhoThuCongKhiLoi({ maLoi: "DON_SAN_CAN_CHON_KHO_THU_CONG", status: 409 }), true);
+  assert.equal(nenMoHopGuiKhoThuCongKhiLoi({ maLoi: null, status: null }), true);
+  assert.equal(nenMoHopGuiKhoThuCongKhiLoi({ maLoi: null, status: 0 }), true);
+  assert.equal(nenMoHopGuiKhoThuCongKhiLoi({ maLoi: null, status: 404 }), true);
+  assert.equal(nenMoHopGuiKhoThuCongKhiLoi({ maLoi: null, status: 500 }), true);
+  assert.equal(nenMoHopGuiKhoThuCongKhiLoi({ maLoi: null, status: 503 }), true);
+
+  // Các lỗi nghiệp vụ từ máy chủ (400, 401, 403, 409 khác, 422) KHÔNG tự bật popup chuyển kho
+  assert.equal(nenMoHopGuiKhoThuCongKhiLoi({ maLoi: null, status: 400 }), false);
+  assert.equal(nenMoHopGuiKhoThuCongKhiLoi({ maLoi: null, status: 401 }), false);
+  assert.equal(nenMoHopGuiKhoThuCongKhiLoi({ maLoi: null, status: 403 }), false);
+  assert.equal(nenMoHopGuiKhoThuCongKhiLoi({ maLoi: "TRANG_THAI_KHONG_HOP_LE", status: 409 }), false);
+  assert.equal(nenMoHopGuiKhoThuCongKhiLoi({ maLoi: null, status: 422 }), false);
 });

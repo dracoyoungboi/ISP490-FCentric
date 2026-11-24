@@ -21,6 +21,7 @@ import { taiLaiKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
 import { buocGioiThieu } from "@/components/channel/noiDungSan";
 import { cheDoTheoGiaTri } from "@/components/channel/cauHinhDongBo";
 import useSanHienTai from "@/components/channel/useSanHienTai";
+import { duongDanBaoCaoDongBoKenh } from "@/components/channel/kenhBaoCaoDongBo";
 import ThanhNhacUyQuyen from "@/components/channel/ThanhNhacUyQuyen";
 import NutDongBoNgay from "@/components/channel/NutDongBoNgay";
 import useDongBoNgay from "@/components/channel/useDongBoNgay";
@@ -237,7 +238,7 @@ function TongQuanGianHang() {
           {/* max-w-full: màn hẹp thì nút xuống dòng dưới tên gian hàng (ml-auto giữ bên phải), không lẹm ra ngoài */}
           <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link to="/channels/analytics">
+              <Link to={duongDanBaoCaoDongBoKenh(SAN.maKenh)}>
                 <BarChart3 className="mr-1.5 size-4" aria-hidden="true" />
                 {t("Hiệu năng & Đề xuất đồng bộ")}
               </Link>
