@@ -26,7 +26,7 @@ public interface LichSuGiaoDichKhoMapper {
     @Mapping(target = "tenKho",          source = "kho.tenKho")
     @Mapping(target = "khoChuyenDenId",  source = "khoChuyenDen.id")
     @Mapping(target = "tenKhoChuyenDen", source = "khoChuyenDen.tenKho")
-    @Mapping(target = "nguoiDungTen",    source = "nguoiDung.tenDangNhap")
+    @Mapping(target = "nguoiDungTen",    source = "nguoiDung.hoTen")
     LichSuGiaoDichKhoDto toDto(LichSuGiaoDichKho entity);
 
     /** Dòng chuyển kệ: tách mã phiếu, kệ nguồn, kệ đích từ câu sổ. Câu không đúng mẫu thì để trống (giao diện hiện ghi chú như cũ). */
