@@ -742,6 +742,14 @@ public class NhatHangServiceImpl implements NhatHangService {
 
     @Override
     @Transactional(readOnly = true)
+    public void kiemTraXemPhieuNhat(Integer pickListId) {
+        DanhSachNhatHang pickList = danhSachNhatHangRepository.findById(pickListId)
+                .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.pickListKhongTimThayId", pickListId)));
+        kiemTraKhoPhieuNhat(pickList);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public DanhSachNhatHangDto getChiTietPickList(Integer id) {
         DanhSachNhatHang pickList = danhSachNhatHangRepository.findById(id)
                 .orElseThrow(() -> new CommonException(ThongDiep.of("khoVanHanh.pickListKhongTimThayId", id)));

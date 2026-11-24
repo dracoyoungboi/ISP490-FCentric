@@ -53,6 +53,9 @@ public interface NhatHangService {
      */
     DanhSachNhatHangDto getChiTietPickList(Integer id);
 
+    /** Người đang đăng nhập xem được phiếu nhặt này không (cùng luật với xem chi tiết); không thì ném lỗi. */
+    void kiemTraXemPhieuNhat(Integer pickListId);
+
     /**
      * API 3: Phân công nhân viên kho nhặt hàng cho Pick List (SRS 6.2.1 Action 'Phân công' / 'Assign')
      */

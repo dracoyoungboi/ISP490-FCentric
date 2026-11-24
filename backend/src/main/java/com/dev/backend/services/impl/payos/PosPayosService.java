@@ -144,6 +144,11 @@ public class PosPayosService {
         }
     }
 
+    /** Người đang đăng nhập xem được giao dịch này không (cùng luật với hỏi trạng thái); không thì ném lỗi. */
+    public void kiemTraXemGiaoDich(Long orderCode) {
+        authorize(find(orderCode));
+    }
+
     /** Màn POS hỏi trạng thái (mỗi vài giây). Còn chờ -> hỏi thẳng payOS, phòng khi webhook chưa về. */
     public PayosPaymentLinkDto getStatus(Long orderCode) {
         PosPayosPayment row = find(orderCode);
@@ -516,7 +521,7 @@ public class PosPayosService {
             if (row != null && posWebSocketHandler != null) {
                 // Câu lỗi để nguyên tiếng Việt: lượt đẩy có thể chạy trong request của người khác (ngôn ngữ khác),
                 // PosWebSocketHandler dịch theo ngôn ngữ từng màn đang nghe
-                posWebSocketHandler.broadcastPayment(row.getOrderCode(), row.getKhoId(), toDto(row, NgonNgu.VI));
+                posWebSocketHandler.broadcastPayment(row.getOrderCode(), toDto(row, NgonNgu.VI));
             }
         } catch (Exception e) {
             log.warn("WebSocket POS: Lỗi khi push notification cho đơn {}: {}", orderCode, e.getMessage());

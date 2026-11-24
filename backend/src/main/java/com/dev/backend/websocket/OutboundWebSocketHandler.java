@@ -9,7 +9,6 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -29,40 +28,24 @@ public class OutboundWebSocketHandler extends TextWebSocketHandler {
     // Lưu các kết nối theo pickListId (Màn hình nhặt hàng subscribe theo ID phiếu nhặt)
     private final Map<Integer, Set<WebSocketSession>> pickListSessions = new ConcurrentHashMap<>();
 
-    // Lưu các kết nối theo khoId
-    private final Map<Integer, Set<WebSocketSession>> warehouseSessions = new ConcurrentHashMap<>();
-
     public OutboundWebSocketHandler(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        Integer pickListId = extractIntParam(session.getUri(), "pickListId");
-        Integer khoId = extractIntParam(session.getUri(), "khoId");
-
-        if (pickListId != null) {
-            pickListSessions.computeIfAbsent(pickListId, k -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(session);
-            log.info("WebSocket Outbound: Session {} đăng ký lắng nghe pickListId {}", session.getId(), pickListId);
-        }
-
-        if (khoId != null) {
-            warehouseSessions.computeIfAbsent(khoId, k -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(session);
-            log.info("WebSocket Outbound: Session {} đăng ký lắng nghe khoId {}", session.getId(), khoId);
-        }
-
-        if (pickListId == null && khoId == null) {
-            log.info("WebSocket Outbound: Session {} kết nối chung (broadcast)", session.getId());
-        }
+        // Phiếu được nghe lấy từ vé đã kiểm lúc bắt tay, không đọc từ đường dẫn
+        Long ma = KiemVeKetNoi.maDangKy(session);
+        if (ma == null) return;
+        int pickListId = Math.toIntExact(ma);
+        pickListSessions.computeIfAbsent(pickListId, k -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(session);
+        log.info("WebSocket Outbound: Session {} đăng ký lắng nghe pickListId {}", session.getId(), pickListId);
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         pickListSessions.values().forEach(sessions -> sessions.remove(session));
         pickListSessions.entrySet().removeIf(entry -> entry.getValue().isEmpty());
-
-        warehouseSessions.values().forEach(sessions -> sessions.remove(session));
-        warehouseSessions.entrySet().removeIf(entry -> entry.getValue().isEmpty());
 
         log.info("WebSocket Outbound: Session {} đã đóng ({})", session.getId(), status);
     }
@@ -114,20 +97,5 @@ public class OutboundWebSocketHandler extends TextWebSocketHandler {
         } catch (Exception e) {
             log.error("Lỗi serialize event payload cho Pick List {}: {}", pickListId, e.getMessage());
         }
-    }
-
-    private Integer extractIntParam(URI uri, String paramName) {
-        if (uri == null || uri.getQuery() == null) return null;
-        for (String param : uri.getQuery().split("&")) {
-            String[] pair = param.split("=");
-            if (pair.length == 2 && paramName.equalsIgnoreCase(pair[0])) {
-                try {
-                    return Integer.parseInt(pair[1]);
-                } catch (NumberFormatException e) {
-                    return null;
-                }
-            }
-        }
-        return null;
     }
 }

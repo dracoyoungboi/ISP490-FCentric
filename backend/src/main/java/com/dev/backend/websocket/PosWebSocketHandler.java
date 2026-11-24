@@ -32,9 +32,6 @@ public class PosWebSocketHandler extends TextWebSocketHandler {
     // Lưu các kết nối theo orderCode (Mỗi tab thanh toán QR subscribe theo orderCode)
     private final Map<Long, Set<WebSocketSession>> orderSessions = new ConcurrentHashMap<>();
 
-    // Lưu các kết nối theo khoId (Màn hình thu ngân lắng nghe theo kho làm việc)
-    private final Map<Integer, Set<WebSocketSession>> warehouseSessions = new ConcurrentHashMap<>();
-
     // Màn dùng giao diện tiếng Anh (kết nối kèm ?lang=en): câu lỗi errorMessage gửi bản tiếng Anh
     private final Set<WebSocketSession> phienTiengAnh = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
@@ -44,34 +41,20 @@ public class PosWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        Long orderCode = extractLongParam(session.getUri(), "orderCode");
-        Integer khoId = extractIntParam(session.getUri(), "khoId");
+        // Đơn được nghe lấy từ vé đã kiểm lúc bắt tay, không đọc từ đường dẫn
+        Long orderCode = KiemVeKetNoi.maDangKy(session);
+        if (orderCode == null) return;
         if (NgonNgu.EN.equals(NgonNgu.tuChuoi(extractParam(session.getUri(), "lang")))) {
             phienTiengAnh.add(session);
         }
-
-        if (orderCode != null) {
-            orderSessions.computeIfAbsent(orderCode, k -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(session);
-            log.info("WebSocket POS: Session {} đã đăng ký lắng nghe orderCode {}", session.getId(), orderCode);
-        }
-
-        if (khoId != null) {
-            warehouseSessions.computeIfAbsent(khoId, k -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(session);
-            log.info("WebSocket POS: Session {} đã đăng ký lắng nghe khoId {}", session.getId(), khoId);
-        }
-
-        if (orderCode == null && khoId == null) {
-            log.info("WebSocket POS: Session {} kết nối chung (không có filter)", session.getId());
-        }
+        orderSessions.computeIfAbsent(orderCode, k -> Collections.newSetFromMap(new ConcurrentHashMap<>())).add(session);
+        log.info("WebSocket POS: Session {} đã đăng ký lắng nghe orderCode {}", session.getId(), orderCode);
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         orderSessions.values().forEach(set -> set.remove(session));
         orderSessions.entrySet().removeIf(entry -> entry.getValue().isEmpty());
-
-        warehouseSessions.values().forEach(set -> set.remove(session));
-        warehouseSessions.entrySet().removeIf(entry -> entry.getValue().isEmpty());
 
         phienTiengAnh.remove(session);
 
@@ -86,29 +69,18 @@ public class PosWebSocketHandler extends TextWebSocketHandler {
     /**
      * Bắn notification kết quả thanh toán ngay lập tức (< 50ms) tới các màn hình POS đang chờ.
      */
-    public void broadcastPayment(Long orderCode, Integer khoId, PayosPaymentLinkDto dto) {
-        if (dto == null) return;
+    public void broadcastPayment(Long orderCode, PayosPaymentLinkDto dto) {
+        if (dto == null || orderCode == null) return;
+        Set<WebSocketSession> sessions = orderSessions.get(orderCode);
+        if (sessions == null || sessions.isEmpty()) return;
 
         try {
             String json = objectMapper.writeValueAsString(dto);
             TextMessage message = new TextMessage(json);
             // dto mang câu lỗi tiếng Việt (câu lưu); màn tiếng Anh nhận bản đã dịch, chỉ dựng khi cần
             TextMessage[] banTiengAnh = new TextMessage[1];
-
-            // 1. Gửi cho các session đăng ký theo orderCode
-            if (orderCode != null && orderSessions.containsKey(orderCode)) {
-                Set<WebSocketSession> sessions = orderSessions.get(orderCode);
-                for (WebSocketSession session : sessions) {
-                    sendSafely(session, theoNgonNgu(session, dto, message, banTiengAnh));
-                }
-            }
-
-            // 2. Gửi cho các session đăng ký theo khoId
-            if (khoId != null && warehouseSessions.containsKey(khoId)) {
-                Set<WebSocketSession> sessions = warehouseSessions.get(khoId);
-                for (WebSocketSession session : sessions) {
-                    sendSafely(session, theoNgonNgu(session, dto, message, banTiengAnh));
-                }
+            for (WebSocketSession session : sessions) {
+                sendSafely(session, theoNgonNgu(session, dto, message, banTiengAnh));
             }
 
             log.info("WebSocket POS: Đã broadcast kết quả thanh toán orderCode {} (status: {})",
@@ -154,32 +126,6 @@ public class PosWebSocketHandler extends TextWebSocketHandler {
         for (String pair : uri.getQuery().split("&")) {
             String[] parts = pair.split("=");
             if (parts.length == 2 && paramName.equalsIgnoreCase(parts[0])) return parts[1];
-        }
-        return null;
-    }
-
-    private Long extractLongParam(URI uri, String paramName) {
-        if (uri == null || uri.getQuery() == null) return null;
-        for (String pair : uri.getQuery().split("&")) {
-            String[] parts = pair.split("=");
-            if (parts.length == 2 && paramName.equalsIgnoreCase(parts[0])) {
-                try {
-                    return Long.parseLong(parts[1]);
-                } catch (NumberFormatException ignored) {}
-            }
-        }
-        return null;
-    }
-
-    private Integer extractIntParam(URI uri, String paramName) {
-        if (uri == null || uri.getQuery() == null) return null;
-        for (String pair : uri.getQuery().split("&")) {
-            String[] parts = pair.split("=");
-            if (parts.length == 2 && paramName.equalsIgnoreCase(parts[0])) {
-                try {
-                    return Integer.parseInt(parts[1]);
-                } catch (NumberFormatException ignored) {}
-            }
         }
         return null;
     }
