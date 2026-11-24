@@ -214,5 +214,31 @@ class DonBanHangServiceGiaoHangSanTest {
         verify(donBanHangRepository, times(1)).save(don);
         verify(dongBoService).dongBoTrangThaiChuanBiHangShopee("261119ABC");
     }
+
+    @Test
+    @DisplayName("Shopee/Lazada/TikTok: Sàn báo COMPLETED khi đơn còn Chờ nhặt hàng (1) phải giữ nguyên trạng thái và gắn cảnh báo lệch sàn đúng 1 lần")
+    void testCapNhatTrangThai_completedKhiDonChoNhatHang_giuNguyenTrangThaiVaCanhBaoKhongTrung() {
+        var thongBaoMock = mock(ThongBaoXuatKhoService.class);
+        ReflectionTestUtils.setField(donBanHangService, "thongBaoXuatKhoService", thongBaoMock);
+
+        DonBanHang don = DonBanHang.builder()
+                .id(108)
+                .soDonHang("SHP-261124WAIT")
+                .trangThai(ITrangThaiDonBanHang.CHO_NHAT_HANG)
+                .ghiChu("Đơn hàng đồng bộ tự động từ Shopee #261124WAIT")
+                .build();
+
+        when(donBanHangRepository.findById(108)).thenReturn(Optional.of(don));
+
+        assertFalse(donBanHangService.capNhatTrangThaiGiaoHangTuSan(108, "COMPLETED"),
+                "Không được nhảy cóc sang Hoàn thành khi kho chưa nhặt và chưa xuất kho");
+        assertEquals(ITrangThaiDonBanHang.CHO_NHAT_HANG, don.getTrangThai());
+        assertTrue(don.getGhiChu().contains("[CẢNH BÁO LỆCH SÀN:"));
+        verify(thongBaoMock, times(1)).canhBaoLechTrangThaiSan(eq(don), eq("COMPLETED"), anyString());
+
+        // Gọi đồng bộ lại chu kỳ sau không được bắn trùng thông báo
+        assertFalse(donBanHangService.capNhatTrangThaiGiaoHangTuSan(108, "COMPLETED"));
+        verify(thongBaoMock, times(1)).canhBaoLechTrangThaiSan(eq(don), eq("COMPLETED"), anyString());
+    }
 }
 

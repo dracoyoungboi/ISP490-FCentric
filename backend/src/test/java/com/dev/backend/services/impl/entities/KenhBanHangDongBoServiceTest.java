@@ -1993,4 +1993,80 @@ class KenhBanHangDongBoServiceTest {
         assertEquals("wh_moi_2", sentSku.getInventory().get(0).getWarehouseId());
         assertEquals("999000222", dong.getMaSanPhamKenh(), "Sau editProduct thành công phải cập nhật maSanPhamKenh mới vào DB");
     }
+
+    @Test
+    @DisplayName("luuCaiDat: Lưu KENH_<MA>_KHO_ID khi truyền khoId hợp lệ và chặn kho trung chuyển / ngừng hoạt động")
+    void luuCaiDat_khiTruyenKhoId_luuKhoIdVaChanKhoTrungChuyen() {
+        KenhBanHang lazadaKenh = KenhBanHang.builder().id(9).maKenh("LAZADA").tenKenh("Lazada").trangThai(1).build();
+        var khoHn = com.dev.backend.entities.Kho.builder().id(2).maKho("KHO_HN").tenKho("Cửa hàng Hà Nội").loaiKho("kho_nhanh").trangThai(1).build();
+        var khoTransit = com.dev.backend.entities.Kho.builder().id(99).maKho("KHO_TRANSIT").tenKho("Kho Trung Chuyển").loaiKho("kho_trung_chuyen").trangThai(1).build();
+
+        when(kenhBanHangRepository.findByMaKenh("LAZADA")).thenReturn(Optional.of(lazadaKenh));
+        when(khoRepository.findById(2)).thenReturn(Optional.of(khoHn));
+        when(khoRepository.findById(99)).thenReturn(Optional.of(khoTransit));
+
+        var reqHopLe = com.dev.backend.dto.request.KenhBanHangCaiDatRequest.builder().khoId(2).build();
+        service.luuCaiDat("LAZADA", reqHopLe);
+        verify(dieuHanhHeThongService).setCauHinhString("KENH_LAZADA_KHO_ID", "2");
+
+        var reqTransit = com.dev.backend.dto.request.KenhBanHangCaiDatRequest.builder().khoId(99).build();
+        assertThrows(CommonException.class, () -> service.luuCaiDat("LAZADA", reqTransit));
+    }
+
+    @Test
+    @DisplayName("Hướng B + Định tuyến đơn 3 sàn: luuCauHinhKhoMapping giữ cheDoDaKho=false và tự đổi kho xuất giữa TH1 (Kho A -> Kho tổng) và TH2 (Kho B -> Cửa hàng Hà Nội)")
+    void luuCauHinhKhoMapping_huongB3San_giuCheDoDonKhoVaDinhTuyenKhoTh1Th2() {
+        var khoTong = com.dev.backend.entities.Kho.builder().id(1).maKho("KHO_TONG").tenKho("Kho tổng").loaiKho("kho_tong").trangThai(1).build();
+        var khoHn = com.dev.backend.entities.Kho.builder().id(2).maKho("CH_HN").tenKho("Cửa hàng Hà Nội").loaiKho("kho_nhanh").trangThai(1).build();
+        when(khoRepository.findByTrangThai(1)).thenReturn(List.of(khoTong, khoHn));
+
+        Map<String, String> store = new HashMap<>();
+        doAnswer(inv -> {
+            store.put(inv.getArgument(0), inv.getArgument(1));
+            return null;
+        }).when(dieuHanhHeThongService).setCauHinhString(anyString(), anyString());
+        when(dieuHanhHeThongService.getCauHinhString(anyString(), any())).thenAnswer(inv -> {
+            String key = inv.getArgument(0);
+            String defVal = inv.getArgument(1);
+            return store.getOrDefault(key, defVal);
+        });
+
+        for (String maSan : List.of("LAZADA", "TIKTOK", "SHOPEE_OFFICIAL")) {
+            store.clear();
+            KenhBanHang kenh = KenhBanHang.builder().id(20).maKenh(maSan).tenKenh(maSan).trangThai(1).build();
+            when(kenhBanHangRepository.findByMaKenh(maSan)).thenReturn(Optional.of(kenh));
+
+            var mappingReq = com.dev.backend.dto.channel.warehouse.KenhKhoMappingUpdateRequest.builder()
+                    .cheDoDaKho(true) // Cố tình truyền true: backend phải ép về false theo Hướng B
+                    .khoIdMacDinh(1)
+                    .danhSachKho(List.of(
+                            com.dev.backend.dto.channel.warehouse.KenhKhoMappingItemDto.builder()
+                                    .maKhoSan("KHO_A").tenKhoSan("Kho A").khoIdFCentric(1).kichHoat(false).laMacDinh(true).build(),
+                            com.dev.backend.dto.channel.warehouse.KenhKhoMappingItemDto.builder()
+                                    .maKhoSan("KHO_B").tenKhoSan("Kho B").khoIdFCentric(2).kichHoat(false).laMacDinh(false).build()
+                    ))
+                    .build();
+
+            var spyService = spy(service);
+            doReturn(List.of(
+                    com.dev.backend.dto.response.customize.ShopifyLocationDto.builder().maKhoSan("KHO_A").tenKhoSan("Kho A").macDinh(true).build(),
+                    com.dev.backend.dto.response.customize.ShopifyLocationDto.builder().maKhoSan("KHO_B").tenKhoSan("Kho B").macDinh(false).build()
+            )).when(spyService).getLocations(eq(maSan), anyBoolean());
+
+            var savedCfg = spyService.luuCauHinhKhoMapping(maSan, mappingReq);
+            assertFalse(Boolean.TRUE.equals(savedCfg.getCheDoDaKho()),
+                    "Hướng B: " + maSan + " phải luôn giữ cheDoDaKho=false kể cả khi payload truyền true");
+            assertEquals("1", store.get("KENH_" + maSan + "_KHO_ID"));
+
+            // TH1: seller đặt kho lấy hàng là KHO_A -> định tuyến về Kho tổng (1)
+            store.put("KENH_" + maSan + "_MA_KHO_SAN", "KHO_A");
+            assertEquals(1, spyService.resolveKhoXuatChoDonSan(kenh, null).getId());
+            assertEquals(1, spyService.resolveKhoXuatChoDonSan(kenh, "KHO_A").getId());
+
+            // TH2: seller đổi kho lấy hàng sang KHO_B -> định tuyến về Cửa hàng Hà Nội (2)
+            store.put("KENH_" + maSan + "_MA_KHO_SAN", "KHO_B");
+            assertEquals(2, spyService.resolveKhoXuatChoDonSan(kenh, null).getId());
+            assertEquals(2, spyService.resolveKhoXuatChoDonSan(kenh, "KHO_B").getId());
+        }
+    }
 }
