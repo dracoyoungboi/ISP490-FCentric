@@ -1,10 +1,12 @@
 package com.dev.backend.dto.response.customize;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -62,6 +64,53 @@ public class ShopeeOrderDto {
 
     @JsonProperty("item_list")
     List<ShopeeOrderItemDto> itemList;
+
+    @JsonProperty("package_list")
+    List<ShopeePackageDto> packageList;
+
+    /** Mã chia chọn tuyến (first_recipient_sort_code) làm giàu từ get_shipping_document_data_info. */
+    @JsonIgnore
+    String maDinhTuyen;
+
+    /** Mã trạm phát / khu vực (second/third_recipient_sort_code) làm giàu từ get_shipping_document_data_info. */
+    @JsonIgnore
+    String maTramPhat;
+
+    /** Cờ COD thật từ Shopee get_shipping_document_data_info. */
+    @JsonIgnore
+    Boolean codFlag;
+
+    /** Số tiền thu hộ COD thực tế từ Shopee get_shipping_document_data_info. */
+    @JsonIgnore
+    BigDecimal codAmount;
+
+    /** Lấy package_number hợp lệ đầu tiên trong package_list của đơn Shopee. */
+    public String resolveFirstPackageNumber() {
+        if (packageList == null) {
+            return null;
+        }
+        for (ShopeePackageDto pkg : packageList) {
+            if (pkg != null && pkg.getPackageNumber() != null && !pkg.getPackageNumber().isBlank()) {
+                return pkg.getPackageNumber().trim();
+            }
+        }
+        return null;
+    }
+
+    /** Lấy tên đơn vị vận chuyển ưu tiên ở cấp đơn, dự phòng từ package_list. */
+    public String resolveShippingCarrier() {
+        if (shippingCarrier != null && !shippingCarrier.isBlank()) {
+            return shippingCarrier.trim();
+        }
+        if (packageList != null) {
+            for (ShopeePackageDto pkg : packageList) {
+                if (pkg != null && pkg.getShippingCarrier() != null && !pkg.getShippingCarrier().isBlank()) {
+                    return pkg.getShippingCarrier().trim();
+                }
+            }
+        }
+        return null;
+    }
 
     /** Lấy location_id định tuyến kho từ cấp đơn hoặc dòng hàng đầu tiên của Shopee (MWH). */
     public String resolveLocationId() {
@@ -127,6 +176,23 @@ public class ShopeeOrderDto {
 
         @JsonProperty("location_id")
         String locationId;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class ShopeePackageDto {
+        @JsonProperty("package_number")
+        String packageNumber;
+
+        @JsonProperty("shipping_carrier")
+        String shippingCarrier;
+
+        @JsonProperty("logistics_status")
+        String logisticsStatus;
     }
 }
 
