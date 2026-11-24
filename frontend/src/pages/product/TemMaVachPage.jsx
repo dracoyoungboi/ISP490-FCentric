@@ -794,10 +794,12 @@ export default function TemMaVachPage() {
             ref={bangRef}
             aria-label={t("SKU cần in tem")}
             aria-busy={ds.dangTaiMoi || undefined}
-            className={cn("w-full min-w-[820px] text-sm max-md:hidden cam-ung:max-lg:min-w-0", ds.dangTaiMoi && "bo-bang-cho")}
+            // Viền tách (border-separate), kẻ đường ở từng ô: bảng gộp viền thì Chrome vẽ chữ của dòng đang cuộn lọt
+            // lên mép dưới tiêu đề cột khi hàng sản phẩm đang mở dính dưới tiêu đề
+            className={cn("w-full min-w-[820px] border-separate border-spacing-0 text-sm max-md:hidden cam-ung:max-lg:min-w-0", ds.dangTaiMoi && "bo-bang-cho")}
           >
             <thead className="sticky top-0 z-10">
-              <tr className="border-b border-bo-border bg-bo-surface-subtle">
+              <tr className="bg-bo-surface-subtle [&>th]:border-b [&>th]:border-bo-border">
                 <th className={`${TH} w-10 text-left`}>
                   <Checkbox
                     checked={trangThaiChon(tatCaIds, chon)}
@@ -818,7 +820,7 @@ export default function TemMaVachPage() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#eef1f5]">
+            <tbody className="[&>tr:not(:first-child)>td]:border-t [&>tr>td]:border-[#eef1f5]">
               {nhom.map((g) => {
                 if (laMotPhanLoai(g)) return dongSku(g.dong[0], g, false);
                 const mo = laMo(g);
