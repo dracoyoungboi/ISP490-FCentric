@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Calendar, ClipboardList, SearchX } from "lucide-react";
+import { ClipboardList, SearchX } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import AttentionBar from "@/components/shared/AttentionBar";
@@ -9,6 +9,7 @@ import ErrorState from "@/components/shared/ErrorState";
 import FilterSelect from "@/components/shared/FilterSelect";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";
+import LocKhoangNgay from "@/components/shared/LocKhoangNgay";
 import LoadingState from "@/components/shared/LoadingState";
 import SearchInput from "@/components/shared/SearchInput";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -16,7 +17,6 @@ import StatusTabs from "@/components/shared/StatusTabs";
 import TableShell from "@/components/shared/TableShell";
 import TablePagination from "@/components/shared/TablePagination";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { PHIEU_XUAT_KHO_TABS, getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
@@ -60,8 +60,8 @@ function parseRoles(vaiTro) {
 }
 
 // Điều kiện lọc dùng chung cho danh sách, số trên tab và dòng chú ý.
-// API chỉ nhận MỘT trạng thái, lọc được một loại xuất (loaiXuat), chưa lọc được theo ngày.
-function buildFilterPayload({ keyword, tenKho, trangThai, loaiXuat, page, size }) {
+// API chỉ nhận MỘT trạng thái, lọc được một loại xuất (loaiXuat), một kho (kho.id) và khoảng ngày xuất.
+function buildFilterPayload({ keyword, khoId, tuNgay, denNgay, trangThai, loaiXuat, page, size }) {
     const filterList = [];
     if (keyword?.trim()) {
         const searchKeyword = keyword.trim();
@@ -75,9 +75,15 @@ function buildFilterPayload({ keyword, tenKho, trangThai, loaiXuat, page, size }
     if (loaiXuat) {
         filterList.push({ fieldName: "loaiXuat", operation: "EQUALS", value: loaiXuat });
     }
-    // Máy chủ chỉ nhận lọc kho theo tên (kho.tenKho); ô chọn kho gửi đúng tên kho đã chọn
-    if (tenKho) {
-        filterList.push({ fieldName: "kho.tenKho", operation: "LIKE", value: tenKho });
+    if (khoId) {
+        filterList.push({ fieldName: "kho.id", operation: "EQUALS", value: Number(khoId) });
+    }
+    // Ngày xuất (phiếu chưa xuất tính theo ngày tạo): máy chủ lọc, bỏ trống một đầu được
+    if (tuNgay) {
+        filterList.push({ fieldName: "ngayXuat", operation: "GREATER_THAN_OR_EQUAL", value: tuNgay });
+    }
+    if (denNgay) {
+        filterList.push({ fieldName: "ngayXuat", operation: "LESS_THAN_OR_EQUAL", value: `${denNgay}T23:59:59` });
     }
     return { page, size, filters: filterList, sorts: [{ fieldName: "ngayTao", direction: "DESC" }] };
 }
@@ -117,8 +123,8 @@ export default function PhieuXuatKhoList() {
     const [filters, setFilters] = useState({
         keyword: "",
         khoId: "",
-        tenKho: "",
-        ngayXuat: "",
+        tuNgay: "",
+        denNgay: "",
         page: 0,
         size: SO_DONG_MAC_DINH,
     });
@@ -181,23 +187,8 @@ export default function PhieuXuatKhoList() {
                 setFilters((p) => ({ ...p, page: trangCuoi }));
                 return;
             }
-            let finalData = res?.content || [];
-
-            // Lọc ngày xuất phía client (ngayXuat, fallback ngayTao) — API chưa nhận điều kiện ngày
-            if (filters.ngayXuat) {
-                finalData = finalData.filter((item) => {
-                    const dateValue = item.ngayXuat || item.ngayTao;
-                    if (!dateValue) return false;
-                    const date = new Date(dateValue);
-                    const y = date.getFullYear();
-                    const m = String(date.getMonth() + 1).padStart(2, '0');
-                    const d = String(date.getDate()).padStart(2, '0');
-                    return `${y}-${m}-${d}` === filters.ngayXuat;
-                });
-            }
-
-            setData(finalData);
-            setTotal(res?.totalElements || 0); // Tổng của máy chủ (chưa tính lọc ngày tại chỗ)
+            setData(res?.content || []);
+            setTotal(res?.totalElements || 0);
             setLoadError(false);
         } catch (e) {
             if (requestId !== requestIdRef.current) return;
@@ -221,8 +212,8 @@ export default function PhieuXuatKhoList() {
     // ── Số trên tab: cùng từ khóa + tên kho + loại phiếu đang lọc, chỉ thay trạng thái (R1) ──
     const tabCounts = useDemTheoTrangThai(
         TAB_MAS,
-        (ma) => demPhieu({ keyword: filters.keyword, tenKho: filters.tenKho, trangThai: trangThaiCuaTab(ma), loaiXuat }),
-        `${filters.keyword}|${filters.khoId}|${loaiXuat ?? ""}`
+        (ma) => demPhieu({ keyword: filters.keyword, khoId: filters.khoId, tuNgay: filters.tuNgay, denNgay: filters.denNgay, trangThai: trangThaiCuaTab(ma), loaiXuat }),
+        `${filters.keyword}|${filters.khoId}|${filters.tuNgay}|${filters.denNgay}|${loaiXuat ?? ""}`
     );
 
     // ── Dòng chú ý: phiếu đã đóng gói, chờ xuất kho trong phạm vi danh sách, bỏ qua các bộ lọc khác (R4).
@@ -230,7 +221,7 @@ export default function PhieuXuatKhoList() {
     const coQuyenXuatKho = roles?.some((role) => VAI_TRO_XUAT_KHO.includes(role)) ?? false;
     const choXuat = useDemTheoTrangThai(
         [TAB_CHO_XUAT],
-        () => demPhieu({ keyword: "", tenKho: "", trangThai: trangThaiCuaTab(TAB_CHO_XUAT) }),
+        () => demPhieu({ keyword: "", trangThai: trangThaiCuaTab(TAB_CHO_XUAT) }),
         TAB_CHO_XUAT,
         { enabled: coQuyenXuatKho }
     );
@@ -241,11 +232,11 @@ export default function PhieuXuatKhoList() {
     };
 
     // Bộ lọc ngoài tab trạng thái ("Xóa lọc" chỉ xóa các bộ lọc này, giữ tab đang chọn)
-    const hasActiveFilters = Boolean(keywordInput.trim() || filters.khoId || filters.ngayXuat || loaiXuat);
+    const hasActiveFilters = Boolean(keywordInput.trim() || filters.khoId || filters.tuNgay || filters.denNgay || loaiXuat);
 
     const xoaLocTaiCho = () => {
         setKeywordInput("");
-        setFilters((p) => ({ ...p, keyword: "", khoId: "", tenKho: "", ngayXuat: "", page: 0 }));
+        setFilters((p) => ({ ...p, keyword: "", khoId: "", tuNgay: "", denNgay: "", page: 0 }));
     };
 
     // Loại phiếu nằm trên URL: bỏ cùng một lần ghi URL với tab (hai lần ghi liền nhau thì lần sau đè lần trước)
@@ -283,12 +274,11 @@ export default function PhieuXuatKhoList() {
     });
 
     // Số chỉ hiện khi đếm xong và danh sách không lỗi (R9); số 0 tự ẩn trong StatusTabs.
-    // Lọc ngày chỉ áp dụng trong trang đang xem (API chưa nhận ngày) nên khi đang lọc ngày tab không hiện số.
     const statusTabs = PHIEU_XUAT_KHO_TABS.map((muc) => ({
         value: muc.ma,
         label: t(muc.label),
         tone: TONE_TAB[muc.ma],
-        count: loadError || filters.ngayXuat ? null : tabCounts.counts[muc.ma],
+        count: loadError ? null : tabCounts.counts[muc.ma],
     }));
 
     // Phạm vi cho người chỉ xem kho của mình (R3): nhãn "Nơi làm việc" chung (ListPageHeader)
@@ -354,31 +344,23 @@ export default function PhieuXuatKhoList() {
                                 label={t("Kho xuất")}
                                 value={filters.khoId}
                                 options={[{ value: "", label: t("Tất cả kho") }, ...dsKhoLoc.map((k) => ({ value: String(k.id), label: k.tenKho }))]}
-                                onChange={(v) => setFilters((p) => ({ ...p, khoId: v, tenKho: dsKhoLoc.find((k) => String(k.id) === v)?.tenKho ?? "", page: 0 }))}
-                                onClear={() => setFilters((p) => ({ ...p, khoId: "", tenKho: "", page: 0 }))}
+                                onChange={(v) => setFilters((p) => ({ ...p, khoId: v, page: 0 }))}
+                                onClear={() => setFilters((p) => ({ ...p, khoId: "", page: 0 }))}
                                 clearLabel={t("Bỏ lọc kho xuất")}
                                 className="sm:w-[190px]"
                             />
                         ) : null}
 
-                        {/* Ngày xuất: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
-                        <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
-                            <Calendar className="size-4 shrink-0 text-bo-muted" />
-                            <span className="shrink-0 text-xs text-bo-muted">{t("Ngày xuất")}</span>
-                            <Input
-                                type="date"
-                                aria-label={t("Ngày xuất")}
-                                className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm text-bo-foreground shadow-none focus-visible:ring-0"
-                                value={filters.ngayXuat}
-                                onChange={(e) => setFilters((p) => ({ ...p, ngayXuat: e.target.value, page: 0 }))}
-                            />
-                        </label>
+                        <LocKhoangNgay
+                            nhan={t("Ngày xuất")}
+                            tuNgay={filters.tuNgay}
+                            denNgay={filters.denNgay}
+                            onDoi={({ tuNgay, denNgay }) => setFilters((p) => ({ ...p, tuNgay, denNgay, page: 0 }))}
+                        />
                     </ListToolbar>
                 }
                 footer={
                     !loading && !loadError ? (
-                        // Lọc ngày chạy tại chỗ trên trang vừa tải (API chưa nhận điều kiện ngày), nên vẫn giữ phân trang
-                        // theo máy chủ để xem tiếp các trang sau; trang đang xem không có phiếu ngày đó thì bảng trống.
                         <TablePagination
                             page={filters.page}
                             size={filters.size}
@@ -386,13 +368,6 @@ export default function PhieuXuatKhoList() {
                             onPageChange={(page) => setFilters((p) => ({ ...p, page }))}
                             onSizeChange={(size) => setFilters((p) => ({ ...p, size, page: 0 }))}
                             capNhat={capNhat}
-                            extra={
-                                filters.ngayXuat ? (
-                                    <span className="text-xs text-bo-muted">
-                                        {t("Lọc ngày chỉ áp dụng cho trang đang xem")}
-                                    </span>
-                                ) : null
-                            }
                         />
                     ) : null
                 }
@@ -410,11 +385,7 @@ export default function PhieuXuatKhoList() {
                         <EmptyState
                             icon={SearchX}
                             title={t("Không tìm thấy phiếu xuất kho phù hợp")}
-                            description={
-                                filters.ngayXuat && total > 0
-                                    ? t("Trang này không có phiếu của ngày đã chọn. Chuyển trang ở dưới để xem tiếp, hoặc đổi điều kiện lọc.")
-                                    : t("Thử đổi từ khóa, loại phiếu, tên kho hoặc ngày xuất.")
-                            }
+                            description={t("Thử đổi từ khóa, loại phiếu, kho hoặc ngày xuất.")}
                             action={
                                 <Button
                                     variant="outline"
