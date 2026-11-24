@@ -4,6 +4,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -24,7 +25,7 @@ public class TrangGiaBanDto {
     long tongSanPham;
     /** Số biến thể khớp bộ lọc (từ khóa + tab) trên mọi trang. */
     long tongSku;
-    /** Số biến thể theo từng tab, tính trên từ khóa đang tìm (R1 của StatusTabs). */
+    /** Số biến thể theo từng tab, tính trên từ khóa đang tìm (R1 của StatusTabs); null khi yêu cầu gửi kemDem = false. */
     DemTheoTab demTheoTab;
 
     @AllArgsConstructor
@@ -61,8 +62,10 @@ public class TrangGiaBanDto {
         Integer trangThai;
         /** Giá in trên tem; trống hoặc ≤ 0 thì tem của SKU này không in được. */
         BigDecimal giaBan;
-        /** Tổng so_luong_ton mọi kho (hàng có thật cần dán tem, không trừ hàng đã đặt). */
-        BigDecimal tonKho;
+        /** Giá trước lần đổi giá bán gần nhất trong 7 ngày qua; null nếu không đổi giá gần đây. */
+        BigDecimal giaBanCu;
+        /** Lúc đổi giá đó; null cùng lúc với {@link #giaBanCu}. */
+        Instant ngayDoiGia;
     }
 
     @AllArgsConstructor
@@ -84,8 +87,9 @@ public class TrangGiaBanDto {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class DemTheoTab {
         long tatCa;
-        long hoatDong;
-        long ngungHoatDong;
+        long doiGia;
+        long chuaGia;
+        long thieuMa;
     }
 
     @AllArgsConstructor

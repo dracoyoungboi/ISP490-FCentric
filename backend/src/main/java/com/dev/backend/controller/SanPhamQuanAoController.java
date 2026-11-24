@@ -216,8 +216,9 @@ public class SanPhamQuanAoController {
         }
 
         /**
-         * Màn "Tem mã vạch" (SRS 4.4 "Barcode", UC 2.7): sản phẩm (phân trang theo sản phẩm) kèm các biến thể khớp bộ lọc,
-         * tồn mọi kho và giá bán sẽ in trên tem; số đếm theo tab. Không trả giá vốn: màn này chỉ để in tem.
+         * Màn "Tem mã vạch" (SRS 4.4 "Barcode", UC 2.7): sản phẩm (phân trang theo sản phẩm) kèm các biến thể đang hoạt
+         * động khớp bộ lọc, giá bán sẽ in trên tem và giá cũ nếu vừa đổi; số đếm theo tab (bỏ qua khi kemDem = false).
+         * Không trả giá vốn, không trả tồn: màn này chỉ để in tem.
          */
         @PostMapping("/gia-ban/filter")
         @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_ban_hang})

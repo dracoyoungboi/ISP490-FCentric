@@ -26,8 +26,8 @@ public class DongInTemDto {
     String kichCo;
     Integer trangThai;
     BigDecimal giaBan;
-    /** Tổng so_luong_ton mọi kho. */
-    BigDecimal tonKho;
+    /** Giá trước lần đổi giá bán gần nhất trong 7 ngày qua; null nếu không đổi giá gần đây. */
+    BigDecimal giaBanCu;
     /** Số tem theo phiếu nhập (số lượng thực nhận); null khi không lấy theo phiếu. */
     Integer soLuong;
 }

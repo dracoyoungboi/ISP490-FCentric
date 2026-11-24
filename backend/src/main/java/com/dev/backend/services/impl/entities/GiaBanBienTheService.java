@@ -29,12 +29,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 
 /**
- * Giá bán của biến thể: danh sách SKU của màn "Tem mã vạch" (phân trang theo sản phẩm, giá bán chỉ để xem — là giá in
- * trên tem), số SKU cần xử lý giá cho Danh sách sản phẩm, và phần kiểm / ghi lịch sử giá mà form Sửa sản phẩm dùng
+ * Giá bán của biến thể: danh sách SKU của màn "Tem mã vạch" (phân trang theo sản phẩm, chỉ SKU đang hoạt động, không có
+ * tồn — BA bỏ tồn khỏi màn này; giá bán chỉ để xem — là giá in trên tem — kèm giá cũ nếu vừa đổi), số SKU cần xử lý giá
+ * cho Danh sách sản phẩm, và phần kiểm / ghi lịch sử giá mà form Sửa sản phẩm dùng
  * ({@link #kiemTraGiaBan}, {@link #ghiLichSuDoiGia}). Giá bán chỉ đổi ở form Sửa sản phẩm.
  */
 @Service
@@ -47,9 +49,13 @@ public class GiaBanBienTheService {
     static final BigDecimal GIA_BAN_TOI_DA = new BigDecimal("9999999999999.99");
 
     public static final String TAB_TAT_CA = "tat-ca";
-    public static final String TAB_HOAT_DONG = "hoat-dong";
-    public static final String TAB_NGUNG_HOAT_DONG = "ngung-hoat-dong";
-    private static final Set<String> CAC_TAB = Set.of(TAB_TAT_CA, TAB_HOAT_DONG, TAB_NGUNG_HOAT_DONG);
+    /** Đổi giá bán trong {@link #SO_NGAY_DOI_GIA_GAN_DAY} ngày qua: tem đang dán còn giá cũ, cần in lại. */
+    public static final String TAB_DOI_GIA = "doi-gia";
+    public static final String TAB_CHUA_GIA = "chua-gia";
+    public static final String TAB_THIEU_MA = "thieu-ma";
+    private static final Set<String> CAC_TAB = Set.of(TAB_TAT_CA, TAB_DOI_GIA, TAB_CHUA_GIA, TAB_THIEU_MA);
+    /** Cửa sổ "đổi giá gần đây": SKU tự rời tab sau số ngày này (không lưu "đã in" vì không thêm bảng). */
+    public static final int SO_NGAY_DOI_GIA_GAN_DAY = 7;
 
     public static final String LY_DO_SUA_SAN_PHAM = "Sửa sản phẩm";
 
@@ -73,25 +79,38 @@ public class GiaBanBienTheService {
         int soDong = req.getSize() != null && SO_SAN_PHAM_MOI_TRANG.contains(req.getSize()) ? req.getSize() : SO_SAN_PHAM_MAC_DINH;
         String tuKhoa = tuKhoaLike(req.getTuKhoa());
         String tab = chuanHoaTab(req.getTrangThai());
+        Instant tuLuc = tuLucDoiGia();
 
-        Page<Integer> trangId = giaBanRepository.trangSanPhamId(tuKhoa, tab, PageRequest.of(trang, soDong));
+        Page<Integer> trangId = giaBanRepository.trangSanPhamId(tuKhoa, tab, tuLuc, PageRequest.of(trang, soDong));
         List<Integer> sanPhamIds = trangId.getContent();
-        long tongSku = trangId.getTotalElements() == 0 ? 0 : giaBanRepository.demSku(tuKhoa, tab);
+        // Số đếm 4 tab chỉ phụ thuộc từ khóa: đổi tab / đổi trang thì giao diện giữ số cũ và gửi kemDem = false
+        TrangGiaBanDto.DemTheoTab dem = Boolean.FALSE.equals(req.getKemDem()) ? null : demTheoTab(tuKhoa, tuLuc);
+        long tongSku = trangId.getTotalElements() == 0 ? 0
+                : dem != null ? soCuaTab(dem, tab) : giaBanRepository.demSku(tuKhoa, tab, tuLuc);
 
         return TrangGiaBanDto.builder()
-                .content(sanPhamIds.isEmpty() ? List.of() : dungNhom(sanPhamIds, tuKhoa, tab))
+                .content(sanPhamIds.isEmpty() ? List.of() : dungNhom(sanPhamIds, tuKhoa, tab, tuLuc))
                 .page(trang)
                 .size(soDong)
                 .tongSanPham(trangId.getTotalElements())
                 .tongSku(tongSku)
-                .demTheoTab(demTheoTab(tuKhoa))
+                .demTheoTab(dem)
                 .build();
     }
 
-    private List<TrangGiaBanDto.NhomGiaBan> dungNhom(List<Integer> sanPhamIds, String tuKhoa, String tab) {
-        List<BienTheSanPham> dsBienThe = giaBanRepository.bienTheKhopLoc(sanPhamIds, tuKhoa, tab);
+    private static long soCuaTab(TrangGiaBanDto.DemTheoTab dem, String tab) {
+        return switch (tab) {
+            case TAB_DOI_GIA -> dem.getDoiGia();
+            case TAB_CHUA_GIA -> dem.getChuaGia();
+            case TAB_THIEU_MA -> dem.getThieuMa();
+            default -> dem.getTatCa();
+        };
+    }
+
+    private List<TrangGiaBanDto.NhomGiaBan> dungNhom(List<Integer> sanPhamIds, String tuKhoa, String tab, Instant tuLuc) {
+        List<BienTheSanPham> dsBienThe = giaBanRepository.bienTheKhopLoc(sanPhamIds, tuKhoa, tab, tuLuc);
         List<Integer> bienTheIds = dsBienThe.stream().map(BienTheSanPham::getId).toList();
-        Map<Integer, BigDecimal> ton = tonKho(bienTheIds);
+        Map<Integer, DoiGia> doiGia = doiGiaGanDay(bienTheIds);
         Map<Integer, Integer> tongPhanLoai = new HashMap<>();
         for (Object[] dong : giaBanRepository.demPhanLoai(sanPhamIds)) {
             tongPhanLoai.put(((Number) dong[0]).intValue(), ((Number) dong[1]).intValue());
@@ -131,22 +150,61 @@ public class GiaBanBienTheService {
                             .kichCo(HienThiBienThe.kichCo(bt))
                             .trangThai(bt.getTrangThai())
                             .giaBan(bt.getGiaBan())
-                            .tonKho(ton.getOrDefault(bt.getId(), BigDecimal.ZERO))
+                            .giaBanCu(doiGia.containsKey(bt.getId()) ? doiGia.get(bt.getId()).giaCu() : null)
+                            .ngayDoiGia(doiGia.containsKey(bt.getId()) ? doiGia.get(bt.getId()).luc() : null)
                             .build()).toList())
                     .build());
         }
         return nhom;
     }
 
-    private TrangGiaBanDto.DemTheoTab demTheoTab(String tuKhoa) {
-        Object[] dong = dongDau(giaBanRepository.demTheoTab(tuKhoa));
-        long tatCa = so(dong, 0);
-        long hoatDong = so(dong, 1);
+    private TrangGiaBanDto.DemTheoTab demTheoTab(String tuKhoa, Instant tuLuc) {
         return TrangGiaBanDto.DemTheoTab.builder()
-                .tatCa(tatCa)
-                .hoatDong(hoatDong)
-                .ngungHoatDong(Math.max(0, tatCa - hoatDong))
+                .tatCa(giaBanRepository.demSku(tuKhoa, TAB_TAT_CA, tuLuc))
+                .doiGia(giaBanRepository.demSku(tuKhoa, TAB_DOI_GIA, tuLuc))
+                .chuaGia(giaBanRepository.demSku(tuKhoa, TAB_CHUA_GIA, tuLuc))
+                .thieuMa(giaBanRepository.demSku(tuKhoa, TAB_THIEU_MA, tuLuc))
                 .build();
+    }
+
+    /** Mốc "đổi giá gần đây". */
+    static Instant tuLucDoiGia() {
+        return Instant.now().minus(Duration.ofDays(SO_NGAY_DOI_GIA_GAN_DAY));
+    }
+
+    /** Giá trước lần đổi giá bán gần nhất và lúc đổi. */
+    public record DoiGia(BigDecimal giaCu, Instant luc) {
+    }
+
+    /**
+     * Lần đổi giá bán gần nhất (có giá cũ) trong {@link #SO_NGAY_DOI_GIA_GAN_DAY} ngày qua của từng biến thể, đọc từ lịch
+     * sử thay đổi (không thêm bảng); biến thể không đổi giá gần đây thì không có trong kết quả.
+     */
+    public Map<Integer, DoiGia> doiGiaGanDay(Collection<Integer> bienTheIds) {
+        if (bienTheIds == null || bienTheIds.isEmpty()) return Map.of();
+        Map<Integer, DoiGia> ketQua = new HashMap<>();
+        // Truy vấn đã xếp mới nhất trước: giữ dòng đầu của mỗi biến thể
+        for (Object[] dong : giaBanRepository.doiGiaGanDay(bienTheIds, tuLucDoiGia())) {
+            if (dong == null || dong[0] == null) continue;
+            BigDecimal giaCu = docGiaBan((String) dong[1]);
+            if (giaCu == null) continue;
+            ketQua.putIfAbsent(((Number) dong[0]).intValue(), new DoiGia(giaCu, (Instant) dong[2]));
+        }
+        return ketQua;
+    }
+
+    /** Đọc giá do {@link #jsonGiaBan} ghi ({"giaBan":2000000}); sai dạng hoặc null thì null. */
+    static BigDecimal docGiaBan(String json) {
+        if (json == null) return null;
+        int dau = json.indexOf(':');
+        int cuoi = json.lastIndexOf('}');
+        if (dau < 0 || cuoi <= dau) return null;
+        String so = json.substring(dau + 1, cuoi).trim();
+        try {
+            return "null".equals(so) ? null : new BigDecimal(so);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**
@@ -157,18 +215,6 @@ public class GiaBanBienTheService {
     public TrangGiaBanDto.CanXuLyGia demCanXuLy() {
         Object[] dong = dongDau(giaBanRepository.demCanXuLy());
         return TrangGiaBanDto.CanXuLyGia.builder().chuaCoGia(so(dong, 0)).duoiGiaVon(so(dong, 1)).build();
-    }
-
-    /** Tổng tồn mọi kho của các biến thể; biến thể không có dòng tồn nào hiểu là 0. */
-    public Map<Integer, BigDecimal> tonKho(Collection<Integer> bienTheIds) {
-        if (bienTheIds == null || bienTheIds.isEmpty()) return Map.of();
-        Map<Integer, BigDecimal> ketQua = new HashMap<>();
-        for (Object[] dong : giaBanRepository.tonKho(bienTheIds)) {
-            if (dong == null || dong[0] == null || dong[1] == null) continue;
-            BigDecimal soLuong = dong[1] instanceof BigDecimal bd ? bd : new BigDecimal(dong[1].toString());
-            ketQua.put(((Number) dong[0]).intValue(), soLuong);
-        }
-        return ketQua;
     }
 
     /** Ảnh chính của từng sản phẩm (truy vấn đã xếp ảnh chính lên trước, giữ ảnh gặp đầu tiên). */

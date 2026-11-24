@@ -6,17 +6,20 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
 /**
  * Truy vấn của màn "Tem mã vạch", hộp In tem và thanh "Cần xử lý giá" ở Danh sách sản phẩm. Danh sách phân trang theo SẢN PHẨM: lấy trang id sản phẩm
- * trước, rồi lấy biến thể, tồn, lần đổi giá gần nhất của cả trang bằng truy vấn IN (không N+1).
+ * trước, rồi lấy biến thể, lần đổi giá gần nhất của cả trang bằng truy vấn IN (không N+1).
  * <p>
  * Bộ lọc dùng chung ({@link #LOC}, {@link #THEO_TAB}):
  * <ul>
  *   <li>{@code tuKhoa}: đã thoát % _ ! (escape '!'), null = không lọc; khớp tên / mã sản phẩm hoặc SKU / mã vạch.</li>
- *   <li>{@code tab}: "tat-ca" | "hoat-dong" (trang_thai = 1) | "ngung-hoat-dong" (khác 1).</li>
+ *   <li>{@code tab}: "tat-ca" | "doi-gia" (đổi giá bán từ {@code tuLuc}, có giá cũ) | "chua-gia" (giá trống / ≤ 0)
+ *   | "thieu-ma" (mã vạch trống). Mọi tab chỉ lấy biến thể đang hoạt động: SKU ngừng không in tem.</li>
+ *   <li>{@code tuLuc}: mốc "đổi giá gần đây" (tab doi-gia); các tab khác vẫn phải truyền.</li>
  * </ul>
  */
 public interface GiaBanBienTheRepository extends org.springframework.data.repository.Repository<BienTheSanPham, Integer> {
@@ -28,9 +31,18 @@ public interface GiaBanBienTheRepository extends org.springframework.data.reposi
             + " OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :tuKhoa, '%')) ESCAPE '!'"
             + " OR LOWER(bt.maVachSku) LIKE LOWER(CONCAT('%', :tuKhoa, '%')) ESCAPE '!') ";
 
-    String THEO_TAB = " (:tab = 'tat-ca'"
-            + " OR (:tab = 'hoat-dong' AND bt.trangThai = 1)"
-            + " OR (:tab = 'ngung-hoat-dong' AND (bt.trangThai IS NULL OR bt.trangThai <> 1))) ";
+    /**
+     * Lần đổi giá bán (form Sửa sản phẩm) của biến thể {@code bt} từ {@code :tuLuc}, có giá cũ lớn hơn 0: tem đang dán
+     * còn giá cũ. Đặt giá lần đầu (giá cũ trống / 0) chưa có tem nào để in lại.
+     */
+    String DOI_GIA_GAN_DAY = " EXISTS (SELECT 1 FROM LichSuThayDoi ls WHERE ls.loaiThamChieu = 'bien_the_san_pham'"
+            + " AND ls.idThamChieu = bt.id AND ls.hanhDong = 'doi_gia_ban' AND ls.ngayThucHien >= :tuLuc"
+            + " AND ls.giaTriCu <> '{\"giaBan\":null}' AND ls.giaTriCu <> '{\"giaBan\":0}') ";
+
+    String THEO_TAB = " bt.trangThai = 1 AND (:tab = 'tat-ca'"
+            + " OR (:tab = 'doi-gia' AND" + DOI_GIA_GAN_DAY + ")"
+            + " OR (:tab = 'chua-gia' AND (bt.giaBan IS NULL OR bt.giaBan <= 0))"
+            + " OR (:tab = 'thieu-ma' AND (bt.maVachSku IS NULL OR TRIM(bt.maVachSku) = ''))) ";
 
     /** Trang id sản phẩm có ít nhất một biến thể khớp bộ lọc, sản phẩm mới tạo lên trước (thứ tự cố định ở đây). */
     @Query(value = "SELECT sp.id FROM BienTheSanPham bt JOIN bt.sanPham sp WHERE " + LOC + " AND " + THEO_TAB
@@ -38,6 +50,7 @@ public interface GiaBanBienTheRepository extends org.springframework.data.reposi
             countQuery = "SELECT COUNT(DISTINCT sp.id) FROM BienTheSanPham bt JOIN bt.sanPham sp WHERE " + LOC + " AND " + THEO_TAB)
     Page<Integer> trangSanPhamId(@Param("tuKhoa") String tuKhoa,
                                  @Param("tab") String tab,
+                                 @Param("tuLuc") Instant tuLuc,
                                  Pageable pageable);
 
     /**
@@ -50,7 +63,8 @@ public interface GiaBanBienTheRepository extends org.springframework.data.reposi
             + " ORDER BY ms.tenMau, ms.id, s.thuTuSapXep, s.id, bt.id")
     List<BienTheSanPham> bienTheKhopLoc(@Param("sanPhamIds") Collection<Integer> sanPhamIds,
                                         @Param("tuKhoa") String tuKhoa,
-                                        @Param("tab") String tab);
+                                        @Param("tab") String tab,
+                                        @Param("tuLuc") Instant tuLuc);
 
     /** Sản phẩm (trong danh sách) có tên hoặc mã khớp từ khóa: khớp tên thì trả đủ biến thể, không tự mở nhóm. */
     @Query("SELECT sp.id FROM SanPhamQuanAo sp WHERE sp.id IN :sanPhamIds AND " + KHOP_TEN)
@@ -62,12 +76,7 @@ public interface GiaBanBienTheRepository extends org.springframework.data.reposi
 
     /** Số biến thể khớp bộ lọc trên mọi trang. */
     @Query("SELECT COUNT(bt.id) FROM BienTheSanPham bt JOIN bt.sanPham sp WHERE " + LOC + " AND " + THEO_TAB)
-    long demSku(@Param("tuKhoa") String tuKhoa, @Param("tab") String tab);
-
-    /** [tổng, đang hoạt động] theo từ khóa (không theo tab); ngừng = tổng − đang hoạt động. */
-    @Query("SELECT COUNT(bt.id), COALESCE(SUM(CASE WHEN bt.trangThai = 1 THEN 1 ELSE 0 END), 0)"
-            + " FROM BienTheSanPham bt JOIN bt.sanPham sp WHERE " + LOC)
-    List<Object[]> demTheoTab(@Param("tuKhoa") String tuKhoa);
+    long demSku(@Param("tuKhoa") String tuKhoa, @Param("tab") String tab, @Param("tuLuc") Instant tuLuc);
 
     /** [chưa có giá, dưới giá vốn] của biến thể đang hoạt động trên toàn hệ thống. */
     @Query("""
@@ -77,10 +86,16 @@ public interface GiaBanBienTheRepository extends org.springframework.data.reposi
             """)
     List<Object[]> demCanXuLy();
 
-    /** [bienTheId, tổng so_luong_ton mọi kho]; biến thể không có dòng nào hiểu là tồn 0. */
-    @Query("SELECT lh.bienTheSanPham.id, SUM(tk.soLuongTon) FROM TonKhoTheoLo tk JOIN tk.loHang lh"
-            + " WHERE lh.bienTheSanPham.id IN :bienTheIds GROUP BY lh.bienTheSanPham.id")
-    List<Object[]> tonKho(@Param("bienTheIds") Collection<Integer> bienTheIds);
+    /**
+     * [bienTheId, giá trị cũ (JSON {"giaBan":…}), lúc đổi] của các lần đổi giá bán từ {@code tuLuc} có giá cũ, mới nhất
+     * trước: lấy dòng đầu của mỗi biến thể làm "giá trước lần đổi gần nhất".
+     */
+    @Query("SELECT ls.idThamChieu, ls.giaTriCu, ls.ngayThucHien FROM LichSuThayDoi ls"
+            + " WHERE ls.loaiThamChieu = 'bien_the_san_pham' AND ls.hanhDong = 'doi_gia_ban'"
+            + " AND ls.idThamChieu IN :bienTheIds AND ls.ngayThucHien >= :tuLuc"
+            + " AND ls.giaTriCu <> '{\"giaBan\":null}' AND ls.giaTriCu <> '{\"giaBan\":0}'"
+            + " ORDER BY ls.ngayThucHien DESC, ls.id DESC")
+    List<Object[]> doiGiaGanDay(@Param("bienTheIds") Collection<Integer> bienTheIds, @Param("tuLuc") Instant tuLuc);
 
     /** Biến thể kèm sản phẩm, màu, kích cỡ để dựng dòng in tem. */
     @Query("SELECT bt FROM BienTheSanPham bt JOIN FETCH bt.sanPham JOIN FETCH bt.mauSac JOIN FETCH bt.size"

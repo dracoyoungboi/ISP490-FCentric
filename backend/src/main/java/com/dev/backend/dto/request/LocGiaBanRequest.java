@@ -20,6 +20,11 @@ public class LocGiaBanRequest {
     Integer size = 20;
     /** Tên / mã sản phẩm, hoặc SKU / mã vạch của biến thể (không phân biệt hoa thường). */
     String tuKhoa;
-    /** "tat-ca" | "hoat-dong" | "ngung-hoat-dong" (trạng thái biến thể); trống = tất cả. */
+    /** "tat-ca" | "doi-gia" | "chua-gia" | "thieu-ma"; trống = tất cả. Chỉ biến thể đang hoạt động. */
     String trangThai;
+    /**
+     * false: không đếm lại 4 tab (đổi tab, đổi trang — số đếm chỉ phụ thuộc từ khóa, giao diện giữ số cũ);
+     * null / true: đếm.
+     */
+    Boolean kemDem;
 }

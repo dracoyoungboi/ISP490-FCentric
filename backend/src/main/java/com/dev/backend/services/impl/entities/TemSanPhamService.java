@@ -12,7 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.*;
 
 import static com.dev.backend.services.impl.multitable.DieuHanhHeThongServiceImpl.*;
@@ -74,8 +73,10 @@ public class TemSanPhamService {
         return dungDong(theoThuTu, soLuong);
     }
 
+    /** Dòng in tem: không có tồn (BA bỏ tồn khỏi việc in tem; số tem theo phiếu nhập hoặc người dùng nhập). */
     private List<DongInTemDto> dungDong(List<BienTheSanPham> ds, Map<Integer, Integer> soLuong) {
-        Map<Integer, BigDecimal> ton = giaBanBienTheService.tonKho(ds.stream().map(BienTheSanPham::getId).toList());
+        List<Integer> ids = ds.stream().map(BienTheSanPham::getId).toList();
+        Map<Integer, GiaBanBienTheService.DoiGia> doiGia = giaBanBienTheService.doiGiaGanDay(ids);
         return ds.stream().map(bt -> DongInTemDto.builder()
                 .bienTheId(bt.getId())
                 .sanPhamId(HienThiBienThe.sanPhamId(bt))
@@ -87,7 +88,7 @@ public class TemSanPhamService {
                 .kichCo(HienThiBienThe.kichCo(bt))
                 .trangThai(bt.getTrangThai())
                 .giaBan(bt.getGiaBan())
-                .tonKho(ton.getOrDefault(bt.getId(), BigDecimal.ZERO))
+                .giaBanCu(doiGia.containsKey(bt.getId()) ? doiGia.get(bt.getId()).giaCu() : null)
                 .soLuong(soLuong.get(bt.getId()))
                 .build()).toList();
     }
