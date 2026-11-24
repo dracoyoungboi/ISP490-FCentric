@@ -23,4 +23,6 @@ public class GiaoTraHangLoiRequest {
     String nguoiNhan;
     String maVanDon;
     String ghiChu;
+    /** Các dòng biên bản ghi lần này (id dòng chi_tiet_tra_hang_ncc); thiếu: mọi dòng còn ở kho theo đúng lựa chọn. */
+    java.util.List<Integer> dongIds;
 }

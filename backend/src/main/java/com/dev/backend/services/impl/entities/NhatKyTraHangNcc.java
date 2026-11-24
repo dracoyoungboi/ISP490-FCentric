@@ -106,15 +106,30 @@ public class NhatKyTraHangNcc {
 
     /**
      * Một lần ghi cách bù và / hoặc hàng lỗi. Nhà cung cấp trả lời trên cổng thì ghi nguồn nhà cung cấp (không có người
-     * đăng nhập); quá hạn thì nguồn hệ thống.
+     * đăng nhập); quá hạn thì nguồn hệ thống. {@code theoDong}: lựa chọn đổi của từng dòng biên bản (id dòng → cách bù /
+     * hàng lỗi, null là không đổi); không có thì {@code phuongAn} / {@code hangLoi} áp cho mọi dòng (cách ghi cũ).
      */
     public void ghiTraLoi(BienBanTraHangNcc bb, TraLoi t) {
         Map<String, Object> moi = new LinkedHashMap<>();
         moi.put("phuongAn", t.phuongAn());
         moi.put("phuongAnCu", t.phuongAnCu());
         if (t.hangLoi() != null) moi.put("hangLoi", t.hangLoi());
+        if (t.theoDong() != null && !t.theoDong().isEmpty()) {
+            Map<String, Map<String, Object>> dong = new LinkedHashMap<>();
+            t.theoDong().forEach((id, c) -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                if (c.cachBu() != null) m.put("cachBu", c.cachBu());
+                // Trừ tiền một phần dòng (đơn chỉ còn chờ một phần, phần kia coi như đã giao bù)
+                if (c.soTru() != null) m.put("soTru", c.soTru());
+                if (c.hangLoi() != null) m.put("hangLoi", c.hangLoi());
+                if (!m.isEmpty()) dong.put(String.valueOf(id), m);
+            });
+            moi.put("theoDong", dong);
+        }
         moi.put("nguon", t.nguon());
         if (t.nguoiXacNhan() != null) moi.put("nguoiXacNhan", t.nguoiXacNhan());
+        // Người xác nhận đã đánh dấu câu cam kết trong hộp xác nhận của cổng
+        if (t.camKet()) moi.put("camKet", true);
         moi.put("truTheoBienThe", t.truTheoBienThe() == null ? Map.of() : t.truTheoBienThe());
         moi.put("tienTru", t.tienTru() == null ? BigDecimal.ZERO : t.tienTru());
         NhatKyNghiepVu.Dong d = dong(bb, IHanhDong.chot_tra_hang_ncc).moi(moi).ghiChu(t.ghiChu());
@@ -132,19 +147,32 @@ public class NhatKyTraHangNcc {
     }
 
     public void ghiGiaoTra(BienBanTraHangNcc bb, String cachGiao, String nguoiNhan, String maVanDon, Instant thoiDiem, String ghiChu) {
+        ghiGiaoTra(bb, cachGiao, nguoiNhan, maVanDon, thoiDiem, ghiChu, null);
+    }
+
+    /** Giao trả các dòng {@code dongIds} (null: cả biên bản, cách ghi cũ). */
+    public void ghiGiaoTra(BienBanTraHangNcc bb, String cachGiao, String nguoiNhan, String maVanDon, Instant thoiDiem,
+                           String ghiChu, Collection<Integer> dongIds) {
         Map<String, Object> moi = new LinkedHashMap<>();
         moi.put("cachGiao", cachGiao);
         moi.put("nguoiNhan", nguoiNhan);
         if (maVanDon != null) moi.put("maVanDon", maVanDon);
         moi.put("thoiDiem", thoiDiem.toString());
+        if (dongIds != null) moi.put("dong", List.copyOf(dongIds));
         nhatKy.ghi(dong(bb, IHanhDong.giao_tra_hang_loi).moi(moi).ghiChu(ghiChu));
     }
 
     /** Tiêu hủy theo đồng ý của nhà cung cấp trên cổng ({@code nguoiDongY}: người xác nhận bên nhà cung cấp). */
     public void ghiTieuHuy(BienBanTraHangNcc bb, String nguoiDongY, Instant thoiDiem, String ghiChu) {
+        ghiTieuHuy(bb, nguoiDongY, thoiDiem, ghiChu, null);
+    }
+
+    /** Tiêu hủy các dòng {@code dongIds} (null: cả biên bản, cách ghi cũ). */
+    public void ghiTieuHuy(BienBanTraHangNcc bb, String nguoiDongY, Instant thoiDiem, String ghiChu, Collection<Integer> dongIds) {
         Map<String, Object> moi = new LinkedHashMap<>();
         if (nguoiDongY != null) moi.put("nguoiDongY", nguoiDongY);
         moi.put("thoiDiem", thoiDiem.toString());
+        if (dongIds != null) moi.put("dong", List.copyOf(dongIds));
         nhatKy.ghi(dong(bb, IHanhDong.tieu_huy_hang_loi).moi(moi).ghiChu(ghiChu));
     }
 
@@ -203,6 +231,13 @@ public class NhatKyTraHangNcc {
         TraLoi cachBu = null;
         TraLoi hangLoi = null;
         GiaoTra giaoTra = null;
+        // Lựa chọn áp cho mọi dòng (cách ghi cũ) và lựa chọn riêng của từng dòng (đè lên lựa chọn chung)
+        LuaChon cachBuChung = null;
+        LuaChon hangLoiChung = null;
+        GiaoTra giaoTraChung = null;
+        Map<Integer, LuaChon> cachBuDong = new HashMap<>();
+        Map<Integer, LuaChon> hangLoiDong = new HashMap<>();
+        Map<Integer, GiaoTra> giaoTraDong = new HashMap<>();
         Instant emailDau = null;
         Instant emailCuoi = null;
         boolean daNhac = false;
@@ -219,6 +254,10 @@ public class NhatKyTraHangNcc {
                     ky = null;
                     cachBu = null;
                     hangLoi = null;
+                    cachBuChung = null;
+                    hangLoiChung = null;
+                    cachBuDong.clear();
+                    hangLoiDong.clear();
                     emailDau = null;
                     emailCuoi = null;
                     daNhac = false;
@@ -228,9 +267,42 @@ public class NhatKyTraHangNcc {
                 case IHanhDong.ky_bien_ban_tra_hang -> ky = new Ky(d.getNgayThucHien(), nguoi);
                 case IHanhDong.chot_tra_hang_ncc -> {
                     TraLoi t = new TraLoi(chuoi(m, "phuongAn"), chuoi(m, "phuongAnCu"), chuoi(m, "hangLoi"),
-                            chuoi(m, "nguon"), chuoi(m, "nguoiXacNhan"), null, null, d.getGhiChu(), d.getNgayThucHien(), nguoi);
-                    if (!Objects.equals(t.phuongAn(), t.phuongAnCu())) cachBu = t;
-                    if (t.hangLoi() != null) hangLoi = t;
+                            chuoi(m, "nguon"), chuoi(m, "nguoiXacNhan"), null, null, d.getGhiChu(), d.getNgayThucHien(), nguoi,
+                            null, Boolean.TRUE.equals(m.get("camKet")));
+                    if (m.get("theoDong") instanceof Map<?, ?> theoDong) {
+                        boolean doiCachBu = false;
+                        boolean doiHangLoi = false;
+                        for (Map.Entry<?, ?> e : theoDong.entrySet()) {
+                            Integer id = soNguyen(e.getKey());
+                            if (id == null || !(e.getValue() instanceof Map<?, ?> c)) continue;
+                            Object cb = c.get("cachBu");
+                            Object hl = c.get("hangLoi");
+                            if (cb != null) {
+                                cachBuDong.put(id, new LuaChon(cb.toString(), t, soNguyen(c.get("soTru"))));
+                                doiCachBu = true;
+                            }
+                            if (hl != null) {
+                                hangLoiDong.put(id, new LuaChon(hl.toString(), t));
+                                doiHangLoi = true;
+                            }
+                        }
+                        // Chép cách bù của biên bản cũ xuống từng dòng không phải một lần trả lời: chỉ giữ cho dòng
+                        boolean chepCu = NGUON_DU_LIEU_CU.equals(t.nguon());
+                        if (doiCachBu && !chepCu) cachBu = t;
+                        if (doiHangLoi && !chepCu) hangLoi = t;
+                    } else {
+                        // Cách ghi cũ: một lựa chọn cho cả biên bản
+                        if (!Objects.equals(t.phuongAn(), t.phuongAnCu())) {
+                            cachBu = t;
+                            cachBuChung = new LuaChon(t.phuongAn(), t);
+                            cachBuDong.clear();
+                        }
+                        if (t.hangLoi() != null) {
+                            hangLoi = t;
+                            hangLoiChung = new LuaChon(t.hangLoi(), t);
+                            hangLoiDong.clear();
+                        }
+                    }
                     congTru(tru, m.get("truTheoBienThe"));
                     tienTru = tienTru.add(so(m.get("tienTru")));
                 }
@@ -248,10 +320,23 @@ public class NhatKyTraHangNcc {
                         daNhac = true;
                     }
                 }
-                case IHanhDong.giao_tra_hang_loi -> giaoTra = new GiaoTra(false, chuoi(m, "cachGiao"), chuoi(m, "nguoiNhan"),
-                        chuoi(m, "maVanDon"), thoiDiem(m, d), d.getGhiChu(), nguoi);
-                case IHanhDong.tieu_huy_hang_loi -> giaoTra = new GiaoTra(true, null, chuoi(m, "nguoiDongY"), null,
-                        thoiDiem(m, d), d.getGhiChu(), nguoi);
+                case IHanhDong.giao_tra_hang_loi, IHanhDong.tieu_huy_hang_loi -> {
+                    boolean huy = IHanhDong.tieu_huy_hang_loi.equals(d.getHanhDong());
+                    GiaoTra gt = huy
+                            ? new GiaoTra(true, null, chuoi(m, "nguoiDongY"), null, thoiDiem(m, d), d.getGhiChu(), nguoi)
+                            : new GiaoTra(false, chuoi(m, "cachGiao"), chuoi(m, "nguoiNhan"), chuoi(m, "maVanDon"),
+                            thoiDiem(m, d), d.getGhiChu(), nguoi);
+                    giaoTra = gt;
+                    if (m.get("dong") instanceof Collection<?> ds) {
+                        for (Object o : ds) {
+                            Integer id = soNguyen(o);
+                            if (id != null) giaoTraDong.put(id, gt);
+                        }
+                    } else {
+                        giaoTraChung = gt;
+                        giaoTraDong.clear();
+                    }
+                }
                 default -> {
                     // hủy biên bản: trạng thái đã ở bảng biên bản
                 }
@@ -259,7 +344,17 @@ public class NhatKyTraHangNcc {
         }
         int soTru = tru.values().stream().mapToInt(Integer::intValue).sum();
         return new NhatKy(lap, ky, cachBu, hangLoi, giaoTra, emailDau, emailCuoi, daNhac, daTungGuiEmail,
-                Collections.unmodifiableMap(tru), soTru, tienTru);
+                Collections.unmodifiableMap(tru), soTru, tienTru, cachBuChung, Map.copyOf(cachBuDong), hangLoiChung,
+                Map.copyOf(hangLoiDong), giaoTraChung, Map.copyOf(giaoTraDong));
+    }
+
+    private static Integer soNguyen(Object v) {
+        if (v == null) return null;
+        try {
+            return new BigDecimal(v.toString()).intValueExact();
+        } catch (ArithmeticException | NumberFormatException e) {
+            return null;
+        }
     }
 
     private Map<String, Object> map(String json) {
@@ -331,17 +426,48 @@ public class NhatKyTraHangNcc {
     }
 
     /**
-     * Một lần ghi cách bù / hàng lỗi. {@code phuongAn} = {@code phuongAnCu} khi lần này chỉ đổi hàng lỗi; {@code hangLoi}
-     * null khi không đổi hàng lỗi. Khi ghi: {@code truTheoBienThe}, {@code tienTru} là số áp vào đơn mua lần này. Khi đọc:
-     * hai trường này null (số cộng dồn ở {@link NhatKy}), {@code luc} / {@code nguoi} lấy từ dòng nhật ký.
+     * Một lần ghi cách bù / hàng lỗi. {@code phuongAn} / {@code phuongAnCu}: cách bù của cả biên bản (tổng các dòng) sau /
+     * trước lần này. Cách ghi cũ: {@code phuongAn} = {@code phuongAnCu} khi lần này chỉ đổi hàng lỗi; {@code hangLoi} null
+     * khi không đổi hàng lỗi. Cách ghi theo dòng: {@code theoDong} (id dòng → lựa chọn đổi). Khi ghi: {@code truTheoBienThe},
+     * {@code tienTru} là số áp vào đơn mua lần này. Khi đọc: hai trường này và {@code theoDong} null (số cộng dồn, lựa
+     * chọn từng dòng ở {@link NhatKy}), {@code luc} / {@code nguoi} lấy từ dòng nhật ký.
      */
     public record TraLoi(String phuongAn, String phuongAnCu, String hangLoi, String nguon, String nguoiXacNhan,
                          Map<Integer, Integer> truTheoBienThe, BigDecimal tienTru, String ghiChu, Instant luc,
-                         String nguoi) {
+                         String nguoi, Map<Integer, ChonDong> theoDong, boolean camKet) {
 
         public static TraLoi ghi(String phuongAn, String phuongAnCu, String hangLoi, String nguon, String nguoiXacNhan,
                                  Map<Integer, Integer> truTheoBienThe, BigDecimal tienTru, String ghiChu) {
-            return new TraLoi(phuongAn, phuongAnCu, hangLoi, nguon, nguoiXacNhan, truTheoBienThe, tienTru, ghiChu, null, null);
+            return new TraLoi(phuongAn, phuongAnCu, hangLoi, nguon, nguoiXacNhan, truTheoBienThe, tienTru, ghiChu, null,
+                    null, null, false);
+        }
+
+        /** Lần ghi theo dòng ({@code phuongAn} / {@code phuongAnCu}: cách bù của cả biên bản sau / trước). */
+        public static TraLoi theoDong(String phuongAn, String phuongAnCu, Map<Integer, ChonDong> theoDong, String nguon,
+                                      String nguoiXacNhan, Map<Integer, Integer> truTheoBienThe, BigDecimal tienTru,
+                                      String ghiChu, boolean camKet) {
+            return new TraLoi(phuongAn, phuongAnCu, null, nguon, nguoiXacNhan, truTheoBienThe, tienTru, ghiChu, null,
+                    null, theoDong, camKet);
+        }
+    }
+
+    /**
+     * Lựa chọn đổi của một dòng trong một lần ghi: cách bù, hàng lỗi (null: không đổi). {@code soTru}: trừ tiền chỉ một
+     * phần số lỗi của dòng (quá hạn / đóng đơn khi đơn chỉ còn chờ một phần, phần kia đã giao ở đợt khác); null: cả dòng.
+     */
+    public record ChonDong(String cachBu, String hangLoi, Integer soTru) {
+        public ChonDong(String cachBu, String hangLoi) {
+            this(cachBu, hangLoi, null);
+        }
+    }
+
+    /**
+     * Lựa chọn đang áp dụng của một dòng (cách bù hoặc hàng lỗi) và lần ghi ra nó (nguồn, người xác nhận, lúc).
+     * {@code soTru}: số lỗi của dòng đã trừ tiền khi chỉ trừ một phần (null: cả dòng).
+     */
+    public record LuaChon(String giaTri, TraLoi lan, Integer soTru) {
+        public LuaChon(String giaTri, TraLoi lan) {
+            this(giaTri, lan, null);
         }
     }
 
@@ -357,13 +483,33 @@ public class NhatKyTraHangNcc {
      *   <li>{@code emailDauLuc}: email biên bản đầu tiên gửi được (mốc tính hạn trả lời); {@code emailGuiLuc}: lần gần
      *   nhất; {@code daNhac}: đã gửi email nhắc hạn; {@code daTungGuiEmail}: kể cả các lần lập trước.</li>
      *   <li>{@code truTheoBienThe} / {@code soTru} / {@code tienTru}: tổng số lỗi đã trừ tiền (đã cộng vào "đã nhận").</li>
+     *   <li>Lựa chọn từng dòng: {@link #cachBuDong}, {@link #hangLoiDong}, {@link #giaoTraDong} (riêng của dòng, không có
+     *   thì lựa chọn chung của cách ghi cũ).</li>
      * </ul>
      */
     public record NhatKy(Lap lap, Ky ky, TraLoi cachBu, TraLoi hangLoi, GiaoTra giaoTra, Instant emailDauLuc,
                          Instant emailGuiLuc, boolean daNhac, boolean daTungGuiEmail,
-                         Map<Integer, Integer> truTheoBienThe, int soTru, BigDecimal tienTru) {
+                         Map<Integer, Integer> truTheoBienThe, int soTru, BigDecimal tienTru,
+                         LuaChon cachBuChung, Map<Integer, LuaChon> cachBuTheoDong,
+                         LuaChon hangLoiChung, Map<Integer, LuaChon> hangLoiTheoDong,
+                         GiaoTra giaoTraChung, Map<Integer, GiaoTra> giaoTraTheoDong) {
         public static final NhatKy TRONG = new NhatKy(null, null, null, null, null, null, null, false, false, Map.of(), 0,
-                BigDecimal.ZERO);
+                BigDecimal.ZERO, null, Map.of(), null, Map.of(), null, Map.of());
+
+        /** Cách bù đang áp dụng của dòng (riêng của dòng, không thì lựa chọn chung); null: nhật ký chưa ghi. */
+        public LuaChon cachBuDong(Integer dongId) {
+            return dongId == null ? cachBuChung : cachBuTheoDong.getOrDefault(dongId, cachBuChung);
+        }
+
+        /** Nhà cung cấp chọn gì cho hàng lỗi của dòng; null: chưa chọn. */
+        public LuaChon hangLoiDong(Integer dongId) {
+            return dongId == null ? hangLoiChung : hangLoiTheoDong.getOrDefault(dongId, hangLoiChung);
+        }
+
+        /** Lần giao trả / tiêu hủy dòng này; null: chưa. */
+        public GiaoTra giaoTraDong(Integer dongId) {
+            return dongId == null ? giaoTraChung : giaoTraTheoDong.getOrDefault(dongId, giaoTraChung);
+        }
 
         /** Biên bản đã lập, có người ký mà kho chưa ghi đã ký: chưa gửi nhà cung cấp. */
         public boolean choKy() {
@@ -377,9 +523,12 @@ public class NhatKyTraHangNcc {
             return KY_DA_KY;
         }
 
-        /** Nhà cung cấp đã chọn gì cho hàng lỗi còn ở kho: NHAN_LAI | TIEU_HUY | null (chưa chọn). */
+        /**
+         * Lựa chọn hàng lỗi chung của cả biên bản (cách ghi cũ): NHAN_LAI | TIEU_HUY | null (chưa chọn, hoặc nhà cung cấp
+         * chọn theo từng dòng — xem {@link #hangLoiDong}).
+         */
         public String luaChonHangLoi() {
-            return hangLoi == null ? null : hangLoi.hangLoi();
+            return hangLoiChung == null || !hangLoiTheoDong.isEmpty() ? null : hangLoiChung.giaTri();
         }
     }
 }

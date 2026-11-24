@@ -34,15 +34,18 @@ export function OHangLoi({ bienBan, luc }) {
 export function OBu({ bienBan }) {
   const ma = bienBan?.phuongAn;
   if (!ma || bienBan.trangThaiHienThi === "DA_HUY") return <span className="text-bo-muted">—</span>;
+  // Đã trừ vào đơn mua; chưa nhập kho thì giá trị các dòng trừ tiền (dự kiến)
+  const tien = Number(bienBan.tienTruTien) > 0 ? Number(bienBan.tienTruTien) : Number(bienBan.giaTriTruTien) || 0;
+  const coTru = ma === "TRU_CONG_NO" || ma === "HON_HOP";
   return (
     <>
       <p className={ma === "CHO_CHOT" ? "whitespace-nowrap text-sm text-bo-muted" : "whitespace-nowrap text-sm font-medium text-bo-foreground"}>
         {t(TEN_CACH_BU[ma] ?? ma)}
       </p>
-      {ma === "TRU_CONG_NO" ? (
-        <p className="mt-0.5 whitespace-nowrap text-xs tabular-nums text-bo-muted">−{formatCurrency(bienBan.tienTruTien)}</p>
+      {coTru && (tien > 0 || ma === "TRU_CONG_NO") ? (
+        <p className="mt-0.5 whitespace-nowrap text-xs tabular-nums text-bo-muted">−{formatCurrency(tien)}</p>
       ) : null}
-      {ma === "DOI_HANG" && bienBan.buXong ? (
+      {(ma === "DOI_HANG" || ma === "HON_HOP") && bienBan.buXong ? (
         <p className="mt-0.5 whitespace-nowrap text-xs text-bo-success">{t("đã nhận đủ hàng bù")}</p>
       ) : null}
     </>

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { bienBanTraHangService } from "@/services/bienBanTraHangService";
 import { getApiErrorMessage } from "@/utils/apiError";
 import { formatDateTime } from "@/utils/formatters";
-import { t } from "@/i18n";
+import { t, tDuLieu } from "@/i18n";
 
 const KHUNG_HOP = "flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden rounded-xl border-bo-border p-0 sm:max-w-[min(640px,calc(100%-2rem))]";
 const O_NHAP = "h-9 w-full rounded-md border border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15";
@@ -26,18 +26,29 @@ const LECH_MS = 5 * 60 * 1000;
  *   nhà cung cấp, kho chỉ ghi thời điểm và ghi chú. Thời điểm không trước lúc nhà cung cấp đồng ý.
  * Thời điểm không trước lúc lập biên bản, không sau hiện tại.
  */
-export default function HopGhiHangLoi({ open, onOpenChange, bienBan, cheDo = "giaoTra", onXong }) {
+export default function HopGhiHangLoi({ open, onOpenChange, bienBan, cheDo = "giaoTra", dong = [], onXong }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {open && bienBan ? <NoiDung key={`${bienBan.id}-${cheDo}`} bb={bienBan} cheDo={cheDo} onDong={() => onOpenChange(false)} onXong={onXong} /> : null}
+      {open && bienBan ? <NoiDung key={`${bienBan.id}-${cheDo}`} bb={bienBan} cheDo={cheDo} dong={dong} onDong={() => onOpenChange(false)} onXong={onXong} /> : null}
     </Dialog>
   );
 }
 
-function NoiDung({ bb, cheDo, onDong, onXong }) {
+function NoiDung({ bb, cheDo, dong, onDong, onXong }) {
   const idGoc = useId();
   const fid = (ten) => `${idGoc}-${ten}`;
   const tieuHuy = cheDo === "tieuHuy";
+  // Dòng ghi lần này (mặc định mọi dòng của việc này; bỏ chọn dòng nhà cung cấp chưa lấy / chưa tiêu hủy)
+  const [chonDong, setChonDong] = useState(() => new Set(dong.map((d) => d.id)));
+  const dongChon = dong.filter((d) => chonDong.has(d.id));
+  // Lúc / người đồng ý tiêu hủy: theo các dòng ghi; biên bản không kèm dòng thì theo lần chọn của cả biên bản
+  const lucDongY = dong.length
+    ? dongChon.map((d) => d.thoiDiemChonHangLoi).filter(Boolean).sort((a, b) => new Date(b) - new Date(a))[0] ?? null
+    : bb.thoiDiemChonHangLoi;
+  const nguoiDongY = dong.length
+    ? [...new Set(dongChon.map((d) => d.nguoiChonHangLoi).filter(Boolean))].join(", ")
+    : bb.nguoiChonHangLoi;
+  const soLoi = dong.length ? dongChon.reduce((s, d) => s + Number(d.soLuong || 0), 0) : Number(bb.tongSoLuongLoi) || 0;
   const [cachGiao, setCachGiao] = useState("NCC_LAY");
   const [thoiDiem, setThoiDiem] = useState(() => giaTriONgayGio(new Date()));
   const [nguoi, setNguoi] = useState("");
@@ -53,9 +64,10 @@ function NoiDung({ bb, cheDo, onDong, onXong }) {
     if (!iso) l.thoiDiem = iso === undefined ? t("Thời điểm không hợp lệ.") : t("Chọn thời điểm.");
     else if (new Date(iso).getTime() > Date.now() + LECH_MS) l.thoiDiem = t("Thời điểm không được sau hiện tại.");
     else if (bb.ngayLap && new Date(iso).getTime() < new Date(bb.ngayLap).getTime() - 60000) l.thoiDiem = t("Thời điểm không được trước lúc lập biên bản.");
-    else if (tieuHuy && bb.thoiDiemChonHangLoi && new Date(iso).getTime() < new Date(bb.thoiDiemChonHangLoi).getTime() - 60000) {
-      l.thoiDiem = t("Thời điểm tiêu hủy không được trước lúc nhà cung cấp đồng ý ({{luc}}).", { luc: formatDateTime(bb.thoiDiemChonHangLoi) });
+    else if (tieuHuy && lucDongY && new Date(iso).getTime() < new Date(lucDongY).getTime() - 60000) {
+      l.thoiDiem = t("Thời điểm tiêu hủy không được trước lúc nhà cung cấp đồng ý ({{luc}}).", { luc: formatDateTime(lucDongY) });
     }
+    if (dong.length && !dongChon.length) l.dong = t("Chọn ít nhất một sản phẩm.");
     const ten = nguoi.trim();
     if (!tieuHuy && !ten) l.nguoi = vanChuyen ? t("Nhập đơn vị vận chuyển.") : t("Nhập người nhận hàng.");
     else if (ten.length > GIOI_HAN_TRA_HANG.ten) l.nguoi = t("Tối đa {{so}} ký tự.", { so: GIOI_HAN_TRA_HANG.ten });
@@ -71,10 +83,11 @@ function NoiDung({ bb, cheDo, onDong, onXong }) {
     setDangGui(true);
     try {
       const ghi = ghiChu.trim() || null;
+      const dongIds = dong.length ? dongChon.map((d) => d.id) : null;
       const dto = tieuHuy
-        ? await bienBanTraHangService.tieuHuy(bb.id, { thoiDiem: iso, ghiChu: ghi })
+        ? await bienBanTraHangService.tieuHuy(bb.id, { thoiDiem: iso, ghiChu: ghi, dongIds })
         : await bienBanTraHangService.giaoTra(bb.id, {
-          thoiDiem: iso, cachGiao, nguoiNhan: nguoi.trim(), maVanDon: vanChuyen ? maVanDon.trim() : null, ghiChu: ghi,
+          thoiDiem: iso, cachGiao, nguoiNhan: nguoi.trim(), maVanDon: vanChuyen ? maVanDon.trim() : null, ghiChu: ghi, dongIds,
         });
       toast.success(tieuHuy ? t("Đã ghi tiêu hủy hàng lỗi") : t("Đã ghi giao trả hàng lỗi"));
       onXong?.(dto);
@@ -89,7 +102,15 @@ function NoiDung({ bb, cheDo, onDong, onXong }) {
   const xoaLoi = (ten) => loi[ten] && setLoi((x) => ({ ...x, [ten]: undefined }));
   const moTaLoi = (ten) => (loi[ten] ? { "aria-invalid": true, "aria-describedby": `${fid(ten)}-loi` } : {});
   const dongLoi = (ten) => (loi[ten] ? <p id={`${fid(ten)}-loi`} role="alert" className="text-xs text-bo-danger">{loi[ten]}</p> : null);
-  const soLoi = Number(bb.tongSoLuongLoi) || 0;
+  const doiChonDong = (id) => {
+    setChonDong((cu) => {
+      const moi = new Set(cu);
+      if (moi.has(id)) moi.delete(id);
+      else moi.add(id);
+      return moi;
+    });
+    xoaLoi("dong");
+  };
 
   return (
     <DialogContent className={KHUNG_HOP}>
@@ -105,6 +126,38 @@ function NoiDung({ bb, cheDo, onDong, onXong }) {
       </DialogHeader>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-5 *:shrink-0 sm:px-6">
+        {dong.length ? (
+          <fieldset className="flex flex-col gap-2" {...moTaLoi("dong")}>
+            <legend className="mb-2 text-sm font-semibold text-bo-foreground">
+              {tieuHuy ? t("Sản phẩm tiêu hủy lần này") : t("Sản phẩm giao trả lần này")}
+            </legend>
+            <ul className="divide-y divide-bo-border rounded-lg border border-bo-border">
+              {dong.map((d) => (
+                <li key={d.id}>
+                  <label className="flex cursor-pointer items-start gap-3 px-3.5 py-2.5 text-sm hover:bg-bo-surface-subtle">
+                    <input type="checkbox" checked={chonDong.has(d.id)} disabled={dangGui} onChange={() => doiChonDong(d.id)} className="mt-0.5 size-4 shrink-0 accent-[#0d61e4]" />
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium text-bo-foreground">{d.tenBienThe}</span>
+                      <span className="text-bo-muted">{[d.mauSac, d.kichCo].filter(Boolean).length ? ` · ${[d.mauSac, d.kichCo].filter(Boolean).join(" / ")}` : ""}</span>
+                      <span className="block text-xs text-bo-muted">
+                        <span className="font-mono">{d.maLo || d.sku}</span>{d.lyDo ? ` · ${tDuLieu(d.lyDo)}` : ""}
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-semibold tabular-nums text-bo-foreground">{d.soLuong}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            {dong.length > 1 ? (
+              <p className="text-xs text-bo-muted">
+                {tieuHuy
+                  ? t("Bỏ chọn sản phẩm chưa tiêu hủy lần này; ghi sau khi tiêu hủy nốt.")
+                  : t("Bỏ chọn sản phẩm nhà cung cấp chưa lấy lần này; ghi sau khi lấy nốt.")}
+              </p>
+            ) : null}
+            {dongLoi("dong")}
+          </fieldset>
+        ) : null}
         {!tieuHuy ? (
           <div className="flex flex-col gap-2">
             <p id="ghi-hang-loi-cach-giao" className="text-sm font-semibold text-bo-foreground">{t("Cách giao")}</p>
@@ -133,14 +186,14 @@ function NoiDung({ bb, cheDo, onDong, onXong }) {
               })}
             </div>
           </div>
-        ) : (
+        ) : lucDongY ? (
           <DongThongBao>
             {t("{{nguoi}} đồng ý tiêu hủy trên Cổng nhà cung cấp lúc {{luc}}.", {
-              nguoi: bb.nguoiChonHangLoi || t("Nhà cung cấp"),
-              luc: formatDateTime(bb.thoiDiemChonHangLoi),
+              nguoi: nguoiDongY || t("Nhà cung cấp"),
+              luc: formatDateTime(lucDongY),
             })}
           </DongThongBao>
-        )}
+        ) : null}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex min-w-0 flex-col gap-1.5">

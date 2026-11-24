@@ -16,6 +16,11 @@ public interface ChiTietTraHangNccRepository extends JpaRepository<ChiTietTraHan
     @Query("SELECT c FROM ChiTietTraHangNcc c JOIN FETCH c.bienTheSanPham bt JOIN FETCH bt.sanPham WHERE c.bienBanTraHangNcc.id = :bienBanId")
     List<ChiTietTraHangNcc> findDetailByBienBanId(@Param("bienBanId") Integer bienBanId);
 
+    /** Dòng của nhiều biên bản (một truy vấn): lựa chọn của nhà cung cấp và hàng lỗi theo từng dòng. */
+    @Query("SELECT c FROM ChiTietTraHangNcc c JOIN FETCH c.bienTheSanPham bt LEFT JOIN FETCH bt.sanPham "
+            + "WHERE c.bienBanTraHangNcc.id IN :bienBanIds ORDER BY c.id")
+    List<ChiTietTraHangNcc> timTheoBienBan(@Param("bienBanIds") java.util.Collection<Integer> bienBanIds);
+
     /** Lô bị xóa khi phiếu còn Nháp: dòng biên bản cũ chỉ còn giữ mã lô (biên bản được đánh dấu lệch, phải lập lại). */
     @Modifying(flushAutomatically = true)
     @Query("update ChiTietTraHangNcc c set c.loHang = null where c.loHang.id = :loHangId")

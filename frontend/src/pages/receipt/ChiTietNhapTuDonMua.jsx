@@ -36,6 +36,7 @@ import { formatDate, formatNumber } from "@/utils/formatters";
 import { ROLES, hasAnyRole } from "@/utils/roles";
 import { chuanHoaDongInTem } from "@/components/print/tinhTem";
 import HopInTem from "@/pages/product/components/product/HopInTem";
+import EditProductModal from "@/pages/product/components/product/EditProductModal";
 import { t } from "@/i18n";
 import { VAI_TRO_KHO } from "@/constants/vaiTroTheoNghiepVu";
 import { moTrangIn } from "@/lib/moTrangIn";
@@ -150,6 +151,8 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
   // In tem theo phiếu đã nhập kho: số tem = số lượng thực nhận (đạt kiểm đếm) của từng biến thể
   const coTheInTem = daNhap && xuLyKho;
   const [dongInTem, setDongInTem] = useState(null);
+  // "Đặt giá" ở hộp In tem (SKU chưa có giá): mở form Sửa sản phẩm ngay tại phiếu — giá bán chỉ đổi ở form đó
+  const [spDatGia, setSpDatGia] = useState(null);
   const [dangLayTem, setDangLayTem] = useState(false);
   const moInTem = async () => {
     if (dangLayTem) return;
@@ -646,10 +649,17 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
         maPhieu={data.soPhieuNhap}
         onDatGia={
           hasAnyRole([ROLES.QUAN_TRI_VIEN])
-            ? (d) => navigate("/products/gia-ban-tem", { state: { datGiaMa: d.maSku || d.maVachSku } })
+            ? (d) => {
+                if (d?.sanPhamId == null) return;
+                setDongInTem(null);
+                setSpDatGia(d.sanPhamId);
+              }
             : undefined
         }
       />
+      {hasAnyRole([ROLES.QUAN_TRI_VIEN]) ? (
+        <EditProductModal isOpen={spDatGia != null} onClose={() => setSpDatGia(null)} productId={spDatGia} />
+      ) : null}
     </PageContainer>
   );
 }

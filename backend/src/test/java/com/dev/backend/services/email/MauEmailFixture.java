@@ -179,11 +179,15 @@ final class MauEmailFixture {
             ChiTietDonMuaHang ct = don.getChiTietDonMuaHangs().stream().filter(c -> c.getId() == idDong).findFirst()
                     .orElseThrow();
             BienTheSanPham bt = ct.getBienTheSanPham();
+            // Như máy chủ dựng: đơn giá / giá trị theo dòng đơn mua, cách bù chờ chọn, hàng lỗi ở kho, mọi lựa chọn còn mở
             items.add(BienBanTraHangDto.ChiTietItemDto.builder().id(loi[i][0]).bienTheSanPhamId(bt.getId())
                     .sku(bt.getMaSku()).tenBienThe(bt.getSanPham().getTenSanPham()).mauSac(bt.getMauSac().getTenMau())
-                    .kichCo(bt.getSize().getTenSize()).maLo("LO-" + loi[i][0]).lyDo(lyDo[i]).soLuong(loi[i][2]).build());
+                    .kichCo(bt.getSize().getTenSize()).maLo("LO-" + loi[i][0]).lyDo(lyDo[i]).soLuong(loi[i][2])
+                    .donGia(ct.getDonGia()).giaTri(ct.getDonGia().multiply(BigDecimal.valueOf(loi[i][2])))
+                    .cachBu("CHO_CHOT").buXong(false).trangThaiHang("O_KHO")
+                    .cachBuMo(List.of("DOI_HANG", "TRU_CONG_NO")).hangLoiMo(List.of("NHAN_LAI", "TIEU_HUY")).build());
             theoBienThe.add(BienBanTraHangDto.TheoBienTheDto.builder().bienTheSanPhamId(bt.getId()).sku(bt.getMaSku())
-                    .soLuongLoi(loi[i][2]).donGia(ct.getDonGia()).build());
+                    .soLuongLoi(loi[i][2]).donGia(ct.getDonGia()).soLuongGiaoBu(0).soLuongChoChon(loi[i][2]).build());
         }
         return BienBanTraHangDto.builder().id(ID_BIEN_BAN).soBienBan(MA_BIEN_BAN).phieuNhapKhoId(88)
                 .soPhieuNhap(SO_PHIEU_NHAP).phieuDaNhap(false).donMuaHangId(ID_DON).soDonMua(MA_DON).trangThaiDonMua(3)
@@ -193,6 +197,8 @@ final class MauEmailFixture {
                 .hanTraLoi(HAN_TRA_LOI).daNhacHan(false)
                 .cachBuMo(List.of("DOI_HANG", "TRU_CONG_NO")).hangLoiMo(List.of("NHAN_LAI", "TIEU_HUY"))
                 .soLuongTruTien(0).tienTruTien(BigDecimal.ZERO).ngayLap(Instant.parse("2026-10-21T03:21:00Z"))
+                .soLuongGiaoBu(0).soLuongChoChonCachBu(4).soLuongNhanLai(0).soLuongTieuHuy(0)
+                .giaTriTruTien(BigDecimal.ZERO).soLuongChoHangBu(0)
                 .nguoiLap("Nguyễn Minh Anh").tongSoLuongLoi(4).giaTriLoi(new BigDecimal("645000.00"))
                 .trangThai("CHO_TRA_HANG").trangThaiHienThi("MOI_LAP").cachXuLyHang("GIU_KHO").trangThaiHang("O_KHO")
                 .duLieuCu(false).theoBienThe(theoBienThe).items(items).build();
@@ -203,24 +209,86 @@ final class MauEmailFixture {
      * null là chưa chọn (vẫn còn chờ). Trừ tiền thì số trừ = toàn bộ 4 sản phẩm, 645.000 ₫.
      */
     static BienBanTraHangDto banDaTraLoi(String phuongAn, String hangLoi, String nguoi) {
+        String[] cachBu = {phuongAn, phuongAn, phuongAn};
+        String[] chonHangLoi = {hangLoi, hangLoi, hangLoi};
+        return banTheoDong(cachBu, chonHangLoi, nguoi);
+    }
+
+    /**
+     * {@link #ban()} sau khi nhà cung cấp {@code nguoi} trả lời theo TỪNG DÒNG (dòng 51: 2 sản phẩm, 52: 1, 53: 1) lúc
+     * {@link #BAY_GIO}: {@code cachBu[i]} / {@code hangLoi[i]} của dòng thứ i, null là chưa chọn. Đầu biên bản là tổng các
+     * dòng như máy chủ dựng (HON_HOP khi khác nhau); dòng trừ tiền thì số / tiền trừ theo dòng (đã áp vào đơn).
+     */
+    static BienBanTraHangDto banTheoDong(String[] cachBu, String[] hangLoi, String nguoi) {
         BienBanTraHangDto b = ban();
-        if (phuongAn != null) {
-            b.setPhuongAn(phuongAn);
+        List<BienBanTraHangDto.ChiTietItemDto> items = b.getItems();
+        java.util.Set<String> cacCachBu = new java.util.HashSet<>();
+        java.util.Set<String> cacHangLoi = new java.util.HashSet<>();
+        int soTru = 0, soBu = 0, soCho = 0, soNhanLai = 0, soTieuHuy = 0;
+        BigDecimal tienTru = BigDecimal.ZERO;
+        for (int i = 0; i < items.size(); i++) {
+            BienBanTraHangDto.ChiTietItemDto it = items.get(i);
+            int sl = it.getSoLuong();
+            String cb = cachBu[i];
+            if (cb != null) {
+                it.setCachBu(cb);
+                it.setNguonCachBu("CONG_NCC");
+                it.setNguoiXacNhanCachBu(nguoi);
+                it.setThoiDiemCachBu(BAY_GIO);
+                if ("TRU_CONG_NO".equals(cb)) {
+                    soTru += sl;
+                    tienTru = tienTru.add(it.getGiaTri());
+                } else {
+                    soBu += sl;
+                }
+            } else {
+                soCho += sl;
+            }
+            cacCachBu.add(cb == null ? "CHO_CHOT" : cb);
+            if (hangLoi[i] != null) {
+                it.setHangLoiNcc(hangLoi[i]);
+                it.setNguoiChonHangLoi(nguoi);
+                it.setThoiDiemChonHangLoi(BAY_GIO);
+                cacHangLoi.add(hangLoi[i]);
+                if ("NHAN_LAI".equals(hangLoi[i])) soNhanLai += sl;
+                else soTieuHuy += sl;
+            }
+        }
+        String phuongAn = cacCachBu.contains("CHO_CHOT") ? "CHO_CHOT"
+                : cacCachBu.size() == 1 ? cacCachBu.iterator().next() : "HON_HOP";
+        b.setPhuongAn(phuongAn);
+        b.setSoLuongGiaoBu(soBu);
+        b.setSoLuongChoChonCachBu(soCho);
+        b.setSoLuongNhanLai(soNhanLai);
+        b.setSoLuongTieuHuy(soTieuHuy);
+        b.setGiaTriTruTien(tienTru);
+        if (soTru + soBu > 0) {
             b.setNguonChot("CONG_NCC");
             b.setNguoiXacNhanNcc(nguoi);
             b.setThoiDiemChot(BAY_GIO);
-            b.setChoNccChonCachBu(false);
-            if ("TRU_CONG_NO".equals(phuongAn)) {
-                b.setSoLuongTruTien(4);
-                b.setTienTruTien(new BigDecimal("645000.00"));
-            }
         }
-        if (hangLoi != null) {
-            b.setHangLoiNcc(hangLoi);
+        b.setChoNccChonCachBu(soCho > 0);
+        if (soTru > 0) {
+            b.setSoLuongTruTien(soTru);
+            b.setTienTruTien(tienTru);
+        }
+        if (!cacHangLoi.isEmpty()) {
+            b.setHangLoiNcc(cacHangLoi.size() == 1 ? cacHangLoi.iterator().next() : "HON_HOP");
             b.setNguoiChonHangLoi(nguoi);
             b.setThoiDiemChonHangLoi(BAY_GIO);
-            b.setChoNccChonHangLoi(false);
         }
+        b.setChoNccChonHangLoi(soNhanLai + soTieuHuy < 4);
+        return b;
+    }
+
+    /**
+     * Quá hạn trả lời: hệ thống chuyển cả 4 sản phẩm (mọi dòng) sang trừ tiền, không có người xác nhận bên nhà cung cấp;
+     * hàng lỗi vẫn chờ chọn.
+     */
+    static BienBanTraHangDto banQuaHan() {
+        BienBanTraHangDto b = banDaTraLoi("TRU_CONG_NO", null, null);
+        b.setNguonChot("TU_DONG");
+        b.getItems().forEach(it -> it.setNguonCachBu("TU_DONG"));
         return b;
     }
 

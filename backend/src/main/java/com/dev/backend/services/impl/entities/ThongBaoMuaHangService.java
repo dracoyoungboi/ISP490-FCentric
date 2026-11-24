@@ -350,11 +350,12 @@ public class ThongBaoMuaHangService {
     }
 
     /**
-     * Nhà cung cấp vừa trả lời trên Cổng nhà cung cấp (cách bù và / hoặc hàng lỗi): báo bộ phận mua hàng (khóa
-     * "BBTH:{id}:NCC", trả lời lại thì sửa thông báo cũ). Phiếu đã nhập kho thì cách bù đã áp vào đơn mua; chưa nhập kho
-     * thì áp lúc nhập kho.
+     * Nhà cung cấp vừa trả lời trên Cổng nhà cung cấp (cách bù và / hoặc hàng lỗi của từng dòng): báo bộ phận mua hàng
+     * (khóa "BBTH:{id}:NCC", trả lời lại thì sửa thông báo cũ) số sản phẩm theo từng cách đang áp dụng. Phiếu đã nhập kho
+     * thì cách bù đã áp vào đơn mua; chưa nhập kho thì áp lúc nhập kho. {@code conChoChon}: còn dòng chưa có cách bù.
      */
-    public void nccDaTraLoi(BienBanTraHangNcc bb, PhieuNhapKho phieu, String phuongAn, String hangLoi) {
+    public void nccDaTraLoi(BienBanTraHangNcc bb, PhieuNhapKho phieu, int giaoBu, int truTien, int nhanLai, int tieuHuy,
+                            boolean conChoChon) {
         try {
             DonMuaHang don = phieu == null ? null : phieu.getDonMuaHang();
             if (bb == null || bb.getId() == null || don == null) return;
@@ -367,10 +368,13 @@ public class ThongBaoMuaHangService {
             String tenNcc = tenNcc(bb.getNhaCungCap() == null ? null : bb.getNhaCungCap().getTenNhaCungCap());
             int soLoi = bb.getTongSoLuongLoi() == null ? 0 : bb.getTongSoLuongLoi();
             List<String> phan = new ArrayList<>();
-            if (BienBanTraHangNcc.PA_DOI_HANG.equals(phuongAn)) phan.add(cau("bbChonGiaoBu"));
-            else if (BienBanTraHangNcc.PA_TRU_CONG_NO.equals(phuongAn)) phan.add(cau("bbChonTruTien"));
-            if (BienBanTraHangNcc.HL_NHAN_LAI.equals(hangLoi)) phan.add(cau("bbChonNhanLai"));
-            else if (BienBanTraHangNcc.HL_TIEU_HUY.equals(hangLoi)) phan.add(cau("bbChonTieuHuy"));
+            // Mọi dòng cùng một cách thì nói gọn như trước; khác nhau theo dòng thì kèm số sản phẩm của từng cách
+            boolean motCachBu = giaoBu == 0 || truTien == 0;
+            if (giaoBu > 0) phan.add(motCachBu ? cau("bbChonGiaoBu") : cau("bbChonGiaoBuSo", giaoBu));
+            if (truTien > 0) phan.add(motCachBu ? cau("bbChonTruTien") : cau("bbChonTruTienSo", truTien));
+            boolean motHangLoi = nhanLai == 0 || tieuHuy == 0;
+            if (nhanLai > 0) phan.add(motHangLoi ? cau("bbChonNhanLai") : cau("bbChonNhanLaiSo", nhanLai));
+            if (tieuHuy > 0) phan.add(motHangLoi ? cau("bbChonTieuHuy") : cau("bbChonTieuHuySo", tieuHuy));
             String luaChon = String.join(", ", phan);
             boolean daNhapKho = phieu.getTrangThai() != null && phieu.getTrangThai() == TrangThaiPhieuNhap.COMPLETED.getValue();
             Integer nguoiLapDonId = don.getNguoiTao() == null ? null : don.getNguoiTao().getId();
@@ -381,19 +385,18 @@ public class ThongBaoMuaHangService {
                                     cau(daNhapKho ? "bbNccTraLoi" : "bbNccTraLoiChuaNhapKho", soLoi, soPn, soDon, luaChon),
                                     "/purchase-orders/" + donId, ThongBaoService.LOAI_DON_MUA_HANG, donId, khoId, khoa),
                             true));
-            if (phuongAn != null && !BienBanTraHangNcc.PA_CHO_CHOT.equals(phuongAn)) {
-                thongBaoService.daXuLySauCommit("BBTH:" + bb.getId());
-            }
+            if (!conChoChon) thongBaoService.daXuLySauCommit("BBTH:" + bb.getId());
         } catch (RuntimeException e) {
             log.warn("[THONG-BAO] Không chuẩn bị được thông báo nhà cung cấp trả lời biên bản: {}", e.getMessage());
         }
     }
 
     /**
-     * Quá hạn trả lời: cách bù tự chuyển trừ tiền. Báo bộ phận mua hàng (khóa "BBTH:{id}:NCC" như lần nhà cung cấp trả
+     * Quá hạn trả lời: các dòng chưa chọn cách bù tự chuyển trừ tiền ({@code soTru} sản phẩm); dòng đơn không còn chờ
+     * đủ số thì coi như đã giao bù ({@code soBu}). Báo bộ phận mua hàng (khóa "BBTH:{id}:NCC" như lần nhà cung cấp trả
      * lời) để biết đơn đã giảm số phải nhận.
      */
-    public void quaHanTruTien(BienBanTraHangNcc bb, PhieuNhapKho phieu) {
+    public void quaHanTruTien(BienBanTraHangNcc bb, PhieuNhapKho phieu, int soTru, int soBu) {
         try {
             DonMuaHang don = phieu == null ? null : phieu.getDonMuaHang();
             if (bb == null || bb.getId() == null || don == null) return;
@@ -403,12 +406,17 @@ public class ThongBaoMuaHangService {
             String soPn = phieu.getSoPhieuNhap() == null ? "" : phieu.getSoPhieuNhap().trim();
             Integer khoId = phieu.getKho() == null ? null : phieu.getKho().getId();
             String tenNcc = tenNcc(bb.getNhaCungCap() == null ? null : bb.getNhaCungCap().getTenNhaCungCap());
-            int soLoi = bb.getTongSoLuongLoi() == null ? 0 : bb.getTongSoLuongLoi();
             Integer nguoiLapDonId = don.getNguoiTao() == null ? null : don.getNguoiTao().getId();
+            int han = BienBanTraHangServiceImpl.HAN_TRA_LOI_NGAY;
+            // Không trừ được gì (đơn đã nhận đủ số này ở đợt khác): không nói "chuyển trừ tiền"
+            String tieuDe = soTru > 0 ? cau("bbQuaHanTieuDe", maBb) : cau("bbQuaHanGiaoBuTieuDe", maBb);
+            String moTa = soTru == 0 ? cau("bbQuaHanChiGiaoBu", tenNcc, soBu, soPn, han)
+                    : soBu > 0 ? cau("bbQuaHanCoGiaoBu", tenNcc, soTru, soPn, han, soBu)
+                    : cau("bbQuaHan", tenNcc, soTru, soPn, han);
             thongBaoService.capNhatTomTatSauCommit("Thông báo quá hạn trả lời biên bản " + maBb, () ->
                     new ThongBaoService.TomTat(khoa, muaHangCuaBienBan(nguoiLapDonId, khoId, null, maBb), null,
                             new NoiDung(ThongBaoService.LOAI_DON_MUA_HANG, ThongBaoService.TONE_WARNING,
-                                    cau("bbQuaHanTieuDe", maBb), cau("bbQuaHan", tenNcc, soLoi, soPn, BienBanTraHangServiceImpl.HAN_TRA_LOI_NGAY),
+                                    tieuDe, moTa,
                                     "/purchase-orders/" + donId, ThongBaoService.LOAI_DON_MUA_HANG, donId, khoId, khoa),
                             true));
             thongBaoService.daXuLySauCommit("BBTH:" + bb.getId());
@@ -428,15 +436,17 @@ public class ThongBaoMuaHangService {
     }
 
     /**
-     * M6b: phiếu đã nhập kho, hàng lỗi còn ở kho và nhà cung cấp đã chọn: nhận lại thì báo quản lý kho và nhân viên kho
-     * đi giao trả; đồng ý tiêu hủy thì báo quản lý kho (người được ghi tiêu hủy). Bỏ người vừa thao tác. Khóa
-     * "BBTH:{id}:TRA" (nhà cung cấp đổi lựa chọn thì sửa thông báo), xong khi kho ghi đã giao trả / tiêu hủy
-     * ({@link #hangLoiDaRoiKho}).
+     * M6b: phiếu đã nhập kho, còn dòng hàng lỗi ở kho mà nhà cung cấp đã chọn: {@code soNhanLai} sản phẩm nhận lại thì
+     * báo quản lý kho và nhân viên kho đi giao trả; {@code soTieuHuy} sản phẩm đồng ý tiêu hủy thì báo quản lý kho (người
+     * được ghi tiêu hủy); có cả hai thì một thông báo nói cả hai việc. Bỏ người vừa thao tác. Khóa "BBTH:{id}:TRA" (nhà
+     * cung cấp đổi lựa chọn / kho làm một phần thì sửa thông báo), xong khi không còn việc ({@link #hangLoiDaRoiKho}).
      */
-    public void hangLoiCanXuLy(BienBanTraHangNcc bb, PhieuNhapKho phieu, String hangLoi, Integer nguoiThaoTacId) {
+    public void hangLoiCanXuLy(BienBanTraHangNcc bb, PhieuNhapKho phieu, int soNhanLai, int soTieuHuy,
+                               Integer nguoiThaoTacId) {
         try {
-            if (bb == null || bb.getId() == null || phieu == null) return;
-            boolean tieuHuy = BienBanTraHangNcc.HL_TIEU_HUY.equals(hangLoi);
+            if (bb == null || bb.getId() == null || phieu == null || soNhanLai + soTieuHuy <= 0) return;
+            boolean tieuHuy = soNhanLai == 0;
+            boolean caHai = soNhanLai > 0 && soTieuHuy > 0;
             String khoa = "BBTH:" + bb.getId() + ":TRA";
             String maBb = maBienBan(bb);
             String soPn = phieu.getSoPhieuNhap() == null ? "" : phieu.getSoPhieuNhap().trim();
@@ -444,7 +454,6 @@ public class ThongBaoMuaHangService {
             Integer phieuId = phieu.getId();
             Integer donId = phieu.getDonMuaHang() == null ? null : phieu.getDonMuaHang().getId();
             String tenNcc = tenNcc(phieu.getNhaCungCap() == null ? null : phieu.getNhaCungCap().getTenNhaCungCap());
-            int soLoi = bb.getTongSoLuongLoi() == null ? 0 : bb.getTongSoLuongLoi();
             String[] vaiTro = tieuHuy ? new String[]{IRoleType.quan_ly_kho}
                     : new String[]{IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho};
             thongBaoService.capNhatTomTatSauCommit("Thông báo xử lý hàng lỗi " + maBb, () -> {
@@ -456,8 +465,9 @@ public class ThongBaoMuaHangService {
                 return new ThongBaoService.TomTat(khoa, nguoiNhan.hoacQuanTri(nhan, "Xử lý hàng lỗi " + maBb),
                         nguoiThaoTacId,
                         new NoiDung(ThongBaoService.LOAI_DON_MUA_HANG, ThongBaoService.TONE_WARNING,
-                                cau(tieuHuy ? "bbTieuHuyTieuDe" : "bbGiaoTraTieuDe", maBb),
-                                cau(tieuHuy ? "bbTieuHuy" : "bbGiaoTra", soLoi, tenNcc, soPn),
+                                cau(caHai ? "bbXuLyHangLoiTieuDe" : tieuHuy ? "bbTieuHuyTieuDe" : "bbGiaoTraTieuDe", maBb),
+                                caHai ? cau("bbXuLyHangLoi", soNhanLai, soTieuHuy, tenNcc, soPn)
+                                        : cau(tieuHuy ? "bbTieuHuy" : "bbGiaoTra", tieuHuy ? soTieuHuy : soNhanLai, tenNcc, soPn),
                                 "/goods-receipts/" + phieuId, ThongBaoService.LOAI_DON_MUA_HANG, donId, khoId, khoa),
                         true);
             });

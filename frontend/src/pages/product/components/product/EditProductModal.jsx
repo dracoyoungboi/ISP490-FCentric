@@ -439,7 +439,7 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                     ? t("Cập nhật sản phẩm thành công, thêm {{count}} biến thể mới.", { count: thongKe.soTao })
                     : t("Cập nhật sản phẩm thành công."),
             );
-            onSuccess();
+            onSuccess?.();
             onClose();
         } catch (error) {
             if (xuLyLoiTenTrung(error, { setError, henCuonToiLoi })) return;

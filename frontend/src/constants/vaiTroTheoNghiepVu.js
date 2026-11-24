@@ -25,7 +25,7 @@ export const VAI_TRO_NGUOI_DUNG = Object.freeze([QTV]);
 export const VAI_TRO_DANH_MUC = Object.freeze([QTV]);
 /** "Product – Create / Edit / Activate / Deactivate", "SKU / Variant – Configure variants / prices". Xem: mọi vai trò. */
 export const VAI_TRO_SUA_SAN_PHAM = Object.freeze([QTV]);
-/** "Barcode – Generate / Print" (kèm quản lý kho theo UC 2.7): màn Giá bán & tem mã vạch, chỉ quản trị viên đổi giá. */
+/** "Barcode – Generate / Print" (kèm quản lý kho theo UC 2.7): màn Tem mã vạch (giá bán chỉ xem, đổi ở form Sửa sản phẩm). */
 export const VAI_TRO_IN_TEM = Object.freeze([QTV, QLK, NVK, NVBH]);
 /** Giá vốn là số nội bộ (SRS 2.4.1): nhân viên bán hàng không thấy. Khớp XemGiaVon ở backend. */
 export const VAI_TRO_XEM_GIA_VON = Object.freeze([QTV, QLK, NVK, NVMH]);

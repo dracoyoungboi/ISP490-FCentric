@@ -19,6 +19,9 @@ export const NHAN_HANG_LOI = Object.freeze({
   TIEU_HUY: "Chờ tiêu hủy",
   DA_TRA: "Đã trả",
   DA_TIEU_HUY: "Đã tiêu hủy",
+  // Mỗi sản phẩm một cách: còn hàng ở kho chờ lấy / chờ tiêu hủy; hoặc đã rời kho hết (dòng trả, dòng tiêu hủy)
+  HON_HOP: "Ở kho chờ xử lý",
+  DA_XU_LY: "Đã trả và tiêu hủy",
 });
 
 /** Trạng thái biên bản trả hàng phía nhà cung cấp → nhãn ở đầu trang biên bản. */

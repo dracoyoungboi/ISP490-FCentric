@@ -212,8 +212,14 @@ export function xuLyLoiXacNhanBienBan(err) {
     case MA_LOI_CONG.KHONG_TIM_THAY:
       return { loai: "khong-tim-thay", cau: cauMayChu(err) };
     case MA_LOI_CONG.TRA_LOI_KHONG_HOP_LE: {
-      const o = duLieuLoi(err).o;
-      return { loai: "du-lieu-sai", o: typeof o === "string" ? o : null, cau: cauMayChu(err) || LOI_XAC_NHAN_BIEN_BAN };
+      // `o`: ô sai; `dong`: id dòng sản phẩm sai (trả lời theo từng dòng), null khi lỗi chung
+      const { o, dong } = duLieuLoi(err);
+      return {
+        loai: "du-lieu-sai",
+        o: typeof o === "string" ? o : null,
+        dong: Number.isInteger(dong) ? dong : null,
+        cau: cauMayChu(err) || LOI_XAC_NHAN_BIEN_BAN,
+      };
     }
     default:
       return { loai: "loi", cau: cauMayChu(err) || LOI_XAC_NHAN_BIEN_BAN };

@@ -52,8 +52,17 @@ public final class CongNcc {
     public record HangLoi(String trangThai, String cachXuLy, String nguoiNhan, String bienSoXe, Instant thoiDiem) {
     }
 
-    public record DongLoi(String tenSanPham, String mauSac, String kichCo, String sku, String maLo, String lyDo,
-                          int soLuong, BigDecimal donGia, BigDecimal giaTri) {
+    /**
+     * Một dòng sản phẩm lỗi và lựa chọn của Quý công ty cho riêng dòng đó. id: gửi kèm khi trả lời. cachBu: CHO_CHOT |
+     * DOI_HANG | TRU_CONG_NO; nguonCachBu như {@link LuaChon#nguon()} (thêm NHAP_KHO: trừ tiền không áp được lúc nhập kho,
+     * phải chọn lại). hangLoi: NHAN_LAI | TIEU_HUY | null; viTriHang: O_KHO | DA_TRA | DA_TIEU_HUY. cachBuMo / hangLoiMo:
+     * còn chọn hoặc đổi được (rỗng: đã chốt). buXong: dòng giao bù đã nhận đủ hàng bù. soLuongTru / tienTru: dòng trừ
+     * tiền — số lỗi và số tiền trừ (một phần khi đơn chỉ còn chờ một phần, phần kia coi như đã giao bù).
+     */
+    public record DongLoi(Integer id, String tenSanPham, String mauSac, String kichCo, String sku, String maLo, String lyDo,
+                          int soLuong, BigDecimal donGia, BigDecimal giaTri, String cachBu, String nguonCachBu,
+                          List<String> cachBuMo, boolean buXong, String hangLoi, String viTriHang, List<String> hangLoiMo,
+                          String nguoiNhanHang, Instant thoiDiemRoiKho, int soLuongTru, BigDecimal tienTru) {
     }
 
     /**

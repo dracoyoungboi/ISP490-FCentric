@@ -79,9 +79,9 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
             title: t("Sản phẩm"),
         },
         {
-            key: "GIA_BAN_TEM",
-            match: (path) => path === "/products/gia-ban-tem",
-            title: t("Giá bán & tem mã vạch"),
+            key: "TEM_MA_VACH",
+            match: (path) => path === "/products/barcode-labels",
+            title: t("Tem mã vạch"),
         },
         {
             key: "SUPPLIERS",

@@ -150,5 +150,8 @@
   "Ở kho chờ lấy": "Awaiting pickup",
   "Chờ bạn xác nhận": "Awaiting your confirmation",
   "Chờ tiêu hủy": "Awaiting disposal",
-  "Không chấp nhận_trang_thai": "Not accepted"
+  "Không chấp nhận_trang_thai": "Not accepted",
+  "Ở kho chờ xử lý": "At warehouse, awaiting handling",
+  "Đã trả và tiêu hủy": "Returned and disposed",
+  "Cần chọn lại": "Choose again"
 }

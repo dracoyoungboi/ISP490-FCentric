@@ -74,6 +74,7 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
     static final String HL_NHAN_LAI = BienBanTraHangNcc.HL_NHAN_LAI;
     static final String HL_TIEU_HUY = BienBanTraHangNcc.HL_TIEU_HUY;
     static final String NGUON_CONG_NCC = NhatKyTraHangNcc.NGUON_CONG_NCC;
+    static final String NGUON_TU_DONG = NhatKyTraHangNcc.NGUON_TU_DONG;
     /** Loại thư E7: ghi đã ký lần đầu / gửi lại, ký lại sau khi lập lại (số lỗi đổi), nhắc hạn trả lời. */
     static final String LOAI_GUI = NhatKyTraHangNcc.EMAIL_GUI;
     static final String LOAI_CAP_NHAT = NhatKyTraHangNcc.EMAIL_CAP_NHAT;
@@ -480,6 +481,20 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
      */
     @Override
     public void guiDaGhiNhanTraLoi(BienBanTraHangNcc bienBan, BienBanTraHangDto ban, boolean tuDong) {
+        guiM5(bienBan, ban, tuDong, Set.of());
+    }
+
+    @Override
+    public void guiCanChonLaiCachBu(BienBanTraHangNcc bienBan, BienBanTraHangDto ban, List<Integer> dongIds) {
+        if (dongIds == null || dongIds.isEmpty()) return;
+        guiM5(bienBan, ban, false, Set.copyOf(dongIds));
+    }
+
+    /**
+     * M5 dựng từ lựa chọn từng dòng của biên bản ({@code ban.items}). {@code chonLai}: các dòng nhà cung cấp phải chọn lại
+     * cách bù (rỗng: thư ghi nhận / quá hạn).
+     */
+    private void guiM5(BienBanTraHangNcc bienBan, BienBanTraHangDto ban, boolean tuDong, Set<Integer> chonLai) {
         String ma = maBienBan(bienBan);
         try {
             kiem(bienBan.getId() != null, "biên bản chưa lưu");
@@ -488,38 +503,144 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
             PhieuNhapKho phieu = bienBan.getPhieuNhapKho();
             kiem(phieu != null, "biên bản không có phiếu nhập");
             DonMuaHang don = phieu.getDonMuaHang();
-            long soSanPham = ban.getTongSoLuongLoi() == null ? 0 : ban.getTongSoLuongLoi();
-            String phuongAn = ban.getPhuongAn();
-            boolean truTien = PA_TRU_CONG_NO.equals(phuongAn);
-            boolean giaoBu = PA_DOI_HANG.equals(phuongAn);
-            kiem(!tuDong || truTien, "quá hạn chỉ chuyển trừ tiền");
-            BigDecimal tien = duong(ban.getTienTruTien()) != null ? ban.getTienTruTien() : duong(ban.getGiaTriLoi());
-            String moTaCachBu = truTien
-                    ? (tien != null ? "Trừ " + DinhDangEmail.tienDong(tien) + " khi thanh toán"
-                    : "Đơn giảm " + soSanPham + " sản phẩm khi thanh toán")
-                    : giaoBu ? "Giao lại " + soSanPham + " sản phẩm đạt" : null;
-            String hangLoi = ban.getHangLoiNcc();
-            String tenHangLoi = HL_NHAN_LAI.equals(hangLoi) ? "Nhận lại hàng lỗi"
-                    : HL_TIEU_HUY.equals(hangLoi) ? "Đồng ý tiêu hủy" : null;
-            String moTaHangLoi = HL_NHAN_LAI.equals(hangLoi)
-                    ? "Quý công ty đến lấy hoặc nhờ chúng tôi gửi vận chuyển"
-                    : HL_TIEU_HUY.equals(hangLoi) ? "Chúng tôi tiêu hủy, Quý công ty không cần lấy về" : null;
+            List<BienBanTraHangDto.ChiTietItemDto> items = ban.getItems() == null ? List.of() : ban.getItems();
+            boolean coChonLai = !chonLai.isEmpty();
+
+            // Tóm tắt cách bù / hàng lỗi của cả biên bản từ các dòng
+            long tong = ban.getTongSoLuongLoi() == null ? 0 : ban.getTongSoLuongLoi();
+            long soTru = 0;
+            long soBu = 0;
+            long soNhanLai = 0;
+            long soTieuHuy = 0;
+            long soTuDong = 0;
+            long soBuTuDong = 0;
+            BigDecimal tienTruDong = BigDecimal.ZERO;
+            for (BienBanTraHangDto.ChiTietItemDto it : items) {
+                int sl = it.getSoLuong() == null ? 0 : it.getSoLuong();
+                boolean tuDongDong = NGUON_TU_DONG.equals(it.getNguonCachBu());
+                if (PA_TRU_CONG_NO.equals(it.getCachBu())) {
+                    // Dòng trừ một phần (đơn chỉ còn chờ một phần): phần còn lại coi như đã giao bù
+                    int tru = it.getSoLuongTru() == null ? sl : Math.min(it.getSoLuongTru(), sl);
+                    soTru += tru;
+                    BigDecimal tienDong = it.getTienTru() != null ? it.getTienTru() : it.getGiaTri();
+                    if (tienDong != null) tienTruDong = tienTruDong.add(tienDong);
+                    if (tuDongDong) {
+                        soTuDong += tru;
+                        soBuTuDong += sl - tru;
+                    }
+                } else if (PA_DOI_HANG.equals(it.getCachBu())) {
+                    soBu += sl;
+                    if (tuDongDong) soBuTuDong += sl;
+                }
+                if (HL_NHAN_LAI.equals(it.getHangLoiNcc())) soNhanLai += sl;
+                else if (HL_TIEU_HUY.equals(it.getHangLoiNcc())) soTieuHuy += sl;
+            }
+            if (items.isEmpty()) {
+                // Biên bản không có dòng (dữ liệu cũ): theo cột của biên bản
+                if (PA_TRU_CONG_NO.equals(ban.getPhuongAn())) soTru = tong;
+                else if (PA_DOI_HANG.equals(ban.getPhuongAn())) soBu = tong;
+                if (HL_NHAN_LAI.equals(ban.getHangLoiNcc())) soNhanLai = tong;
+                else if (HL_TIEU_HUY.equals(ban.getHangLoiNcc())) soTieuHuy = tong;
+                if (tuDong) soTuDong = soTru;
+            }
+            BigDecimal tien = duong(ban.getTienTruTien()) != null && soBu == 0 ? ban.getTienTruTien()
+                    : duong(tienTruDong) != null ? tienTruDong : soBu == 0 ? duong(ban.getGiaTriLoi()) : null;
+            String cachBu;
+            String moTaCachBu;
+            if (soTru > 0 && soBu > 0) {
+                cachBu = "Theo từng sản phẩm";
+                moTaCachBu = (tien != null ? "Trừ " + DinhDangEmail.tienDong(tien) + " cho " + soTru + " sản phẩm"
+                        : "Trừ tiền " + soTru + " sản phẩm") + ", giao bù " + soBu + " sản phẩm";
+            } else if (soTru > 0) {
+                cachBu = "Trừ tiền hàng";
+                moTaCachBu = tien != null ? "Trừ " + DinhDangEmail.tienDong(tien) + " khi thanh toán"
+                        : "Đơn giảm " + soTru + " sản phẩm khi thanh toán";
+            } else if (soBu > 0) {
+                cachBu = "Giao bù hàng";
+                moTaCachBu = "Giao lại " + soBu + " sản phẩm đạt";
+            } else {
+                cachBu = null;
+                moTaCachBu = null;
+            }
+            String tenHangLoi;
+            String moTaHangLoi;
+            if (soNhanLai > 0 && soTieuHuy > 0) {
+                tenHangLoi = "Theo từng sản phẩm";
+                moTaHangLoi = "Nhận lại " + soNhanLai + " sản phẩm, đồng ý tiêu hủy " + soTieuHuy + " sản phẩm";
+            } else if (soNhanLai > 0) {
+                tenHangLoi = "Nhận lại hàng lỗi";
+                moTaHangLoi = "Quý công ty đến lấy hoặc nhờ chúng tôi gửi vận chuyển";
+            } else if (soTieuHuy > 0) {
+                tenHangLoi = "Đồng ý tiêu hủy";
+                moTaHangLoi = "Chúng tôi tiêu hủy, Quý công ty không cần lấy về";
+            } else {
+                tenHangLoi = null;
+                moTaHangLoi = null;
+            }
+
+            List<DaGhiNhanCachXuLyEmail.DongLuaChon> dong = new ArrayList<>();
+            long soChonLai = 0;
+            for (BienBanTraHangDto.ChiTietItemDto it : items) {
+                boolean lai = chonLai.contains(it.getId());
+                if (lai) soChonLai += it.getSoLuong() == null ? 0 : it.getSoLuong();
+                dong.add(new DaGhiNhanCachXuLyEmail.DongLuaChon(sach(it.getTenBienThe()), phanLoai(it), sach(it.getLyDo()),
+                        it.getSoLuong() == null ? 0 : it.getSoLuong(), lai ? "Cần chọn lại" : tenCachBuDong(it),
+                        tenHangLoiDong(it), lai));
+            }
+            // Thư chọn lại chỉ nói việc phải chọn lại, không kèm câu còn đổi được / còn phải chọn của thư ghi nhận
+            List<String> ghiChu = coChonLai ? new ArrayList<>() : new ArrayList<>(ghiChuDoi(ban));
+            if (tuDong && soBuTuDong > 0) {
+                ghiChu.add(0, (soTuDong > 0 ? soBuTuDong + " sản phẩm lỗi còn lại" : soBuTuDong + " sản phẩm lỗi")
+                        + " coi như đã giao bù vì đơn " + (don == null ? "" : sach(don.getSoDonMua()) + " ")
+                        + "đã nhận đủ số này ở đợt giao khác, không trừ tiền.");
+            }
+            long soTuDongCuoi = soTuDong;
 
             DaGhiNhanCachXuLyEmail duLieu = new DaGhiNhanCachXuLyEmail(tenNhaCungCap(bienBan), ma,
                     don == null ? null : sach(don.getSoDonMua()), tuDong,
-                    DinhDangEmail.ngay(ban.getHanTraLoi()),
-                    truTien ? "Trừ tiền hàng" : giaoBu ? "Giao bù hàng" : null, moTaCachBu, tenHangLoi, moTaHangLoi,
-                    soSanPham, tuDong ? null : nguoiTraLoi(ban), DinhDangEmail.gioNgay(clock.instant()),
-                    ghiChuDoi(ban), duongDan.congNhaCungCapBienBan(bienBan.getId(), den));
+                    DinhDangEmail.ngay(ban.getHanTraLoi()), cachBu, moTaCachBu, tenHangLoi, moTaHangLoi,
+                    coChonLai ? soChonLai : tuDong ? soTuDong : tong, tuDong || coChonLai ? null : nguoiTraLoi(ban),
+                    DinhDangEmail.gioNgay(clock.instant()), ghiChu, duongDan.congNhaCungCapBienBan(bienBan.getId(), den),
+                    dong, coChonLai);
             dispatcher.guiSauCommit(EmailGui.builder()
                     .loai(LoaiEmail.M5).den(den).maDon(ma)
-                    .tieuDe(c -> tuDong ? "Biên bản trả hàng " + ma + " quá hạn trả lời: đã chuyển trừ tiền"
+                    .tieuDe(c -> coChonLai ? "Biên bản trả hàng " + ma + ": cần chọn lại cách bù"
+                            : tuDong && soTuDongCuoi > 0 ? "Biên bản trả hàng " + ma + " quá hạn trả lời: đã chuyển trừ tiền"
+                            : tuDong ? "Biên bản trả hàng " + ma + " quá hạn trả lời"
                             : "Đã ghi nhận trả lời biên bản " + ma)
                     .duLieu(duLieu).nguoiPhuTrach(don == null ? null : nguoiPhuTrach(don))
                     .build());
         } catch (Exception e) {
             loiDung(LoaiEmail.M5, ma, e);
         }
+    }
+
+    /** "Trắng · L" của một dòng; không có thì null. */
+    private static String phanLoai(BienBanTraHangDto.ChiTietItemDto it) {
+        String s = java.util.stream.Stream.of(sach(it.getMauSac()), sach(it.getKichCo()))
+                .filter(x -> x != null && !x.isBlank()).collect(java.util.stream.Collectors.joining(" · "));
+        return s.isEmpty() ? null : s;
+    }
+
+    /** Cách bù của một dòng trong bảng thư: "Trừ tiền · 300.000 ₫", "Giao bù", "Chưa chọn". */
+    private static String tenCachBuDong(BienBanTraHangDto.ChiTietItemDto it) {
+        if (PA_TRU_CONG_NO.equals(it.getCachBu())) {
+            BigDecimal tien = it.getTienTru() != null ? it.getTienTru() : it.getGiaTri();
+            int sl = it.getSoLuong() == null ? 0 : it.getSoLuong();
+            Integer tru = it.getSoLuongTru();
+            String phan = tru != null && tru < sl ? " (" + tru + "/" + sl + " sản phẩm)" : "";
+            return duong(tien) != null ? "Trừ tiền · " + DinhDangEmail.tienDong(tien) + phan : "Trừ tiền" + phan;
+        }
+        return PA_DOI_HANG.equals(it.getCachBu()) ? "Giao bù" : "Chưa chọn";
+    }
+
+    /** Hàng lỗi của một dòng trong bảng thư: đã rời kho thì đã giao trả / đã tiêu hủy, không thì lựa chọn. */
+    private static String tenHangLoiDong(BienBanTraHangDto.ChiTietItemDto it) {
+        if ("DA_TRA".equals(it.getTrangThaiHang())) return "Đã giao trả";
+        if ("DA_TIEU_HUY".equals(it.getTrangThaiHang())) return "Đã tiêu hủy";
+        if (HL_NHAN_LAI.equals(it.getHangLoiNcc())) return "Nhận lại";
+        if (HL_TIEU_HUY.equals(it.getHangLoiNcc())) return "Đồng ý tiêu hủy";
+        return "Chưa chọn";
     }
 
     /** Người bên nhà cung cấp vừa trả lời (lần ghi gần nhất trong cách bù / hàng lỗi). */

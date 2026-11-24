@@ -68,7 +68,7 @@ const MaVachNhaCungCapPage = taiTrang(() => import("./pages/supplier/MaVachNhaCu
 const PhieuXuatKhoList = taiTrang(() => import("./pages/issue/PhieuXuatKhoList.jsx"));
 const PurchaseOrderDetail = taiTrang(() => import("./pages/order/PurchaseOrderDetail.jsx"));
 const PurchaseOrder = taiTrang(() => import("./pages/order/PurchaseOrder.jsx"));
-const GiaBanTemPage = taiTrang(() => import("./pages/product/GiaBanTemPage"));
+const TemMaVachPage = taiTrang(() => import("./pages/product/TemMaVachPage"));
 const PhieuXuatKhoCreate = taiTrang(() => import("./pages/issue/PhieuXuatKhoCreate.jsx"));
 const PhieuXuatKhoDetail = taiTrang(() => import("./pages/issue/PhieuXuatKhoDetail.jsx"));
 const PhieuXuatKhoView = taiTrang(() => import("./pages/issue/PhieuXuatKhoView.jsx"));
@@ -295,12 +295,13 @@ const CAY_DUONG_DAN = (
 
       {/* Product */}
       <Route path="/products" element={<ProductList />} />
-      {/* Giá bán & tem mã vạch: in tem cho quản lý kho, nhân viên kho, nhân viên bán hàng; đổi giá chỉ quản trị viên */}
+      {/* Tem mã vạch: in tem cho quản trị viên, quản lý kho, nhân viên kho, nhân viên bán hàng; giá bán chỉ xem */}
       <Route element={<RequireRole roles={VAI_TRO_IN_TEM} />}>
-        <Route path="/products/gia-ban-tem" element={<GiaBanTemPage />} />
+        <Route path="/products/barcode-labels" element={<TemMaVachPage />} />
       </Route>
-      {/* Legacy: màn "Biến thể SKU & giá" cũ */}
-      <Route path="/sku-builder" element={<Navigate to="/products/gia-ban-tem" replace />} />
+      {/* Legacy: màn "Giá bán & tem mã vạch" và "Biến thể SKU & giá" cũ */}
+      <Route path="/products/gia-ban-tem" element={<Navigate to="/products/barcode-labels" replace />} />
+      <Route path="/sku-builder" element={<Navigate to="/products/barcode-labels" replace />} />
       {/* Legacy: URL tiếng Việt cũ chuyển hướng sang URL mới, giữ bookmark không bị hỏng */}
       <Route path="/danh-muc-quan-ao" element={<Navigate to="/categories" replace />} />
       <Route path="/products/:id" element={<ProductDetail />} />

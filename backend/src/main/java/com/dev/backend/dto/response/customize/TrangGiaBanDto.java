@@ -4,12 +4,11 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.List;
 
 /**
- * Một trang của màn "Giá bán & tem mã vạch": sản phẩm kèm các biến thể khớp bộ lọc (phân trang theo sản phẩm,
- * một sản phẩm không bị cắt sang hai trang), số đếm cho tab và cho thanh "Cần xử lý giá".
+ * Một trang của màn "Tem mã vạch": sản phẩm kèm các biến thể khớp bộ lọc (phân trang theo sản phẩm, một sản phẩm
+ * không bị cắt sang hai trang) và số đếm cho tab. {@link CanXuLyGia} là kết quả của GET /gia-ban/can-xu-ly.
  */
 @AllArgsConstructor
 @NoArgsConstructor
@@ -23,12 +22,10 @@ public class TrangGiaBanDto {
     int size;
     /** Số sản phẩm khớp bộ lọc trên mọi trang. */
     long tongSanPham;
-    /** Số biến thể khớp bộ lọc (từ khóa + tab + cần xử lý giá) trên mọi trang. */
+    /** Số biến thể khớp bộ lọc (từ khóa + tab) trên mọi trang. */
     long tongSku;
-    /** Số biến thể theo từng tab, tính trên từ khóa và bộ lọc "cần xử lý giá" đang áp dụng (R1 của StatusTabs). */
+    /** Số biến thể theo từng tab, tính trên từ khóa đang tìm (R1 của StatusTabs). */
     DemTheoTab demTheoTab;
-    /** Số biến thể đang hoạt động cần xử lý giá trên toàn hệ thống (không theo bộ lọc). */
-    CanXuLyGia canXuLy;
 
     @AllArgsConstructor
     @NoArgsConstructor
@@ -62,13 +59,10 @@ public class TrangGiaBanDto {
         MauSac mauSac;
         String kichCo;
         Integer trangThai;
-        /** null với người không được xem giá vốn. */
-        BigDecimal giaVon;
+        /** Giá in trên tem; trống hoặc ≤ 0 thì tem của SKU này không in được. */
         BigDecimal giaBan;
         /** Tổng so_luong_ton mọi kho (hàng có thật cần dán tem, không trừ hàng đã đặt). */
         BigDecimal tonKho;
-        /** Lần đổi giá bán gần nhất (lich_su_thay_doi, hành động doi_gia_ban); null nếu chưa đổi lần nào. */
-        Instant ngayDoiGiaGanNhat;
     }
 
     @AllArgsConstructor

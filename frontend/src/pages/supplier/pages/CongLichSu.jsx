@@ -369,6 +369,19 @@ function CachXuLy({ dong, lienKet }) {
             </span>
         );
     }
+    if (c.loai === 'hon') {
+        // Mỗi sản phẩm một cách: phần trừ tiền và phần giao bù còn chờ
+        const phu = [
+            c.tien ? `−${formatCurrency(c.tien)}` : null,
+            c.conLai > 0 && !c.xong ? t("còn {{count}} chờ giao", { count: c.conLai }) : null,
+        ].filter(Boolean);
+        return (
+            <span className="flex flex-col leading-5">
+                <span className="font-medium">{t("Trừ tiền và giao bù")}</span>
+                {phu.length ? <span className="text-[13px] tabular-nums text-bo-muted">{phu.join(' · ')}</span> : null}
+            </span>
+        );
+    }
     return (
         <span className="flex flex-col leading-5">
             <span className="font-medium">{t("Giao bù")}</span>

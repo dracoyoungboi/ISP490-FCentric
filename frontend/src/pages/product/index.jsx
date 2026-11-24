@@ -1,11 +1,11 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { Fragment, useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { productService } from "@/services/productService.js";
 import { thuongHieuService } from "@/services/thuongHieuService.js";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { toast } from "@/lib/thongBaoNhanh";
-import { Eye, Edit, Package, Plus, ChevronDown, Check, Info, SearchX, Ban, RotateCcw } from "lucide-react";
+import { Eye, Edit, Package, Plus, ChevronDown, Check, CircleCheck, Info, SearchX, Ban, RotateCcw, X } from "lucide-react";
 import { useToggle } from "@/hooks/useToggle";
 import { useIsMobile } from "@/hooks/use-mobile";
 import AddProductModal from "@/pages/product/components/product/AddProductModal";
@@ -17,6 +17,7 @@ import { hasAnyRole } from "@/utils/roles";
 import { dinhDangKhoangGia } from "@/pages/product/components/product/khoangGiaBienThe";
 
 import PageContainer from "@/components/backoffice/PageContainer";
+import AttentionBar from "@/components/shared/AttentionBar";
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import FilterSelect from "@/components/shared/FilterSelect";
@@ -72,6 +73,8 @@ const DEFAULT_FILTERS = {
     thuongHieu: "ALL",
     giaTu: "",
     giaDen: "",
+    // Chỉ sản phẩm có SKU đang hoạt động chưa có giá bán / bán thấp hơn giá vốn (thanh Cần xử lý giá, quản trị viên)
+    canXuLyGia: false,
     page: 0,
     size: SO_DONG_MAC_DINH,
 };
@@ -138,6 +141,11 @@ function buildProductFilterPayload(filters) {
             value: Number(filters.giaDen),
             logicType: "AND",
         });
+    }
+
+    // Trường lọc ảo của backend: có SKU đang hoạt động chưa có giá / dưới giá vốn (người không xem giá vốn gửi thì bỏ qua)
+    if (filters.canXuLyGia) {
+        filterList.push({ fieldName: "canXuLyGia", operation: "EQUALS", value: true, logicType: "AND" });
     }
 
     return {
@@ -232,6 +240,17 @@ export default function ProductList() {
     const [dangKinhDoanhLai, setDangKinhDoanhLai] = useState(false);
     const [loiKinhDoanhLai, setLoiKinhDoanhLai] = useState(null);
     const coTheSua = hasAnyRole(VAI_TRO_SUA_SAN_PHAM);
+    // Số SKU cần xử lý giá (chưa có giá / dưới giá vốn) trên toàn hệ thống: chỉ quản trị viên — người đổi được giá
+    const [canXuLyGia, setCanXuLyGia] = useState(null);
+    const taiCanXuLyGia = useCallback(() => {
+        if (!coTheSua) return;
+        productService.demCanXuLyGia()
+            .then((dem) => setCanXuLyGia(dem ?? null))
+            .catch(() => { /* thanh chú ý không bắt buộc: lỗi thì không hiện */ });
+    }, [coTheSua]);
+    useEffect(() => {
+        queueMicrotask(taiCanXuLyGia);
+    }, [taiCanXuLyGia]);
 
     // Điện thoại: thương hiệu + khoảng giá vào sheet "Bộ lọc"; nút ⋯ của thẻ / dòng (cảm ứng) mở sheet thao tác
     const isMobile = useIsMobile();
@@ -318,13 +337,14 @@ export default function ProductList() {
             if (res.data?.status !== 200) throw new Error(res.data?.message || LOAD_ERROR_MESSAGE);
             return res.data?.data?.totalElements ?? 0;
         },
-        `${filters.keyword.trim()}|${filters.danhMuc}|${filters.thuongHieu}|${filters.giaTu}|${filters.giaDen}`
+        `${filters.keyword.trim()}|${filters.danhMuc}|${filters.thuongHieu}|${filters.giaTu}|${filters.giaDen}|${filters.canXuLyGia}`
     );
 
-    // Quay lại tab thì tải lại ngầm danh sách + số trên tab
+    // Quay lại tab thì tải lại ngầm danh sách + số trên tab + số SKU cần xử lý giá
     useTaiLaiKhiQuayLai(() => {
         taiLaiSoTab();
         fetchProducts({ silent: true });
+        taiCanXuLyGia();
     }, { bat: !isLoading });
 
     // ── Debounce ô từ khóa + khoảng giá: không gọi API ở mỗi lần gõ phím ──
@@ -351,7 +371,8 @@ export default function ProductList() {
     const hasActiveFilters =
         Boolean(draft.keyword.trim() || draft.giaTu || draft.giaDen) ||
         filters.thuongHieu !== "ALL" ||
-        filters.danhMuc !== "ALL";
+        filters.danhMuc !== "ALL" ||
+        filters.canXuLyGia;
 
     const clearFilters = useCallback(() => {
         setDraft(EMPTY_DRAFT);
@@ -442,7 +463,16 @@ export default function ProductList() {
     }, []);
 
     // Sau khi Them/Sua thanh cong, refresh lai danh sach va so tren tab de UI phan anh du lieu moi nhat.
-    const handleModalSuccess = useCallback(() => { fetchProducts(); taiLaiSoTab(); }, [fetchProducts, taiLaiSoTab]);
+    const handleModalSuccess = useCallback(() => { fetchProducts(); taiLaiSoTab(); taiCanXuLyGia(); }, [fetchProducts, taiLaiSoTab, taiCanXuLyGia]);
+
+    /** "Xem các sản phẩm này": số đếm là của cả hệ thống nên bỏ mọi bộ lọc khác, về tab Tất cả. */
+    const xemCanXuLyGia = useCallback(() => {
+        setDraft(EMPTY_DRAFT);
+        setFilters((prev) => ({ ...DEFAULT_FILTERS, size: prev.size, canXuLyGia: true }));
+        setTab(TAB_MAC_DINH);
+    }, [setTab]);
+    const soChuaCoGia = Number(canXuLyGia?.chuaCoGia) || 0;
+    const soDuoiGiaVon = Number(canXuLyGia?.duoiGiaVon) || 0;
 
     // Sheet thao tác (điện thoại, máy tính bảng dọc): Xem / Sửa / Xóa của sản phẩm vừa bấm ⋯
     const moSheetThaoTac = (product) => {
@@ -481,6 +511,32 @@ export default function ProductList() {
                 }
             />
 
+            {/* SKU chưa có giá (không bán, không in tem được) hoặc bán thấp hơn giá vốn: quản trị viên sửa ở form Sửa sản phẩm */}
+            {coTheSua && !filters.canXuLyGia ? (
+                <AttentionBar
+                    count={soChuaCoGia + soDuoiGiaVon}
+                    tone="warning"
+                    actionLabel={t("Xem các sản phẩm này")}
+                    onAction={xemCanXuLyGia}
+                >
+                    {[
+                        soChuaCoGia > 0 ? (
+                            <Fragment key="chua">
+                                <strong className="font-semibold">{formatNumber(soChuaCoGia)} SKU</strong> {t("chưa có giá bán")}
+                            </Fragment>
+                        ) : null,
+                        soDuoiGiaVon > 0 ? (
+                            <Fragment key="duoi">
+                                <strong className="font-semibold">{formatNumber(soDuoiGiaVon)} SKU</strong> {t("đang bán thấp hơn giá vốn")}
+                            </Fragment>
+                        ) : null,
+                    ]
+                        .filter(Boolean)
+                        .flatMap((phan, i) => (i ? [<Fragment key={`va-${i}`}> {t("và")} </Fragment>, phan] : [phan]))}
+                    .
+                </AttentionBar>
+            ) : null}
+
             {/* ══ BẢNG: tab trạng thái + tìm kiếm + thương hiệu + khoảng giá cùng một hàng ══ */}
             <TableShell
                 fill
@@ -497,6 +553,19 @@ export default function ProductList() {
                         hasFilter={hasActiveFilters}
                         onClear={clearFilters}
                     >
+                        {filters.canXuLyGia ? (
+                            <span className="inline-flex h-[30px] shrink-0 items-center gap-1 self-center rounded-full bg-bo-primary-soft pr-1 pl-2.5 text-[13px] font-medium text-bo-primary-strong">
+                                {t("Cần xử lý giá")}
+                                <button
+                                    type="button"
+                                    aria-label={t("Bỏ lọc Cần xử lý giá")}
+                                    onClick={() => updateFilter("canXuLyGia", false)}
+                                    className="grid size-[22px] place-items-center rounded-full hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 max-sm:size-11"
+                                >
+                                    <X className="size-[13px]" aria-hidden="true" />
+                                </button>
+                            </span>
+                        ) : null}
                         <SearchInput
                             label={t("Tìm sản phẩm")}
                             placeholder={t("Tìm tên, mã, SKU, mã vạch...")}
@@ -641,7 +710,22 @@ export default function ProductList() {
                         }}
                     />
                 ) : products.length === 0 ? (
-                    hasActiveFilters ? (
+                    filters.canXuLyGia && !draft.keyword.trim() && !draft.giaTu && !draft.giaDen && filters.thuongHieu === "ALL" && filters.danhMuc === "ALL" && tab === TAB_MAC_DINH ? (
+                        <EmptyState
+                            icon={CircleCheck}
+                            title={t("Không còn SKU cần xử lý giá")}
+                            description={t("Mọi SKU đang hoạt động đã có giá bán và không thấp hơn giá vốn.")}
+                            action={
+                                <Button
+                                    variant="outline"
+                                    onClick={() => updateFilter("canXuLyGia", false)}
+                                    className="border-bo-border bg-bo-surface text-bo-foreground hover:bg-bo-surface-subtle"
+                                >
+                                    {t("Bỏ lọc Cần xử lý giá")}
+                                </Button>
+                            }
+                        />
+                    ) : hasActiveFilters ? (
                         <EmptyState
                             icon={SearchX}
                             title={t("Không tìm thấy sản phẩm phù hợp")}
