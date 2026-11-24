@@ -4,10 +4,13 @@ import { t } from "@/i18n";
 
 // Ô type="search": Chrome / Edge / Safari tự vẽ thêm nút × khi có chữ. Ẩn nút đó để chỉ còn nút × của ô này
 // (nút của ô này gọi onClear và đọc được bằng trình đọc màn hình).
+// `bieuTuongCuoi`: biểu tượng gợi ý ở mép phải khi ô trống (vd. súng quét: ô nhận máy quét mã vạch); có chữ thì nút ×
+// thế chỗ.
 export default function SearchInput({
   value,
   onChange,
   onClear,
+  bieuTuongCuoi = null,
   placeholder = t("Tìm kiếm..."),
   label = t("Tìm kiếm"),
   className,
@@ -25,6 +28,11 @@ export default function SearchInput({
         className="h-9 w-full rounded-md border border-bo-border bg-bo-surface py-2 pr-9 pl-9 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 [&::-webkit-search-cancel-button]:appearance-none"
         {...props}
       />
+      {bieuTuongCuoi && !value ? (
+        <span aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-bo-muted [&_svg]:size-4">
+          {bieuTuongCuoi}
+        </span>
+      ) : null}
       {value && onClear ? (
         <button
           type="button"
