@@ -899,5 +899,7 @@
   "Bỏ lọc hàng lỗi": "Clear defect filter",
   "có hàng lỗi chờ nhà cung cấp chọn giao bù hay trừ tiền.": "have defects waiting for the supplier to choose replacement or deduction.",
   "Hàng lỗi chờ xác nhận": "Defects awaiting confirmation",
-  "lỗi chờ nhà cung cấp chọn": "defects awaiting the supplier's choice"
+  "lỗi chờ nhà cung cấp chọn": "defects awaiting the supplier's choice",
+  "trừ tiền {{tien}}, giao bù": "{{tien}} deducted, replacement",
+  "trừ tiền {{tien}}, giao bù đã đủ": "{{tien}} deducted, replacement complete"
 }
