@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Calendar, CircleCheckBig, SearchX } from "lucide-react";
+import { CircleCheckBig, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,6 +16,7 @@ import ErrorState from "@/components/shared/ErrorState";
 import FilterSelect from "@/components/shared/FilterSelect";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";
+import LocKhoangNgay from "@/components/shared/LocKhoangNgay";
 import LoadingState from "@/components/shared/LoadingState";
 import NutSaoChep from "@/components/shared/NutSaoChep";
 import StatusBadge from "@/components/shared/StatusBadge";
@@ -259,7 +260,6 @@ export default function DoiSoatChuyenKhoan() {
   ], [soCanXuLy]);
   const coLoc = Boolean(boLoc.khoId || boLoc.tuNgay || boLoc.denNgay);
   const xoaLoc = () => setBoLoc((p) => ({ ...p, khoId: "", tuNgay: "", denNgay: "", page: 0 }));
-  const doiNgay = (truong) => (e) => setBoLoc((p) => ({ ...p, [truong]: e.target.value, page: 0 }));
 
   const daXuLyXong = (capNhat, thongBao) => {
     toast.success(thongBao);
@@ -336,13 +336,12 @@ export default function DoiSoatChuyenKhoan() {
                   options={khoOptions}
                   onChange={(khoId) => setBoLoc((p) => ({ ...p, khoId, page: 0 }))}
                 />
-                <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">
-                  <Calendar className="size-4 shrink-0 text-bo-muted" />
-                  <span className="shrink-0 text-xs text-bo-muted">{t("Từ")}</span>
-                  <Input type="date" aria-label={t("Từ ngày tạo mã QR")} className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0" value={boLoc.tuNgay} onChange={doiNgay("tuNgay")} />
-                  <span className="shrink-0 text-xs text-bo-muted">{t("đến")}</span>
-                  <Input type="date" aria-label={t("Đến ngày tạo mã QR")} className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0" value={boLoc.denNgay} onChange={doiNgay("denNgay")} />
-                </label>
+                <LocKhoangNgay
+                  nhan={t("Ngày tạo mã QR")}
+                  tuNgay={boLoc.tuNgay}
+                  denNgay={boLoc.denNgay}
+                  onDoi={({ tuNgay, denNgay }) => setBoLoc((p) => ({ ...p, tuNgay, denNgay, page: 0 }))}
+                />
               </>
             ) : null}
           </ListToolbar>
