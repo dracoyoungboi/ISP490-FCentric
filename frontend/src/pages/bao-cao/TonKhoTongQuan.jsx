@@ -352,6 +352,19 @@ export default function TonKhoTongQuan() {
         loadTonKho({ khoId, kw: keyword.trim() || undefined });
     };
 
+    // Gõ là lọc: ngừng gõ 350 ms thì tải lại với từ khóa mới (Enter vẫn lọc ngay); chưa tải xong lần đầu thì chờ
+    useEffect(() => {
+        if (!hasLoaded) return undefined;
+        const kw = keyword.trim();
+        if (kw === tuKhoaDaApDung) return undefined;
+        const hen = setTimeout(() => {
+            setPage(0);
+            setDongMo([]);
+            loadTonKho({ khoId: selectedKhoId ?? (khoList.length === 1 ? khoList[0].id : undefined), kw: kw || undefined });
+        }, 350);
+        return () => clearTimeout(hen);
+    }, [keyword, tuKhoaDaApDung, hasLoaded, selectedKhoId, khoList, loadTonKho]);
+
     // Chọn kho
     const handleSelectKho = (id) => {
         const numId = id ? Number(id) : null;
@@ -555,10 +568,10 @@ export default function TonKhoTongQuan() {
                             </DropdownMenu>
                         ) : null}
 
-                        {/* Tìm kiếm: áp dụng khi bấm Enter (gọi lại API với từ khóa), như cũ */}
+                        {/* Tìm kiếm: ngừng gõ là lọc, Enter lọc ngay (gọi lại API với từ khóa) */}
                         <SearchInput
                             label={t("Tìm kiếm tồn kho")}
-                            placeholder={t("SKU, mã SP, tên sản phẩm...")}
+                            placeholder={t("Tên, mã SP, SKU")}
                             value={keyword}
                             onChange={e => setKeyword(e.target.value)}
                             onClear={() => setKeyword("")}
