@@ -61,8 +61,7 @@ class GiaBanBienTheServiceTest {
     void setUp() {
         SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(1).vaiTro(Set.of(IRoleType.quan_tri_vien)).build());
         when(nguoiDungRepository.findById(1)).thenReturn(Optional.of(admin));
-        when(giaBanRepository.tonKho(anyCollection())).thenReturn(List.of());
-        when(giaBanRepository.demTheoTab(any())).thenReturn(List.<Object[]>of(new Object[]{0L, 0L}));
+        when(giaBanRepository.doiGiaGanDay(anyCollection(), any())).thenReturn(List.of());
         when(giaBanRepository.demCanXuLy()).thenReturn(List.<Object[]>of(new Object[]{0L, 0L}));
         when(anhQuanAoRepository.findActiveByQuanAoIds(anyCollection())).thenReturn(List.of());
     }
@@ -159,22 +158,25 @@ class GiaBanBienTheServiceTest {
     // ==================== Danh sách ====================
 
     private void trangSanPham(List<Integer> ids, long tong) {
-        when(giaBanRepository.trangSanPhamId(any(), anyString(), any(Pageable.class)))
-                .thenAnswer(inv -> new PageImpl<>(ids, inv.getArgument(2), tong));
+        when(giaBanRepository.trangSanPhamId(any(), anyString(), any(Instant.class), any(Pageable.class)))
+                .thenAnswer(inv -> new PageImpl<>(ids, inv.getArgument(3), tong));
     }
 
     @Test
     void loc_khopMotPhan_traSoPhanLoaiVaCoKhopTen_dungThuTuSanPham() {
         trangSanPham(List.of(11, 10), 2);
-        when(giaBanRepository.demSku(any(), anyString())).thenReturn(3L);
-        when(giaBanRepository.bienTheKhopLoc(anyCollection(), any(), anyString())).thenReturn(List.of(
+        when(giaBanRepository.demSku(any(), anyString(), any(Instant.class))).thenAnswer(inv -> switch ((String) inv.getArgument(1)) {
+            case "tat-ca" -> 7L;
+            case "doi-gia" -> 2L;
+            case "chua-gia" -> 1L;
+            default -> 0L;
+        });
+        when(giaBanRepository.bienTheKhopLoc(anyCollection(), any(), anyString(), any(Instant.class))).thenReturn(List.of(
                 bienThe(1, nike, 1, "1500000", "2000000"),
                 bienThe(2, nike, 1, "1500000", "2000000"),
                 bienThe(5, polo, 1, "220000", "390000")));
         when(giaBanRepository.demPhanLoai(anyCollection())).thenReturn(List.<Object[]>of(new Object[]{10, 5L}, new Object[]{11, 4L}));
         when(giaBanRepository.sanPhamKhopTen(anyCollection(), anyString())).thenReturn(List.of(11));
-        when(giaBanRepository.tonKho(anyCollection())).thenReturn(List.<Object[]>of(new Object[]{1, new BigDecimal("12.000")}));
-        when(giaBanRepository.demTheoTab(any())).thenReturn(List.<Object[]>of(new Object[]{7L, 6L}));
 
         TrangGiaBanDto trang = service.loc(LocGiaBanRequest.builder().tuKhoa("ak26").size(10).build());
 
@@ -184,32 +186,92 @@ class GiaBanBienTheServiceTest {
         assertEquals(5, nhomNike.getTongPhanLoai(), "2/5 phân loại khớp");
         assertFalse(nhomNike.isKhopTen());
         assertTrue(trang.getContent().get(0).isKhopTen());
-        assertEquals(0, new BigDecimal("12").compareTo(nhomNike.getBienThe().get(0).getTonKho()));
         assertEquals(0, new BigDecimal("390000").compareTo(trang.getContent().get(0).getBienThe().get(0).getGiaBan()));
         assertEquals("Đen", nhomNike.getBienThe().get(0).getMauSac().getTen());
         assertEquals(2, trang.getTongSanPham());
-        assertEquals(3, trang.getTongSku());
+        assertEquals(7, trang.getTongSku());
         assertEquals(10, trang.getSize());
         assertEquals(7, trang.getDemTheoTab().getTatCa());
-        assertEquals(6, trang.getDemTheoTab().getHoatDong());
-        assertEquals(1, trang.getDemTheoTab().getNgungHoatDong());
+        assertEquals(2, trang.getDemTheoTab().getDoiGia());
+        assertEquals(1, trang.getDemTheoTab().getChuaGia());
+        assertEquals(0, trang.getDemTheoTab().getThieuMa());
         verify(giaBanRepository, never()).demCanXuLy();
+    }
+
+    @Test
+    void loc_kemDemFalse_khongDemLai4Tab_chiDemTongSkuCuaTab() {
+        trangSanPham(List.of(10), 1);
+        when(giaBanRepository.bienTheKhopLoc(anyCollection(), any(), anyString(), any(Instant.class)))
+                .thenReturn(List.of(bienThe(1, nike, 1, "1", "2")));
+        when(giaBanRepository.demSku(any(), eq("doi-gia"), any(Instant.class))).thenReturn(3L);
+
+        TrangGiaBanDto trang = service.loc(LocGiaBanRequest.builder().trangThai("doi-gia").kemDem(false).build());
+
+        assertNull(trang.getDemTheoTab());
+        assertEquals(3, trang.getTongSku());
+        verify(giaBanRepository, times(1)).demSku(any(), anyString(), any(Instant.class));
+    }
+
+    @Test
+    void loc_coDem_tongSkuLayLuonTuSoDemCuaTab_khongDemThem() {
+        trangSanPham(List.of(10), 1);
+        when(giaBanRepository.bienTheKhopLoc(anyCollection(), any(), anyString(), any(Instant.class)))
+                .thenReturn(List.of(bienThe(1, nike, 1, "1", "2")));
+        when(giaBanRepository.demSku(any(), eq("chua-gia"), any(Instant.class))).thenReturn(4L);
+
+        TrangGiaBanDto trang = service.loc(LocGiaBanRequest.builder().trangThai("chua-gia").build());
+
+        assertEquals(4, trang.getTongSku());
+        assertEquals(4, trang.getDemTheoTab().getChuaGia());
+        verify(giaBanRepository, times(4)).demSku(any(), anyString(), any(Instant.class));
+    }
+
+    @Test
+    void loc_doiGiaGanDay_traGiaCuCuaLanDoiMoiNhat() {
+        trangSanPham(List.of(10), 1);
+        when(giaBanRepository.bienTheKhopLoc(anyCollection(), any(), anyString(), any(Instant.class)))
+                .thenReturn(List.of(bienThe(1, nike, 1, "1", "120000"), bienThe(2, nike, 1, "1", "130000")));
+        Instant moi = Instant.parse("2026-11-23T03:00:00Z");
+        Instant cu = Instant.parse("2026-11-20T03:00:00Z");
+        // Mới nhất trước (như ORDER BY của truy vấn); dòng cũ hơn của SKU 1 bị bỏ
+        when(giaBanRepository.doiGiaGanDay(anyCollection(), any(Instant.class))).thenReturn(List.<Object[]>of(
+                new Object[]{1, "{\"giaBan\":105000}", moi},
+                new Object[]{1, "{\"giaBan\":99000}", cu}));
+
+        TrangGiaBanDto trang = service.loc(LocGiaBanRequest.builder().trangThai("doi-gia").build());
+
+        TrangGiaBanDto.BienTheGiaBan sku1 = trang.getContent().get(0).getBienThe().get(0);
+        TrangGiaBanDto.BienTheGiaBan sku2 = trang.getContent().get(0).getBienThe().get(1);
+        assertEquals(0, new BigDecimal("105000").compareTo(sku1.getGiaBanCu()));
+        assertEquals(moi, sku1.getNgayDoiGia());
+        assertNull(sku2.getGiaBanCu());
+        assertNull(sku2.getNgayDoiGia());
+        verify(giaBanRepository).trangSanPhamId(isNull(), eq("doi-gia"), any(Instant.class), any(Pageable.class));
+    }
+
+    @Test
+    void docGiaBan_docDungDinhDangLichSu() {
+        assertEquals(0, new BigDecimal("1250.5").compareTo(GiaBanBienTheService.docGiaBan("{\"giaBan\":1250.5}")));
+        assertNull(GiaBanBienTheService.docGiaBan("{\"giaBan\":null}"));
+        assertNull(GiaBanBienTheService.docGiaBan("rác"));
+        assertNull(GiaBanBienTheService.docGiaBan(null));
     }
 
     @Test
     void loc_tuKhoaThoatKyTuDacBiet_tabTruyenXuong() {
         trangSanPham(List.of(), 0);
-        service.loc(LocGiaBanRequest.builder().tuKhoa("  50%_off!  ").trangThai("ngung-hoat-dong").build());
-        verify(giaBanRepository).trangSanPhamId(eq("50!%!_off!!"), eq("ngung-hoat-dong"), eq(PageRequest.of(0, 20)));
-        verify(giaBanRepository).demTheoTab("50!%!_off!!");
-        verify(giaBanRepository, never()).demSku(any(), anyString());
-        verify(giaBanRepository, never()).bienTheKhopLoc(anyCollection(), any(), anyString());
+        service.loc(LocGiaBanRequest.builder().tuKhoa("  50%_off!  ").trangThai("chua-gia").build());
+        verify(giaBanRepository).trangSanPhamId(eq("50!%!_off!!"), eq("chua-gia"), any(Instant.class), eq(PageRequest.of(0, 20)));
+        verify(giaBanRepository).demSku(eq("50!%!_off!!"), eq("tat-ca"), any(Instant.class));
+        // Trang rỗng: chỉ đếm cho tab, không đếm thêm tổng SKU
+        verify(giaBanRepository, times(1)).demSku(any(), eq("chua-gia"), any(Instant.class));
+        verify(giaBanRepository, never()).bienTheKhopLoc(anyCollection(), any(), anyString(), any(Instant.class));
     }
 
     @Test
     void loc_khongTuKhoa_moiNhomCoiLaKhopTen_soDongLaThiVeMacDinh() {
         trangSanPham(List.of(10), 1);
-        when(giaBanRepository.bienTheKhopLoc(anyCollection(), isNull(), anyString()))
+        when(giaBanRepository.bienTheKhopLoc(anyCollection(), isNull(), anyString(), any(Instant.class)))
                 .thenReturn(List.of(bienThe(1, nike, 1, "1", "2")));
         when(giaBanRepository.demPhanLoai(anyCollection())).thenReturn(List.<Object[]>of(new Object[]{10, 1L}));
 
@@ -223,6 +285,6 @@ class GiaBanBienTheServiceTest {
 
     @Test
     void loc_tabKhongHopLe_baoLoi() {
-        assertThrows(CommonException.class, () -> service.loc(LocGiaBanRequest.builder().trangThai("xoa").build()));
+        assertThrows(CommonException.class, () -> service.loc(LocGiaBanRequest.builder().trangThai("ngung-hoat-dong").build()));
     }
 }

@@ -269,13 +269,12 @@ class GiaBanTemQuyenTest {
                     .mauSac(MauSac.builder().id(1).tenMau("Đen").maMauHex("#111827").build())
                     .size(Size.builder().id(1).tenSize("M").build())
                     .trangThai(1).giaVon(new BigDecimal("420000")).giaBan(new BigDecimal("390000")).build();
-            when(giaBanRepository.trangSanPhamId(any(), anyString(), any(Pageable.class)))
-                    .thenAnswer(inv -> new PageImpl<>(List.of(10), inv.getArgument(2), 1));
-            when(giaBanRepository.demSku(any(), anyString())).thenReturn(1L);
-            when(giaBanRepository.bienTheKhopLoc(anyCollection(), any(), anyString())).thenReturn(List.of(bt));
+            when(giaBanRepository.trangSanPhamId(any(), anyString(), any(), any(Pageable.class)))
+                    .thenAnswer(inv -> new PageImpl<>(List.of(10), inv.getArgument(3), 1));
+            when(giaBanRepository.demSku(any(), anyString(), any())).thenReturn(1L);
+            when(giaBanRepository.bienTheKhopLoc(anyCollection(), any(), anyString(), any())).thenReturn(List.of(bt));
             when(giaBanRepository.demPhanLoai(anyCollection())).thenReturn(List.<Object[]>of(new Object[]{10, 1L}));
-            when(giaBanRepository.tonKho(anyCollection())).thenReturn(List.of());
-            when(giaBanRepository.demTheoTab(any())).thenReturn(List.<Object[]>of(new Object[]{1L, 1L}));
+            when(giaBanRepository.doiGiaGanDay(anyCollection(), any())).thenReturn(List.of());
             when(anhQuanAoRepository.findActiveByQuanAoIds(anyCollection())).thenReturn(List.of());
         }
 

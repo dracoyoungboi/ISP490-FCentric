@@ -45,7 +45,8 @@ class TemSanPhamServiceTest {
         when(dieuHanhHeThongService.getCauHinhInt(anyString(), anyInt())).thenAnswer(inv -> inv.getArgument(1));
         when(dieuHanhHeThongService.getCauHinhBoolean(anyString(), anyBoolean())).thenAnswer(inv -> inv.getArgument(1));
         when(thongTinCongTyService.getProfile()).thenReturn(ThongTinCongTyDto.builder().name("  Cửa hàng Mặc Đẹp ").build());
-        when(giaBanBienTheService.tonKho(anyCollection())).thenReturn(Map.of(2, new BigDecimal("7")));
+        when(giaBanBienTheService.doiGiaGanDay(anyCollection())).thenReturn(Map.of(
+                2, new GiaBanBienTheService.DoiGia(new BigDecimal("1800000"), java.time.Instant.parse("2026-11-23T03:00:00Z"))));
     }
 
     private BienTheSanPham bt(int id) {
@@ -78,7 +79,7 @@ class TemSanPhamServiceTest {
     }
 
     @Test
-    void dongTheoIds_giuThuTu_kemSoLuongVaTon_khongCoGiaVon() {
+    void dongTheoIds_giuThuTu_kemSoLuongVaGiaCu_khongCoGiaVon() {
         when(giaBanRepository.bienTheInTem(anyCollection())).thenReturn(List.of(bt(1), bt(2)));
 
         List<DongInTemDto> ds = service.dongTheoIds(List.of(2, 1, 99), Map.of(2, 12));
@@ -86,7 +87,8 @@ class TemSanPhamServiceTest {
         assertEquals(List.of(2, 1), ds.stream().map(DongInTemDto::getBienTheId).toList());
         assertEquals(12, ds.get(0).getSoLuong());
         assertNull(ds.get(1).getSoLuong());
-        assertEquals(0, new BigDecimal("7").compareTo(ds.get(0).getTonKho()));
+        assertEquals(0, new BigDecimal("1800000").compareTo(ds.get(0).getGiaBanCu()));
+        assertNull(ds.get(1).getGiaBanCu());
         assertEquals("Nike Sportswear", ds.get(0).getTenSanPham());
         assertEquals("Đen", ds.get(0).getTenMau());
         assertEquals("M", ds.get(0).getKichCo());
