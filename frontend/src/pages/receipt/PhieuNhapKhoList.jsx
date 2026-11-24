@@ -27,9 +27,11 @@ import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
+import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import { nguoiDungService } from "@/services/nguoiDungService";
 import { phieuNhapKhoService } from "@/services/phieuNhapKhoService";
+import { getAllSupplier } from "@/services/supplierService";
 import {
   GOODS_RECEIPT_TABS,
   getGoodsReceiptStatus,
@@ -72,8 +74,8 @@ function buildFilterPayload(filters) {
       filterList.push({ fieldName: field, operation: "LIKE", value: kw, logicType: "OR" });
     });
   }
-  if (filters.nhaCungCap?.trim()) {
-    filterList.push({ fieldName: "nhaCungCap.tenNhaCungCap", operation: "LIKE", value: filters.nhaCungCap.trim() });
+  if (filters.nhaCungCap) {
+    filterList.push({ fieldName: "nhaCungCap.id", operation: "EQUALS", value: Number(filters.nhaCungCap) });
   }
   if (filters.trangThai != null) {
     filterList.push({ fieldName: "trangThai", operation: "EQUALS", value: Number(filters.trangThai) });
@@ -116,9 +118,9 @@ export default function PhieuNhapKhoList() {
   const tabTrangThai = trangThaiCuaTab(tab);
 
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
-  // Ô nhập đổi ngay khi gõ; filters.keyword / filters.nhaCungCap đổi sau khi ngừng gõ
+  // Ô tìm đổi ngay khi gõ; filters.keyword đổi sau khi ngừng gõ. Nhà cung cấp chọn trong danh sách (id)
   const [keywordInput, setKeywordInput] = useState("");
-  const [nhaCungCapInput, setNhaCungCapInput] = useState("");
+  const dsNcc = useTaiDuLieu(() => getAllSupplier(), "ncc-phieu-nhap");
 
   // Quản lý kho / Nhân viên kho thấy dòng "N phiếu đang chờ nhập kho"
   const [xuLyNhapKho, setXuLyNhapKho] = useState(false);
@@ -131,13 +133,10 @@ export default function PhieuNhapKhoList() {
   useEffect(() => {
     const timer = setTimeout(() => {
       const keyword = keywordInput.trim();
-      const nhaCungCap = nhaCungCapInput.trim();
-      setFilters(p => (p.keyword === keyword && p.nhaCungCap === nhaCungCap
-        ? p
-        : { ...p, keyword, nhaCungCap, page: 0 }));
+      setFilters(p => (p.keyword === keyword ? p : { ...p, keyword, page: 0 }));
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [keywordInput, nhaCungCapInput]);
+  }, [keywordInput]);
 
   // Vai trò đọc từ hồ sơ người dùng hiện tại (như trang Yêu cầu nhập hàng)
   useEffect(() => {
@@ -211,12 +210,11 @@ export default function PhieuNhapKhoList() {
     setFilters(p => (p.page === 0 ? p : { ...p, page: 0 }));
   };
 
-  const hasActiveFilters = Boolean(keywordInput.trim() || nhaCungCapInput.trim() || filters.ngayNhap || locHangLoi);
+  const hasActiveFilters = Boolean(keywordInput.trim() || filters.nhaCungCap || filters.ngayNhap || locHangLoi);
 
   // "Xóa lọc": bỏ từ khóa, nhà cung cấp, ngày nhập; giữ tab đang chọn
   const clearFilters = () => {
     setKeywordInput("");
-    setNhaCungCapInput("");
     setLocHangLoi(false);
     setFilters(p => ({ ...DEFAULT_FILTERS, size: p.size }));
   };
@@ -310,19 +308,24 @@ export default function PhieuNhapKhoList() {
           >
             <SearchInput
               label={t("Tìm phiếu nhập kho")}
-              placeholder={t("Nhập số phiếu / mã đơn mua...")}
+              placeholder={t("Số phiếu, số đơn mua")}
               value={keywordInput}
               onChange={e => setKeywordInput(e.target.value)}
               onClear={() => setKeywordInput("")}
               className="sm:w-[300px]"
             />
 
-            <Input
-              aria-label={t("Lọc theo tên nhà cung cấp")}
-              placeholder={t("Tên nhà cung cấp...")}
-              className="h-9 w-full border-bo-border bg-bo-surface text-sm text-bo-foreground placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-bo-primary/15 sm:w-[200px]"
-              value={nhaCungCapInput}
-              onChange={e => setNhaCungCapInput(e.target.value)}
+            <FilterSelect
+              label={t("Nhà cung cấp")}
+              value={filters.nhaCungCap}
+              options={[
+                { value: "", label: t("Tất cả nhà cung cấp") },
+                ...(Array.isArray(dsNcc.data) ? dsNcc.data : []).map((n) => ({ value: String(n.id), label: n.tenNhaCungCap })),
+              ]}
+              onChange={(v) => setFilters(p => ({ ...p, nhaCungCap: v, page: 0 }))}
+              onClear={() => setFilters(p => ({ ...p, nhaCungCap: "", page: 0 }))}
+              clearLabel={t("Bỏ lọc nhà cung cấp")}
+              className="sm:w-[220px]"
             />
 
             {/* Ngày nhập: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
