@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { Clock, Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -90,14 +89,6 @@ export default function OPhaiTra({ don, className }) {
             <Clock className="mt-px size-3 shrink-0" aria-hidden="true" />
             {t("{{count}} sản phẩm lỗi chưa chốt cách bù với nhà cung cấp. Nếu nhà cung cấp chọn trừ tiền, số phải trả sẽ giảm.", { count: tt.soLoiChoChot })}
           </p>
-        ) : null}
-        {don?.id != null ? (
-          <Link
-            to={`/purchase-orders/${don.id}`}
-            className="mt-2.5 inline-block text-xs font-semibold text-bo-primary hover:underline"
-          >
-            {t("Mở chi tiết đơn")}
-          </Link>
         ) : null}
       </PopoverContent>
     </Popover>

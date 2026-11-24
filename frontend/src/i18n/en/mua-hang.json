@@ -931,6 +931,5 @@
   "Cách tính phải trả {{ma}}": "How the payable amount for {{ma}} is calculated",
   "Phải trả {{ma}}": "Payable for {{ma}}",
   "{{count}} sản phẩm lỗi chưa chốt cách bù với nhà cung cấp. Nếu nhà cung cấp chọn trừ tiền, số phải trả sẽ giảm._one": "{{count}} defective item has no agreed resolution with the supplier yet. If the supplier chooses a deduction, the payable amount will go down.",
-  "{{count}} sản phẩm lỗi chưa chốt cách bù với nhà cung cấp. Nếu nhà cung cấp chọn trừ tiền, số phải trả sẽ giảm._other": "{{count}} defective items have no agreed resolution with the supplier yet. If the supplier chooses a deduction, the payable amount will go down.",
-  "Mở chi tiết đơn": "Open order details"
+  "{{count}} sản phẩm lỗi chưa chốt cách bù với nhà cung cấp. Nếu nhà cung cấp chọn trừ tiền, số phải trả sẽ giảm._other": "{{count}} defective items have no agreed resolution with the supplier yet. If the supplier chooses a deduction, the payable amount will go down."
 }
