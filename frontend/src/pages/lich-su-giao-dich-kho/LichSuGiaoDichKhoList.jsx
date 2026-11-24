@@ -603,8 +603,7 @@ export default function LichSuGiaoDichKhoList() {
                                 onChange={changeTab}
                             />
                         }
-                        hasFilter={Boolean(search.trim())}
-                        onClear={handleClearSearch}
+                        // Chỉ có ô tìm: dấu × trong ô đã xóa từ khóa, không thêm nút "Xóa lọc" trùng việc
                     >
                         <SearchInput
                             label={t("Tìm kiếm")}
