@@ -10,6 +10,7 @@ import {
   chonLyDo,
   chuanHoaPhien,
   coKeHoatDong,
+  datGhiChu,
   conTrongKe,
   datCua,
   dieuKienKhoaLo,
@@ -154,6 +155,32 @@ test("nhóm hàng không đạt theo lý do để gửi máy chủ", () => {
   assert.deepEqual(nhomLoiTheoLyDo(p.log), [
     { lyDo: "Bung chỉ", soLuong: 2 },
     { lyDo: "Ố bẩn", soLuong: 2 },
+  ]);
+});
+
+test("ghi chú lý do Khác: lưu theo lượt, hiện ở danh sách lượt, đổi lý do khác thì bỏ", () => {
+  let { phien: p } = them(phienMoi(), "SKU");
+  p = datGhiChu(chonLyDo(thanhKhongDat(p), "Khác"), "khóa kéo hỏng");
+  assert.equal(p.log[0].ghiChu, "khóa kéo hỏng");
+  assert.equal(nhanLuot(p.log[0]), "Không đạt 1 · Khác · khóa kéo hỏng");
+  // Đổi sang lý do khác thì bỏ ghi chú (ghi chú chỉ đi với "Khác")
+  assert.equal(chonLyDo(p, "Rách vải").log[0].ghiChu, null);
+  // Đọc lại phiên từ trình duyệt: ghi chú gắn với lý do khác "Khác" thì bỏ
+  const r = chuanHoaPhien({ log: [{ id: 1, ma: "A", sl: 1, kq: "loi", loi: 1, lyDo: "Ố bẩn", ghiChu: "x" }], dem: 2 }, "");
+  assert.equal(r.log[0].ghiChu, null);
+});
+
+test("gộp ghi chú các lượt cùng lý do Khác khi khóa lô, bỏ trùng", () => {
+  let p = phienMoi();
+  for (const gc of ["sờn vai", "sờn vai", "bay màu"]) {
+    ({ phien: p } = them(p, "SKU"));
+    p = datGhiChu(chonLyDo(thanhKhongDat(p), "Khác"), gc);
+  }
+  ({ phien: p } = them(p, "SKU"));
+  p = chonLyDo(thanhKhongDat(p), "Bung chỉ");
+  assert.deepEqual(nhomLoiTheoLyDo(p.log), [
+    { lyDo: "Bung chỉ", soLuong: 1 },
+    { lyDo: "Khác", soLuong: 3, ghiChu: "bay màu; sờn vai" },
   ]);
 });
 
