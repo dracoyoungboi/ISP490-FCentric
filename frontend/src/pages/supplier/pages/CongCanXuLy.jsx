@@ -136,6 +136,9 @@ function DongHangLoi({ hangLoi }) {
     } else if (hangLoi?.trangThai === 'DA_TIEU_HUY') {
         Icon = PackageX;
         chu = t("Hàng lỗi đã tiêu hủy");
+    } else if (hangLoi?.trangThai === 'DA_XU_LY') {
+        Icon = PackageX;
+        chu = t("Hàng lỗi đã giao trả và tiêu hủy");
     } else {
         chu = moTa ? t("Đang ở {{kho}}", { kho: tDuLieu(moTa) }) : t("Đang ở kho của chúng tôi");
     }

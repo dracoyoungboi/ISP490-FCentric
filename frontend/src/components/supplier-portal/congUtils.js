@@ -7,8 +7,16 @@ import { t } from "../../i18n/t.js";
 import { chuanHoaHoTen, loiHoTen } from "../../validations/hoTen.js";
 import { NHAN_HANG_LOI, NHAN_TRANG_THAI_BIEN_BAN } from "../../constants/congNhaCungCap.js";
 
-/** Hai cách bù nhà cung cấp chọn cho biên bản (giá trị gửi máy chủ ở `phuongAn`). */
-export const PHUONG_AN = Object.freeze({ TRU_TIEN: "TRU_CONG_NO", GIAO_BU: "DOI_HANG", CHO_CHOT: "CHO_CHOT" });
+/**
+ * Hai cách bù nhà cung cấp chọn cho từng dòng (giá trị gửi máy chủ ở `phuongAn`). Đầu biên bản còn CHO_CHOT (còn dòng
+ * chưa chọn) và HON_HOP (dòng giao bù, dòng trừ tiền).
+ */
+export const PHUONG_AN = Object.freeze({
+  TRU_TIEN: "TRU_CONG_NO",
+  GIAO_BU: "DOI_HANG",
+  CHO_CHOT: "CHO_CHOT",
+  HON_HOP: "HON_HOP",
+});
 
 /** Nhà cung cấp chọn cho hàng lỗi còn ở kho (giá trị gửi máy chủ ở `hangLoi`). */
 export const HANG_LOI = Object.freeze({ NHAN_LAI: "NHAN_LAI", TIEU_HUY: "TIEU_HUY" });
@@ -75,6 +83,15 @@ export function cachXuLyLichSu(dong) {
   if (dong?.phuongAn === PHUONG_AN.GIAO_BU) {
     return { loai: "bu", xong: Boolean(dong.buXong), conLai: Math.max(0, Number(dong.conChoGiao) || 0) };
   }
+  // Mỗi sản phẩm một cách: phần trừ tiền và phần giao bù còn chờ
+  if (dong?.phuongAn === PHUONG_AN.HON_HOP) {
+    return {
+      loai: "hon",
+      tien: soDuongHoacNull(dong.tienTru),
+      xong: Boolean(dong.buXong),
+      conLai: Math.max(0, Number(dong.conChoGiao) || 0),
+    };
+  }
   return { loai: "cho" };
 }
 
@@ -100,14 +117,9 @@ export function nhanTrangThaiBienBan(bb) {
 
 /** Nhãn cột Hàng lỗi ở lịch sử: đã rời kho thì theo trạng thái; còn ở kho thì theo lựa chọn của nhà cung cấp. */
 export function nhanHangLoi(dong) {
-  if (dong?.hangLoi === "DA_TRA" || dong?.hangLoi === "DA_TIEU_HUY") return NHAN_HANG_LOI[dong.hangLoi];
+  if (["DA_TRA", "DA_TIEU_HUY", "DA_XU_LY"].includes(dong?.hangLoi)) return NHAN_HANG_LOI[dong.hangLoi];
   if (dong?.hangLoi !== "O_KHO" || dong?.daHuy) return null;
   return NHAN_HANG_LOI[dong.hangLoiNcc] ?? NHAN_HANG_LOI.CHO_CHON;
-}
-
-/** Số tiền dự kiến trừ, nói ở lựa chọn Trừ tiền hàng: `tienTru` của máy chủ nếu có, không thì tổng giá trị hàng lỗi. */
-export function tienTruDuKien(bb) {
-  return soDuongHoacNull(bb?.tienTru) ?? (Number(bb?.tongGiaTri) || 0);
 }
 
 /** Số tiền trừ đã chốt (hoặc dự kiến khi chưa nhập kho) để hiện sau khi xác nhận; 0 / thiếu thì null (không hiện). */
@@ -121,16 +133,223 @@ export function loiNguoiXacNhan(giaTri) {
   return loiHoTen(giaTri);
 }
 
-/**
- * Dữ liệu gửi POST /cong-ncc/bien-ban/{id}/xac-nhan. `phuongAn` / `hangLoi`: lựa chọn (null là giữ như cũ).
- * `phienBan`: phiên bản biên bản đang hiển thị — kho vừa lập lại thì máy chủ từ chối (409) thay vì ghi lựa chọn cho bản cũ.
- */
-export function taoPayloadXacNhan({ phuongAn = null, hangLoi = null }, nguoiXacNhan, ghiChu, phienBan = null) {
-  const ghi = String(ghiChu ?? "").trim().slice(0, GHI_CHU_BIEN_BAN_TOI_DA);
-  return { phuongAn, hangLoi, nguoiXacNhan: chuanHoaHoTen(nguoiXacNhan), ghiChu: ghi || null, phienBan: phienBan ?? null };
-}
-
 /** Thuộc tính một dòng hàng lỗi: "Đen · S · AK-...". */
 export function thuocTinhDong(d) {
   return [d?.mauSac, d?.kichCo].map((x) => String(x ?? "").trim()).filter(Boolean).join(" · ");
+}
+
+// ─────────────────────────────────────────────────────────────
+// Trả lời biên bản theo từng dòng sản phẩm lỗi (`bb.dong`)
+// ─────────────────────────────────────────────────────────────
+
+const dsDong = (bb) => (Array.isArray(bb?.dong) ? bb.dong : []);
+/** Dòng chọn được trên cổng: phải có id để gửi máy chủ (dòng thiếu id chỉ hiện, không chọn, không tính là thiếu). */
+const dsDongChon = (bb) => dsDong(bb).filter((d) => d?.id != null);
+
+/** Cách bù / hàng lỗi dòng còn chọn hoặc đổi được (máy chủ tính; rỗng: đã chốt). */
+export const moCachBu = (d) => (Array.isArray(d?.cachBuMo) ? d.cachBuMo : []);
+export const moHangLoi = (d) => (Array.isArray(d?.hangLoiMo) ? d.hangLoiMo : []);
+
+/** Dòng còn câu nào chọn / đổi được. */
+export const dongConMo = (d) => moCachBu(d).length > 0 || moHangLoi(d).length > 0;
+
+/** Hàng lỗi của dòng còn ở kho (chưa giao trả / tiêu hủy / trả ngay cho người giao hàng). */
+export const dongOKho = (d) => (d?.viTriHang ?? "O_KHO") === "O_KHO";
+
+/** Lựa chọn đang áp dụng của dòng theo máy chủ: { cachBu, hangLoi } (null: chưa chọn). */
+export function luaChonHienTai(d) {
+  return {
+    cachBu: d?.cachBu && d.cachBu !== PHUONG_AN.CHO_CHOT ? d.cachBu : null,
+    hangLoi: d?.hangLoi ?? null,
+  };
+}
+
+/**
+ * Lựa chọn có hiệu lực của dòng: câu đang chọn khi còn đổi được (hoặc trùng lựa chọn đang áp dụng), không thì lựa chọn
+ * đang áp dụng. Dùng cho tóm tắt và hộp xác nhận để không cộng một lựa chọn máy chủ sẽ không nhận.
+ */
+export function luaChonHieuLuc(d, chon) {
+  const cu = luaChonHienTai(d);
+  if (!chon) return cu;
+  const nhan = (moi, cuGiaTri, mo) => (moi && (moi === cuGiaTri || mo.includes(moi)) ? moi : cuGiaTri);
+  return { cachBu: nhan(chon.cachBu, cu.cachBu, moCachBu(d)), hangLoi: nhan(chon.hangLoi, cu.hangLoi, moHangLoi(d)) };
+}
+
+/**
+ * Phần trừ tiền của dòng theo cách bù `cachBu`: { soLuong, tien }. Dòng máy chủ đã ghi trừ tiền thì theo số máy chủ
+ * (`soLuongTru`, `tienTru`: quá hạn / đóng đơn khi đơn chỉ còn chờ một phần thì trừ một phần); dòng vừa chọn trừ tiền
+ * thì cả dòng theo giá trị dòng.
+ */
+export function truTienDong(d, cachBu = luaChonHienTai(d).cachBu) {
+  if (cachBu !== PHUONG_AN.TRU_TIEN) return { soLuong: 0, tien: 0 };
+  const sl = Number(d?.soLuong) || 0;
+  const donGia = Number(d?.donGia) || 0;
+  if (luaChonHienTai(d).cachBu === PHUONG_AN.TRU_TIEN && d?.soLuongTru != null && Number.isFinite(Number(d.soLuongTru))) {
+    const n = Math.min(sl, Math.max(0, Number(d.soLuongTru)));
+    const tien = d.tienTru != null && Number.isFinite(Number(d.tienTru)) ? Number(d.tienTru) : n * donGia;
+    return { soLuong: n, tien };
+  }
+  return { soLuong: sl, tien: Number(d?.giaTri) || sl * donGia };
+}
+
+/** Lựa chọn ban đầu của khung trả lời: id dòng → lựa chọn đang áp dụng. */
+export function khoiTaoLuaChon(bb) {
+  const kq = {};
+  for (const d of dsDongChon(bb)) kq[d.id] = luaChonHienTai(d);
+  return kq;
+}
+
+/**
+ * Chữ ký dữ liệu chọn của biên bản (lựa chọn, vị trí hàng lỗi, lựa chọn còn mở của từng dòng, lần lập): đổi thì khung
+ * trả lời dựng lại từ dữ liệu mới, không giữ lựa chọn cũ của bản đã tải trước.
+ */
+export function chuKyLuaChon(bb) {
+  const dong = dsDong(bb)
+    .map((d) => [d.id, d.cachBu, d.hangLoi, d.viTriHang, d.soLuong, moCachBu(d).join("+"), moHangLoi(d).join("+")].join(":"))
+    .join("|");
+  return String(bb?.phienBan ?? "") + "#" + dong;
+}
+
+/** Câu bắt buộc của dòng: cách bù đang chờ (còn chọn được), hàng lỗi còn ở kho mà chưa chọn. Dòng thiếu id: không. */
+export function canChon(d) {
+  if (d?.id == null) return { cachBu: false, hangLoi: false };
+  return {
+    cachBu: !luaChonHienTai(d).cachBu && moCachBu(d).length > 0,
+    hangLoi: !d?.hangLoi && moHangLoi(d).length > 0,
+  };
+}
+
+/** Số câu bắt buộc của dòng còn thiếu trong lựa chọn đang chọn. */
+export function soCauThieu(d, chon) {
+  const can = canChon(d);
+  return (can.cachBu && !chon?.cachBu ? 1 : 0) + (can.hangLoi && !chon?.hangLoi ? 1 : 0);
+}
+
+/** Dòng có câu chọn khác lựa chọn đang áp dụng (chỉ tính câu còn đổi được). */
+export function dongCoDoi(d, chon) {
+  const cu = luaChonHienTai(d);
+  const doiCachBu = Boolean(chon?.cachBu) && chon.cachBu !== cu.cachBu && moCachBu(d).includes(chon.cachBu);
+  const doiHangLoi = Boolean(chon?.hangLoi) && chon.hangLoi !== cu.hangLoi && moHangLoi(d).includes(chon.hangLoi);
+  return doiCachBu || doiHangLoi;
+}
+
+/**
+ * Nhãn thẻ của dòng: "chon-lai" (lúc nhập kho không trừ tiền được, phải chọn lại cách bù) | "chua-chon" | "thieu-mot"
+ * (còn một trong hai câu) | "da-chon" | "da-chot" (không còn gì đổi được).
+ */
+export function trangThaiTheDong(d, chon) {
+  const can = canChon(d);
+  const thieu = soCauThieu(d, chon);
+  if (can.cachBu && !chon?.cachBu && d?.nguonCachBu === "NHAP_KHO") return "chon-lai";
+  if (thieu > 0) return thieu === (can.cachBu ? 1 : 0) + (can.hangLoi ? 1 : 0) ? "chua-chon" : "thieu-mot";
+  return dongConMo(d) ? "da-chon" : "da-chot";
+}
+
+/** Id các dòng còn thiếu lựa chọn bắt buộc, theo thứ tự dòng. */
+export function dongConThieu(bb, chonTheoDong) {
+  return dsDongChon(bb).filter((d) => soCauThieu(d, chonTheoDong?.[d.id]) > 0).map((d) => d.id);
+}
+
+/** Số sản phẩm của các dòng còn thiếu lựa chọn bắt buộc (bộ đếm "Còn … sản phẩm chưa chọn đủ"). */
+export function soSanPhamConThieu(bb, chonTheoDong) {
+  return dsDongChon(bb)
+    .filter((d) => soCauThieu(d, chonTheoDong?.[d.id]) > 0)
+    .reduce((s, d) => s + (Number(d.soLuong) || 0), 0);
+}
+
+/** Có dòng nào đổi so với lựa chọn đang áp dụng. */
+export function coDongDoi(bb, chonTheoDong) {
+  return dsDongChon(bb).some((d) => dongCoDoi(d, chonTheoDong?.[d.id]));
+}
+
+/**
+ * Tóm tắt phương án xử lý (đơn vị: sản phẩm) theo lựa chọn có hiệu lực của từng dòng: trừ tiền (số lượng, tiền), giao
+ * bù, coi như đã giao bù (phần còn lại của dòng chỉ trừ tiền một phần), nhận lại, tiêu hủy, đã rời kho, và số sản phẩm
+ * của các dòng còn thiếu lựa chọn bắt buộc (`chuaChon`). Nhận lại / tiêu hủy chỉ tính hàng lỗi còn ở kho.
+ */
+export function tomTatLuaChon(bb, chonTheoDong) {
+  const kq = { truTien: { soLuong: 0, tien: 0 }, giaoBu: 0, coiNhuDaBu: 0, nhanLai: 0, tieuHuy: 0, daRoiKho: 0, chuaChon: 0 };
+  for (const d of dsDong(bb)) {
+    const sl = Number(d.soLuong) || 0;
+    const chon = chonTheoDong?.[d.id];
+    const c = luaChonHieuLuc(d, chon);
+    if (c.cachBu === PHUONG_AN.TRU_TIEN) {
+      const tru = truTienDong(d, c.cachBu);
+      kq.truTien.soLuong += tru.soLuong;
+      kq.truTien.tien += tru.tien;
+      kq.coiNhuDaBu += sl - tru.soLuong;
+    } else if (c.cachBu === PHUONG_AN.GIAO_BU) {
+      kq.giaoBu += sl;
+    }
+    if (!dongOKho(d)) kq.daRoiKho += sl;
+    else if (c.hangLoi === HANG_LOI.NHAN_LAI) kq.nhanLai += sl;
+    else if (c.hangLoi === HANG_LOI.TIEU_HUY) kq.tieuHuy += sl;
+    if (soCauThieu(d, chon ?? luaChonHienTai(d)) > 0) kq.chuaChon += sl;
+  }
+  return kq;
+}
+
+/** Số dòng còn chọn / đổi được câu `loai` ("cachBu" | "hangLoi"). */
+export function soDongMo(bb, loai) {
+  return dsDongChon(bb).filter((d) => (loai === "cachBu" ? moCachBu(d) : moHangLoi(d)).length > 0).length;
+}
+
+/** Giá trị chung của câu `loai` trên các dòng còn chọn được (nút "Áp dụng nhanh" đang bật); khác nhau / thiếu thì null. */
+export function giaTriChung(bb, chonTheoDong, loai) {
+  const cac = new Set();
+  for (const d of dsDongChon(bb)) {
+    if ((loai === "cachBu" ? moCachBu(d) : moHangLoi(d)).length === 0) continue;
+    cac.add((chonTheoDong?.[d.id] ?? luaChonHienTai(d))[loai] ?? null);
+  }
+  return cac.size === 1 ? [...cac][0] : null;
+}
+
+/**
+ * Áp một lựa chọn cho mọi dòng còn chọn được giá trị đó (hoặc đang áp dụng đúng giá trị đó: đưa về lựa chọn cũ). Trả
+ * { chon, boQua }: `boQua` = số dòng giữ lựa chọn khác vì câu đó đã chốt (dòng chưa từng chọn mà đã khóa, hàng lỗi đã
+ * rời kho thì không tính).
+ */
+export function apDungNhanh(bb, chonTheoDong, loai, giaTri) {
+  const chon = { ...chonTheoDong };
+  let boQua = 0;
+  for (const d of dsDongChon(bb)) {
+    const mo = loai === "cachBu" ? moCachBu(d) : moHangLoi(d);
+    const hienTai = luaChonHienTai(d)[loai];
+    const cu = chon[d.id] ?? luaChonHienTai(d);
+    if (mo.includes(giaTri) || (mo.length > 0 && hienTai === giaTri)) chon[d.id] = { ...cu, [loai]: giaTri };
+    else if (hienTai != null && hienTai !== giaTri && (loai === "cachBu" || dongOKho(d))) boQua += 1;
+  }
+  return { chon, boQua };
+}
+
+/** Số sản phẩm vừa chọn đồng ý tiêu hủy (trước đó chưa đồng ý): câu cam kết nói rõ không hoàn tác. */
+export function soTieuHuyMoi(bb, chonTheoDong) {
+  return dsDongChon(bb)
+    .filter((d) => chonTheoDong?.[d.id]?.hangLoi === HANG_LOI.TIEU_HUY && d.hangLoi !== HANG_LOI.TIEU_HUY && moHangLoi(d).length > 0)
+    .reduce((s, d) => s + (Number(d.soLuong) || 0), 0);
+}
+
+/**
+ * Dữ liệu gửi POST /cong-ncc/bien-ban/{id}/xac-nhan theo từng dòng: chỉ các dòng có đổi, mỗi dòng chỉ câu có đổi (null
+ * là giữ như cũ). `phienBan`: phiên bản biên bản đang hiển thị (kho vừa lập lại thì máy chủ từ chối 409). `camKet`:
+ * người xác nhận đã đánh dấu câu cam kết trong hộp xác nhận.
+ */
+export function taoPayloadTheoDong(bb, chonTheoDong, nguoiXacNhan, ghiChu, phienBan = null, camKet = false) {
+  const dong = [];
+  for (const d of dsDongChon(bb)) {
+    const c = chonTheoDong?.[d.id];
+    if (!c) continue;
+    const cu = luaChonHienTai(d);
+    const phuongAn = c.cachBu && c.cachBu !== cu.cachBu && moCachBu(d).includes(c.cachBu) ? c.cachBu : null;
+    const hangLoi = c.hangLoi && c.hangLoi !== cu.hangLoi && moHangLoi(d).includes(c.hangLoi) ? c.hangLoi : null;
+    if (phuongAn || hangLoi) dong.push({ id: d.id, phuongAn, hangLoi });
+  }
+  const ghi = String(ghiChu ?? "").trim().slice(0, GHI_CHU_BIEN_BAN_TOI_DA);
+  return {
+    dong,
+    nguoiXacNhan: chuanHoaHoTen(nguoiXacNhan),
+    ghiChu: ghi || null,
+    phienBan: phienBan ?? null,
+    camKet: Boolean(camKet),
+  };
 }

@@ -108,6 +108,8 @@ export const NHAN_THEO_NHOM = {
     "Chờ bạn xác nhận",
     "Chờ bạn chọn",
     "Ở kho chờ lấy",
+    "Ở kho chờ xử lý",
+    "Cần chọn lại",
   ],
   dang: [
     "Nhận hóa đơn",
@@ -156,6 +158,7 @@ export const NHAN_THEO_NHOM = {
     "Được chấp nhận",
     "Đã xác nhận",
     "Đã trả",
+    "Đã trả và tiêu hủy",
     "Đã thanh toán",
     "Đã bán cho khách",
     "Khớp SKU",
@@ -230,7 +233,10 @@ export const BIEU_TUONG_THEO_NHAN = {
   "Chờ bạn chọn": "Hourglass",
   "Đã xác nhận": "BadgeCheck",
   "Ở kho chờ lấy": "Warehouse",
+  "Ở kho chờ xử lý": "Warehouse",
+  "Cần chọn lại": "RotateCcw",
   "Đã trả": "Undo2",
+  "Đã trả và tiêu hủy": "CircleCheckBig",
   "Đã duyệt": "BadgeCheck",
   "Hoàn thành": "CircleCheckBig",
   // Phiếu chuyển kho nội bộ dùng đúng tên trong đặc tả BA
