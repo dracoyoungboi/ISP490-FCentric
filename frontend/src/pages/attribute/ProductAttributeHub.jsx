@@ -269,6 +269,8 @@ const ProductAttributeHub = () => {
     const [loadError, setLoadError] = useState(null);
     const [total, setTotal] = useState(0);
     const [filters, setFilters] = useState(DEFAULT_FILTERS);
+    // Chữ đang gõ trong ô tìm; ngừng gõ 300 ms mới đưa vào filters.keyword (không gọi API ở mỗi phím)
+    const [tuKhoaGo, setTuKhoaGo] = useState("");
     const requestIdRef = useRef(0);
     const [modalConfig, setModalConfig] = useState({ open: false, mode: 'add', item: null });
     const [deleteConfig, setDeleteConfig] = useState({ open: false, item: null });
@@ -286,8 +288,15 @@ const ProductAttributeHub = () => {
     if (filtersTab !== activeTab) {
         setFiltersTab(activeTab);
         setFilters(DEFAULT_FILTERS);
+        setTuKhoaGo("");
         setLoading(true);
     }
+
+    useEffect(() => {
+        if (tuKhoaGo === filters.keyword) return undefined;
+        const hen = setTimeout(() => setFilters((p) => ({ ...p, keyword: tuKhoaGo, page: 0 })), 300);
+        return () => clearTimeout(hen);
+    }, [tuKhoaGo, filters.keyword]);
 
     const form = useForm({
         resolver: zodResolver(formSchema),
@@ -390,8 +399,11 @@ const ProductAttributeHub = () => {
     useTaiLaiKhiQuayLai(() => fetchData({ silent: true }), { bat: !loading });
 
     // Bộ lọc ngoài tab loại; "Xóa lọc" bỏ từ khóa + trạng thái thương hiệu, giữ tab loại và số dòng mỗi trang
-    const hasActiveFilters = Boolean(filters.keyword.trim()) || (activeTab === 'brand' && filters.trangThai !== "ALL");
-    const clearFilters = () => setFilters((p) => ({ ...DEFAULT_FILTERS, size: p.size }));
+    const hasActiveFilters = Boolean(tuKhoaGo.trim() || filters.keyword.trim()) || (activeTab === 'brand' && filters.trangThai !== "ALL");
+    const clearFilters = () => {
+        setTuKhoaGo("");
+        setFilters((p) => ({ ...DEFAULT_FILTERS, size: p.size }));
+    };
     const generateAutoCode = () => {
         const r = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
         if (activeTab === 'color') return `MS-${r}`;
@@ -531,10 +543,11 @@ const ProductAttributeHub = () => {
                     >
                         <SearchInput
                             label={t("Tìm {{loai}}", { loai: TAB_LABELS[activeTab] })}
-                            value={filters.keyword}
-                            onChange={e => setFilters(p => ({ ...p, keyword: e.target.value, page: 0 }))}
-                            onClear={() => setFilters(p => ({ ...p, keyword: "", page: 0 }))}
-                            placeholder={t("Tìm kiếm theo mã hoặc tên...")}
+                            value={tuKhoaGo}
+                            onChange={e => setTuKhoaGo(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Enter") setFilters(p => ({ ...p, keyword: tuKhoaGo, page: 0 })); }}
+                            onClear={() => { setTuKhoaGo(""); setFilters(p => ({ ...p, keyword: "", page: 0 })); }}
+                            placeholder={t("Mã hoặc tên")}
                             className="sm:w-[300px]"
                         />
                         {/* Lọc trạng thái chỉ có ở tab thương hiệu */}
