@@ -57,6 +57,7 @@ const SupplierDetailView = taiTrang(() => import("./pages/supplier/SupplierDetai
 const ProductList = taiTrang(() => import("./pages/product"));
 const ViewUserListByAdmin = taiTrang(() => import("./pages/admin/ViewUserListByAdmin"));
 const ViewUserDetailByAdmin = taiTrang(() => import("@/pages/admin/ViewUserDetailByAdmin.jsx"));
+const NhatKyDangNhapPage = taiTrang(() => import("@/pages/admin/NhatKyDangNhapPage.jsx"));
 const EditUserRoleByAdmin = taiTrang(() => import("@/pages/admin/EditUserRoleByAdmin.jsx"));
 const PhieuNhapKhoList = taiTrang(() => import("./pages/receipt/PhieuNhapKhoList"));
 const PhieuNhapKhoCreate = taiTrang(() => import("./pages/receipt/PhieuNhapKhoCreate"));
@@ -278,6 +279,8 @@ const CAY_DUONG_DAN = (
         <Route path="/users" element={<ViewUserListByAdmin />} />
         {/* Thêm người dùng là popup trên trang danh sách; giữ đường dẫn cũ để mở sẵn popup */}
         <Route path="/users/add" element={<Navigate to="/users" replace state={{ openCreateUser: true }} />} />
+        {/* Nhật ký đăng nhập toàn hệ thống: phải đứng TRƯỚC /users/:id để không bị nhận nhầm là id */}
+        <Route path="/users/sign-in-log" element={<NhatKyDangNhapPage />} />
         <Route path="/users/:id" element={<ViewUserDetailByAdmin />} />
         <Route
           path="/users/:id/edit-role"
