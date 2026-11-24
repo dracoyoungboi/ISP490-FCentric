@@ -92,10 +92,16 @@ public interface EmailNghiepVuService {
                            String moTaHangLoi, BooleanSupplier conHieuLuc, Runnable khiGuiDuoc);
 
     /**
-     * M5 · Đã ghi nhận câu trả lời của nhà cung cấp (cách bù, hàng lỗi), hoặc ({@code tuDong}) quá hạn trả lời nên cách
-     * bù đã chuyển trừ tiền. Gửi sau commit, có thử lại.
+     * M5 · Đã ghi nhận câu trả lời của nhà cung cấp (cách bù, hàng lỗi của từng dòng), hoặc ({@code tuDong}) quá hạn trả
+     * lời nên các dòng chưa chọn cách bù đã chuyển trừ tiền. Gửi sau commit, có thử lại.
      */
     void guiDaGhiNhanTraLoi(BienBanTraHangNcc bienBan, BienBanTraHangDto ban, boolean tuDong);
+
+    /**
+     * M5 (chọn lại) · Lúc nhập kho không trừ tiền được cho các dòng {@code dongIds} nhà cung cấp đã chọn trừ tiền (đơn
+     * mua không còn chờ đủ số này): các dòng đó về chờ chọn, mời nhà cung cấp chọn lại trên cổng. Gửi sau commit.
+     */
+    void guiCanChonLaiCachBu(BienBanTraHangNcc bienBan, BienBanTraHangDto ban, java.util.List<Integer> dongIds);
 
     /** M6 · Biên bản trả hàng đã hủy. Gọi sau khi biên bản đã chuyển sang DA_HUY; gửi sau commit, có thử lại. */
     void guiBienBanDaHuy(BienBanTraHangNcc bienBan);

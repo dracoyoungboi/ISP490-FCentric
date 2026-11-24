@@ -1,14 +1,17 @@
-[# th:insert="~{khung-dau.txt}" /][# th:if="${e.tuDong}"]Biên bản [(${e.maBienBan})]: đã chuyển trừ tiền[/][# th:unless="${e.tuDong}"]Đã ghi nhận trả lời biên bản [(${e.maBienBan})][/]
+[# th:insert="~{khung-dau.txt}" /][# th:if="${e.chonLai}"]Biên bản [(${e.maBienBan})]: cần chọn lại cách bù[/][# th:if="${e.tuDong and !e.chonLai and e.soSanPham > 0}"]Biên bản [(${e.maBienBan})]: đã chuyển trừ tiền[/][# th:if="${e.tuDong and !e.chonLai and e.soSanPham == 0}"]Biên bản [(${e.maBienBan})]: quá hạn trả lời[/][# th:unless="${e.tuDong or e.chonLai}"]Đã ghi nhận trả lời biên bản [(${e.maBienBan})][/]
 
 Kính gửi [(${e.tenNhaCungCap})],
 
-[# th:unless="${e.tuDong}"]Chúng tôi đã ghi nhận câu trả lời của Quý công ty cho biên bản trả hàng [(${e.maBienBan})][# th:if="${e.maDon != null}"] (đơn [(${e.maDon})])[/].[/][# th:if="${e.tuDong}"]Biên bản trả hàng [(${e.maBienBan})][# th:if="${e.maDon != null}"] (đơn [(${e.maDon})])[/] đã quá hạn trả lời[# th:if="${e.hanTraLoi != null}"] (hết ngày [(${e.hanTraLoi})])[/] mà Quý công ty chưa chọn cách bù. Chúng tôi từ chối nhận [(${e.soSanPham})] sản phẩm lỗi và trừ tiền hàng khi thanh toán.[/]
-
+[# th:unless="${e.tuDong or e.chonLai}"]Chúng tôi đã ghi nhận câu trả lời của Quý công ty cho biên bản trả hàng [(${e.maBienBan})][# th:if="${e.maDon != null}"] (đơn [(${e.maDon})])[/].[/][# th:if="${e.tuDong and !e.chonLai}"]Biên bản trả hàng [(${e.maBienBan})][# th:if="${e.maDon != null}"] (đơn [(${e.maDon})])[/] đã quá hạn trả lời[# th:if="${e.hanTraLoi != null}"] (hết ngày [(${e.hanTraLoi})])[/] mà Quý công ty chưa chọn cách bù.[# th:if="${e.soSanPham > 0}"] Chúng tôi từ chối nhận [(${e.soSanPham})] sản phẩm lỗi và trừ tiền hàng khi thanh toán.[/][/][# th:if="${e.chonLai}"]Khi nhập kho lô hàng của biên bản [(${e.maBienBan})], chúng tôi chưa trừ tiền được cho [(${e.soSanPham})] sản phẩm lỗi Quý công ty chọn trừ tiền, vì đơn[# th:if="${e.maDon != null}"] [(${e.maDon})][/] không còn chờ đủ số này (đã có hàng giao ở đợt khác hoặc đang chờ nhập kho). Vui lòng chọn lại cách bù cho các sản phẩm ghi "Cần chọn lại" bên dưới trên Cổng nhà cung cấp[# th:if="${e.hanTraLoi != null}"] trước hết ngày [(${e.hanTraLoi})][/].[/]
+[# th:unless="${e.chonLai}"]
 Bù hàng lỗi: [(${e.cachBu ?: 'Chưa chọn'})][# th:if="${e.moTaCachBu != null}"] ([(${e.moTaCachBu})])[/]
 Hàng lỗi: [(${e.hangLoi ?: 'Chưa chọn'})][# th:if="${e.moTaHangLoi != null}"] ([(${e.moTaHangLoi})])[/]
 [# th:if="${e.nguoiXacNhan != null}"]Người xác nhận: [(${e.nguoiXacNhan})]
 [/]Ghi nhận lúc: [(${e.luc})]
-
+[/][# th:if="${e.coBangDong()}"]
+Từng sản phẩm lỗi:
+[# th:each="d : ${e.dong}"]- [(${d.tenSanPham ?: ''})][# th:if="${d.phanLoai != null}"] ([(${d.phanLoai})])[/] · [(${d.lyDo ?: ''})] · [(${d.soLuong})] sản phẩm: [(${d.cachBu})][# th:if="${d.hangLoi != null}"] · hàng lỗi: [(${d.hangLoi})][/]
+[/][/]
 [# th:each="c : ${e.ghiChuDoi}"][(${c})]
 [/][# th:if="${nguoiPhuTrach != null}"]Cần đổi điều đã chốt, xin liên hệ người phụ trách đơn.[/][# th:unless="${nguoiPhuTrach != null}"]Cần đổi điều đã chốt, xin liên hệ chúng tôi.[/]
 
