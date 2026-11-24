@@ -84,6 +84,7 @@ public class ShopeeClient {
     public static final String PATH_GET_ADDRESS_LIST = "/api/v2/logistics/get_address_list";
     public static final String PATH_CREATE_DOC = "/api/v2/logistics/create_shipping_document";
     public static final String PATH_GET_DOC_RESULT = "/api/v2/logistics/get_shipping_document_result";
+    public static final String PATH_GET_DOC_DATA_INFO = "/api/v2/logistics/get_shipping_document_data_info";
     public static final String PATH_DOWNLOAD_DOC = "/api/v2/logistics/download_shipping_document";
 
     // 5. Payment Paths
@@ -377,7 +378,7 @@ public class ShopeeClient {
         String base = ShopeeSignatureHelper.buildShopBaseString(partnerId, PATH_ORDER_DETAIL, timestamp, accessToken, shopId);
         String sign = ShopeeSignatureHelper.sign(partnerKey, base);
         String snParam = String.join(",", orderSnList);
-        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&order_sn_list=%s&response_optional_fields=buyer_user_id,buyer_username,recipient_address,item_list,shipping_carrier,payment_method,total_amount,estimated_shipping_fee,actual_shipping_fee,cancel_reason,cancel_user,note,pay_time",
+        String url = String.format("%s%s?partner_id=%s&timestamp=%d&access_token=%s&shop_id=%s&sign=%s&order_sn_list=%s&response_optional_fields=buyer_user_id,buyer_username,recipient_address,item_list,package_list,shipping_carrier,payment_method,total_amount,estimated_shipping_fee,actual_shipping_fee,cancel_reason,cancel_user,note,pay_time",
                 getHost(isSandbox), PATH_ORDER_DETAIL, partnerId, timestamp, accessToken, shopId, sign, snParam);
         return executeGet(url);
     }
@@ -1082,6 +1083,40 @@ public class ShopeeClient {
                 "shipping_document_type", docType
         );
         return executePost(url, body);
+    }
+
+    /**
+     * Lấy thông tin dữ liệu vận đơn Shopee (`/api/v2/logistics/get_shipping_document_data_info`),
+     * gồm mã vận đơn thật, đơn vị vận chuyển, mã chia chọn tuyến (`recipient_sort_code`) và cờ COD.
+     */
+    public JsonNode getShippingDocumentDataInfo(String partnerId, String partnerKey, String accessToken, String shopId,
+                                                String orderSn, String packageNumber, boolean isSandbox) {
+        if (isMockCredentials(partnerId, partnerKey)) {
+            ObjectNode res = objectMapper.createObjectNode();
+            res.put("error", "").put("message", "success");
+            ObjectNode info = res.putObject("response").putObject("shipping_document_info");
+            info.put("tracking_number", "SPXVN05" + (orderSn != null ? orderSn.replaceAll("[^0-9]", "") : "123456"));
+            info.put("shipping_carrier", "Shopee Xpress (SPX VN)");
+            info.put("cod", true);
+            info.put("cod_amount", 320000);
+            ObjectNode sortCode = info.putObject("recipient_sort_code");
+            sortCode.put("first_recipient_sort_code", "1-SGN-HUB");
+            sortCode.put("second_recipient_sort_code", "SG100A");
+            sortCode.put("third_recipient_sort_code", "00-01");
+            return res;
+        }
+
+        String url = buildSignedShopUrl(PATH_GET_DOC_DATA_INFO, partnerId, partnerKey, accessToken, shopId, isSandbox);
+        Map<String, Object> body = new HashMap<>();
+        body.put("order_sn", orderSn);
+        if (packageNumber != null && !packageNumber.isBlank()) {
+            body.put("package_number", packageNumber.trim());
+        }
+        return executePost(url, body);
+    }
+
+    public JsonNode getShippingDocumentDataInfo(String orderSn, String packageNumber) {
+        return getShippingDocumentDataInfo(pIdStr(), pKeyStr(), aTokenStr(), sIdStr(), orderSn, packageNumber, this.isSandbox);
     }
 
     // =========================================================================
