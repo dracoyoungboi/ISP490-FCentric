@@ -46,6 +46,27 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     @Autowired
     private EntityManager entityManager;
 
+    /** Liên kết có thể trống trên phiếu nhập: phiếu nhập chuyển kho, khách trả tại quầy không có đơn mua / nhà cung cấp. */
+    private static final java.util.Set<String> LIEN_KET_CO_THE_TRONG = java.util.Set.of("donMuaHang", "nhaCungCap");
+
+    /**
+     * Bộ lọc danh sách nối đơn mua / nhà cung cấp bằng LEFT JOIN (dùng lại một phép nối cho mọi điều kiện): nối ngầm của
+     * bộ lọc chung là INNER JOIN, nên gõ từ khóa ở ô tìm (số phiếu HOẶC số đơn mua) làm rơi mọi phiếu không có đơn mua dù
+     * số phiếu khớp.
+     */
+    @Override
+    protected jakarta.persistence.criteria.Path<?> getFieldPath(jakarta.persistence.criteria.Root<PhieuNhapKho> root, String fieldName) {
+        String[] parts = fieldName.split("\\.");
+        if (parts.length < 2 || !LIEN_KET_CO_THE_TRONG.contains(parts[0])) return super.getFieldPath(root, fieldName);
+        jakarta.persistence.criteria.Join<?, ?> noi = root.getJoins().stream()
+                .filter(j -> j.getAttribute().getName().equals(parts[0]) && j.getJoinType() == jakarta.persistence.criteria.JoinType.LEFT)
+                .findFirst()
+                .orElseGet(() -> root.join(parts[0], jakarta.persistence.criteria.JoinType.LEFT));
+        jakarta.persistence.criteria.Path<?> path = noi.get(parts[1]);
+        for (int i = 2; i < parts.length; i++) path = path.get(parts[i]);
+        return path;
+    }
+
     @Autowired
     private DonMuaHangRepository donMuaHangRepository;
 
