@@ -165,8 +165,10 @@ export default function PurchaseOrderDetail() {
     );
     const nhanBu = useMemo(() => nhanBuTheoBienThe(bienBans), [bienBans]);
     const chuyenKhiDong = useMemo(() => hangLoiChuyenKhiDongDon(bienBans, don?.chiTietDonMuaHangs), [bienBans, don]);
-    // Số tiền đầu trang: có hàng lỗi trừ tiền thì giá trị đã giảm trừ (máy chủ giữ tổng theo số đặt)
-    const tongTienHienThi = bang.tong.giamTru > 0 ? bang.tong.thanhTien : don?.tongTien;
+    // Số tiền đầu trang: số phải trả máy chủ tính (trừ hàng lỗi, đơn đóng thiếu chỉ trả phần đã nhận) — cùng số với cột
+    // Phải trả ở danh sách; máy chủ cũ chưa có thì giá trị đã giảm trừ hàng lỗi (tongTien vẫn là tiền theo số đặt)
+    const tongTienHienThi = don?.phaiTra != null ? don.phaiTra : bang.tong.giamTru > 0 ? bang.tong.thanhTien : don?.tongTien;
+    const khongGiao = Number(don?.khongGiao) > 0 ? Number(don.khongGiao) : 0;
     // Phần các phiếu nhập Nháp đang giữ và số còn tạo phiếu được (máy chủ trừ phần giữ khi tạo phiếu mới). Chỉ lấy phiếu
     // của đúng đơn này: đổi sang đơn khác trong cùng trang thì danh sách phiếu cũ còn giữ tới khi tải xong.
     const phanGiu = useMemo(
@@ -354,6 +356,7 @@ export default function PurchaseOrderDetail() {
                     don={don}
                     tongTien={tongTienHienThi}
                     giamTru={bang.tong.giamTru}
+                    khongGiao={khongGiao}
                     taoPhieu={taoPhieu}
                     ketThuc={ketThuc}
                     onQuayLai={quayLai}
@@ -380,6 +383,9 @@ export default function PurchaseOrderDetail() {
                     <BangDotNhan
                         bang={bang}
                         tongTien={don.tongTien}
+                        phaiTra={don.phaiTra ?? null}
+                        khongGiao={khongGiao}
+                        soKhongGiao={Number(don.soKhongGiao) || 0}
                         nhanBu={nhanBu}
                         xemDot={xemDotNhan}
                         // Tự tải lại ngầm: giữ các đợt nhận đang hiện, không bật chữ đang tải / dòng báo lỗi

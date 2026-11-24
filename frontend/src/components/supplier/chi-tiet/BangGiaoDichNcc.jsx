@@ -10,6 +10,7 @@ import { getBaoGiaNccStatus, getDonMuaHangStatus } from "@/constants/donMuaHang"
 import { getGoodsReceiptStatus } from "@/constants/goodsReceipt";
 import { tinhTienDoNhan } from "@/components/order/chi-tiet-don-mua/tinhNhanHang";
 import { ngayDat } from "@/components/supplier/chi-tiet/tinhNhaCungCap";
+import OPhaiTra from "@/components/order/danh-sach-don-mua/OPhaiTra";
 import { formatCurrency, formatDate, formatNumber } from "@/utils/formatters";
 import { t } from "@/i18n";
 
@@ -113,7 +114,7 @@ export function DangMoNcc({ viec, nutCuaDon }) {
                 </div>
               </div>
               <div className="text-right font-semibold tabular-nums text-bo-foreground @2xl:order-4">
-                {formatCurrency(d.tongTien)}
+                <OPhaiTra don={d} />
               </div>
               <div className="col-span-3 flex min-w-0 items-center gap-2.5 @2xl:order-3 @2xl:col-span-1">
                 <ThanhNhan tienDo={tienDo} className="@2xl:max-w-[120px]" />
@@ -209,7 +210,7 @@ export function BangDonMuaNcc({ chot, giaoTheoDon }) {
           { nhan: t("Giao dự kiến") },
           { nhan: t("Giao hàng") },
           { nhan: t("Đã nhận"), phai: true },
-          { nhan: t("Tổng tiền"), phai: true },
+          { nhan: t("Phải trả"), phai: true },
         ]}
       />
       <tbody>
@@ -232,7 +233,7 @@ export function BangDonMuaNcc({ chot, giaoTheoDon }) {
               <td className={cn(O, "text-right text-slate-700")}>
                 {formatNumber(tienDo.daNhan)}/{formatNumber(tienDo.dat)}
               </td>
-              <td className={cn(O_CUOI, "font-semibold text-bo-foreground")}>{formatCurrency(d.tongTien)}</td>
+              <td className={cn(O_CUOI, "font-semibold text-bo-foreground")}><OPhaiTra don={d} /></td>
             </tr>
           );
         })}

@@ -65,7 +65,7 @@ const COT_DINH = "sticky left-0 z-[1] min-w-[220px] shadow-[1px_0_0_var(--color-
  * - `xemDot = false` (vai trò không xem được phiếu nhập): không có cột theo đợt, chỉ số đặt và còn thiếu của đơn.
  * - `loiDot`: `null` khi không lỗi; chuỗi (có thể rỗng) khi lỗi.
  */
-export default function BangDotNhan({ bang, tongTien, nhanBu, xemDot = true, dangTaiDot, loiDot, onThuLai }) {
+export default function BangDotNhan({ bang, tongTien, phaiTra = null, khongGiao = 0, soKhongGiao = 0, nhanBu, xemDot = true, dangTaiDot, loiDot, onThuLai }) {
   const { cot, dong, tong } = bang;
   const coCot = cot.length > 0;
   const coTruTien = tong.truTien > 0;
@@ -75,6 +75,10 @@ export default function BangDotNhan({ bang, tongTien, nhanBu, xemDot = true, dan
   // Sản phẩm, Đơn giá, Đặt, các đợt, [Đã nhận], [Lỗi trừ tiền], Còn thiếu, Thành tiền
   const soCot = 5 + cot.length + (coDaNhan ? 1 : 0) + (coTruTien ? 1 : 0);
   const tongThanhTien = coGiamTru ? tong.thanhTien : tongTien ?? tong.thanhTien;
+  // Đơn đóng thiếu: phần không giao không trả (máy chủ tính); khối tiền kể thêm dòng này
+  const coKhongGiao = khongGiao > 0;
+  const coDieuChinh = coGiamTru || coKhongGiao;
+  const soPhaiTra = phaiTra != null ? Number(phaiTra) : tong.thanhTien - khongGiao;
 
   return (
     <section aria-labelledby="bang-dot-nhan-title" className="flex min-w-0 flex-col">
@@ -244,19 +248,30 @@ export default function BangDotNhan({ bang, tongTien, nhanBu, xemDot = true, dan
       </div>
 
       {/* Khối tiền như hóa đơn: tiền theo số đặt, giảm trừ hàng lỗi, phải trả; giá trị hàng đạt khi mới nhận một phần */}
-      {dong.length > 0 && (coGiamTru || (tong.conThieu > 0 && tong.daNhan > 0)) ? (
+      {dong.length > 0 && (coDieuChinh || (tong.conThieu > 0 && tong.daNhan > 0)) ? (
         <dl className="ml-auto grid w-full max-w-[380px] grid-cols-[1fr_auto] gap-x-6 gap-y-1.5 px-4 py-3.5 text-[13px] leading-5 tabular-nums sm:px-6">
-          {coGiamTru ? (
+          {coDieuChinh ? (
             <>
               <dt className="text-bo-muted">{t("Tiền theo số đặt")}</dt>
               <dd className="text-right text-bo-foreground">{formatCurrency(tong.thanhTienTheoDat)}</dd>
-              <dt className="text-bo-muted">{t("Giảm trừ {{n}} sản phẩm lỗi", { n: formatNumber(tong.truTien) })}</dt>
-              <dd className="text-right text-bo-foreground">−{formatCurrency(tong.giamTru)}</dd>
+              {coGiamTru ? (
+                <>
+                  <dt className="text-bo-muted">{t("Giảm trừ {{n}} sản phẩm lỗi", { n: formatNumber(tong.truTien) })}</dt>
+                  <dd className="text-right text-bo-foreground">−{formatCurrency(tong.giamTru)}</dd>
+                </>
+              ) : null}
+              {coKhongGiao ? (
+                <>
+                  <dt className="text-bo-muted">{t("Không giao, đã đóng đơn ({{count}} sản phẩm)", { count: soKhongGiao })}</dt>
+                  <dd className="text-right text-bo-foreground">−{formatCurrency(khongGiao)}</dd>
+                </>
+              ) : null}
               <dt className="border-t border-bo-border pt-1.5 font-semibold text-bo-foreground">{t("Phải trả nhà cung cấp")}</dt>
-              <dd className="border-t border-bo-border pt-1.5 text-right font-semibold text-bo-foreground">{formatCurrency(tong.thanhTien)}</dd>
+              <dd className="border-t border-bo-border pt-1.5 text-right font-semibold text-bo-foreground">{formatCurrency(soPhaiTra)}</dd>
             </>
           ) : null}
-          {tong.conThieu > 0 && tong.daNhan > 0 ? (
+          {/* Đơn đóng thiếu đã kể phần không giao ở trên: không lặp giá trị hàng đạt */}
+          {tong.conThieu > 0 && tong.daNhan > 0 && !coKhongGiao ? (
             <>
               <dt className="text-bo-muted">{t("Giá trị hàng đạt đã nhận")}</dt>
               <dd className="text-right text-bo-foreground">{formatCurrency(tong.giaTriDaNhan)}</dd>

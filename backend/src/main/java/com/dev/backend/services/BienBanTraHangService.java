@@ -75,6 +75,20 @@ public interface BienBanTraHangService {
     Map<Integer, Integer> truTienTheoBienThe(Integer donMuaHangId);
 
     /**
+     * Hàng lỗi của nhiều đơn mua (vài truy vấn cho cả trang danh sách): số đã trừ tiền theo biến thể và số sản phẩm lỗi
+     * chưa chốt cách bù. Đơn không có biên bản hiệu lực thì không có trong kết quả.
+     */
+    Map<Integer, TraHangTheoDon> traHangTheoDon(Collection<Integer> donMuaHangIds);
+
+    /**
+     * Hàng lỗi của một đơn mua: {@code truTheoBienThe} số đã trừ tiền theo biến thể (đã nằm trong "đã nhận" của dòng
+     * đơn); {@code soLoiChoChot} số sản phẩm lỗi của biên bản còn hiệu lực chưa chốt cách bù (có thể còn trừ tiền).
+     */
+    record TraHangTheoDon(Map<Integer, Integer> truTheoBienThe, int soLoiChoChot) {
+        public static final TraHangTheoDon TRONG = new TraHangTheoDon(Map.of(), 0);
+    }
+
+    /**
      * Kho ghi đã giao trả hàng lỗi cho nhà cung cấp: các dòng {@code request.dongIds} (thiếu: mọi dòng còn ở kho nhà cung
      * cấp chọn nhận lại); mỗi dòng phải còn ở kho và nhà cung cấp đã chọn nhận lại.
      */

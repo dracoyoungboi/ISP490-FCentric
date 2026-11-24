@@ -33,6 +33,11 @@ public interface BienBanTraHangNccRepository extends JpaRepository<BienBanTraHan
     List<BienBanTraHangNcc> timChoDanhSach(@Param("nhaCungCapId") Integer nhaCungCapId,
                                           @Param("donMuaHangId") Integer donMuaHangId);
 
+    /** Biên bản của nhiều đơn mua (một truy vấn): tính số phải trả cho một trang danh sách đơn mua. */
+    @Query("SELECT b FROM BienBanTraHangNcc b JOIN FETCH b.phieuNhapKho p JOIN FETCH p.donMuaHang d "
+            + "WHERE d.id IN :donIds ORDER BY b.id")
+    List<BienBanTraHangNcc> timTheoDonMua(@Param("donIds") java.util.Collection<Integer> donIds);
+
     /** Biên bản của các nhà cung cấp (cổng nhà cung cấp: mọi nhà cung cấp dùng chung email đăng nhập), mới trước. */
     @Query("SELECT b FROM BienBanTraHangNcc b JOIN FETCH b.phieuNhapKho p JOIN FETCH p.kho JOIN FETCH b.nhaCungCap "
             + "LEFT JOIN FETCH p.donMuaHang d LEFT JOIN FETCH b.nguoiTao LEFT JOIN FETCH p.nguoiNhap "

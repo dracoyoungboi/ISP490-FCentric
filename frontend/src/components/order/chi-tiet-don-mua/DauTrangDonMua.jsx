@@ -30,8 +30,8 @@ const MUC_MENU =
 /**
  * Đầu khối của màn Chi tiết đơn mua hàng: nút quay lại, mã đơn + trạng thái, dòng phụ
  * (tổng tiền · nhà cung cấp · kho · ngày tạo) và các nút In đơn hàng, ⋯, Tạo phiếu nhập kho.
- * `tongTien`: số tiền hiện ở dòng phụ (đã giảm trừ hàng lỗi trừ tiền nếu có, `giamTru` là phần đã trừ); trống thì
- * lấy tổng của đơn.
+ * `tongTien`: số tiền hiện ở dòng phụ (số phải trả: đã giảm trừ hàng lỗi trừ tiền `giamTru`, đơn đóng thiếu không trả
+ * phần không giao `khongGiao`); trống thì lấy tổng của đơn.
  * Màn tự vẽ tiêu đề nên phải "nhận" tiêu đề để layout không vẽ thêm tiêu đề dự phòng.
  *
  * `taoPhieu`: `{ hien, khoa, lyDo, nhan, moPhieu }` — ẩn khi không có quyền; khóa kèm lý do khi đã đủ hàng
@@ -45,7 +45,7 @@ const MUC_MENU =
  * (đã có phiếu nhập hoàn tất) hoặc "Hủy đơn" (chưa có), chữ đỏ có vạch ngăn; chọn thì `onKetThuc("dong" | "huy")`
  * mở hộp nhập lý do. `khoa`: máy chủ còn đang xử lý thao tác trước (mục vẫn hiện, chọn không làm gì).
  */
-export default function DauTrangDonMua({ don, tongTien, giamTru = 0, taoPhieu, ketThuc, onQuayLai, onIn, onTaoPhieu, onMoYeuCau, onKetThuc }) {
+export default function DauTrangDonMua({ don, tongTien, giamTru = 0, khongGiao = 0, taoPhieu, ketThuc, onQuayLai, onIn, onTaoPhieu, onMoYeuCau, onKetThuc }) {
   useClaimPageTitle(true);
   const [moMenu, setMoMenu] = useState(false);
   const { daChep, saoChep, quenDaChep, taiCho } = useSaoChep();
@@ -118,13 +118,17 @@ export default function DauTrangDonMua({ don, tongTien, giamTru = 0, taoPhieu, k
           <p className="mt-0.5 text-[13px] leading-5 text-bo-muted">
             <span
               className="font-semibold tabular-nums text-bo-foreground"
-              title={giamTru > 0 ? t("Đã giảm trừ hàng lỗi {{tien}}", { tien: formatCurrency(giamTru) }) : undefined}
+              title={giamTru > 0 || khongGiao > 0 ? t("Số phải trả nhà cung cấp") : undefined}
             >
               {formatCurrency(tongTien ?? don.tongTien)}
             </span>
-            {/* Nói rõ số tiền đầu trang đã giảm trừ hàng lỗi */}
-            {giamTru > 0 ? (
+            {/* Nói rõ số tiền đầu trang đã giảm trừ hàng lỗi / không tính phần không giao của đơn đóng thiếu */}
+            {giamTru > 0 && khongGiao > 0 ? (
+              <span className="text-bo-muted">{" "}{t("(đã giảm {{tien}} hàng lỗi, {{khong}} hàng không giao)", { tien: formatCurrency(giamTru), khong: formatCurrency(khongGiao) })}</span>
+            ) : giamTru > 0 ? (
               <span className="text-bo-muted">{" "}{t("(đã giảm {{tien}} hàng lỗi)", { tien: formatCurrency(giamTru) })}</span>
+            ) : khongGiao > 0 ? (
+              <span className="text-bo-muted">{" "}{t("(không trả {{tien}} hàng không giao)", { tien: formatCurrency(khongGiao) })}</span>
             ) : null}
             {ncc ? (
               <>
