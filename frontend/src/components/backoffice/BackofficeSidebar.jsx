@@ -814,8 +814,12 @@ export default function BackofficeSidebar() {
     if (!item.children) return renderDirectLink(item);
 
     const Icon = item.icon;
+    // Mục khai báo `chiHienKhiCoViec` chỉ hiện khi có việc cần xử lý hoặc đang mở màn đó (xử lý xong khoản
+    // cuối cùng thì mục không biến mất ngay dưới tay người dùng).
     const visibleChildren = item.children.filter(
-      (child) => !child.roles || child.roles.includes(role),
+      (child) =>
+        (!child.roles || child.roles.includes(role)) &&
+        (!child.chiHienKhiCoViec || soDem(child) > 0 || namTrongMuc(child.to, location.pathname)),
     );
 
     // Không còn đích đến nào cho role hiện tại -> ẩn luôn mục cha ở cả hai trạng

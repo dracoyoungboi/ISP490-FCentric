@@ -265,11 +265,14 @@ export const SIDEBAR_MENU = [
       {
         // Giao dịch chuyển khoản tại quầy; quản trị viên xử lý giao dịch đã nhận tiền nhưng chưa có đơn.
         // badge: số giao dịch cần xử lý (BackofficeSidebar đọc từ components/pos/payosCanXuLy)
+        // chiHienKhiCoViec: chỉ hiện trên menu khi số đếm > 0 hoặc đang mở màn này; lúc khác vào qua thông báo
+        // hoặc ô tìm Ctrl + K (tab Đã xử lý để đối chiếu payOS)
         label: t("Đối soát chuyển khoản"),
         to: "/pos-transfers",
         nhom: CHUNG_TU,
         roles: ["quan_tri_vien"],
         badge: "payosCanXuLy",
+        chiHienKhiCoViec: true,
       },
       {
         label: t("Khách hàng"),
