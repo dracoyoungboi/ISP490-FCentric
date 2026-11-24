@@ -31,6 +31,7 @@ import TableShell from "@/components/shared/TableShell";
 import TablePagination from "@/components/shared/TablePagination";
 import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import SheetThaoTac, { NutThaoTac } from "@/components/san-pham/SheetThaoTac";
+import NutLocGiaBan from "@/components/san-pham/NutLocGiaBan";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
@@ -568,7 +569,7 @@ export default function ProductList() {
                         ) : null}
                         <SearchInput
                             label={t("Tìm sản phẩm")}
-                            placeholder={t("Tìm tên, mã, SKU, mã vạch...")}
+                            placeholder={t("Tên, mã, mã vạch")}
                             value={draft.keyword}
                             onChange={updateDraft("keyword")}
                             onClear={() => {
@@ -661,27 +662,15 @@ export default function ProductList() {
                             </DropdownMenuContent>
                         </DropdownMenu>
 
-                        {/* Khoảng giá bán */}
-                        <div className="flex w-full items-center gap-2 sm:w-auto">
-                            <Input
-                                type="number"
-                                value={draft.giaTu}
-                                onChange={updateDraft("giaTu")}
-                                placeholder={t("Giá từ")}
-                                aria-label={t("Giá từ")}
-                                min="0"
-                                className="h-9 min-w-0 flex-1 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 sm:w-28 sm:flex-none"
-                            />
-                            <Input
-                                type="number"
-                                value={draft.giaDen}
-                                onChange={updateDraft("giaDen")}
-                                placeholder={t("Giá đến")}
-                                aria-label={t("Giá đến")}
-                                min="0"
-                                className="h-9 min-w-0 flex-1 border-bo-border bg-bo-surface text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-bo-primary/20 sm:w-28 sm:flex-none"
-                            />
-                        </div>
+                        {/* Khoảng giá bán: một nút mở hộp Từ – Đến, áp khi bấm Áp dụng (không qua debounce) */}
+                        <NutLocGiaBan
+                            giaTu={draft.giaTu}
+                            giaDen={draft.giaDen}
+                            onApDung={(giaTu, giaDen) => {
+                                setDraft((prev) => ({ ...prev, giaTu, giaDen }));
+                                setFilters((prev) => ({ ...prev, giaTu, giaDen, page: 0 }));
+                            }}
+                        />
                         </>
                         )}
                     </ListToolbar>
