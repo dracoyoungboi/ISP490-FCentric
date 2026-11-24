@@ -25,7 +25,11 @@ export default function SearchInput({
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="h-9 w-full rounded-md border border-bo-border bg-bo-surface py-2 pr-9 pl-9 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 [&::-webkit-search-cancel-button]:appearance-none"
+        className={cn(
+          "h-9 w-full rounded-md border border-bo-border bg-bo-surface py-2 pl-9 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 [&::-webkit-search-cancel-button]:appearance-none",
+          // Chỉ chừa chỗ bên phải khi có nút × (đã gõ chữ) hoặc biểu tượng cuối; ô trống để chữ gợi ý dùng hết bề ngang
+          (value && onClear) || bieuTuongCuoi ? "pr-9" : "pr-3",
+        )}
         {...props}
       />
       {bieuTuongCuoi && !value ? (
