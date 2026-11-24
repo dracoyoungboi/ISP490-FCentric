@@ -1,10 +1,11 @@
 import { Fragment, useMemo, useState } from "react";
-import { KeyRound, ShieldAlert } from "lucide-react";
+import { ChevronDown, ChevronUp, KeyRound, ShieldAlert } from "lucide-react";
 
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
 import { Button } from "@/components/ui/button";
 import TheThietBi from "@/components/nguoi-dung/ho-so/TheThietBi";
+import { SO_THE_TREN_TRANG } from "@/components/nguoi-dung/ho-so/thietBiHoSo";
 import { cn } from "@/lib/utils";
 import { moTaThietBi } from "@/utils/thietBi";
 import { t } from "@/i18n";
@@ -81,6 +82,8 @@ export function KetQuaPill({ ketQua }) {
 
 export default function DangNhapNguoiDung({ data, loading, error, onThuLai, onCapLaiMatKhau, coEmail = true }) {
   const [loc, setLoc] = useState("all");
+  // Nhiều thiết bị: mặc định hiện SO_THE_TREN_TRANG thẻ, "Xem tất cả" mở rộng tại chỗ (trang không phình).
+  const [moRongThietBi, setMoRongThietBi] = useState(false);
 
   // Thiết bị đã mới-hoạt-động-trước từ máy chủ (dsPhienHieuLuc). Chỉ thêm tên + loại để chọn biểu tượng (không sắp
   // lại theo thời gian — tránh đọc Date.now() trong lúc vẽ).
@@ -151,11 +154,31 @@ export default function DangNhapNguoiDung({ data, loading, error, onThuLai, onCa
         {phien.length === 0 ? (
           <p className="text-sm text-bo-muted">{t("Không có thiết bị nào đang đăng nhập.")}</p>
         ) : (
-          <ul className="m-0 grid list-none gap-2.5 p-0 @lg:grid-cols-2">
-            {phien.map((p) => (
-              <TheThietBi key={p.id} phien={p} />
-            ))}
-          </ul>
+          <>
+            <ul className="m-0 grid list-none gap-2.5 p-0 @lg:grid-cols-2">
+              {(moRongThietBi ? phien : phien.slice(0, SO_THE_TREN_TRANG)).map((p) => (
+                <TheThietBi key={p.id} phien={p} />
+              ))}
+            </ul>
+            {phien.length > SO_THE_TREN_TRANG ? (
+              <div className="mt-3 flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setMoRongThietBi((m) => !m)}
+                  className="border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+                >
+                  {moRongThietBi ? t("Thu gọn") : t("Xem tất cả {{count}} thiết bị", { count: phien.length })}
+                  {moRongThietBi ? (
+                    <ChevronUp className="size-4" aria-hidden="true" />
+                  ) : (
+                    <ChevronDown className="size-4" aria-hidden="true" />
+                  )}
+                </Button>
+              </div>
+            ) : null}
+          </>
         )}
         <p className="mt-2.5 flex items-start gap-1.5 text-xs leading-[18px] text-bo-muted">
           <span aria-hidden="true">ⓘ</span>
