@@ -32,8 +32,6 @@ import {
   dongHangBan,
   gioNgay,
   hauQuaHuy,
-  laDonLazada,
-  laDonShopee,
   laDonSan,
   laDonTaiQuay,
   lyDoSanHuy,
@@ -104,9 +102,6 @@ function ChiTietDonBanHang({ id }) {
   const don = ct?.donBanHang ?? null;
   const laPos = laDonTaiQuay(ct);
   const laSan = laDonSan(don);
-  const laLazada = laDonLazada(don);
-  const laShopee = laDonShopee(don);
-  const laSanXuatKhoTong = laLazada || laShopee;
 
   const [hop, setHop] = useState(""); // "" | "guiKho" | "huy" | "daGiao" | "hoanTra"
   const [dangChay, setDangChay] = useState(""); // thao tác đang gửi lên máy chủ
@@ -226,12 +221,6 @@ function ChiTietDonBanHang({ id }) {
       cauLoi: t("Không gửi được đơn sang kho"),
       thanhCong: () => toast.success(t("Đã gửi đơn {{so}} sang {{tenKho}}", { so, tenKho: kho.tenKho }), { description: t("Đơn chuyển sang Chờ nhặt hàng") }),
     });
-  const guiKhoLazada = () =>
-    thucHien("guiKho", () => donBanHangService.sendToWarehouse(id), {
-      coHop: false,
-      cauLoi: t("Không gửi được đơn sang kho"),
-      thanhCong: () => toast.success(t("Đã gửi đơn {{so}} sang Kho Tổng", { so }), { description: t("Đơn chuyển sang Chờ nhặt hàng") }),
-    });
   // Máy chủ trả thành công mà không làm gì khi đơn đã hủy (vd. sàn vừa hủy): đọc lại đơn để không báo nhầm "đã gửi sang sàn"
   const huyDon = () =>
     thucHien(
@@ -286,7 +275,7 @@ function ChiTietDonBanHang({ id }) {
             icon: Send,
             dangChay: dangChay === "guiKho",
             khoa: Boolean(dangChay),
-            onClick: laSanXuatKhoTong ? guiKhoLazada : () => moHop("guiKho"),
+            onClick: () => moHop("guiKho"),
           }
         : null,
       v.nutDaGiao ? { ma: "daGiao", nhan: t("Xác nhận đã giao"), icon: CircleCheckBig, onClick: () => moHop("daGiao") } : null,

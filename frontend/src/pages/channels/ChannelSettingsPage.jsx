@@ -72,10 +72,12 @@ export default function ChannelSettingsPage() {
     { enabled: ketNoi },
   );
   const khoSan = tenDiaDiemNhanTon(kho);
+  const HO_TRO_DA_KHO = new Set(["SHOPIFY", "LAZADA", "LAZADA_SANDBOX", "TIKTOK", "SHOPEE", "SHOPEE_OFFICIAL", "SHOPEE_SANDBOX"]);
+  const hoTroMappingKho = HO_TRO_DA_KHO.has(String(SAN.maKenh ?? "").toUpperCase());
   const khoMapping = useTaiDuLieu(
     () => kenhBanHangService.getKhoMapping(SAN.maKenh).catch(() => null),
     `kho-mapping|${SAN.maKenh}`,
-    { enabled: ketNoi && SAN.maKenh === "SHOPIFY" },
+    { enabled: ketNoi && hoTroMappingKho },
   );
 
   if (cfg.initialLoading || ch.initialLoading) {
@@ -175,11 +177,33 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
   const doiGianHang = dongBoGianHang !== (Number(config?.trangThai) === 1);
   const doiCauHinh = coThayDoiCauHinh(values, cauHinh);
   const doiKhoMapping = Boolean(
-    SAN.maKenh === "SHOPIFY" &&
     khoMapping?.data &&
     JSON.stringify(khoMappingConfig) !== JSON.stringify(khoMapping?.data)
   );
   const coThayDoi = doiGianHang || doiCauHinh || doiKho || doiKhoMapping;
+  const [dangTaiKhoTuSan, setDangTaiKhoTuSan] = useState(false);
+
+  const taiLaiKhoTuSan = async () => {
+    if (dangTaiKhoTuSan) return;
+    setDangTaiKhoTuSan(true);
+    try {
+      const [dsMoi, mappingMoi] = await Promise.all([
+        kenhBanHangService.getKhoSan(SAN.maKenh, { forceRefresh: true }),
+        kenhBanHangService.getKhoMapping(SAN.maKenh, { forceRefresh: true }).catch(() => null),
+      ]);
+      dsKhoSan?.setData(dsMoi);
+      if (mappingMoi) {
+        khoMapping?.setData(mappingMoi);
+        setKhoMappingConfig(mappingMoi);
+      }
+      toast.success(t("Đã tải lại danh sách kho mới nhất từ {{ten}}.", { ten: SAN.ten }));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, t("Không tải được danh sách kho từ {{ten}}.", { ten: SAN.ten })));
+      khiMatKetNoi(error);
+    } finally {
+      setDangTaiKhoTuSan(false);
+    }
+  };
 
   // Còn thay đổi chưa lưu: đóng tab / tải lại trang hỏi bằng hộp của trình duyệt; bấm menu trái, link trong trang,
   // Back / Forward thì hỏi bằng ConfirmModal bên dưới
@@ -254,11 +278,16 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
         tenKhoSan: khoMucTieu?.tenKhoSan ?? null,
       };
       try {
-        await kenhBanHangService.luuCaiDatKenh(SAN.maKenh, khoMoiPayload);
+        const dto = await kenhBanHangService.luuCaiDatKenh(SAN.maKenh, khoMoiPayload);
         onConfigSaved((cu) => ({ ...cu, ...khoMoiPayload }));
         setMaKhoSan(null);
         setKhoChoXacNhan(null);
-        toast.success(t("Đã chuyển kho và đồng bộ sản phẩm sang {{khoMoi}}.", { khoMoi: tenKhoMoi }));
+        khoMapping?.reload();
+        if (dto?.canhBao) {
+          toast.warning(dto.canhBao);
+        } else {
+          toast.success(t("Đã chuyển kho và đồng bộ sản phẩm sang {{khoMoi}}.", { khoMoi: tenKhoMoi }));
+        }
       } catch (error) {
         toast.error(getApiErrorMessage(error, t("Không chuyển được kho đồng bộ.")));
         onTaiLaiKetNoi();
@@ -287,13 +316,15 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
           setValues(moi);
           setCheDo(cheDoTheoGiaTri(moi));
         }
+        let canhBaoKho = null;
         if (doiKho) {
           const kho = dsKhoSan?.data?.find((k) => k.maKhoSan === khoChon);
           const khoMoi = { maKhoSan: khoChon, tenKhoSan: kho?.tenKhoSan ?? null };
-          await kenhBanHangService.luuCaiDatKenh(SAN.maKenh, khoMoi);
+          const kqLuu = await kenhBanHangService.luuCaiDatKenh(SAN.maKenh, khoMoi);
           // PUT cai-dat không trả KetNoiKenhDto: gộp kho vừa lưu vào kết nối đang có
           onConfigSaved((cu) => ({ ...cu, ...khoMoi }));
           setMaKhoSan(null);
+          if (kqLuu?.canhBao) canhBaoKho = kqLuu.canhBao;
         }
         if (doiKhoMapping && khoMappingConfig) {
           const dto = await kenhBanHangService.luuKhoMapping(SAN.maKenh, {
@@ -302,6 +333,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
           });
           khoMapping?.setData(dto);
           setKhoMappingConfig(dto);
+          if (dto?.canhBao && !canhBaoKho) canhBaoKho = dto.canhBao;
         }
         if (doiGianHang) {
           const dto = uyQuyen || SAN.kieuKetNoi === "ben_thu_ba"
@@ -311,7 +343,8 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
           if (dto && typeof dto === "object") onConfigSaved(dto);
           else onTaiLaiKetNoi();
         }
-        toast.success(t("Đã lưu cấu hình"));
+        if (canhBaoKho) toast.warning(canhBaoKho);
+        else toast.success(t("Đã lưu cấu hình"));
       } catch (error) {
         // Chỉ gạt công tắc mà máy chủ báo đang nối cửa hàng khác: thẻ khác vừa đổi cửa hàng, câu "muốn đổi cửa hàng…"
         // của máy chủ không đúng việc người dùng đang làm
@@ -596,6 +629,8 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
                   value={maKhoSan ?? khoDangLuu}
                   maKhoDaLuu={config?.maKhoSan}
                   onChange={chonKhoSan}
+                  onTaiLaiTuSan={taiLaiKhoTuSan}
+                  dangTaiLaiTuSan={dangTaiKhoTuSan}
                   disabled={khoa}
                 />
               ) : undefined
@@ -617,12 +652,14 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, onConfigS
           />
         </div>
 
-        {SAN.maKenh === "SHOPIFY" && khoMappingConfig && khoMappingConfig.soKhoSanHopLe >= 2 ? (
+        {khoMappingConfig && khoMappingConfig.soKhoSanHopLe >= 2 ? (
           <BangMappingKhoSan
             maKenh={SAN.maKenh}
             tenSan={SAN.ten}
             mappingConfig={khoMappingConfig}
             onChange={setKhoMappingConfig}
+            onTaiLaiTuSan={taiLaiKhoTuSan}
+            dangTaiLaiTuSan={dangTaiKhoTuSan}
             disabled={khoa}
           />
         ) : null}

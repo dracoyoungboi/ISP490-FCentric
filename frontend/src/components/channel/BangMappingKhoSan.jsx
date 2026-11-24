@@ -1,19 +1,21 @@
 import { useState, useEffect } from "react";
-import { Building2, ArrowRight, ShieldCheck, Info } from "lucide-react";
+import { Building2, ArrowRight, ShieldCheck, Info, RefreshCw } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TheCaiDat, DongCaiDat, DongCongTac } from "@/components/channel/KhuonCaiDat";
+import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 
 /**
- * Bảng ánh xạ đa kho (Multi-Location) giữa địa điểm Shopify và kho FCentric nội bộ.
- * Tự động ẩn hoặc hiển thị chỉ đọc khi sàn <= 1 kho; kích hoạt cấu hình phân bổ khi >= 2 kho.
+ * Bảng ánh xạ đa kho (Multi-Location) giữa kho trên sàn và kho FCentric nội bộ (Shopify, Lazada, Shopee, TikTok).
+ * Tự động hiển thị chỉ đọc khi sàn <= 1 kho; kích hoạt cấu hình phân bổ & định tuyến đơn khi >= 2 kho.
  */
 export default function BangMappingKhoSan({
-  maKenh = "SHOPIFY",
   tenSan = "Shopify",
   mappingConfig,
   onChange,
+  onTaiLaiTuSan,
+  dangTaiLaiTuSan = false,
   disabled = false,
 }) {
   const [data, setData] = useState(() => mappingConfig);
@@ -176,17 +178,40 @@ export default function BangMappingKhoSan({
             </table>
           </div>
 
-          {/* Ghi chú thông minh giải thích cơ chế phân bổ và safeguard */}
-          <div className="mt-4 rounded-lg bg-bo-surface-subtle p-3.5 border border-bo-border/60">
-            <div className="flex items-start gap-2.5 text-xs text-bo-muted leading-relaxed">
-              <ShieldCheck className="size-4 text-emerald-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold text-bo-heading">
-                  {t("Giữ tồn đệm ở kho nhiều hàng nhất (Waterfall):")}
-                </p>
-                <p className="mt-0.5">
-                  {t("Hệ thống ưu tiên trừ phần giữ lại ở kho có tồn lớn nhất trước và giữ nguyên số tồn ở các kho ít hàng để tránh khóa tồn ở chi nhánh nhỏ. Nếu mọi kho đều nhỏ hơn mức giữ lại, phần giữ lại sẽ được rút dần từ kho lớn xuống kho nhỏ để vẫn bảo toàn tổng đệm.")}
-                </p>
+          {/* Ghi chú thông minh giải thích cơ chế phân bổ, safeguard và chính sách sàn */}
+          <div className="mt-4 space-y-2.5">
+            <div className="rounded-lg bg-bo-surface-subtle p-3.5 border border-bo-border/60">
+              <div className="flex items-start gap-2.5 text-xs text-bo-muted leading-relaxed">
+                <ShieldCheck className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-bo-heading">
+                    {t("Giữ tồn đệm ở kho nhiều hàng nhất (Waterfall):")}
+                  </p>
+                  <p className="mt-0.5">
+                    {t("Hệ thống ưu tiên trừ phần giữ lại ở kho có tồn lớn nhất trước và giữ nguyên số tồn ở các kho ít hàng để tránh khóa tồn ở chi nhánh nhỏ. Nếu mọi kho đều nhỏ hơn mức giữ lại, phần giữ lại sẽ được rút dần từ kho lớn xuống kho nhỏ để vẫn bảo toàn tổng đệm.")}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-lg border border-blue-200/70 bg-blue-50/50 p-3.5">
+              <div className="flex items-start justify-between gap-2.5 text-xs text-slate-600 leading-relaxed">
+                <div className="flex items-start gap-2.5">
+                  <Info className="size-4 text-blue-600 shrink-0 mt-0.5" />
+                  <p>
+                    {t("Bảng ánh xạ điều khiển đẩy tồn kho và định tuyến kho xuất cho đơn {{tenSan}} trong FCentric. Cờ kho mặc định của gian hàng được quản lý trực tiếp trên Seller Center của {{tenSan}}.", { tenSan })}
+                  </p>
+                </div>
+                {onTaiLaiTuSan ? (
+                  <button
+                    type="button"
+                    onClick={onTaiLaiTuSan}
+                    disabled={disabled || dangTaiLaiTuSan}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-blue-200 bg-white px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                  >
+                    <RefreshCw className={cn("size-3.5", dangTaiLaiTuSan && "animate-spin")} aria-hidden="true" />
+                    {t("Tải lại từ sàn")}
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>

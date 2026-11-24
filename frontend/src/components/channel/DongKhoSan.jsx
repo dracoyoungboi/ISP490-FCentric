@@ -1,15 +1,27 @@
+import { RefreshCw } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DongCaiDat } from "@/components/channel/KhuonCaiDat";
 import { khoDaLuuKhongCon, khoSanDangChon, noiDungSan } from "@/components/channel/noiDungSan";
 import { tenKhoSanHienThi } from "@/components/channel/cauHinhDongBo";
+import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 
 /**
- * Dòng kho trên sàn của thẻ Tồn kho, cho sàn ủy quyền (KH mục B.3 bước 2):
- * Lazada (gian hàng một kho) chỉ hiện "Kho mặc định"; TikTok Shop chọn kho bán hàng từ GET /{maKenh}/kho-san.
- * `khoSan`: kết quả useTaiDuLieu của getKhoSan; `value` / `onChange`: mã kho đang chọn.
+ * Dòng kho trên sàn của thẻ Tồn kho, cho sàn ủy quyền (Lazada, Shopee, TikTok Shop):
+ * tự động hiển thị chỉ đọc khi sàn chỉ có 1 kho, mở dropdown khi có từ 2 kho trở lên,
+ * kèm nút "Tải lại từ sàn" để cập nhật ngay khi người bán vừa thêm kho trên Seller Center.
  */
-export default function DongKhoSan({ maKenh, tenSan, khoSan, value, maKhoDaLuu, onChange, disabled = false }) {
+export default function DongKhoSan({
+  maKenh,
+  tenSan,
+  khoSan,
+  value,
+  maKhoDaLuu,
+  onChange,
+  onTaiLaiTuSan,
+  dangTaiLaiTuSan = false,
+  disabled = false,
+}) {
   const noiDung = noiDungSan(maKenh);
   if (!noiDung) return null;
   const { nhan, chiDoc } = noiDung.khoSan;
@@ -24,6 +36,19 @@ export default function DongKhoSan({ maKenh, tenSan, khoSan, value, maKhoDaLuu, 
       noiDung.khoSan.moTa
     );
 
+  const nutTaiLai = onTaiLaiTuSan ? (
+    <button
+      type="button"
+      onClick={onTaiLaiTuSan}
+      disabled={disabled || dangTaiLaiTuSan || khoSan?.loading}
+      title={t("Tải lại danh sách kho mới nhất trực tiếp từ {{tenSan}}", { tenSan })}
+      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-bo-primary hover:bg-bo-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:opacity-50"
+    >
+      <RefreshCw className={cn("size-3.5", (dangTaiLaiTuSan || khoSan?.loading) && "animate-spin")} aria-hidden="true" />
+      {t("Tải lại từ sàn")}
+    </button>
+  ) : null;
+
   let control;
   if (chiDoc) {
     control = <span className="text-sm text-bo-foreground">{chiDoc}</span>;
@@ -35,8 +60,8 @@ export default function DongKhoSan({ maKenh, tenSan, khoSan, value, maKhoDaLuu, 
         {t("Không đọc được kho từ {{tenSan}}.", { tenSan })}
         <button
           type="button"
-          onClick={khoSan.reload}
-          disabled={khoSan.loading}
+          onClick={onTaiLaiTuSan || khoSan.reload}
+          disabled={khoSan.loading || dangTaiLaiTuSan}
           className="rounded font-medium text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:opacity-50 max-sm:min-h-11"
         >
           {t("Thử lại")}
@@ -44,28 +69,39 @@ export default function DongKhoSan({ maKenh, tenSan, khoSan, value, maKhoDaLuu, 
       </span>
     );
   } else if (!ds.length) {
-    control = <span className="max-w-[240px] text-sm text-bo-muted">{t("{{tenSan}} chưa có kho bán hàng nào", { tenSan })}</span>;
+    control = (
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <span className="max-w-[240px] text-sm text-bo-muted">{t("{{tenSan}} chưa có kho bán hàng nào", { tenSan })}</span>
+        {nutTaiLai}
+      </div>
+    );
   } else if (ds.length === 1) {
     control = (
-      <span className="text-sm font-medium text-bo-foreground">
-        {tenKhoSanHienThi(ds[0].tenKhoSan)}
-      </span>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <span className="text-sm font-medium text-bo-foreground">
+          {tenKhoSanHienThi(ds[0].tenKhoSan)}
+        </span>
+        {nutTaiLai}
+      </div>
     );
   } else {
     control = (
-      <Select value={value || khoSanDangChon(null, ds)} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger aria-label={nhan} className="h-9 w-[220px] max-w-full rounded-lg border-bo-border bg-bo-surface text-sm text-bo-foreground max-sm:data-[size=default]:h-11">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent position="popper" align="end" className="z-50 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
-          {ds.map((kho) => (
-            <SelectItem key={kho.maKhoSan} value={kho.maKhoSan} className="rounded-md focus:bg-bo-primary-soft">
-              {tenKhoSanHienThi(kho.tenKhoSan)}
-              {kho.macDinh ? t(" (mặc định)") : ""}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Select value={value || khoSanDangChon(null, ds)} onValueChange={onChange} disabled={disabled}>
+          <SelectTrigger aria-label={nhan} className="h-9 w-[220px] max-w-full rounded-lg border-bo-border bg-bo-surface text-sm text-bo-foreground max-sm:data-[size=default]:h-11">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper" align="end" className="z-50 rounded-lg border border-bo-border bg-bo-surface p-1 shadow-lg">
+            {ds.map((kho) => (
+              <SelectItem key={kho.maKhoSan} value={kho.maKhoSan} className="rounded-md focus:bg-bo-primary-soft">
+                {tenKhoSanHienThi(kho.tenKhoSan)}
+                {kho.macDinh ? t(" (mặc định)") : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {nutTaiLai}
+      </div>
     );
   }
 

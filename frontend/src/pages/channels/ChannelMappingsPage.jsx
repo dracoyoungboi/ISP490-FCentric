@@ -140,10 +140,16 @@ function OTonDaDay({ dong, seDay, vuaBat = false, gioNhom = null }) {
   const choDay = laChoDay(dong, seDay, vuaBat);
   const gioRieng = coSo(daDay) && dong.ngayDayTonCuoi ? gioDayTon(dong.ngayDayTonCuoi) : null;
   const gio = gioRieng && gioRieng !== gioNhom ? gioRieng : null;
+  const laShopify = String(SAN?.maKenh ?? "").toUpperCase() === "SHOPIFY";
+  const lechKhaDungShopify = laShopify && coSo(seDay) && coSo(dong.soLuongKhaDung) && Number(seDay) < Number(dong.soLuongKhaDung);
+  const tooltipDaDay = [
+    gioRieng ? t("{{ten}} đã nhận lúc {{gioRieng}}", { ten: SAN.ten, gioRieng }) : null,
+    lechKhaDungShopify ? t("Shopify chỉ đẩy tồn từ các kho đã bật ánh xạ trên kênh.") : null,
+  ].filter(Boolean).join(" · ");
   return (
     <div className="flex flex-col items-end">
       {coSo(daDay) ? (
-        <span className="tabular-nums text-bo-foreground" title={gioRieng ? t("{{ten}} đã nhận lúc {{gioRieng}}", { ten: SAN.ten, gioRieng }) : undefined}>
+        <span className="tabular-nums text-bo-foreground" title={tooltipDaDay || undefined}>
           {formatNumberOrDash(daDay)}
         </span>
       ) : (

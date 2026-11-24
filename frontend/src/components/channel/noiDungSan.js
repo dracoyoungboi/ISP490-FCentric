@@ -1,4 +1,4 @@
-import { t } from "@/i18n";
+import { t } from "../../i18n/t.js";
 /**
  * Chữ riêng của từng sàn kết nối bằng ủy quyền (Lazada, TikTok Shop) trên các màn kênh bán hàng, đúng câu trong
  * KH mục B (docs/omnichannel/KE-HOACH-LAZADA-TIKTOK.md) và bản demo đã chốt. Shopify (dán khóa) giữ chữ sẵn có
@@ -13,11 +13,11 @@ const NOI_DUNG = {
     moTaUyQuyen:
       t("Bấm Ủy quyền, Lazada mở trang đăng nhập Seller Center và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong Lazada đưa bạn quay lại đây."),
     hanUyQuyen: t("Ủy quyền có hạn 50 ngày và không tự gia hạn được. Hệ thống nhắc trước 7 ngày; bạn chỉ cần bấm Ủy quyền lại."),
-    // Gian hàng một kho: Lazada nhận số vào kho mặc định nên chỉ hiện tên, không cho chọn
+    // Tự động nhận diện 1 kho (chỉ đọc) hoặc >= 2 kho trên Lazada Seller Center (chọn kho nhận tồn / đa kho)
     khoSan: {
       nhan: t("Kho trên Lazada"),
-      moTa: t("Gian hàng một kho: Lazada nhận số vào kho mặc định, không cần chọn."),
-      chiDoc: t("Kho mặc định"),
+      moTa: t("Chọn kho trên Lazada nhận tồn đồng bộ hoặc tải lại khi vừa thêm kho mới trên Seller Center."),
+      chiDoc: null,
     },
     ghiChuTon: t("Trong giờ sale lớn Lazada khóa cập nhật tồn; hệ thống chuyển sang cộng/trừ và đẩy lại ở lượt sau."),
     // Không lặp số phút: thẻ Đơn hàng đã ghi chu kỳ ở công tắc và dòng "Chu kỳ chạy"
@@ -33,8 +33,8 @@ const NOI_DUNG = {
     hanUyQuyen: t("Ủy quyền môi trường Sandbox có hiệu lực tương tự Production (50 ngày). Bạn có thể bấm Ủy quyền lại bất cứ lúc nào để làm mới token thử nghiệm."),
     khoSan: {
       nhan: t("Kho trên Lazada Sandbox"),
-      moTa: t("Gian hàng thử nghiệm một kho: Lazada Sandbox nhận số vào kho mặc định, không cần chọn."),
-      chiDoc: t("Kho mặc định (Sandbox)"),
+      moTa: t("Chọn kho trên Lazada Sandbox nhận tồn đồng bộ hoặc tải lại khi vừa thêm kho mới trên Seller Center."),
+      chiDoc: null,
     },
     ghiChuTon: t("Môi trường Sandbox phục vụ mô phỏng kiểm thử cập nhật tồn kho an toàn, không ảnh hưởng gian hàng thật."),
     ghiChuDon: t("Đơn hàng Sandbox đồng bộ độc lập với tiền tố LZD-SBX- và tự động gắn nhãn đơn test thử nghiệm."),

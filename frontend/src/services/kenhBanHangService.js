@@ -177,7 +177,8 @@ const realApi = {
   getCauHinhDongBo: (maKenh) => apiClient.get(`${BASE}/${ma(maKenh)}/cau-hinh-dong-bo`).then(data),
   luuCauHinhDongBo: (maKenh, payload) => apiClient.put(`${BASE}/${ma(maKenh)}/cau-hinh-dong-bo`, payload).then(data),
   // ── Ánh xạ kho sàn (Đa kho phân tán) ──
-  getKhoMapping: (maKenh) => apiClient.get(`${BASE}/${ma(maKenh)}/kho-mapping`).then(data),
+  getKhoMapping: (maKenh, { forceRefresh = false } = {}) =>
+    apiClient.get(`${BASE}/${ma(maKenh)}/kho-mapping`, { params: forceRefresh ? { forceRefresh: true } : undefined }).then(data),
   luuKhoMapping: (maKenh, payload) => apiClient.put(`${BASE}/${ma(maKenh)}/kho-mapping`, payload).then(data),
 
   // ── Số liệu ──
@@ -190,9 +191,9 @@ const realApi = {
    * trước; endpoint cũ chỉ đọc địa điểm Shopify nên sàn khác bỏ các địa điểm Shopify (gid://shopify/…), không coi là
    * kho của sàn.
    */
-  getKhoSan: (maKenh) =>
+  getKhoSan: (maKenh, { forceRefresh = false } = {}) =>
     apiClient
-      .get(`${BASE}/${ma(maKenh)}/kho-san`)
+      .get(`${BASE}/${ma(maKenh)}/kho-san`, { params: forceRefresh ? { forceRefresh: true } : undefined })
       .then(data)
       .catch((error) => {
         if (!laApiChuaCo(error)) throw error;

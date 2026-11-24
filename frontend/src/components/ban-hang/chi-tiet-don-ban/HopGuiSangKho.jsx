@@ -4,7 +4,7 @@ import DongThongBao, { NutChu } from "@/components/chung-tu/DongThongBao";
 import HopXacNhanChungTu from "@/components/chung-tu/HopXacNhanChungTu";
 import DanhSachChonKho from "@/components/ban-hang/DanhSachChonKho";
 import { cauKhoThieu, coTimKho, idKho, khoChonDuoc, khoChonSan, locKho, xepKho } from "@/components/ban-hang/chonKho";
-import { laDonLazada, laDonShopee } from "@/components/ban-hang/chi-tiet-don-ban/tinhDonBan";
+import { laDonSan } from "@/components/ban-hang/chi-tiet-don-ban/tinhDonBan";
 import useTaiDuLieu from "@/hooks/useTaiDuLieu";
 import { donBanHangService } from "@/services/donBanHangService";
 import { getApiErrorMessage } from "@/utils/apiError";
@@ -34,16 +34,12 @@ export default function HopGuiSangKho({ mo, onDoiMo, don, dangChay = false, loi,
   }
 
   const donId = don?.id;
-  const chiChoKhoTong = laDonLazada(don) || laDonShopee(don);
+  const coDinhTuyenSan = laDonSan(don) && Boolean(don?.khoXuat?.id);
 
   const tai = useCallback(async () => khoChonDuoc(await donBanHangService.getKhoKhaDung(donId)), [donId]);
   const q = useTaiDuLieu(tai, `kho-kha-dung-${donId}`, { enabled: Boolean(mo && donId) });
 
-  const dsKho = useMemo(() => {
-    const tatCa = xepKho(Array.isArray(q.data) ? q.data : []);
-    if (!chiChoKhoTong) return tatCa;
-    return tatCa.filter((k) => k?.laKhoTong === true || k?.loaiKho === "tong" || k?.loaiKho === "KHO_TONG");
-  }, [q.data, chiChoKhoTong]);
+  const dsKho = useMemo(() => xepKho(Array.isArray(q.data) ? q.data : []), [q.data]);
   const khoHienTaiId = don?.khoXuat?.id ?? null;
   const macDinh = khoChonSan(dsKho, khoHienTaiId);
   const chonId = chonTay ?? macDinh;
@@ -80,9 +76,11 @@ export default function HopGuiSangKho({ mo, onDoiMo, don, dangChay = false, loi,
         <p className="py-6 text-center text-sm text-bo-muted">{t("Không có kho nào đang hoạt động để gửi đơn.")}</p>
       ) : (
         <>
-          {chiChoKhoTong ? (
-            <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
-              {t("Đơn hàng sàn Lazada theo yêu cầu nghiệp vụ chỉ được phép xuất từ")} <b>{t("Kho Tổng")}</b>.
+          {coDinhTuyenSan ? (
+            <p className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[13px] text-sky-900">
+              {t("Đơn sàn được định tuyến mặc định tới {{tenKho}} theo ánh xạ kho. Bạn có thể chọn kho khác nếu cần điều phối.", {
+                tenKho: don?.khoXuat?.tenKho ?? t("kho đã ánh xạ"),
+              })}
             </p>
           ) : null}
           <DanhSachChonKho
