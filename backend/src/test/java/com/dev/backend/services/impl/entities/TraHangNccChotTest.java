@@ -130,6 +130,7 @@ class TraHangNccChotTest {
         when(bienBanRepo.findById(200)).thenAnswer(inv -> Optional.of(bb));
         when(bienBanRepo.khoaTheoId(200)).thenAnswer(inv -> Optional.of(bb));
         when(bienBanRepo.timChoDanhSach(any(), any())).thenAnswer(inv -> new ArrayList<>(dsBienBan));
+        when(bienBanRepo.timTheoDonMua(anyCollection())).thenAnswer(inv -> new ArrayList<>(dsBienBan));
         when(nguoiDungRepo.findById(7)).thenReturn(Optional.of(nguoiChot));
         when(ctDonRepo.khoaTheoDonMua(50)).thenAnswer(inv -> List.of(dongA, dongB));
         when(ctDonRepo.findByDonMuaHang_IdIn(any())).thenAnswer(inv -> List.of(dongA, dongB));
@@ -1630,6 +1631,22 @@ class TraHangNccChotTest {
     // ═══════════════════════ Số trừ tiền theo biến thể của đơn ═══════════════════════
 
     @Test
+    @DisplayName("traHangTheoDon: đếm sản phẩm lỗi chưa chốt cách bù (số phải trả còn có thể giảm); chốt xong hoặc đơn đã đóng thì 0")
+    void traHangTheoDonDemChoChot() {
+        BienBanTraHangService.TraHangTheoDon dau = service.traHangTheoDon(List.of(50)).get(50);
+        assertEquals(3, dau.soLoiChoChot(), "áo A × 2 + áo B × 1 chờ chọn");
+        assertTrue(dau.truTheoBienThe().isEmpty());
+
+        don.setTrangThai(6);
+        assertEquals(0, service.traHangTheoDon(List.of(50)).get(50).soLoiChoChot(), "đơn đã đóng: không còn chờ");
+        don.setTrangThai(3);
+
+        traLoi(200, "DOI_HANG", "NHAN_LAI");
+        assertEquals(0, service.traHangTheoDon(List.of(50)).get(50).soLoiChoChot(), "đã chọn giao bù");
+        assertTrue(service.traHangTheoDon(List.of()).isEmpty());
+    }
+
+    @Test
     @DisplayName("truTienTheoBienThe: cộng nhật ký trừ tiền của mọi biên bản hiệu lực; biên bản trừ tiền cũ không nhật ký (đã nhập) = toàn bộ số lỗi")
     void truTienTheoBienThe() {
         // bb: nhà cung cấp chọn trừ tiền sau nhập kho {A:2, B:1}
@@ -1664,7 +1681,7 @@ class TraHangNccChotTest {
         dsBienBan.addAll(List.of(cuTru, cuTaiXe, giaoBu, chuaNhap, daHuy, dongDon));
 
         assertEquals(Map.of(10, 4, 11, 2), service.truTienTheoBienThe(50), "A: 2 + 1 + 1; B: 1 + 1");
-        verify(bienBanRepo).timChoDanhSach(null, 50);
+        verify(bienBanRepo).timTheoDonMua(Set.of(50));
 
         dsBienBan.clear();
         assertTrue(service.truTienTheoBienThe(50).isEmpty(), "đơn không có biên bản");
