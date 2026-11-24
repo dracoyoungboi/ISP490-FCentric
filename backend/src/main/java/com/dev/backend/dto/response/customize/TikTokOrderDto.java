@@ -57,6 +57,9 @@ public class TikTokOrderDto implements Serializable {
     @JsonProperty("shipping_provider")
     String shippingProvider;
 
+    @JsonProperty("warehouse_id")
+    String warehouseId;
+
     @JsonProperty("payment_method_name")
     String paymentMethodName;
 

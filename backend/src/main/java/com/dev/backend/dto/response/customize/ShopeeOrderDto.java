@@ -54,11 +54,29 @@ public class ShopeeOrderDto {
     @JsonProperty("tracking_number")
     String trackingNumber;
 
+    @JsonProperty("location_id")
+    String locationId;
+
     @JsonProperty("recipient_address")
     ShopeeRecipientAddressDto recipientAddress;
 
     @JsonProperty("item_list")
     List<ShopeeOrderItemDto> itemList;
+
+    /** Lấy location_id định tuyến kho từ cấp đơn hoặc dòng hàng đầu tiên của Shopee (MWH). */
+    public String resolveLocationId() {
+        if (locationId != null && !locationId.isBlank()) {
+            return locationId.trim();
+        }
+        if (itemList != null) {
+            for (ShopeeOrderItemDto item : itemList) {
+                if (item != null && item.getLocationId() != null && !item.getLocationId().isBlank()) {
+                    return item.getLocationId().trim();
+                }
+            }
+        }
+        return null;
+    }
 
     @Data
     @Builder
@@ -106,6 +124,9 @@ public class ShopeeOrderDto {
 
         @JsonProperty("model_discounted_price")
         Double modelDiscountedPrice;
+
+        @JsonProperty("location_id")
+        String locationId;
     }
 }
 

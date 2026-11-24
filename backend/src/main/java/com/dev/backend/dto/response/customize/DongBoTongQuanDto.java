@@ -27,5 +27,7 @@ public class DongBoTongQuanDto {
     Instant lanLayDonCuoi;
     /** Số đơn khách yêu cầu hủy chưa xuất kho (đặc thù TikTok Shop) */
     Long soYeuCauHuy;
+    /** Cảnh báo khi chuyển kho hoặc đồng bộ chỉ hoàn tất một phần */
+    String canhBao;
 }
 
