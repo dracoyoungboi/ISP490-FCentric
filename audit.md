@@ -3473,6 +3473,73 @@
 - **Tác giả**: Khang
 - **Phân hệ ảnh hưởng**:
   - `frontend`: trang Chi tiết lô xuất kế toán (`/reports/accounting-export/:id`), bước chuyển trang sau khi tạo lô; bản dịch tiếng Anh.
+  - `backend`: bỏ API `GET /api/v1/ke-toan/lo-xuat/{id}/huong-dan` (chỉ quản trị viên). Việc ghi `00_HUONG_DAN.txt` vào tệp nén khi tạo lô giữ nguyên.
+- **Tệp thay đổi**:
+  - `frontend/src/pages/bao-cao/ChiTietLoKeToan.jsx`
+  - `frontend/src/pages/bao-cao/TaoLoKeToan.jsx`
+  - `frontend/src/services/keToanService.js`
+  - `frontend/src/i18n/en/tong-quan-bao-cao.json`
+  - `backend/src/main/java/com/dev/backend/controller/KeToanController.java`
+  - `backend/src/main/java/com/dev/backend/services/impl/ketoan/XuatKeToanService.java`
+  - `backend/src/main/resources/i18n/thong-diep/keToanDuLieuVao.properties`
+  - `backend/src/main/resources/i18n/thong-diep/keToanDuLieuVao_en.properties`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Trùng nội dung**: khung "Hướng dẫn nhập AMIS" và nút "Sao chép hướng dẫn" chỉ đọc lại `00_HUONG_DAN.txt` từ tệp nén đã lưu của lô (`XuatKeToanService.huongDanCuaLo`). Kế toán nhận tệp nén nên đã có đúng bản này; mỗi tệp Excel trong tệp nén còn in sẵn vài dòng hướng dẫn trên dòng tiêu đề.
+2. **Lý do mở sẵn khung không còn**: khung tự mở khi vừa tạo lô (cờ `vuaTao`) để người tạo gửi ngay cho kế toán, nhưng trang Tạo lô đã tự tải tệp nén về ngay sau khi tạo.
+3. **Đầu trang và thân trang rối**: nút phụ cạnh "Tải tệp" và khung dài dưới bảng chứng từ làm trang chi tiết lô nặng mà không thêm thông tin.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **`ChiTietLoKeToan.jsx`**: bỏ `nutPhu` "Sao chép hướng dẫn" ở `DauChungTu`; bỏ mục thu gọn "Hướng dẫn nhập AMIS"; bỏ state `moHuongDan`, `huongDan`, `loiHuongDan`, `dangChep`, hàm `layHuongDan`, `chepHuongDan` và hiệu ứng tải hướng dẫn; bỏ import không dùng (`useCallback`, `useLocation`, `Copy`, `ChevronDown`, `Loader2`, `Button`, `useSaoChep`); sửa chú thích đầu hàm. Lô đã hủy vẫn tải được tệp để đối chiếu.
+2. **`TaoLoKeToan.jsx`**: bỏ `state: { vuaTao: true }` khi chuyển sang trang lô vừa tạo.
+3. **`keToanService.js`**: bỏ `huongDanCuaLo`.
+4. **i18n frontend**: bỏ 6 khóa không còn nơi dùng ("Sao chép hướng dẫn", "Sao chép hướng dẫn nhập AMIS", "Hướng dẫn nhập AMIS", "Đúng bản 00_HUONG_DAN.txt trong tệp nén của lô", "Đang tải hướng dẫn", "Không tải được hướng dẫn của lô").
+5. **Backend**: bỏ endpoint `huongDanCuaLo` ở `KeToanController`, hàm `huongDanCuaLo` ở `XuatKeToanService` cùng import `ByteArrayInputStream`, `ZipInputStream`; bỏ 2 khóa `keToanDuLieuVao.loKhongCoHuongDan`, `keToanDuLieuVao.khongDocDuocTepNen` ở cả tệp tiếng Việt và tiếng Anh. Hằng `TEP_HUONG_DAN` và hàm `huongDan(...)` ghi tệp vào tệp nén giữ nguyên.
+
+#### 3. KẾT QUẢ KIỂM THỬ VÀ ĐỐI SOÁT
+1. **Rà chỗ dùng**: không còn mã nguồn hay test nào gọi `huongDanCuaLo`, `/huong-dan` hay 2 khóa thông điệp đã bỏ.
+2. **Biên dịch backend** (javac vào thư mục tạm, không ghi `backend/target` vì IntelliJ đang mở): `KeToanController.java`, `XuatKeToanService.java` biên dịch sạch.
+3. **ESLint** `ChiTietLoKeToan.jsx`, `TaoLoKeToan.jsx`, `keToanService.js`: sạch.
+4. **Đa ngôn ngữ frontend `npm run i18n:kiem`**: 722 tệp, 0 chưa bọc, 0 thiếu bản dịch, 0 lệch.
+5. **Chưa thử trên trình duyệt** (không có máy chủ dev chạy lúc sửa).
+
+---
+
+### [AUDIT-098] BỔ SUNG THUỘC TÍNH BẮT BUỘC NGÀNH HÀNG LAZADA, LOẠI BỎ SELLERSKU TRONG UPDATE PRODUCT VÀ REFINE DỊCH LỖI
+- **Thời gian**: `2026-11-16 22:30:00` (GMT+7)
+- **Tác giả**: PhanAnh & Antigravity AI
+- **Phân hệ ảnh hưởng**: Omnichannel Sync Engine, Đẩy & Cập nhật sản phẩm Lazada (`KenhBanHangDongBoServiceImpl`, `LazadaSyncDiagnosticTest`).
+- **Tệp thay đổi**:
+  - `backend/src/main/java/com/dev/backend/services/impl/entities/KenhBanHangDongBoServiceImpl.java`
+  - `backend/src/test/java/com/dev/backend/services/lazada/LazadaSyncDiagnosticTest.java`
+  - `audit.md`
+
+#### 1. MỤC TIÊU & PHÂN TÍCH NGUYÊN NHÂN GỐC RỄ (ROOT CAUSE ANALYSIS)
+1. **Hiện tượng lỗi**:
+   - Giao diện tab "Lỗi (69)" của kênh Lazada hiển thị thông điệp đỏ:
+     `Lazada từ chối tạo: Cấu hình thuộc tính phân loại bán hàng của Lazada chưa hợp lệ. Vui lòng bấm 'Thử lại' để hệ thống đồng bộ lại.` cho 69 SKU của các sản phẩm "Áo khoác gió công năng phong cách Âu", "Áo khoác Blouson cản gió cổ đứng", "Áo polo bảo hộ lao động ngắn tay"...
+   - Khi cập nhật sản phẩm, sàn từ chối:
+     `Lazada từ chối (501): E501: Update product failed - The SellerSku parameter is no longer supported. Please update your parameter to use SkuId and try again`.
+2. **Nguyên nhân kỹ thuật sâu xa**:
+   - **Lớp mặt nạ che giấu lỗi trong `dichLoiLazada`**:
+     + Trước đây hàm `dichLoiLazada` bắt điều kiện `if (code.contains("500") || lower.contains("saleprop") || lower.contains("sales attributes"))`.
+     + Do sàn Lazada luôn trả về HTTP 200 kèm `code = "500"` cho BẤT KỲ lỗi nghiệp vụ nào khi tạo sản phẩm (`E500: Create product failed`), toàn bộ các lỗi thiếu thuộc tính bắt buộc, lỗi ảnh hay lỗi danh mục đều bị chụp mũ thành `"Cấu hình thuộc tính phân loại bán hàng..."`, làm mất dấu nguyên nhân gốc rễ thực tế từ sàn.
+   - **Thiếu các thuộc tính bắt buộc theo schema OpenAPI của Lazada**:
+     + Qua đối soát trực tiếp API `/category/attributes/get` của Lazada:
+       - Danh mục `7953` (Áo khoác nhẹ & Áo vest nam) có thuộc tính bắt buộc (`is_mandatory = 1`) là `<jacket_coat_styles>` (các giá trị hợp lệ: `Windbreaker`, `Bomber Jacket`, `Blazer`, `Vest`, `Parka`, `Puffer Coat`...). Code trước đây hoàn toàn không gửi trường này, dẫn đến sàn từ chối với lỗi: `BIZ_CHECK_MANDATORY_FIELD_REQUIRE: jacket_coat_styles is require`.
+       - Danh mục `14275` (Áo polo / Áo thun có cổ nam) có thuộc tính bắt buộc (`is_mandatory = 1`) là `<Fit_Type>` (các giá trị: `Slim Fit`, `Regular`, `Loose`, `Skinny`, `Oversized`). Code trước đây chỉ gán `Fit_Type` cho `7930` và `7940`, bỏ sót `14275`, dẫn đến sàn từ chối: `BIZ_CHECK_MANDATORY_FIELD_REQUIRE: Fit_Type is require`.
+       - Danh mục `7940` (Áo sơ mi nam) bắt buộc `<Neckline>Shirt Collar</Neckline>`.
+       - Danh mục `6424` (Áo hoodies & sweater nam) bắt buộc `<hoodie_style_type>` (`Pullover`/`Zip Up`) và `<Fit_Type>`.
+       - Danh mục `6414` (Quần jeans) bắt buộc `<jeans_fit_type>`, `<Denim_Wash>`, `<waist_type>`.
+       - Danh mục `7991` (Quần dài) bắt buộc `<pants_length>`, `<pants_fit_type>`.
+       - Danh mục `10100765` (Quần short) bắt buộc `<shorts_style>`, `<waist_type>`.
+   - **Lỗi SellerSku không còn được hỗ trợ trong `updateProduct`**:
+     + Trong `capNhatSanPhamLenLazada`, thẻ `<SellerSku>` vẫn được append vào thẻ `<Sku>`. Lazada Open Platform API v2 đã khai tử tham số `SellerSku` trong endpoint `/product/update`, bắt buộc chỉ được dùng `SkuId` số.
+
+#### 2. GIẢI PHÁP KỸ THUẬT & CHI TIẾT TRIỂN KHAI
+1. **Bổ sung thuộc tính bắt buộc cho 8 danh mục ngành hàng thời trang Lazada**:
+   - Trong `taoSanPhamLenLazada` (`KenhBanHangDongBoServiceImpl`):
      - `7953` (Áo khoác): Bổ sung `<jacket_coat_styles>` tự động ánh xạ theo tên sản phẩm (`Windbreaker`, `Bomber Jacket`, `Blazer`, `Vest`, `Parka`, `Puffer Coat`).
      - `14275` (Áo polo) & `7930` (Áo thun): Bổ sung `<Fit_Type>Slim Fit</Fit_Type>`.
      - `7940` (Áo sơ mi): Bổ sung `<Neckline>Shirt Collar</Neckline>`.
