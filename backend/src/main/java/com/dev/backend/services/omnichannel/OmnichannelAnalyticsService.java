@@ -600,7 +600,6 @@ public class OmnichannelAnalyticsService {
         String c = channelParam.trim().toUpperCase(Locale.ROOT);
         if ("TIKTOK_SHOP".equals(c)) return "TIKTOK";
         if ("SHOPEE_OFFICIAL".equals(c)) return "SHOPEE";
-        if ("LAZADA_SANDBOX".equals(c)) return "LAZADA";
         return c;
     }
 
@@ -610,9 +609,8 @@ public class OmnichannelAnalyticsService {
         }
         return switch (normalizedFilter) {
             case "SHOPEE" -> List.of("SHOPEE", "SHOPEE_OFFICIAL");
-            case "SHOPEE_SANDBOX" -> List.of("SHOPEE_SANDBOX");
             case "TIKTOK" -> List.of("TIKTOK", "TIKTOK_SHOP");
-            case "LAZADA" -> List.of("LAZADA", "LAZADA_SANDBOX");
+            case "LAZADA" -> List.of("LAZADA");
             case "SHOPIFY" -> List.of("SHOPIFY");
             default -> List.of(normalizedFilter);
         };
@@ -621,9 +619,9 @@ public class OmnichannelAnalyticsService {
     private static String canonicalPlatform(String maKenh) {
         if (maKenh == null || maKenh.isBlank()) return "OMNICHANNEL";
         String c = maKenh.trim().toUpperCase(Locale.ROOT);
-        if (c.contains("SHOPEE")) return c.contains("SANDBOX") ? "SHOPEE_SANDBOX" : "SHOPEE";
+        if (c.contains("SHOPEE")) return "SHOPEE";
         if (c.contains("TIKTOK")) return "TIKTOK_SHOP";
-        if (c.contains("LAZADA")) return c.contains("SANDBOX") ? "LAZADA_SANDBOX" : "LAZADA";
+        if (c.contains("LAZADA")) return "LAZADA";
         if (c.contains("SHOPIFY")) return "SHOPIFY";
         return c;
     }

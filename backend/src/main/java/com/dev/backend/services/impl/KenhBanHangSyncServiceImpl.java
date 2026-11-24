@@ -58,7 +58,7 @@ public class KenhBanHangSyncServiceImpl implements KenhBanHangSyncService {
                         kenhBanHangDongBoService.dongBoTrangThaiFulfilledShopify(don.getId(), don.getMaDonHangKenh());
                     }
                 }
-            } else if ("LAZADA".equalsIgnoreCase(maKenh) || "LAZADA_SANDBOX".equalsIgnoreCase(maKenh)) {
+            } else if ("LAZADA".equalsIgnoreCase(maKenh)) {
                 String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
                 String token = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
                 if (token == null || token.isBlank()) {

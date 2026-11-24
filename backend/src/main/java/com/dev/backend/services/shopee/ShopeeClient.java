@@ -266,7 +266,7 @@ public class ShopeeClient {
             res.put("error", "").put("message", "success");
             ObjectNode resp = res.putObject("response");
             resp.put("shop_logo", "/channel-logos/shopee.svg")
-                    .put("description", "Thời trang FCentric - Shopee Official Store");
+                    .put("description", "Thời trang FCentric - Shopee");
             return res;
         }
 

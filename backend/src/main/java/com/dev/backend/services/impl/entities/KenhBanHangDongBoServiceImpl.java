@@ -8657,7 +8657,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
         KenhBanHang kenh = dong.getKenhBanHang();
         if (kenh == null) {
-            kenh = getKenhActive("SHOPEE_SANDBOX");
+            kenh = getKenhActive("SHOPEE_OFFICIAL");
         }
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
         String mspk = dong.getMaSanPhamKenh() != null ? dong.getMaSanPhamKenh().trim() : "";
@@ -11067,9 +11067,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 return don.getKenhBanHang();
             }
         }
-        return kenhBanHangRepository.findByMaKenh("SHOPEE")
-                .or(() -> kenhBanHangRepository.findByMaKenh("SHOPEE_SANDBOX"))
-                .or(() -> kenhBanHangRepository.findByMaKenh("SHOPEE_OFFICIAL"))
+        return kenhBanHangRepository.findByMaKenh("SHOPEE_OFFICIAL")
+                .or(() -> kenhBanHangRepository.findByMaKenh("SHOPEE"))
                 .orElse(null);
     }
 
@@ -11378,7 +11377,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return TaiSanPhamResultDto.builder().soSku(0).soMoi(0).soCapNhat(0).build();
         }
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
-        boolean isSandbox = "SHOPEE_SANDBOX".equalsIgnoreCase(kenh.getMaKenh());
+        boolean isSandbox = OmnichannelOrderSyncJob.isShopeeSandbox(kenh.getMaKenh());
 
         int soSku = 0;
         int soMoi = 0;

@@ -1676,7 +1676,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         }
 
         String maKenh = don.getKenhBanHang().getMaKenh();
-        if ("LAZADA".equalsIgnoreCase(maKenh) || "LAZADA_SANDBOX".equalsIgnoreCase(maKenh)) {
+        if ("LAZADA".equalsIgnoreCase(maKenh)) {
             String orderId = don.getMaDonHangKenh();
             if (orderId == null || orderId.isBlank()) {
                 throw new CommonException(ThongDiep.of("banHang.donChuaCoMaLazada"), HttpStatus.BAD_REQUEST, null);

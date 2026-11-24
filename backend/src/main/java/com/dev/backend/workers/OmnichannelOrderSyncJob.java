@@ -73,11 +73,9 @@ public class OmnichannelOrderSyncJob {
     public static final String MA_KENH_SHOPIFY = "SHOPIFY";
     public static final String DEFAULT_API_VERSION = "2024-01";
     public static final String MA_KENH_LAZADA = "LAZADA";
-    public static final String MA_KENH_LAZADA_SANDBOX = "LAZADA_SANDBOX";
     public static final String MA_KENH_TIKTOK = "TIKTOK";
 
     public static final String MA_KENH_SHOPEE = "SHOPEE";
-    public static final String MA_KENH_SHOPEE_SANDBOX = "SHOPEE_SANDBOX";
     /** Cờ nội bộ đánh dấu đơn Shopee đang ở UNPAID (Chờ xác nhận) — chỉ cho phép xem, chưa gửi kho/in vận đơn. */
     public static final String TAG_SHOPEE_CHO_XAC_NHAN = "[SHOPEE_CHO_XAC_NHAN]";
 
@@ -129,17 +127,12 @@ public class OmnichannelOrderSyncJob {
     }
 
     public static boolean isLazada(String maKenh) {
-        return MA_KENH_LAZADA.equalsIgnoreCase(maKenh) || MA_KENH_LAZADA_SANDBOX.equalsIgnoreCase(maKenh);
-    }
-
-    public static boolean isLazadaSandbox(String maKenh) {
-        return MA_KENH_LAZADA_SANDBOX.equalsIgnoreCase(maKenh);
+        return MA_KENH_LAZADA.equalsIgnoreCase(maKenh);
     }
 
     public static boolean isShopee(String maKenh) {
         return MA_KENH_SHOPEE.equalsIgnoreCase(maKenh)
-                || "SHOPEE_OFFICIAL".equalsIgnoreCase(maKenh)
-                || MA_KENH_SHOPEE_SANDBOX.equalsIgnoreCase(maKenh);
+                || "SHOPEE_OFFICIAL".equalsIgnoreCase(maKenh);
     }
 
     public static boolean isTikTok(String maKenh) {
@@ -147,8 +140,7 @@ public class OmnichannelOrderSyncJob {
     }
 
     public static boolean isShopeeSandbox(String maKenh) {
-        return MA_KENH_SHOPEE_SANDBOX.equalsIgnoreCase(maKenh)
-                || (maKenh != null && maKenh.toUpperCase().contains("SANDBOX"));
+        return maKenh != null && (maKenh.toUpperCase().contains("MOCK") || maKenh.toUpperCase().contains("SANDBOX"));
     }
 
     KenhBanHangRepository kenhBanHangRepository;
@@ -335,10 +327,6 @@ public class OmnichannelOrderSyncJob {
                             maKenh, com.dev.backend.services.omnichannel.OmnichannelTelemetryContext.JOB_SCHEDULED_BATCH,
                             () -> syncShopifyOrders(kenh, intervalMins));
                 } else if (isLazada(maKenh)) {
-                    if (isLazadaSandbox(maKenh)) {
-                        log.debug("[JOB-01] Kênh {} (Sandbox) đã được vô hiệu hóa, bỏ qua", maKenh);
-                        continue;
-                    }
                     if (!KenhCauHinhDongBo.tuDongLayDon(dieuHanhHeThongService, maKenh)) {
                         log.info("[JOB-01] Kênh {} đang tắt tự động lấy đơn, bỏ qua", maKenh);
                         continue;
@@ -1449,8 +1437,7 @@ public class OmnichannelOrderSyncJob {
     public boolean processSingleLazadaOrder(JsonNode orderNode, KenhBanHang kenh, String appKey, String appSecret, String accessToken) {
         String orderId = orderNode.path("order_id").asText();
         String orderNumber = orderNode.path("order_number").asText(orderId);
-        boolean isSandbox = MA_KENH_LAZADA_SANDBOX.equalsIgnoreCase(kenh.getMaKenh());
-        String prefix = isSandbox ? "LZD-SBX-" : "LZD-";
+        String prefix = "LZD-";
         String soDonHang = prefix + orderNumber;
 
         Optional<DonBanHang> existingOpt = donBanHangRepository.findBySoDonHang(soDonHang);
@@ -1549,8 +1536,8 @@ public class OmnichannelOrderSyncJob {
         boolean daThanhToan = isPaidMethod(paymentMethod);
 
         String remarks = orderNode.path("remarks").asText("").trim();
-        String channelName = isSandbox ? "Lazada Sandbox" : "Lazada";
-        String ghiChu = (isSandbox ? "[ĐƠN HÀNG SANDBOX THỬ NGHIỆM] " : "") + "Đơn hàng đồng bộ tự động từ " + channelName + " #" + orderNumber;
+        String channelName = "Lazada";
+        String ghiChu = "Đơn hàng đồng bộ tự động từ " + channelName + " #" + orderNumber;
         if (!whTuDon.isBlank()) {
             ghiChu += " | [KHO SÀN: " + whTuDon + "]";
         }

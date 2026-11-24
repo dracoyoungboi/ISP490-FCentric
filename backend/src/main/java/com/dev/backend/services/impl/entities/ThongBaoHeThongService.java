@@ -369,7 +369,7 @@ public class ThongBaoHeThongService {
      */
     static boolean laSanDayTon(KenhBanHang kenh) {
         String ma = kenh.getMaKenh() == null ? "" : kenh.getMaKenh().trim().toUpperCase(Locale.ROOT);
-        return Set.of("SHOPIFY", "LAZADA", "TIKTOK", "SHOPEE", "SHOPEE_OFFICIAL", "SHOPEE_SANDBOX").contains(ma);
+        return Set.of("SHOPIFY", "LAZADA", "TIKTOK", "SHOPEE", "SHOPEE_OFFICIAL").contains(ma);
     }
 
     /** Kênh giả lập thử nghiệm mang shop cipher "mock_". */
@@ -383,10 +383,8 @@ public class ThongBaoHeThongService {
         return switch (ma) {
             case "SHOPIFY" -> "Shopify";
             case "LAZADA" -> "Lazada";
-            case "LAZADA_SANDBOX" -> "Lazada Sandbox";
             case "TIKTOK" -> "TikTok Shop";
-            case "SHOPEE" -> "Shopee";
-            case "SHOPEE_SANDBOX" -> "Shopee Sandbox";
+            case "SHOPEE", "SHOPEE_OFFICIAL" -> "Shopee";
             default -> tenKenh != null && !tenKenh.isBlank() ? tenKenh.trim() : ma;
         };
     }
