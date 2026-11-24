@@ -20,6 +20,8 @@ import com.dev.backend.services.impl.entities.KhoService;
 import com.dev.backend.services.impl.entities.ThongBaoHeThongService;
 import com.dev.backend.services.impl.entities.ThongBaoXuatKhoService;
 import com.dev.backend.utils.KenhCauHinhDongBo;
+import com.dev.backend.utils.ShopeeWaybillMetadataHelper;
+import com.dev.backend.dto.response.customize.ShopeeOrderDto;
 import com.dev.backend.dto.response.customize.TikTokOrderDto;
 import com.dev.backend.dto.response.customize.TikTokOrderItemDto;
 import com.dev.backend.dto.response.customize.TikTokRecipientAddressDto;
@@ -102,15 +104,7 @@ public class OmnichannelOrderSyncJob {
 
     /** Nhận diện mọi biến thể phương thức COD của Shopee OpenAPI (CASH_ON_DELIVERY, Cash on Delivery, COD). */
     public static boolean laPhuongThucCodShopee(String paymentMethod) {
-        if (paymentMethod == null || paymentMethod.isBlank()) {
-            return false;
-        }
-        String norm = paymentMethod.trim().toLowerCase(Locale.ROOT);
-        return norm.equals("cash_on_delivery")
-                || norm.equals("cash on delivery")
-                || norm.contains("cod")
-                || norm.contains("cash_on_delivery")
-                || norm.contains("cash on delivery");
+        return ShopeeWaybillMetadataHelper.isShopeeCodPayment(paymentMethod);
     }
 
     /**
@@ -228,6 +222,8 @@ public class OmnichannelOrderSyncJob {
     ThreadLocal<int[]> donNhapMoiLuot = new ThreadLocal<>();
     ObjectMapper objectMapper = new ObjectMapper();
     AtomicReference<Instant> lastSyncTime = new AtomicReference<>(Instant.EPOCH);
+    static final long SHOPEE_LOGISTICS_COOLDOWN_MINUTES = 15L;
+    Map<String, Instant> shopeeLogisticsCooldown = new ConcurrentHashMap<>();
     // Lần gọi API đơn hàng của sàn thành công gần nhất, theo id kênh (màn Theo dõi đồng bộ)
     Map<Integer, Instant> lanLayDonCuoi = new ConcurrentHashMap<>();
     // Cooldown 10 phút giữa các lượt đối soát đơn mở nằm ngoài cửa sổ quét gần nhất
@@ -1936,10 +1932,12 @@ public class OmnichannelOrderSyncJob {
                         com.fasterxml.jackson.databind.JsonNode details = detailRes.path("response").path("order_list");
                         if (details.isArray()) {
                             for (com.fasterxml.jackson.databind.JsonNode dNode : details) {
-                                com.dev.backend.dto.response.customize.ShopeeOrderDto dto =
-                                        objectMapper.convertValue(dNode, com.dev.backend.dto.response.customize.ShopeeOrderDto.class);
-                                if (dto != null && processSingleShopeeOrder(dto, kenh)) {
-                                    synced++;
+                                ShopeeOrderDto dto = objectMapper.convertValue(dNode, ShopeeOrderDto.class);
+                                if (dto != null) {
+                                    boSungThongTinVanDonShopee(dto, String.valueOf(partnerId), partnerKey, accessToken, String.valueOf(shopId), isSandbox);
+                                    if (processSingleShopeeOrder(dto, kenh)) {
+                                        synced++;
+                                    }
                                 }
                             }
                         }
@@ -1957,6 +1955,127 @@ public class OmnichannelOrderSyncJob {
             log.error("[JOB-01] Lỗi khi quét đơn hàng Shopee: {}", ex.getMessage());
         }
         return synced;
+    }
+
+    private void boSungThongTinVanDonShopee(ShopeeOrderDto dto, String partnerId, String partnerKey,
+                                            String accessToken, String shopId, boolean isSandbox) {
+        if (dto == null || shopeeClient == null || dto.getOrderSn() == null || dto.getOrderSn().isBlank()) {
+            return;
+        }
+        String orderSn = dto.getOrderSn().trim();
+        String st = dto.getOrderStatus() != null ? dto.getOrderStatus().trim().toUpperCase(Locale.ROOT) : "";
+        boolean trangThaiCoVanDon = "PROCESSED".equals(st) || "SHIPPED".equals(st)
+                || "TO_CONFIRM_RECEIVE".equals(st) || "COMPLETED".equals(st)
+                || ("READY_TO_SHIP".equals(st) && dto.resolveFirstPackageNumber() != null);
+        if (!trangThaiCoVanDon) {
+            return;
+        }
+
+        DonBanHang existing = donBanHangRepository != null
+                ? donBanHangRepository.findBySoDonHang("SHP-" + orderSn).orElse(null)
+                : null;
+        if (existing != null) {
+            String ghiChu = existing.getGhiChu();
+            boolean duVanDon = ShopeeWaybillMetadataHelper.extractTracking(ghiChu, orderSn) != null;
+            boolean duDonVi = ShopeeWaybillMetadataHelper.extractCarrier(ghiChu) != null;
+            boolean duTuyen = ShopeeWaybillMetadataHelper.extractTag(ghiChu, ShopeeWaybillMetadataHelper.TAG_TUYEN) != null;
+            boolean duPttt = ShopeeWaybillMetadataHelper.extractTag(ghiChu, ShopeeWaybillMetadataHelper.TAG_PTTT) != null;
+            if (duVanDon && duDonVi && duTuyen && duPttt) {
+                return;
+            }
+        }
+
+        Instant lastAttempt = shopeeLogisticsCooldown.get(orderSn);
+        if (lastAttempt != null && Duration.between(lastAttempt, Instant.now()).toMinutes() < SHOPEE_LOGISTICS_COOLDOWN_MINUTES) {
+            return;
+        }
+        shopeeLogisticsCooldown.put(orderSn, Instant.now());
+
+        if (ShopeeWaybillMetadataHelper.isFakeShopeeTracking(dto.getTrackingNumber(), orderSn)) {
+            try {
+                JsonNode trackRes = shopeeClient.getTrackingNumber(partnerId, partnerKey, accessToken, shopId, orderSn, isSandbox);
+                String candidate = trackRes != null ? trackRes.path("response").path("tracking_number").asText("") : "";
+                if (!ShopeeWaybillMetadataHelper.isFakeShopeeTracking(candidate, orderSn)) {
+                    dto.setTrackingNumber(candidate.trim());
+                }
+            } catch (Exception ex) {
+                log.debug("[JOB-01] Không lấy được get_tracking_number Shopee cho {}: {}", orderSn, ex.getMessage());
+            }
+        }
+
+        try {
+            JsonNode docRes = shopeeClient.getShippingDocumentDataInfo(
+                    partnerId, partnerKey, accessToken, shopId, orderSn, dto.resolveFirstPackageNumber(), isSandbox);
+            ShopeeWaybillMetadataHelper.ShippingDocDataInfo info = ShopeeWaybillMetadataHelper.parseShippingDocDataInfo(docRes);
+            if (info != null) {
+                if (ShopeeWaybillMetadataHelper.isFakeShopeeTracking(dto.getTrackingNumber(), orderSn)
+                        && !ShopeeWaybillMetadataHelper.isFakeShopeeTracking(info.trackingNumber(), orderSn)) {
+                    dto.setTrackingNumber(info.trackingNumber().trim());
+                }
+                if (dto.resolveShippingCarrier() == null && info.shippingCarrier() != null) {
+                    dto.setShippingCarrier(info.shippingCarrier());
+                }
+                if (info.maDinhTuyen() != null) {
+                    dto.setMaDinhTuyen(info.maDinhTuyen());
+                }
+                if (info.maTramPhat() != null) {
+                    dto.setMaTramPhat(info.maTramPhat());
+                }
+                if (info.cod() != null) {
+                    dto.setCodFlag(info.cod());
+                }
+                if (info.codAmount() != null) {
+                    dto.setCodAmount(info.codAmount());
+                }
+            }
+        } catch (Exception ex) {
+            log.debug("[JOB-01] Không lấy được get_shipping_document_data_info Shopee cho {}: {}", orderSn, ex.getMessage());
+        }
+    }
+
+    private String capNhatMetadataVanDonShopeeVaoGhiChu(String currentNote, ShopeeOrderDto order, String orderId, BigDecimal totalPrice) {
+        String note = currentNote;
+        String incomingTracking = !ShopeeWaybillMetadataHelper.isFakeShopeeTracking(order.getTrackingNumber(), orderId)
+                ? order.getTrackingNumber().trim() : null;
+        if (incomingTracking != null) {
+            note = ShopeeWaybillMetadataHelper.upsertTag(note, ShopeeWaybillMetadataHelper.TAG_VAN_DON, incomingTracking);
+        } else if (ShopeeWaybillMetadataHelper.extractTracking(note, orderId) == null) {
+            note = ShopeeWaybillMetadataHelper.removeTag(note, ShopeeWaybillMetadataHelper.TAG_VAN_DON);
+        }
+
+        String incomingCarrier = order.resolveShippingCarrier();
+        if (incomingCarrier != null) {
+            note = ShopeeWaybillMetadataHelper.upsertTag(note, ShopeeWaybillMetadataHelper.TAG_DON_VI, incomingCarrier);
+        } else if (ShopeeWaybillMetadataHelper.extractCarrier(note) == null) {
+            note = ShopeeWaybillMetadataHelper.removeTag(note, ShopeeWaybillMetadataHelper.TAG_DON_VI);
+        }
+
+        String pkgNo = order.resolveFirstPackageNumber();
+        if (pkgNo != null) {
+            note = ShopeeWaybillMetadataHelper.upsertTag(note, ShopeeWaybillMetadataHelper.TAG_KIEN, pkgNo);
+        }
+        if (order.getMaDinhTuyen() != null && !order.getMaDinhTuyen().isBlank()) {
+            note = ShopeeWaybillMetadataHelper.upsertTag(note, ShopeeWaybillMetadataHelper.TAG_TUYEN, order.getMaDinhTuyen());
+        }
+        if (order.getMaTramPhat() != null && !order.getMaTramPhat().isBlank()) {
+            note = ShopeeWaybillMetadataHelper.upsertTag(note, ShopeeWaybillMetadataHelper.TAG_TRAM, order.getMaTramPhat());
+        }
+
+        String pttt = ShopeeWaybillMetadataHelper.normalizeShopeePaymentMethod(order.getPaymentMethod(), order.getCodFlag());
+        if (pttt != null) {
+            note = ShopeeWaybillMetadataHelper.upsertTag(note, ShopeeWaybillMetadataHelper.TAG_PTTT, pttt);
+            if ("COD".equalsIgnoreCase(pttt)) {
+                BigDecimal codVal = (order.getCodAmount() != null && order.getCodAmount().compareTo(BigDecimal.ZERO) > 0)
+                        ? order.getCodAmount() : totalPrice;
+                if (codVal != null && codVal.compareTo(BigDecimal.ZERO) > 0) {
+                    note = ShopeeWaybillMetadataHelper.upsertTag(note, ShopeeWaybillMetadataHelper.TAG_COD,
+                            codVal.stripTrailingZeros().toPlainString());
+                }
+            } else {
+                note = ShopeeWaybillMetadataHelper.removeTag(note, ShopeeWaybillMetadataHelper.TAG_COD);
+            }
+        }
+        return note;
     }
 
     public boolean processSingleShopeeOrder(com.dev.backend.dto.response.customize.ShopeeOrderDto order, KenhBanHang kenh) {
@@ -2133,15 +2252,14 @@ public class OmnichannelOrderSyncJob {
                             () -> kenhBanHangDongBoService.dongBoTrangThaiChuanBiHangShopee(orderId));
                 }
 
-                // 3. Đồng bộ bổ sung mã vận đơn và đơn vị vận chuyển nếu có
+                // 3. Đồng bộ & tự chữa vận đơn, ĐVVC, mã chia chọn tuyến và PTTT (COD vs Ví điện tử)
                 String currentNote = existing.getGhiChu() != null ? existing.getGhiChu() : "";
-                if (!currentNote.contains("[VẬN ĐƠN:") && order.getTrackingNumber() != null && !order.getTrackingNumber().isBlank()) {
-                    String trackingInfo = "[VẬN ĐƠN: " + order.getTrackingNumber().trim() +
-                            (order.getShippingCarrier() != null && !order.getShippingCarrier().isBlank() ? " - " + order.getShippingCarrier().trim() : "") + "]";
-                    existing.setGhiChu((currentNote.isBlank() ? "" : currentNote + " | ") + trackingInfo);
+                String updatedNote = capNhatMetadataVanDonShopeeVaoGhiChu(currentNote, order, orderId, totalPrice);
+                if (!Objects.equals(existing.getGhiChu(), updatedNote)) {
+                    existing.setGhiChu(updatedNote);
                     existing.setNgayCapNhat(Instant.now());
                     donBanHangRepository.save(existing);
-                    log.info("[JOB-01] Cập nhật mã vận đơn Shopee {} ({}) cho đơn {}", order.getTrackingNumber(), order.getShippingCarrier(), soDonHang);
+                    log.info("[JOB-01] Cập nhật vận đơn/tuyến Shopee ({}) cho đơn {}", order.getTrackingNumber(), soDonHang);
                 }
             }
             return false;
@@ -2171,17 +2289,9 @@ public class OmnichannelOrderSyncJob {
             ghiChu += " | [KHO SÀN: " + whTuDon + "]";
         }
 
-        String carrier = order.getShippingCarrier() != null ? order.getShippingCarrier() : "Shopee Xpress";
-        String fullGhiChu;
+        String fullGhiChu = capNhatMetadataVanDonShopeeVaoGhiChu(ghiChu, order, orderId, totalPrice);
         if (laChoXacNhan) {
-            // Đơn Shopee UNPAID (chờ xác nhận COD/thanh toán): không sinh giả mã vận đơn SPXVN; gắn cờ chỉ xem
-            String vanDonPart = (order.getTrackingNumber() != null && !order.getTrackingNumber().isBlank())
-                    ? "[VẬN ĐƠN: " + order.getTrackingNumber().trim() + "] [ĐƠN VỊ: " + carrier + "] | "
-                    : "";
-            fullGhiChu = ganTagShopeeChoXacNhan(vanDonPart + ghiChu);
-        } else {
-            String trackingNo = order.getTrackingNumber() != null ? order.getTrackingNumber() : ("SPXVN" + orderId);
-            fullGhiChu = "[VẬN ĐƠN: " + trackingNo + "] [ĐƠN VỊ: " + carrier + "] | " + ghiChu;
+            fullGhiChu = ganTagShopeeChoXacNhan(fullGhiChu);
         }
 
         DonBanHang don = DonBanHang.builder()
