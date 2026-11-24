@@ -12,5 +12,6 @@ import lombok.experimental.FieldDefaults;
 public class SendToWarehouseRequest {
     Integer khoId;
     String ghiChu;
+    Boolean thuCongKhiLoi;
 }
 

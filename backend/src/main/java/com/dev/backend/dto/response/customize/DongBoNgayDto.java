@@ -25,6 +25,10 @@ public class DongBoNgayDto {
     int daXuLy;
     int soThanhCong;
     int soLoi;
+    /** Số SKU bị bỏ qua vì tồn kho trên FCentric chưa đổi (hoặc đang trong thời gian chờ thử lại) */
+    int soBoQuaKhongDoi;
+    /** true nếu đợt đồng bộ này bật đẩy lại toàn bộ tồn (bỏ qua bỏ nhanh SKU không đổi) */
+    boolean epDayToanBo;
     /** SKU chưa đẩy khi đợt dừng giữa chừng (lỗi cả gian hàng hoặc dừng theo yêu cầu) */
     Integer soChuaDay;
     String skuDangDay;

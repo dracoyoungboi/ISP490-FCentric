@@ -36,9 +36,13 @@ public class KenhKhoMappingItemDto implements Serializable {
     @Builder.Default
     private Boolean kichHoat = true;
 
-    /** Đánh dấu kho này là kho mặc định tiếp nhận đơn hàng khi không xác định được location */
+    /** Đánh dấu kho này là kho đang chọn đẩy tồn / tiếp nhận đơn mặc định trong FCentric */
     @Builder.Default
     private Boolean laMacDinh = false;
+
+    /** Cờ mặc định gốc trên sàn TMĐT (chỉ đọc từ API sàn, không bị ghi đè bởi lựa chọn tại FCentric) */
+    @Builder.Default
+    private Boolean laMacDinhSan = false;
 
     /** Tồn khả dụng thực tế hiện tại của kho FCentric tương ứng (phục vụ hiển thị trên UI) */
     private Integer tonKhaDungHienTai;

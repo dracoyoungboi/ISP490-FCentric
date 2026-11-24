@@ -136,4 +136,9 @@ public final class MaLoi {
     public static final String STK_LOCKED = "STK_LOCKED";
     /** 503 · CSDL chưa chạy migration-2026-11-03-kiem-ke-khoanh-vung.sql. */
     public static final String STK_NOT_READY = "STK_NOT_READY";
+
+    // ---------------- Đơn bán hàng từ sàn TMĐT ----------------
+
+    /** 409 · Đơn từ Shopee/Lazada/TikTok chưa có kho xuất hợp lệ hoặc không đủ tồn tại kho hiện tại: phải chọn kho thủ công. */
+    public static final String DON_SAN_CAN_CHON_KHO_THU_CONG = "DON_SAN_CAN_CHON_KHO_THU_CONG";
 }
