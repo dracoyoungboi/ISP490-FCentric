@@ -40,7 +40,7 @@ const laBat = (giaTri) => ["true", "1"].includes(String(giaTri ?? "").trim().toL
 const valuesOf = (settings) => Object.fromEntries(settings.map((item) => [item.maCauHinh, item.giaTri]));
 // i18n-giu-nguyen: dữ liệu tem mẫu in ra giấy (bản xem trước nội dung tem)
 const TEM_MAU = { id: 0, tenSanPham: "Áo thun cotton basic", tenMau: "Đen", kichCo: "M", maVachSku: "2000000150", maSku: "AT2610151-CL001-M-MS-2691", giaBan: 199000 };
-const MO_TA = t("In từ màn Giá bán & tem mã vạch và phiếu nhập kho");
+const MO_TA = t("In từ màn Tem mã vạch và phiếu nhập kho");
 // Cùng kiểu chữ / nút với các dòng mẫu chứng từ ở PrintTemplateListPage
 const CHU_TEN =
   "text-left text-sm leading-5 font-medium text-bo-foreground hover:text-bo-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary";

@@ -41,9 +41,9 @@ const PARTS = {
     cardTitle: t("Mã vạch sản phẩm"),
     scope: t("biến thể mới để trống mã vạch"),
     footer: {
-      to: "/products/gia-ban-tem",
+      to: "/products/barcode-labels",
       icon: Tags,
-      title: t("Giá bán & tem mã vạch"),
+      title: t("Tem mã vạch"),
       description: t("Mã đã cấp giữ nguyên khi đổi tiền tố; in tem theo mã của từng SKU"),
       roles: ["quan_tri_vien", "quan_ly_kho"],
     },

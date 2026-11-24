@@ -1,6 +1,6 @@
 /**
  * Tô phần khớp từ khóa tìm kiếm bằng <mark> (không phân biệt hoa thường, so theo tiếng Việt); không khớp thì trả
- * nguyên chữ. Dùng ở các bảng tìm theo tên / SKU / mã vạch (Sản phẩm theo sàn, Giá bán & tem mã vạch).
+ * nguyên chữ. Dùng ở các bảng tìm theo tên / SKU / mã vạch (Sản phẩm theo sàn, Tem mã vạch).
  */
 export default function ToKhop({ text, tu }) {
   const chu = text ?? "";

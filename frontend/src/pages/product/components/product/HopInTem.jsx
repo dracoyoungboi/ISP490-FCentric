@@ -38,12 +38,12 @@ const NGUONG_MAC_DINH = 200;
 const COT = "grid grid-cols-[minmax(0,1fr)_110px_76px_112px] items-center cam-ung:md:grid-cols-[minmax(0,1fr)_100px_64px_156px] max-md:grid-cols-[minmax(0,1fr)_156px]";
 
 /**
- * Hộp "In tem sản phẩm" (thay BarcodePrint): mở từ màn Giá bán & tem mã vạch (SKU đã chọn, sau khi đổi giá) hoặc từ
- * phiếu nhập đã hoàn tất.
- * - `nguon`: "chon" | "doi-gia" | "phieu" — quyết định dòng phụ đầu hộp và cách tính số tem mặc định.
+ * Hộp "In tem sản phẩm" (thay BarcodePrint): mở từ màn Tem mã vạch (SKU đã chọn) hoặc từ phiếu nhập đã hoàn tất.
+ * - `nguon`: "chon" | "phieu" — quyết định dòng phụ đầu hộp và cách tính số tem mặc định.
  * - `dong`: SKU cần in ({ id, tenSanPham, tenMau, kichCo, maSku, maVachSku, giaBan, trangThai, tonKho, soLuong? }).
  * - `maPhieu`: số phiếu nhập khi `nguon` = "phieu".
- * - `onDatGia(dong)`: quản trị viên bấm "Đặt giá" ở dòng chưa có giá (không truyền thì không có nút).
+ * - `onDatGia(dong)`: quản trị viên bấm "Đặt giá" ở dòng chưa có giá — nơi mở hộp đóng hộp rồi mở form Sửa sản phẩm
+ *   của `dong.sanPhamId` (không truyền thì không có nút).
  * - `onDaIn()`: gọi khi đóng hộp sau ít nhất một lần mở hộp thoại in.
  * Dòng không in được chỉ bị bỏ qua (ghi lý do), không chặn cả lần in. In xong hộp vẫn mở (trình duyệt không cho biết
  * người dùng bấm In hay Hủy trong hộp thoại in), nên in lại hay sửa số tem không phải quét lại từ đầu.
@@ -138,9 +138,7 @@ function NoiDung({ nguon, dongBanDau, maPhieu, onDatGia, onDaMoIn, onDong }) {
   const nguonTxt =
     nguon === "phieu"
       ? t("Từ phiếu nhập {{maPhieu}} · số tem bằng số lượng thực nhận", { maPhieu: maPhieu ?? "" })
-      : nguon === "doi-gia"
-        ? t("Sau khi đổi giá · thay tem giá cũ cho hàng đang tồn")
-        : t("{{so}} SKU đã chọn", { count: dsDong.length, so: formatNumber(dsDong.length) });
+      : t("{{so}} SKU đã chọn", { count: dsDong.length, so: formatNumber(dsDong.length) });
 
   const doiCheDo = (giaTri) => {
     if (giaTri === cheDo) return;

@@ -139,12 +139,12 @@ export const SIDEBAR_MENU = [
         // Khác tên nhóm "Sản phẩm"; tiêu đề trang vẫn là "Sản phẩm"
         label: t("Danh sách sản phẩm"),
         to: "/products",
-        // /products/gia-ban-tem thuộc mục "Giá bán & tem mã vạch"
-        match: (path) => path === "/products" || (path.startsWith("/products/") && !path.startsWith("/products/gia-ban-tem")),
+        // /products/barcode-labels thuộc mục "Tem mã vạch"
+        match: (path) => path === "/products" || (path.startsWith("/products/") && !path.startsWith("/products/barcode-labels")),
       },
       {
-        label: t("Giá bán & tem mã vạch"),
-        to: "/products/gia-ban-tem",
+        label: t("Tem mã vạch"),
+        to: "/products/barcode-labels",
         roles: VAI_TRO_IN_TEM,
       },
       { label: t("Danh mục"), to: "/categories", roles: VAI_TRO_DANH_MUC },

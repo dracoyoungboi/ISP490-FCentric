@@ -45,21 +45,21 @@ export const productService = {
     },
 
     /**
-     * Màn "Giá bán & tem mã vạch": sản phẩm (phân trang theo sản phẩm) kèm biến thể khớp bộ lọc, số đếm theo tab và số
-     * SKU cần xử lý giá. `size` là số SẢN PHẨM mỗi trang. Trả phần `data` của phản hồi.
+     * Màn "Tem mã vạch": sản phẩm (phân trang theo sản phẩm) kèm biến thể khớp bộ lọc (giá bán, tồn, mã vạch) và số đếm
+     * theo tab. `size` là số SẢN PHẨM mỗi trang. Trả phần `data` của phản hồi.
      */
-    locGiaBan: async ({ page = 0, size = 20, tuKhoa = "", trangThai = "tat-ca", canXuLyGia = false } = {}) => {
+    locGiaBan: async ({ page = 0, size = 20, tuKhoa = "", trangThai = "tat-ca" } = {}) => {
         const res = await apiClient.post(
             "/api/v1/san-pham-quan-ao/gia-ban/filter",
-            { page, size, tuKhoa, trangThai, canXuLyGia },
+            { page, size, tuKhoa, trangThai },
             { needKho: false },
         );
         return res.data?.data;
     },
 
-    /** Đổi giá bán (chỉ quản trị viên): `items` = [{ bienTheId, giaBan }], `lyDo` bắt buộc. Trả { daDoi, boQua }. */
-    doiGiaBan: async ({ items, lyDo }) => {
-        const res = await apiClient.patch("/api/v1/san-pham-quan-ao/sku/gia-ban", { items, lyDo }, { needKho: false });
+    /** Số SKU đang hoạt động chưa có giá bán / bán thấp hơn giá vốn (chỉ quản trị viên). Trả { chuaCoGia, duoiGiaVon }. */
+    demCanXuLyGia: async () => {
+        const res = await apiClient.get("/api/v1/san-pham-quan-ao/gia-ban/can-xu-ly", { needKho: false });
         return res.data?.data;
     },
 

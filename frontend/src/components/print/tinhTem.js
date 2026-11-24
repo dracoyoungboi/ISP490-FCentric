@@ -24,10 +24,9 @@ export const LY_DO_BO_QUA = Object.freeze({
 /** Cách tính số tem mặc định của từng dòng theo nơi mở hộp in. */
 export const CHE_DO_SO_TEM = Object.freeze({ nhap: "nhap", ton: "ton", mot: "mot" });
 
-/** Cách tính mặc định: mở từ phiếu nhập → theo số lượng nhập; sau khi đổi giá → theo tồn; còn lại → 1 tem. */
+/** Cách tính mặc định: mở từ phiếu nhập → theo số lượng nhập; còn lại → 1 tem. */
 export function cheDoMacDinh(nguon) {
     if (nguon === "phieu") return CHE_DO_SO_TEM.nhap;
-    if (nguon === "doi-gia") return CHE_DO_SO_TEM.ton;
     return CHE_DO_SO_TEM.mot;
 }
 
@@ -141,7 +140,7 @@ export function giaTrenTem(gia) {
 
 /**
  * Dòng in tem từ máy chủ (DongInTemDto: bienTheId, tenSanPham, maSku, maVachSku, tenMau, kichCo, trangThai, giaBan,
- * tonKho, soLuong) về cùng dạng với dòng của màn Giá bán (id thay cho bienTheId).
+ * tonKho, soLuong) về cùng dạng với dòng của màn Tem mã vạch (id thay cho bienTheId).
  */
 export function chuanHoaDongInTem(x) {
     return {
