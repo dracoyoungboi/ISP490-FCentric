@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Calendar, ClipboardList, SearchX, Warehouse } from "lucide-react";
+import { Calendar, ClipboardList, SearchX } from "lucide-react";
 
 import PageContainer from "@/components/backoffice/PageContainer";
 import AttentionBar from "@/components/shared/AttentionBar";
@@ -19,13 +19,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { PHIEU_XUAT_KHO_TABS, getPhieuXuatKhoStatus } from "@/constants/phieuXuatKho";
-import { useIsMobile } from "@/hooks/use-mobile";
 import useDemTheoTrangThai from "@/hooks/useDemTheoTrangThai";
 import useTabTrenUrl from "@/hooks/useTabTrenUrl";
 import useTaiLaiDanhSach from "@/hooks/useTaiLaiDanhSach";
 import { trangCuoiNeuVuot } from "@/lib/tinhTaiLai";
 import apiClient from "@/services/apiClient";
-import { getMineKhoList } from "@/services/khoService";
+import { getKhoList, getMineKhoList } from "@/services/khoService";
 import { phieuXuatKhoService } from "@/services/phieuXuatKhoService";
 import { formatDate } from "@/utils/formatters";
 import { getCurrentUserId } from "@/utils/roles";
@@ -76,8 +75,9 @@ function buildFilterPayload({ keyword, tenKho, trangThai, loaiXuat, page, size }
     if (loaiXuat) {
         filterList.push({ fieldName: "loaiXuat", operation: "EQUALS", value: loaiXuat });
     }
-    if (tenKho?.trim()) {
-        filterList.push({ fieldName: "kho.tenKho", operation: "LIKE", value: tenKho.trim() });
+    // Máy chủ chỉ nhận lọc kho theo tên (kho.tenKho); ô chọn kho gửi đúng tên kho đã chọn
+    if (tenKho) {
+        filterList.push({ fieldName: "kho.tenKho", operation: "LIKE", value: tenKho });
     }
     return { page, size, filters: filterList, sorts: [{ fieldName: "ngayTao", direction: "DESC" }] };
 }
@@ -99,8 +99,6 @@ function thamChieuGoc(item) {
 
 export default function PhieuXuatKhoList() {
     const navigate = useNavigate();
-    // Điện thoại: ô "Kho xuất" có nhãn để thanh công cụ đưa vào sheet "Bộ lọc" như ô ngày (máy tính giữ ô cũ)
-    const isMobile = useIsMobile();
     const [tab, setTab] = useTabTrenUrl(TAB_MAS, TAB_MAC_DINH);
     const tabTrangThai = trangThaiCuaTab(tab);
     const [loai, setLoai] = useTabTrenUrl(LOAI_MAS, LOAI_MAC_DINH, { ten: "loai" });
@@ -118,6 +116,7 @@ export default function PhieuXuatKhoList() {
 
     const [filters, setFilters] = useState({
         keyword: "",
+        khoId: "",
         tenKho: "",
         ngayXuat: "",
         page: 0,
@@ -125,16 +124,16 @@ export default function PhieuXuatKhoList() {
     });
     // Ô chữ đổi ngay khi gõ; filters chỉ đổi khi ngừng gõ (mỗi lần đổi gọi danh sách + đếm từng tab)
     const [keywordInput, setKeywordInput] = useState("");
-    const [tenKhoInput, setTenKhoInput] = useState("");
+    // Kho trong ô lọc "Kho xuất": quản trị viên thấy mọi kho, người khác thấy kho được phân công
+    const [dsKhoLoc, setDsKhoLoc] = useState([]);
 
     useEffect(() => {
         const keyword = keywordInput.trim();
-        const tenKho = tenKhoInput.trim();
         const timer = setTimeout(() => {
-            setFilters((p) => (p.keyword === keyword && p.tenKho === tenKho ? p : { ...p, keyword, tenKho, page: 0 }));
+            setFilters((p) => (p.keyword === keyword ? p : { ...p, keyword, page: 0 }));
         }, SEARCH_DEBOUNCE_MS);
         return () => clearTimeout(timer);
-    }, [keywordInput, tenKhoInput]);
+    }, [keywordInput]);
 
     // ── Vai trò + kho phụ trách ──
     const loadPhamVi = useCallback(async () => {
@@ -148,7 +147,13 @@ export default function PhieuXuatKhoList() {
             const dsVaiTro = parseRoles(res.data?.data?.vaiTro);
             setRoles(dsVaiTro);
             // Không phải quản trị viên: backend chỉ trả phiếu của kho được phân công (cùng nguồn với /kho/mine)
-            if (!dsVaiTro.includes("quan_tri_vien")) setKhoPhuTrach(await getMineKhoList());
+            if (dsVaiTro.includes("quan_tri_vien")) {
+                setDsKhoLoc(await getKhoList());
+            } else {
+                const dsMine = await getMineKhoList();
+                setKhoPhuTrach(dsMine);
+                setDsKhoLoc(dsMine);
+            }
         } catch (error) {
             console.error("Lỗi khi tải thông tin phân quyền:", error);
             setRoles((prev) => prev ?? []);
@@ -217,7 +222,7 @@ export default function PhieuXuatKhoList() {
     const tabCounts = useDemTheoTrangThai(
         TAB_MAS,
         (ma) => demPhieu({ keyword: filters.keyword, tenKho: filters.tenKho, trangThai: trangThaiCuaTab(ma), loaiXuat }),
-        `${filters.keyword}|${filters.tenKho}|${loaiXuat ?? ""}`
+        `${filters.keyword}|${filters.khoId}|${loaiXuat ?? ""}`
     );
 
     // ── Dòng chú ý: phiếu đã đóng gói, chờ xuất kho trong phạm vi danh sách, bỏ qua các bộ lọc khác (R4).
@@ -236,12 +241,11 @@ export default function PhieuXuatKhoList() {
     };
 
     // Bộ lọc ngoài tab trạng thái ("Xóa lọc" chỉ xóa các bộ lọc này, giữ tab đang chọn)
-    const hasActiveFilters = Boolean(keywordInput.trim() || tenKhoInput.trim() || filters.ngayXuat || loaiXuat);
+    const hasActiveFilters = Boolean(keywordInput.trim() || filters.khoId || filters.ngayXuat || loaiXuat);
 
     const xoaLocTaiCho = () => {
         setKeywordInput("");
-        setTenKhoInput("");
-        setFilters((p) => ({ ...p, keyword: "", tenKho: "", ngayXuat: "", page: 0 }));
+        setFilters((p) => ({ ...p, keyword: "", khoId: "", tenKho: "", ngayXuat: "", page: 0 }));
     };
 
     // Loại phiếu nằm trên URL: bỏ cùng một lần ghi URL với tab (hai lần ghi liền nhau thì lần sau đè lần trước)
@@ -324,7 +328,7 @@ export default function PhieuXuatKhoList() {
                     >
                         <SearchInput
                             label={t("Tìm theo số phiếu hoặc mã tham chiếu")}
-                            placeholder={t("Số phiếu xuất hoặc số đơn bán...")}
+                            placeholder={t("Số phiếu, số đơn bán")}
                             value={keywordInput}
                             onChange={(e) => setKeywordInput(e.target.value)}
                             onClear={() => {
@@ -344,29 +348,18 @@ export default function PhieuXuatKhoList() {
                             className="sm:w-[180px]"
                         />
 
-                        {isMobile ? (
-                            <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15">
-                                <Warehouse className="size-4 shrink-0 text-bo-muted" aria-hidden="true" />
-                                <span className="shrink-0 text-xs text-bo-muted">{t("Kho xuất")}</span>
-                                <input
-                                    type="text"
-                                    placeholder={t("Tên kho")}
-                                    aria-label={t("Kho xuất")}
-                                    value={tenKhoInput}
-                                    onChange={(e) => setTenKhoInput(e.target.value)}
-                                    className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-bo-foreground placeholder:text-bo-muted focus:outline-none"
-                                />
-                            </label>
-                        ) : (
-                            <input
-                                type="text"
-                                placeholder={t("Nhập tên kho")}
-                                aria-label={t("Kho xuất")}
-                                value={tenKhoInput}
-                                onChange={(e) => setTenKhoInput(e.target.value)}
-                                className="h-9 w-full rounded-md border border-bo-border bg-bo-surface px-3 text-sm text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15 sm:w-[190px]"
+                        {/* Kho xuất: ô chọn (không gõ tên); chỉ phụ trách một kho thì không cần lọc */}
+                        {dsKhoLoc.length > 1 ? (
+                            <FilterSelect
+                                label={t("Kho xuất")}
+                                value={filters.khoId}
+                                options={[{ value: "", label: t("Tất cả kho") }, ...dsKhoLoc.map((k) => ({ value: String(k.id), label: k.tenKho }))]}
+                                onChange={(v) => setFilters((p) => ({ ...p, khoId: v, tenKho: dsKhoLoc.find((k) => String(k.id) === v)?.tenKho ?? "", page: 0 }))}
+                                onClear={() => setFilters((p) => ({ ...p, khoId: "", tenKho: "", page: 0 }))}
+                                clearLabel={t("Bỏ lọc kho xuất")}
+                                className="sm:w-[190px]"
                             />
-                        )}
+                        ) : null}
 
                         {/* Ngày xuất: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
                         <label className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto">

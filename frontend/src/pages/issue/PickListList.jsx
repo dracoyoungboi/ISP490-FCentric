@@ -226,6 +226,15 @@ export default function PickListList() {
                         onClear={clearFilters}
                     >
                         <KhoLamViecSelect onChange={handleDoiKho} />
+                        {/* Thứ tự chung: kho đang xem → ô tìm → ô lọc khác; dấu × chỉ xóa chữ tìm, giữ loại phiếu */}
+                        <SearchInput
+                            placeholder={t("Mã phiếu, người nhặt")}
+                            label={t("Tìm phiếu nhặt hàng")}
+                            value={searchText}
+                            onChange={(event) => setSearchText(event.target.value)}
+                            onClear={() => setSearchText("")}
+                            className="sm:w-[300px]"
+                        />
                         <FilterSelect
                             label={t("Loại phiếu nhặt")}
                             value={filters.loai}
@@ -233,15 +242,7 @@ export default function PickListList() {
                             onChange={doiLoai}
                             onClear={() => doiLoai("")}
                             clearLabel={t("Bỏ lọc loại phiếu")}
-                            className="sm:w-[170px]"
-                        />
-                        <SearchInput
-                            placeholder={t("Nhập mã phiếu nhặt hoặc phiếu chuyển...")}
-                            label={t("Tìm phiếu nhặt hàng")}
-                            value={searchText}
-                            onChange={(event) => setSearchText(event.target.value)}
-                            onClear={clearFilters}
-                            className="sm:w-[300px]"
+                            className="sm:w-[180px]"
                         />
                     </ListToolbar>
                 }
