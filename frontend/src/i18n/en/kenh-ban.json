@@ -1061,5 +1061,9 @@
   "Tải lại từ sàn": "Reload from channel",
   "Bảng ánh xạ điều khiển đẩy tồn kho và định tuyến kho xuất cho đơn {{tenSan}} trong FCentric. Cờ kho mặc định của gian hàng được quản lý trực tiếp trên Seller Center của {{tenSan}}.": "Warehouse mapping controls inventory pushes and order fulfillment routing for {{tenSan}} in FCentric. The shop's default warehouse setting is managed directly in {{tenSan}} Seller Center.",
   "Đã tải lại danh sách kho mới nhất từ {{ten}}.": "Reloaded the latest warehouse list from {{ten}}.",
-  "Không tải được danh sách kho từ {{ten}}.": "Could not load the warehouse list from {{ten}}."
+  "Không tải được danh sách kho từ {{ten}}.": "Could not load the warehouse list from {{ten}}.",
+  "Kho mặc định trên Lazada nhận tồn đồng bộ; bấm tải lại khi cần cập nhật từ Seller Center.": "Default Lazada warehouse receives synced stock; click reload to update from Seller Center.",
+  "Kho mặc định trên Lazada Sandbox nhận tồn đồng bộ; bấm tải lại khi cần cập nhật từ Seller Center.": "Default Lazada Sandbox warehouse receives synced stock; click reload to update from Seller Center.",
+  "Kho mặc định hoặc địa chỉ lấy hàng trên Shopee nhận tồn đồng bộ.": "Default Shopee warehouse or pickup address receives synced stock.",
+  "Kho mặc định hoặc địa chỉ lấy hàng trên Shopee Sandbox nhận tồn đồng bộ.": "Default Shopee Sandbox warehouse or pickup address receives synced stock."
 }
