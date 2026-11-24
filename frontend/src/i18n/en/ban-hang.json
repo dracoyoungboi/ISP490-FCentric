@@ -952,5 +952,16 @@
   "Sao chép mã trạm phát": "Copy delivery station",
   "Thanh toán sàn": "Marketplace payment",
   "Đơn sàn chưa có kho xuất hợp lệ để gửi tự động. Chọn kho xuất thủ công để tiếp tục.": "This marketplace order does not have a valid dispatch warehouse for automatic dispatch. Select a dispatch warehouse manually to continue.",
-  "Thông báo tồn kho tại kho xuất": "Dispatch warehouse stock notice"
+  "Thông báo tồn kho tại kho xuất": "Dispatch warehouse stock notice",
+  "{{tenKho}} đang thiếu hàng cho {{so}} sản phẩm_one": "{{tenKho}} is short on {{so}} product",
+  "{{tenKho}} đang thiếu hàng cho {{so}} sản phẩm_other": "{{tenKho}} is short on {{so}} products",
+  "{{tenKho}} đang kiểm kê toàn kho ({{dot}})": "{{tenKho}} is in a full stock count ({{dot}})",
+  "Đơn đã vào Đơn chờ nhặt hàng nhưng kho chưa nhặt được cho tới khi xong đợt kiểm kê.": "The order is in Orders awaiting picking, but it can't be picked until the stock count is finished.",
+  "Đơn đã vào Đơn chờ nhặt hàng nhưng kho chưa nhặt được. Chuyển thêm hàng về kho này để tiếp tục.": "The order is in Orders awaiting picking, but the warehouse can't pick it yet. Transfer more stock to this warehouse to continue.",
+  "Đơn đã vào Đơn chờ nhặt hàng nhưng kho chưa nhặt được. Kho cần chuyển thêm hàng về kho này để tiếp tục.": "The order is in Orders awaiting picking, but the warehouse can't pick it yet. The warehouse team needs to transfer more stock here to continue.",
+  "Sản phẩm thiếu tại kho": "Products short at the warehouse",
+  "Cần {{can}} · Còn {{con}}": "Need {{can}} · Have {{con}}",
+  "Thiếu {{so}} tại kho": "{{so}} short at warehouse",
+  "Kho đang thiếu hàng cho đơn này. Xem dải cảnh báo trên đơn để chuyển thêm hàng về kho.": "The warehouse is short on stock for this order. See the warning on the order to transfer more stock in.",
+  "Lập phiếu chuyển kho": "Create transfer order"
 }
