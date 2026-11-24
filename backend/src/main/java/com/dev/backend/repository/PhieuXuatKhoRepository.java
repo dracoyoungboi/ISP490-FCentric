@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.LockModeType;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -58,19 +59,30 @@ FROM PhieuXuatKho p
 WHERE DATE(p.ngayXuat) = CURRENT_DATE
 """)
     Long countExportToday();
+    /**
+     * Danh sách phiếu xuất (bán hàng + chuyển kho) của màn Phiếu xuất kho.
+     * {@code khoId}: đúng một kho (ô chọn Kho xuất); {@code tuLuc} / {@code denLuc}: khoảng ngày xuất [tuLuc, denLuc) —
+     * phiếu chưa xuất (Nháp, Chờ xuất) lấy theo ngày tạo. Tham số null = không lọc điều kiện đó.
+     */
     @Query("SELECT p FROM PhieuXuatKho p LEFT JOIN p.donBanHang d " +
             "WHERE (:khoIds IS NULL OR p.kho.id IN :khoIds) " +
             "AND p.loaiXuat IN ('ban_hang', 'chuyen_kho') " +
             "AND (:keyword IS NULL OR LOWER(p.soPhieuXuat) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(d.soDonHang) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
             "AND (:trangThai IS NULL OR p.trangThai = :trangThai) " +
             "AND (:loaiXuat IS NULL OR p.loaiXuat = :loaiXuat) " +
-            "AND (:tenKho IS NULL OR LOWER(p.kho.tenKho) LIKE LOWER(CONCAT('%', :tenKho, '%')))")
+            "AND (:tenKho IS NULL OR LOWER(p.kho.tenKho) LIKE LOWER(CONCAT('%', :tenKho, '%'))) " +
+            "AND (:khoId IS NULL OR p.kho.id = :khoId) " +
+            "AND (:tuLuc IS NULL OR COALESCE(p.ngayXuat, p.ngayTao) >= :tuLuc) " +
+            "AND (:denLuc IS NULL OR COALESCE(p.ngayXuat, p.ngayTao) < :denLuc)")
     Page<PhieuXuatKho> findDanhSachThucXuat(
             @Param("khoIds") List<Integer> khoIds, // Đổi sang List
             @Param("keyword") String keyword,
             @Param("trangThai") Integer trangThai,
             @Param("tenKho") String tenKho,
             @Param("loaiXuat") String loaiXuat, // null = cả bán hàng và chuyển kho
+            @Param("khoId") Integer khoId,
+            @Param("tuLuc") Instant tuLuc,
+            @Param("denLuc") Instant denLuc,
             Pageable pageable
     );
 

@@ -36,6 +36,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -266,6 +270,9 @@ public class PhieuXuatKhoController {
         Integer trangThai = null;
         String tenKho = null;
         String loaiXuat = null;
+        Integer khoId = null;
+        Instant tuLuc = null;
+        Instant denLuc = null;
 
         // Bóc tách filter từ JSON của Frontend gửi lên
         if (request.getFilters() != null) {
@@ -279,6 +286,21 @@ public class PhieuXuatKhoController {
                 } else if ("kho.tenKho".equals(f.getFieldName())) {
                     tenKho = f.getValue() != null ? f.getValue().toString().trim() : null;
                     if (tenKho != null && tenKho.isEmpty()) tenKho = null;
+                } else if ("kho.id".equals(f.getFieldName()) && f.getValue() != null) {
+                    // Ô chọn Kho xuất: đúng một kho (vẫn trong phạm vi kho người xem ở khoIds)
+                    try {
+                        khoId = Integer.valueOf(f.getValue().toString().trim());
+                    } catch (NumberFormatException e) {
+                        khoId = null; // mã kho không phải số: bỏ qua điều kiện này như các bộ lọc lạ khác
+                    }
+                } else if ("ngayXuat".equals(f.getFieldName()) && f.getValue() != null) {
+                    // Khoảng ngày xuất theo giờ Việt Nam: >= từ ngày 00:00, <= đến ngày (lấy hết ngày, so sánh < ngày hôm sau)
+                    LocalDate ngay = docNgay(f.getValue().toString());
+                    if (f.getOperation() == FilterOperation.GREATER_THAN_OR_EQUAL) {
+                        tuLuc = ngay.atStartOfDay(MUI_GIO_VN).toInstant();
+                    } else if (f.getOperation() == FilterOperation.LESS_THAN_OR_EQUAL) {
+                        denLuc = ngay.plusDays(1).atStartOfDay(MUI_GIO_VN).toInstant();
+                    }
                 } else if ("loaiXuat".equals(f.getFieldName())) {
                     // Chỉ nhận hai loại của danh sách; giá trị lạ bỏ qua (cả hai loại) — "Việc cần xử lý" ở Tổng quan
                     // mở phiếu bán hàng Nháp / Chờ xuất cho khớp số máy chủ đếm
@@ -300,7 +322,7 @@ public class PhieuXuatKhoController {
         Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), sort);
 
         // Truyền khoIds (List<Integer>) thay vì khoId (Integer)
-        Page<PhieuXuatKho> pageEntity = phieuXuatKhoService.getDanhSachThucXuatCustom(khoIds, keyword, trangThai, tenKho, loaiXuat, pageable);
+        Page<PhieuXuatKho> pageEntity = phieuXuatKhoService.getDanhSachThucXuatCustom(khoIds, keyword, trangThai, tenKho, loaiXuat, khoId, tuLuc, denLuc, pageable);
         Page<PhieuXuatKhoDto> pageDto = pageEntity.map(phieuXuatKhoMapper::toDto);
 
         return ResponseEntity.ok(
@@ -310,6 +332,18 @@ public class PhieuXuatKhoController {
                         .message(ThongDiep.dich("chungTuKho.layDanhSachThanhCong"))
                         .build()
         );
+    }
+
+    private static final ZoneId MUI_GIO_VN = ZoneId.of("Asia/Ho_Chi_Minh");
+
+    /** "yyyy-MM-dd" hoặc "yyyy-MM-ddTHH:mm:ss" (giao diện gửi cuối ngày) → ngày; sai dạng thì báo lỗi tham số. */
+    private static LocalDate docNgay(String giaTri) {
+        String chuoi = giaTri.trim();
+        try {
+            return LocalDate.parse(chuoi.length() >= 10 ? chuoi.substring(0, 10) : chuoi);
+        } catch (DateTimeParseException e) {
+            throw new CommonException(ThongDiep.of("chungTuKho.ngayKhongHopLe", chuoi), HttpStatus.BAD_REQUEST, null);
+        }
     }
 
     @PostMapping("/get-by-id/{id}")

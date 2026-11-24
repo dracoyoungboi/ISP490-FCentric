@@ -174,7 +174,17 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
 
     /** {@code loaiXuat}: "ban_hang" / "chuyen_kho" để lọc một loại phiếu; null = cả hai loại. */
     public Page<PhieuXuatKho> getDanhSachThucXuatCustom(List<Integer> khoIds, String keyword, Integer trangThai, String tenKho, String loaiXuat, org.springframework.data.domain.Pageable pageable) {
-        return ((PhieuXuatKhoRepository) repository).findDanhSachThucXuat(khoIds, keyword, trangThai, tenKho, loaiXuat, pageable);
+        return getDanhSachThucXuatCustom(khoIds, keyword, trangThai, tenKho, loaiXuat, null, null, null, pageable);
+    }
+
+    /**
+     * Như trên, thêm lọc đúng một kho ({@code khoId}) và khoảng ngày xuất {@code [tuLuc, denLuc)} (phiếu chưa xuất tính
+     * theo ngày tạo). Tham số null = không lọc.
+     */
+    public Page<PhieuXuatKho> getDanhSachThucXuatCustom(List<Integer> khoIds, String keyword, Integer trangThai, String tenKho, String loaiXuat,
+                                                        Integer khoId, java.time.Instant tuLuc, java.time.Instant denLuc,
+                                                        org.springframework.data.domain.Pageable pageable) {
+        return ((PhieuXuatKhoRepository) repository).findDanhSachThucXuat(khoIds, keyword, trangThai, tenKho, loaiXuat, khoId, tuLuc, denLuc, pageable);
     }
 
     /**
