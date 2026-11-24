@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { AlertTriangle } from "lucide-react";
 import AnhBienThe from "@/components/chung-tu/AnhBienThe";
 import DongNhomSanPham from "@/components/chung-tu/DongNhomSanPham";
 import KhongKetQua from "@/components/chung-tu/KhongKetQua";
@@ -30,6 +31,17 @@ function donGiaNhom(dong) {
   return gia.length === 1 ? formatCurrency(gia[0]) : "";
 }
 
+/** Kho xuất đang thiếu biến thể này (đơn Chờ nhặt hàng, `d.thieuTaiKho` từ tinhDonBan.dongHangBan): cùng số với dải cảnh báo. */
+function NhanThieuTaiKho({ d }) {
+  if (!(d.thieuTaiKho > 0)) return null;
+  return (
+    <span className="mt-1 flex items-center gap-1 text-xs font-semibold leading-4 text-amber-700 dark:text-amber-400">
+      <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+      {t("Thiếu {{so}} tại kho", { so: soVN(d.thieuTaiKho) })}
+    </span>
+  );
+}
+
 /** Biến thể (Màu / Cỡ, hoặc "Không có màu, kích cỡ") và SKU của một dòng; khối hẹp thêm đơn giá (cột Đơn giá ẩn). */
 function DongPhuBienThe({ d }) {
   return (
@@ -42,6 +54,7 @@ function DongPhuBienThe({ d }) {
       <span className={cn("block text-xs leading-4 text-bo-muted", CHI_DIEN_THOAI)}>
         {t("Đơn giá")} <b className="font-semibold text-bo-foreground">{formatCurrency(d.donGia)}</b>
       </span>
+      <NhanThieuTaiKho d={d} />
     </>
   );
 }
@@ -152,6 +165,7 @@ export default function BangHangBan({ bang, tenChungTu = t("đơn bán hàng"), 
                           <span className={cn("block text-xs leading-4 text-bo-muted", CHI_DIEN_THOAI)}>
                             {t("Đơn giá")} <b className="font-semibold text-bo-foreground">{formatCurrency(d.donGia)}</b>
                           </span>
+                          <NhanThieuTaiKho d={d} />
                         </td>
                         <td className={cn(O, "whitespace-nowrap text-right", AN_DIEN_THOAI)}>{formatCurrency(d.donGia)}</td>
                         <td className={cn(O, "text-right")}>{soVN(d.soLuong)}</td>

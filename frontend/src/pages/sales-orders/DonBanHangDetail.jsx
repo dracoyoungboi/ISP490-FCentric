@@ -1,15 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AlertTriangle, CircleCheckBig, PackageCheck, Printer, RefreshCw, Send, Truck, Undo2, XCircle } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { CircleCheckBig, PackageCheck, Printer, RefreshCw, Send, Truck, Undo2, XCircle } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
 import KhungChungTu from "@/components/chung-tu/KhungChungTu";
 import DauChungTu from "@/components/chung-tu/DauChungTu";
@@ -34,12 +25,14 @@ import TongTienBan from "@/components/ban-hang/TongTienBan";
 import { idKho } from "@/components/ban-hang/chonKho";
 import HopGuiSangKho from "@/components/ban-hang/chi-tiet-don-ban/HopGuiSangKho";
 import ThuocTinhDonBan from "@/components/ban-hang/chi-tiet-don-ban/ThuocTinhDonBan";
+import DaiThieuTonKhoXuat from "@/components/ban-hang/chi-tiet-don-ban/DaiThieuTonKhoXuat";
 import {
   buocDonBan,
   cauLechDong,
   cauLechTong,
   coTheMoHopGuiSangKho,
   dongHangBan,
+  duongDanChuyenKhoBu,
   gioNgay,
   hauQuaHuy,
   laDonBaSan,
@@ -50,6 +43,7 @@ import {
   tenKenhCua,
   thanhToanDonBan,
   thaoTacDonBan,
+  thieuTonDonBan,
   thongBaoDonBan,
   tienDonBan,
 } from "@/components/ban-hang/chi-tiet-don-ban/tinhDonBan";
@@ -117,7 +111,6 @@ function ChiTietDonBanHang({ id }) {
 
   const [hop, setHop] = useState(""); // "" | "guiKho" | "huy" | "daGiao" | "hoanTra"
   const [buocThuCongKho, setBuocThuCongKho] = useState(false); // true chỉ khi API gửi tự động lỗi cần chọn thủ công
-  const [canhBaoThieuTon, setCanhBaoThieuTon] = useState(null); // thông báo chỉ-đọc sau khi đã gửi đơn thiếu tồn sang kho hiện tại
   const [dangChay, setDangChay] = useState(""); // thao tác đang gửi lên máy chủ
   const [loiHop, setLoiHop] = useState(null);
   // Lý do hủy đơn (bắt buộc, lưu vào ghi chú của đơn)
@@ -135,11 +128,12 @@ function ChiTietDonBanHang({ id }) {
   }, []);
 
   // Quay lại tab thì tải lại ngầm (kho đổi trạng thái khi nhặt, đóng gói, xuất); không tải khi đang thao tác
-  useTaiLaiKhiQuayLai(() => q.reload(), { bat: Boolean(ct) && !q.loading && !dangChay && !hop && !canhBaoThieuTon, lanCuoi: q.capNhatLuc });
-  useDonHangRealtime(() => q.reload(), { bat: !isChannelOrderMock && don?.kenhBanHang?.maKenh === "SHOPIFY" && !dangChay && !hop && !canhBaoThieuTon });
+  useTaiLaiKhiQuayLai(() => q.reload(), { bat: Boolean(ct) && !q.loading && !dangChay && !hop, lanCuoi: q.capNhatLuc });
+  useDonHangRealtime(() => q.reload(), { bat: !isChannelOrderMock && don?.kenhBanHang?.maKenh === "SHOPIFY" && !dangChay && !hop });
 
   // ── Tính toán ───────────────────────────────────────────────────────────
-  const dong = useMemo(() => dongHangBan(ct?.chiTiet), [ct]);
+  // Biến thể kho xuất đang thiếu: dòng hàng hiện "Thiếu N tại kho" (cùng số với dải cảnh báo thiếu hàng)
+  const dong = useMemo(() => dongHangBan(ct?.chiTiet, thieuTonDonBan(ct)?.thieuTheoBienThe), [ct]);
   const bang = useBangChungTu(dong, { tongTheo: TONG_THEO });
 
   // ── Đang tải / lỗi / không tìm thấy ────────────────────────────────────
@@ -187,8 +181,11 @@ function ChiTietDonBanHang({ id }) {
     try {
       const res = await chayCoThoiHan(() => donBanHangService.sendToWarehouse(id, { khoId: Number(idKho(khoHienTai)) }));
       setHop("");
-      if (res?.data === "CANH_BAO_THIEU_TON" && res?.message) {
-        setCanhBaoThieuTon(res.message);
+      if (res?.data === "CANH_BAO_THIEU_TON") {
+        // Đơn đã gửi nhưng kho xuất thiếu hàng: chi tiết từng dòng nằm ở dải cảnh báo trên đơn sau khi tải lại
+        toast.warning(t("Đã gửi đơn {{so}} sang {{tenKho}}", { so, tenKho: khoHienTai.tenKho }), {
+          description: t("Kho đang thiếu hàng cho đơn này. Xem dải cảnh báo trên đơn để chuyển thêm hàng về kho."),
+        });
       } else {
         toast.success(t("Đã gửi đơn {{so}} sang {{tenKho}}", { so, tenKho: khoHienTai.tenKho }), {
           description: t("Đơn chuyển sang Chờ nhặt hàng"),
@@ -399,7 +396,17 @@ function ChiTietDonBanHang({ id }) {
   ].filter(Boolean);
 
   // ── Thông báo ───────────────────────────────────────────────────────────
+  const thieuTon = thieuTonDonBan(ct);
   const thongBao = [
+    thieuTon ? (
+      <DaiThieuTonKhoXuat
+        key="thieu-ton"
+        thieu={thieuTon}
+        laKho={laKho}
+        onLapPhieuChuyenKho={() => navigate(duongDanChuyenKhoBu(thieuTon))}
+        onMoDonChoNhat={() => navigate("/goods-issues/pending-orders")}
+      />
+    ) : null,
     ...thongBaoDonBan(ct, { laBan, laKho, laQuanLyKhoTong }).map((n) => (
       <DongThongBao
         key={n.ma}
@@ -504,34 +511,6 @@ function ChiTietDonBanHang({ id }) {
         }
         cotPhai={<ThuocTinhDonBan ct={ct} laBan={laBan} laKho={laKho} />}
       />
-
-      <Dialog
-        open={Boolean(canhBaoThieuTon)}
-        onOpenChange={(mo) => {
-          if (!mo) setCanhBaoThieuTon(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-[460px]">
-          <DialogHeader className="text-left">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
-                <AlertTriangle className="h-5 w-5" />
-              </div>
-              <div className="flex-1 pt-0.5">
-                <DialogTitle>{t("Thông báo tồn kho tại kho xuất")}</DialogTitle>
-                <DialogDescription className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
-                  {canhBaoThieuTon}
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-          <DialogFooter className="mt-2 sm:justify-end">
-            <Button type="button" onClick={() => setCanhBaoThieuTon(null)}>
-              {t("Đã hiểu")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <HopGuiSangKho
         mo={hop === "guiKho" && coTheMoHopGuiSangKho(don, buocThuCongKho)}

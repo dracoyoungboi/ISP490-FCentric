@@ -182,7 +182,7 @@ export function tachTenDong(ten) {
  * Dòng chứng từ (bangChungTu.js) từ `chiTiet` của đơn bán: gom theo id sản phẩm khi máy chủ trả `sanPhamId`
  * (máy chủ cũ: theo tên), màu / mã màu / cỡ / ảnh, `nhanBienThe` "Màu / Cỡ", số lượng đặt, đơn giá và thành tiền.
  */
-export function dongHangBan(chiTiet) {
+export function dongHangBan(chiTiet, thieuTheoBienThe = null) {
   return (Array.isArray(chiTiet) ? chiTiet : []).filter(Boolean).map((ct, i) => {
     // Máy chủ mới trả sẵn tên gốc, màu, mã màu, cỡ, ảnh; máy chủ cũ chỉ có "Tên / Màu / Cỡ" → tách như trước
     const coTruong = Boolean(ct.tenSanPhamGoc || ct.tenMau || ct.kichCo);
@@ -201,6 +201,9 @@ export function dongHangBan(chiTiet) {
       anh: ct.anh || null,
       nhanBienThe: nhanMauKichCo(ten),
       sku: ct.sku || "",
+      bienTheId: ct.bienTheSanPhamId ?? null,
+      // Số còn thiếu của biến thể tại kho xuất (dải cảnh báo thiếu hàng); 0 khi đủ hoặc không có dữ liệu
+      thieuTaiKho: (ct.bienTheSanPhamId != null && thieuTheoBienThe?.get(Number(ct.bienTheSanPhamId))) || 0,
       soLuong,
       donGia,
       thanhTien: ct.thanhTien != null ? docSo(ct.thanhTien) : soLuong * donGia,
@@ -396,6 +399,54 @@ export function buocDonBan(ct) {
 }
 
 /**
+ * Kho xuất đang thiếu hàng cho đơn Chờ nhặt hàng (máy chủ tính lúc tải chi tiết, `ct.thieuTonKhoXuat`); null khi kho đủ.
+ * `{ khoId, tenKho, dotKiemKe, dong: [{ bienTheId, tenSanPham, nhanBienThe, sku, can, con, thieu }], thieuTheoBienThe }`
+ * — tên, biến thể lấy từ dòng hàng của đơn (cộng các dòng trùng biến thể như máy chủ). `thieuTheoBienThe`: Map bienTheId → số thiếu.
+ */
+export function thieuTonDonBan(ct) {
+  const tt = ct?.thieuTonKhoXuat;
+  if (!tt || Number(ct?.donBanHang?.trangThai) !== TT.CHO_NHAT_HANG) return null;
+  const dotKiemKe = String(tt.dotKiemKeToanKho ?? "").trim() || null;
+  const dongDon = dongHangBan(ct?.chiTiet);
+  const dong = (Array.isArray(tt.dong) ? tt.dong : [])
+    .filter((d) => d && docSo(d.soLuongThieu) > 0)
+    .map((d) => {
+      const goc = dongDon.find((x) => x.bienTheId != null && Number(x.bienTheId) === Number(d.bienTheId));
+      return {
+        bienTheId: Number(d.bienTheId),
+        tenSanPham: goc?.tenSanPham || d.maSku || "",
+        nhanBienThe: goc?.nhanBienThe || "",
+        sku: d.maSku || goc?.sku || "",
+        can: docSo(d.soLuongCan),
+        con: docSo(d.tonKhaDung),
+        thieu: docSo(d.soLuongThieu),
+      };
+    });
+  if (!dotKiemKe && !dong.length) return null;
+  return {
+    khoId: tt.khoId ?? null,
+    tenKho: tt.tenKho || ct?.donBanHang?.khoXuat?.tenKho || t("kho xuất"),
+    dotKiemKe,
+    dong,
+    thieuTheoBienThe: new Map(dong.map((d) => [d.bienTheId, d.thieu])),
+  };
+}
+
+/**
+ * Đường dẫn Lập phiếu chuyển kho điền sẵn kho nhận là kho xuất của đơn; thiếu đúng một biến thể thì điền luôn
+ * sản phẩm và số thiếu (màn Lập phiếu chỉ nhận một dòng đề xuất qua đường dẫn). Kho xuất để màn Lập phiếu tự chọn.
+ */
+export function duongDanChuyenKhoBu(thieu) {
+  if (!thieu?.khoId) return "/transfer-tickets/create";
+  const ts = new URLSearchParams({ khoNhapId: String(thieu.khoId) });
+  if (thieu.dong.length === 1) {
+    ts.set("bienTheId", String(thieu.dong[0].bienTheId));
+    ts.set("soLuong", String(Math.ceil(thieu.dong[0].thieu)));
+  }
+  return `/transfer-tickets/create?${ts.toString()}`;
+}
+
+/**
  * Các dòng thông báo trong khối (chỉ khi có việc phải biết) `{ ma, tone, chu, lienKet? }`; `lienKet: "donChoXuat"` →
  * nút "Mở Đơn chờ nhặt hàng" (chỉ vai trò kho). `tenKho`: kho xuất của đơn. Câu theo bản demo đã chốt.
  */
@@ -437,7 +488,10 @@ export function thongBaoDonBan(ct, { laBan = false, laKho = false, laQuanLyKhoTo
       }
     }
   } else if (tt === TT.CHO_NHAT_HANG && !pl) {
-    them("choGom", "neutral", t("Đơn đang ở Đơn chờ nhặt hàng của {{tenKho}}, chờ kho gom vào phiếu nhặt hàng.", { tenKho }), laKho ? "donChoXuat" : null);
+    // Kho xuất đang thiếu hàng: dải thiếu hàng (DaiThieuTonKhoXuat) thay cho dòng "chờ kho gom", có sẵn nút mở Đơn chờ nhặt hàng
+    if (!thieuTonDonBan(ct)) {
+      them("choGom", "neutral", t("Đơn đang ở Đơn chờ nhặt hàng của {{tenKho}}, chờ kho gom vào phiếu nhặt hàng.", { tenKho }), laKho ? "donChoXuat" : null);
+    }
   } else if (tt === TT.CHO_NHAT_HANG && daNhat) {
     const px = dsPhieuXuat(ct).find((p) => Number(p.trangThai) === TRANG_THAI_PHIEU_XUAT.DA_HUY);
     const soPx = px?.soPhieuXuat ? t("Phiếu xuất {{soPhieuXuat}}", { soPhieuXuat: px.soPhieuXuat }) : t("Phiếu xuất");

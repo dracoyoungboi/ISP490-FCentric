@@ -952,7 +952,6 @@
   "Sao chép mã trạm phát": "Copy delivery station",
   "Thanh toán sàn": "Marketplace payment",
   "Đơn sàn chưa có kho xuất hợp lệ để gửi tự động. Chọn kho xuất thủ công để tiếp tục.": "This marketplace order does not have a valid dispatch warehouse for automatic dispatch. Select a dispatch warehouse manually to continue.",
-  "Thông báo tồn kho tại kho xuất": "Dispatch warehouse stock notice",
   "{{tenKho}} đang thiếu hàng cho {{so}} sản phẩm_one": "{{tenKho}} is short on {{so}} product",
   "{{tenKho}} đang thiếu hàng cho {{so}} sản phẩm_other": "{{tenKho}} is short on {{so}} products",
   "{{tenKho}} đang kiểm kê toàn kho ({{dot}})": "{{tenKho}} is in a full stock count ({{dot}})",
