@@ -1,26 +1,21 @@
 package com.dev.backend.repository;
 
 import com.dev.backend.entities.BienTheSanPham;
-import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 
 /**
- * Truy vấn của màn "Giá bán & tem mã vạch" và hộp In tem. Danh sách phân trang theo SẢN PHẨM: lấy trang id sản phẩm
+ * Truy vấn của màn "Tem mã vạch", hộp In tem và thanh "Cần xử lý giá" ở Danh sách sản phẩm. Danh sách phân trang theo SẢN PHẨM: lấy trang id sản phẩm
  * trước, rồi lấy biến thể, tồn, lần đổi giá gần nhất của cả trang bằng truy vấn IN (không N+1).
  * <p>
  * Bộ lọc dùng chung ({@link #LOC}, {@link #THEO_TAB}):
  * <ul>
  *   <li>{@code tuKhoa}: đã thoát % _ ! (escape '!'), null = không lọc; khớp tên / mã sản phẩm hoặc SKU / mã vạch.</li>
- *   <li>{@code canXuLy}: chỉ biến thể đang hoạt động có giá bán trống, ≤ 0 hoặc thấp hơn giá vốn.</li>
  *   <li>{@code tab}: "tat-ca" | "hoat-dong" (trang_thai = 1) | "ngung-hoat-dong" (khác 1).</li>
  * </ul>
  */
@@ -31,9 +26,7 @@ public interface GiaBanBienTheRepository extends org.springframework.data.reposi
 
     String LOC = " (:tuKhoa IS NULL OR" + KHOP_TEN
             + " OR LOWER(bt.maSku) LIKE LOWER(CONCAT('%', :tuKhoa, '%')) ESCAPE '!'"
-            + " OR LOWER(bt.maVachSku) LIKE LOWER(CONCAT('%', :tuKhoa, '%')) ESCAPE '!')"
-            + " AND (:canXuLy = false OR (bt.trangThai = 1"
-            + " AND (bt.giaBan IS NULL OR bt.giaBan <= 0 OR bt.giaBan < bt.giaVon))) ";
+            + " OR LOWER(bt.maVachSku) LIKE LOWER(CONCAT('%', :tuKhoa, '%')) ESCAPE '!') ";
 
     String THEO_TAB = " (:tab = 'tat-ca'"
             + " OR (:tab = 'hoat-dong' AND bt.trangThai = 1)"
@@ -44,7 +37,6 @@ public interface GiaBanBienTheRepository extends org.springframework.data.reposi
             + " GROUP BY sp.id, sp.ngayTao ORDER BY sp.ngayTao DESC, sp.id DESC",
             countQuery = "SELECT COUNT(DISTINCT sp.id) FROM BienTheSanPham bt JOIN bt.sanPham sp WHERE " + LOC + " AND " + THEO_TAB)
     Page<Integer> trangSanPhamId(@Param("tuKhoa") String tuKhoa,
-                                 @Param("canXuLy") boolean canXuLy,
                                  @Param("tab") String tab,
                                  Pageable pageable);
 
@@ -58,7 +50,6 @@ public interface GiaBanBienTheRepository extends org.springframework.data.reposi
             + " ORDER BY ms.tenMau, ms.id, s.thuTuSapXep, s.id, bt.id")
     List<BienTheSanPham> bienTheKhopLoc(@Param("sanPhamIds") Collection<Integer> sanPhamIds,
                                         @Param("tuKhoa") String tuKhoa,
-                                        @Param("canXuLy") boolean canXuLy,
                                         @Param("tab") String tab);
 
     /** Sản phẩm (trong danh sách) có tên hoặc mã khớp từ khóa: khớp tên thì trả đủ biến thể, không tự mở nhóm. */
@@ -71,12 +62,12 @@ public interface GiaBanBienTheRepository extends org.springframework.data.reposi
 
     /** Số biến thể khớp bộ lọc trên mọi trang. */
     @Query("SELECT COUNT(bt.id) FROM BienTheSanPham bt JOIN bt.sanPham sp WHERE " + LOC + " AND " + THEO_TAB)
-    long demSku(@Param("tuKhoa") String tuKhoa, @Param("canXuLy") boolean canXuLy, @Param("tab") String tab);
+    long demSku(@Param("tuKhoa") String tuKhoa, @Param("tab") String tab);
 
-    /** [tổng, đang hoạt động] theo từ khóa và bộ lọc cần xử lý giá (không theo tab); ngừng = tổng − đang hoạt động. */
+    /** [tổng, đang hoạt động] theo từ khóa (không theo tab); ngừng = tổng − đang hoạt động. */
     @Query("SELECT COUNT(bt.id), COALESCE(SUM(CASE WHEN bt.trangThai = 1 THEN 1 ELSE 0 END), 0)"
             + " FROM BienTheSanPham bt JOIN bt.sanPham sp WHERE " + LOC)
-    List<Object[]> demTheoTab(@Param("tuKhoa") String tuKhoa, @Param("canXuLy") boolean canXuLy);
+    List<Object[]> demTheoTab(@Param("tuKhoa") String tuKhoa);
 
     /** [chưa có giá, dưới giá vốn] của biến thể đang hoạt động trên toàn hệ thống. */
     @Query("""
@@ -91,20 +82,6 @@ public interface GiaBanBienTheRepository extends org.springframework.data.reposi
             + " WHERE lh.bienTheSanPham.id IN :bienTheIds GROUP BY lh.bienTheSanPham.id")
     List<Object[]> tonKho(@Param("bienTheIds") Collection<Integer> bienTheIds);
 
-    /** [bienTheId, lần đổi giá bán gần nhất]. */
-    @Query("SELECT l.idThamChieu, MAX(l.ngayThucHien) FROM LichSuThayDoi l"
-            + " WHERE l.loaiThamChieu = 'bien_the_san_pham' AND l.hanhDong = 'doi_gia_ban' AND l.idThamChieu IN :bienTheIds"
-            + " GROUP BY l.idThamChieu")
-    List<Object[]> lanDoiGiaGanNhat(@Param("bienTheIds") Collection<Integer> bienTheIds);
-
-    /**
-     * Khóa các biến thể sắp đổi giá (thứ tự id cố định, tránh khóa chéo): hai người đổi cùng lúc thì người sau đọc giá
-     * người trước vừa lưu, lịch sử ghi đúng giá cũ.
-     */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT bt FROM BienTheSanPham bt LEFT JOIN FETCH bt.anhBienThe WHERE bt.id IN :ids ORDER BY bt.id")
-    List<BienTheSanPham> khoaTheoIds(@Param("ids") Collection<Integer> ids);
-
     /** Biến thể kèm sản phẩm, màu, kích cỡ để dựng dòng in tem. */
     @Query("SELECT bt FROM BienTheSanPham bt JOIN FETCH bt.sanPham JOIN FETCH bt.mauSac JOIN FETCH bt.size"
             + " LEFT JOIN FETCH bt.anhBienThe WHERE bt.id IN :ids")
@@ -118,12 +95,4 @@ public interface GiaBanBienTheRepository extends org.springframework.data.reposi
             ORDER BY CASE WHEN LOWER(bt.maVachSku) = LOWER(:ma) THEN 0 ELSE 1 END, bt.id
             """)
     List<BienTheSanPham> timTheoMa(@Param("ma") String ma);
-
-    /**
-     * Ghi riêng cột giá bán mặc định của sản phẩm sau khi đổi giá: không UPDATE cả dòng sản phẩm đã nạp, để khỏi đè
-     * trạng thái / giá vốn mặc định mà giao dịch hoàn tất phiếu chạy cùng lúc vừa tính lại.
-     */
-    @Modifying
-    @Query("UPDATE SanPhamQuanAo s SET s.giaBanMacDinh = :gia WHERE s.id = :id")
-    int capNhatGiaBanMacDinh(@Param("id") Integer id, @Param("gia") BigDecimal gia);
 }

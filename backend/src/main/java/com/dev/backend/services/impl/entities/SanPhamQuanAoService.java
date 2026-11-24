@@ -34,6 +34,7 @@ import com.dev.backend.utils.GioiHanSoThapPhan;
 import com.dev.backend.utils.KiemTraTepTai;
 import com.dev.backend.utils.MaVachSku;
 import com.dev.backend.utils.TuKhoaTimKiem;
+import com.dev.backend.utils.XemGiaVon;
 import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import com.dev.backend.i18n.ThongDiep;
 import com.dev.backend.i18n.LoiChungException;
@@ -1631,6 +1632,13 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
         /** Trường lọc ảo: có ít nhất một biến thể đang bán (trang_thai = 1, giá > 0) có giá bán thỏa mọi điều kiện. */
         public static final String TRUONG_LOC_GIA_BIEN_THE = "giaBanBienThe";
 
+        /**
+         * Trường lọc ảo (EQUALS true): sản phẩm có biến thể đang hoạt động chưa có giá bán hoặc bán thấp hơn giá vốn —
+         * nút "Xem các SKU này" của thanh Cần xử lý giá ở Danh sách sản phẩm. Cùng điều kiện với GET /gia-ban/can-xu-ly.
+         * Người không được xem giá vốn gửi lên thì bỏ qua (không suy ra được sản phẩm nào bán dưới giá vốn).
+         */
+        public static final String TRUONG_LOC_CAN_XU_LY_GIA = "canXuLyGia";
+
         @Override
         protected org.springframework.data.jpa.domain.Specification<SanPhamQuanAo> createSpecification(
                 List<com.dev.backend.dto.request.FilterCriteria> filters) {
@@ -1639,6 +1647,15 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                 if (tach.coTruong()) {
                         org.springframework.data.jpa.domain.Specification<SanPhamQuanAo> conLai = createSpecification(tach.conLai());
                         return tach.tuKhoa() == null ? conLai : conLai.and(theoTuKhoa(tach.tuKhoa(), tach.chinhXac()));
+                }
+                if (filters != null && filters.stream().anyMatch(f -> TRUONG_LOC_CAN_XU_LY_GIA.equals(f.getFieldName()))) {
+                        boolean bat = filters.stream()
+                                .filter(f -> TRUONG_LOC_CAN_XU_LY_GIA.equals(f.getFieldName()))
+                                .anyMatch(f -> Boolean.parseBoolean(String.valueOf(f.getValue()).trim()));
+                        org.springframework.data.jpa.domain.Specification<SanPhamQuanAo> conLai = createSpecification(filters.stream()
+                                .filter(f -> !TRUONG_LOC_CAN_XU_LY_GIA.equals(f.getFieldName()))
+                                .toList());
+                        return bat && XemGiaVon.nguoiDangNhapDuocXem() ? conLai.and(canXuLyGia()) : conLai;
                 }
                 if (filters == null || filters.stream().noneMatch(f -> TRUONG_LOC_GIA_BIEN_THE.equals(f.getFieldName()))) {
                         return super.createSpecification(filters);
@@ -1685,6 +1702,22 @@ public class SanPhamQuanAoService extends BaseServiceImpl<SanPhamQuanAo, Integer
                         return cb.exists(sub);
                 };
                 return super.createSpecification(conLai).and(theoGia);
+        }
+
+        /** Có biến thể đang hoạt động với giá bán trống, ≤ 0 hoặc thấp hơn giá vốn (EXISTS: không lặp dòng sản phẩm). */
+        static org.springframework.data.jpa.domain.Specification<SanPhamQuanAo> canXuLyGia() {
+                return (root, query, cb) -> {
+                        jakarta.persistence.criteria.Subquery<Integer> sub = query.subquery(Integer.class);
+                        jakarta.persistence.criteria.Root<BienTheSanPham> bt = sub.from(BienTheSanPham.class);
+                        jakarta.persistence.criteria.Path<BigDecimal> giaBan = bt.get("giaBan");
+                        sub.select(bt.get("id")).where(
+                                cb.equal(bt.get("sanPham"), root),
+                                cb.equal(bt.get("trangThai"), 1),
+                                cb.or(cb.isNull(giaBan),
+                                        cb.lessThanOrEqualTo(giaBan, BigDecimal.ZERO),
+                                        cb.lessThan(giaBan, bt.<BigDecimal>get("giaVon"))));
+                        return cb.exists(sub);
+                };
         }
 
         /**

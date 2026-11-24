@@ -3,14 +3,12 @@ package com.dev.backend.controller;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
 import com.dev.backend.dto.request.BaseFilterRequest;
-import com.dev.backend.dto.request.DoiGiaBanRequest;
 import com.dev.backend.dto.request.LocGiaBanRequest;
 import com.dev.backend.dto.request.SanPhamQuanAoBasicInfoUpdating;
 import com.dev.backend.dto.request.SanPhamQuanAoCreating;
 import com.dev.backend.dto.request.SanPhamQuanAoUpdating;
 import com.dev.backend.dto.response.NhatKyDto;
 import com.dev.backend.dto.response.ResponseData;
-import com.dev.backend.dto.response.customize.KetQuaDoiGiaBanDto;
 import com.dev.backend.dto.response.customize.TrangGiaBanDto;
 import com.dev.backend.dto.response.entities.NguoiDungDto;
 import com.dev.backend.dto.response.entities.SanPhamQuanAoDto;
@@ -63,7 +61,7 @@ public class SanPhamQuanAoController {
                         .build());
         }
 
-        /** Lịch sử giá bán một biến thể (màn Giá bán & tem mã vạch): ai đổi, khi nào, cũ → mới, lý do. */
+        /** Lịch sử giá bán một biến thể: ai đổi, khi nào, cũ → mới, lý do. */
         @GetMapping("/sku/{bienTheId}/lich-su-gia")
         @RequireAuth(roles = { IRoleType.quan_tri_vien, IRoleType.quan_ly_kho })
         public ResponseEntity<ResponseData<List<NhatKyDto>>> lichSuGia(@PathVariable Integer bienTheId) {
@@ -218,11 +216,9 @@ public class SanPhamQuanAoController {
         }
 
         /**
-         * Màn "Giá bán & tem mã vạch": sản phẩm (phân trang theo sản phẩm) kèm các biến thể khớp bộ lọc, tồn mọi kho,
-         * lần đổi giá gần nhất; số đếm theo tab và số SKU cần xử lý giá. Quản lý kho xem để in tem.
+         * Màn "Tem mã vạch" (SRS 4.4 "Barcode", UC 2.7): sản phẩm (phân trang theo sản phẩm) kèm các biến thể khớp bộ lọc,
+         * tồn mọi kho và giá bán sẽ in trên tem; số đếm theo tab. Không trả giá vốn: màn này chỉ để in tem.
          */
-        // Màn Giá bán & tem mã vạch: in tem cho quản lý kho, nhân viên kho, nhân viên bán hàng (SRS 4.4 "Barcode",
-        // UC 2.7). Nhân viên bán hàng không nhận giá vốn (cùng quy tắc màn Chi tiết sản phẩm).
         @PostMapping("/gia-ban/filter")
         @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_ban_hang})
         public ResponseEntity<ResponseData<TrangGiaBanDto>> locGiaBan(@RequestBody(required = false) LocGiaBanRequest request) {
@@ -234,17 +230,16 @@ public class SanPhamQuanAoController {
         }
 
         /**
-         * Đổi giá bán một hoặc nhiều biến thể, bắt buộc lý do; chỉ quản trị viên. Không có giá vốn (SRS 2.4.1: giá vốn
-         * do hệ thống tính theo lô nhập). Thay API cũ PATCH /sku/{id}/price (đã gỡ: nhận cả giá vốn, không ghi lịch sử).
+         * Số SKU đang hoạt động chưa có giá bán / bán thấp hơn giá vốn trên toàn hệ thống: thanh "Cần xử lý giá" ở Danh
+         * sách sản phẩm. Chỉ quản trị viên — người đổi được giá bán (form Sửa sản phẩm).
          */
-        @PatchMapping("/sku/gia-ban")
+        @GetMapping("/gia-ban/can-xu-ly")
         @RequireAuth(roles = { IRoleType.quan_tri_vien })
-        public ResponseEntity<ResponseData<KetQuaDoiGiaBanDto>> doiGiaBan(@RequestBody DoiGiaBanRequest request) {
-                KetQuaDoiGiaBanDto ketQua = giaBanBienTheService.doiGia(request);
-                return ResponseEntity.ok(ResponseData.<KetQuaDoiGiaBanDto>builder()
+        public ResponseEntity<ResponseData<TrangGiaBanDto.CanXuLyGia>> demCanXuLyGia() {
+                return ResponseEntity.ok(ResponseData.<TrangGiaBanDto.CanXuLyGia>builder()
                         .status(HttpStatus.OK.value())
-                        .data(ketQua)
-                        .message(ThongDiep.dich("sanPhamMuaHang.daDoiGiaBanSku", ketQua.getDaDoi().size()))
+                        .data(giaBanBienTheService.demCanXuLy())
+                        .message("Success")
                         .build());
         }
 

@@ -4,16 +4,13 @@ import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IHanhDong;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.ITable;
-import com.dev.backend.dto.request.DoiGiaBanRequest;
 import com.dev.backend.dto.request.LocGiaBanRequest;
-import com.dev.backend.dto.response.customize.KetQuaDoiGiaBanDto;
 import com.dev.backend.dto.response.customize.TrangGiaBanDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.AnhQuanAo;
 import com.dev.backend.entities.BienTheSanPham;
 import com.dev.backend.entities.LichSuThayDoi;
 import com.dev.backend.entities.NguoiDung;
-import com.dev.backend.entities.SanPhamQuanAo;
 import com.dev.backend.exception.customize.CommonException;
 import com.dev.backend.repository.AnhQuanAoRepository;
 import com.dev.backend.repository.BienTheSanPhamRepository;
@@ -22,7 +19,6 @@ import com.dev.backend.repository.NguoiDungRepository;
 import com.dev.backend.utils.GioiHanSoThapPhan;
 import com.dev.backend.utils.HienThiBienThe;
 import com.dev.backend.utils.PublicAssetUrl;
-import com.dev.backend.utils.XemGiaVon;
 import com.dev.backend.i18n.ThongDiep;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -37,9 +33,9 @@ import java.time.Instant;
 import java.util.*;
 
 /**
- * Giá bán của biến thể (màn "Giá bán & tem mã vạch"): danh sách phân trang theo sản phẩm và đổi giá có lý do.
- * Giá vốn chỉ đọc ở đây (SRS 2.4.1). Mỗi lần giá bán thật sự đổi ghi một dòng lich_su_thay_doi (doi_gia_ban);
- * form Sửa sản phẩm đổi giá cũng đi qua {@link #kiemTraGiaBan} và {@link #ghiLichSuDoiGia}.
+ * Giá bán của biến thể: danh sách SKU của màn "Tem mã vạch" (phân trang theo sản phẩm, giá bán chỉ để xem — là giá in
+ * trên tem), số SKU cần xử lý giá cho Danh sách sản phẩm, và phần kiểm / ghi lịch sử giá mà form Sửa sản phẩm dùng
+ * ({@link #kiemTraGiaBan}, {@link #ghiLichSuDoiGia}). Giá bán chỉ đổi ở form Sửa sản phẩm.
  */
 @Service
 public class GiaBanBienTheService {
@@ -47,9 +43,6 @@ public class GiaBanBienTheService {
     /** Số sản phẩm mỗi trang được chọn (mỗi sản phẩm kéo theo đủ biến thể nên không cho 100). */
     public static final List<Integer> SO_SAN_PHAM_MOI_TRANG = List.of(10, 20, 50);
     static final int SO_SAN_PHAM_MAC_DINH = 20;
-    /** Số biến thể tối đa của một lần đổi giá (50 sản phẩm × 100 biến thể của một trang). */
-    static final int SO_SKU_TOI_DA_MOI_LAN = 5000;
-    static final int LY_DO_TOI_DA = 255;
     /** Giới hạn của cột gia_ban DECIMAL(15,2). */
     static final BigDecimal GIA_BAN_TOI_DA = new BigDecimal("9999999999999.99");
 
@@ -59,9 +52,6 @@ public class GiaBanBienTheService {
     private static final Set<String> CAC_TAB = Set.of(TAB_TAT_CA, TAB_HOAT_DONG, TAB_NGUNG_HOAT_DONG);
 
     public static final String LY_DO_SUA_SAN_PHAM = "Sửa sản phẩm";
-    // Lý do bỏ qua trả trong kết quả đổi giá (không lưu DB): dịch theo ngôn ngữ request lúc dựng kết quả
-    public static final String BO_QUA_NGUNG_HOAT_DONG = ThongDiep.vi("sanPhamMuaHang.boQuaNgungHoatDong");
-    public static final String BO_QUA_GIA_KHONG_DOI = ThongDiep.vi("sanPhamMuaHang.boQuaGiaKhongDoi");
 
     @Autowired
     private GiaBanBienTheRepository giaBanRepository;
@@ -74,7 +64,7 @@ public class GiaBanBienTheService {
     @Autowired
     private NguoiDungRepository nguoiDungRepository;
 
-    // ==================== Danh sách ====================
+    // ==================== Danh sách (màn Tem mã vạch) ====================
 
     @Transactional(readOnly = true)
     public TrangGiaBanDto loc(LocGiaBanRequest yeuCau) {
@@ -83,38 +73,31 @@ public class GiaBanBienTheService {
         int soDong = req.getSize() != null && SO_SAN_PHAM_MOI_TRANG.contains(req.getSize()) ? req.getSize() : SO_SAN_PHAM_MAC_DINH;
         String tuKhoa = tuKhoaLike(req.getTuKhoa());
         String tab = chuanHoaTab(req.getTrangThai());
-        // "Cần xử lý giá" gồm SKU bán dưới giá vốn: chỉ người được xem giá vốn mới lọc và nhận số đếm (nhân viên bán hàng
-        // mở màn này để in tem, không suy ra được mã nào bán dưới giá vốn)
-        boolean xemGiaVon = XemGiaVon.nguoiDangNhapDuocXem();
-        boolean canXuLy = xemGiaVon && Boolean.TRUE.equals(req.getCanXuLyGia());
 
-        Page<Integer> trangId = giaBanRepository.trangSanPhamId(tuKhoa, canXuLy, tab, PageRequest.of(trang, soDong));
+        Page<Integer> trangId = giaBanRepository.trangSanPhamId(tuKhoa, tab, PageRequest.of(trang, soDong));
         List<Integer> sanPhamIds = trangId.getContent();
-        long tongSku = trangId.getTotalElements() == 0 ? 0 : giaBanRepository.demSku(tuKhoa, canXuLy, tab);
+        long tongSku = trangId.getTotalElements() == 0 ? 0 : giaBanRepository.demSku(tuKhoa, tab);
 
         return TrangGiaBanDto.builder()
-                .content(sanPhamIds.isEmpty() ? List.of() : dungNhom(sanPhamIds, tuKhoa, canXuLy, tab))
+                .content(sanPhamIds.isEmpty() ? List.of() : dungNhom(sanPhamIds, tuKhoa, tab))
                 .page(trang)
                 .size(soDong)
                 .tongSanPham(trangId.getTotalElements())
                 .tongSku(tongSku)
-                .demTheoTab(demTheoTab(tuKhoa, canXuLy))
-                .canXuLy(xemGiaVon ? demCanXuLy() : null)
+                .demTheoTab(demTheoTab(tuKhoa))
                 .build();
     }
 
-    private List<TrangGiaBanDto.NhomGiaBan> dungNhom(List<Integer> sanPhamIds, String tuKhoa, boolean canXuLy, String tab) {
-        List<BienTheSanPham> dsBienThe = giaBanRepository.bienTheKhopLoc(sanPhamIds, tuKhoa, canXuLy, tab);
+    private List<TrangGiaBanDto.NhomGiaBan> dungNhom(List<Integer> sanPhamIds, String tuKhoa, String tab) {
+        List<BienTheSanPham> dsBienThe = giaBanRepository.bienTheKhopLoc(sanPhamIds, tuKhoa, tab);
         List<Integer> bienTheIds = dsBienThe.stream().map(BienTheSanPham::getId).toList();
         Map<Integer, BigDecimal> ton = tonKho(bienTheIds);
-        Map<Integer, Instant> lanDoi = lanDoiGiaGanNhat(bienTheIds);
         Map<Integer, Integer> tongPhanLoai = new HashMap<>();
         for (Object[] dong : giaBanRepository.demPhanLoai(sanPhamIds)) {
             tongPhanLoai.put(((Number) dong[0]).intValue(), ((Number) dong[1]).intValue());
         }
         Set<Integer> khopTen = tuKhoa == null ? new HashSet<>(sanPhamIds) : new HashSet<>(giaBanRepository.sanPhamKhopTen(sanPhamIds, tuKhoa));
         Map<Integer, String> anhSanPham = anhDaiDien(sanPhamIds);
-        boolean xemGiaVon = XemGiaVon.nguoiDangNhapDuocXem();
 
         // Truy vấn đã xếp thứ tự phân loại; gom theo sản phẩm vẫn giữ thứ tự đó
         Map<Integer, List<BienTheSanPham>> theoSanPham = new HashMap<>();
@@ -147,18 +130,16 @@ public class GiaBanBienTheService {
                                     .build())
                             .kichCo(HienThiBienThe.kichCo(bt))
                             .trangThai(bt.getTrangThai())
-                            .giaVon(xemGiaVon ? bt.getGiaVon() : null)
                             .giaBan(bt.getGiaBan())
                             .tonKho(ton.getOrDefault(bt.getId(), BigDecimal.ZERO))
-                            .ngayDoiGiaGanNhat(lanDoi.get(bt.getId()))
                             .build()).toList())
                     .build());
         }
         return nhom;
     }
 
-    private TrangGiaBanDto.DemTheoTab demTheoTab(String tuKhoa, boolean canXuLy) {
-        Object[] dong = dongDau(giaBanRepository.demTheoTab(tuKhoa, canXuLy));
+    private TrangGiaBanDto.DemTheoTab demTheoTab(String tuKhoa) {
+        Object[] dong = dongDau(giaBanRepository.demTheoTab(tuKhoa));
         long tatCa = so(dong, 0);
         long hoatDong = so(dong, 1);
         return TrangGiaBanDto.DemTheoTab.builder()
@@ -168,7 +149,12 @@ public class GiaBanBienTheService {
                 .build();
     }
 
-    private TrangGiaBanDto.CanXuLyGia demCanXuLy() {
+    /**
+     * Số SKU đang hoạt động chưa có giá bán / bán thấp hơn giá vốn trên toàn hệ thống: thanh "Cần xử lý giá" ở Danh sách
+     * sản phẩm (chỉ quản trị viên, người đổi được giá).
+     */
+    @Transactional(readOnly = true)
+    public TrangGiaBanDto.CanXuLyGia demCanXuLy() {
         Object[] dong = dongDau(giaBanRepository.demCanXuLy());
         return TrangGiaBanDto.CanXuLyGia.builder().chuaCoGia(so(dong, 0)).duoiGiaVon(so(dong, 1)).build();
     }
@@ -181,16 +167,6 @@ public class GiaBanBienTheService {
             if (dong == null || dong[0] == null || dong[1] == null) continue;
             BigDecimal soLuong = dong[1] instanceof BigDecimal bd ? bd : new BigDecimal(dong[1].toString());
             ketQua.put(((Number) dong[0]).intValue(), soLuong);
-        }
-        return ketQua;
-    }
-
-    private Map<Integer, Instant> lanDoiGiaGanNhat(Collection<Integer> bienTheIds) {
-        if (bienTheIds.isEmpty()) return Map.of();
-        Map<Integer, Instant> ketQua = new HashMap<>();
-        for (Object[] dong : giaBanRepository.lanDoiGiaGanNhat(bienTheIds)) {
-            if (dong == null || dong[0] == null || !(dong[1] instanceof Instant luc)) continue;
-            ketQua.put(((Number) dong[0]).intValue(), luc);
         }
         return ketQua;
     }
@@ -228,109 +204,11 @@ public class GiaBanBienTheService {
         return dong.length > viTri && dong[viTri] instanceof Number n ? n.longValue() : 0L;
     }
 
-    // ==================== Đổi giá ====================
+    // ==================== Đổi giá ở form Sửa sản phẩm ====================
 
     /**
-     * Đổi giá bán nhiều biến thể trong một giao dịch: kiểm hết trước khi ghi; biến thể ngừng hoạt động hoặc giá không đổi
-     * được bỏ qua (trả về kèm lý do); mỗi biến thể đổi giá ghi một dòng lịch sử. Không bao giờ ghi giá vốn.
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public KetQuaDoiGiaBanDto doiGia(DoiGiaBanRequest yeuCau) {
-        if (yeuCau == null || yeuCau.getItems() == null || yeuCau.getItems().isEmpty()) {
-            throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanChonItNhatMotSku"));
-        }
-        if (yeuCau.getItems().size() > SO_SKU_TOI_DA_MOI_LAN) {
-            throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanToiDaSku", SO_SKU_TOI_DA_MOI_LAN));
-        }
-        String lyDo = kiemTraLyDo(yeuCau.getLyDo());
-        Map<Integer, BigDecimal> giaMoiTheoId = new LinkedHashMap<>();
-        for (DoiGiaBanRequest.Dong dong : yeuCau.getItems()) {
-            if (dong == null || dong.getBienTheId() == null) {
-                throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanThieuSku"));
-            }
-            BigDecimal gia = kiemTraGiaBan(dong.getGiaBan());
-            if (giaMoiTheoId.putIfAbsent(dong.getBienTheId(), gia) != null) {
-                throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanSkuGuiTrung", dong.getBienTheId()));
-            }
-        }
-
-        Map<Integer, BienTheSanPham> theoId = new HashMap<>();
-        for (BienTheSanPham bt : giaBanRepository.khoaTheoIds(giaMoiTheoId.keySet())) {
-            theoId.put(bt.getId(), bt);
-        }
-        List<Integer> thieu = giaMoiTheoId.keySet().stream().filter(id -> !theoId.containsKey(id)).toList();
-        if (!thieu.isEmpty()) {
-            throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanKhongTimThaySku", thieu.stream().map(String::valueOf).reduce((a, b) -> a + ", " + b).orElse("")));
-        }
-
-        NguoiDung nguoiThucHien = nguoiDangThucHien();
-        Instant bayGio = Instant.now();
-        List<BienTheSanPham> daDoi = new ArrayList<>();
-        List<KetQuaDoiGiaBanDto.BoQua> boQua = new ArrayList<>();
-        for (Map.Entry<Integer, BigDecimal> muc : giaMoiTheoId.entrySet()) {
-            BienTheSanPham bt = theoId.get(muc.getKey());
-            if (!Integer.valueOf(1).equals(bt.getTrangThai())) {
-                boQua.add(KetQuaDoiGiaBanDto.BoQua.builder().id(bt.getId()).lyDo(ThongDiep.dich("sanPhamMuaHang.boQuaNgungHoatDong")).build());
-                continue;
-            }
-            BigDecimal giaCu = bt.getGiaBan();
-            if (!laGiaDoi(giaCu, muc.getValue())) {
-                boQua.add(KetQuaDoiGiaBanDto.BoQua.builder().id(bt.getId()).lyDo(ThongDiep.dich("sanPhamMuaHang.boQuaGiaKhongDoi")).build());
-                continue;
-            }
-            bt.setGiaBan(muc.getValue());
-            bienTheSanPhamRepository.save(bt);
-            ghiLichSuDoiGia(bt.getId(), giaCu, muc.getValue(), lyDo, nguoiThucHien, bayGio);
-            daDoi.add(bt);
-        }
-
-        capNhatGiaBanMacDinh(daDoi);
-
-        Map<Integer, BigDecimal> ton = tonKho(daDoi.stream().map(BienTheSanPham::getId).toList());
-        return KetQuaDoiGiaBanDto.builder()
-                .daDoi(daDoi.stream().map(bt -> KetQuaDoiGiaBanDto.DaDoi.builder()
-                        .id(bt.getId())
-                        .giaBanMoi(bt.getGiaBan())
-                        .tonKho(ton.getOrDefault(bt.getId(), BigDecimal.ZERO))
-                        .build()).toList())
-                .boQua(boQua)
-                .build();
-    }
-
-    /**
-     * Giá bán mặc định của sản phẩm (tìm kiếm chung, giá dự phòng khi đẩy sàn) = trung bình giá bán các biến thể còn
-     * hàng, cùng cách tính với SanPhamQuanAoService.recalculatePriceAndStatus; tính lại ngay sau khi đổi giá để khỏi
-     * dùng giá cũ tới lần nhập / xuất kho sau. Sản phẩm không còn biến thể nào có hàng thì giữ nguyên. Chỉ ghi đúng cột
-     * này (GiaBanBienTheRepository.capNhatGiaBanMacDinh).
-     */
-    void capNhatGiaBanMacDinh(List<BienTheSanPham> daDoi) {
-        Map<Integer, SanPhamQuanAo> sanPhams = new LinkedHashMap<>();
-        for (BienTheSanPham bt : daDoi) {
-            if (bt.getSanPham() != null) sanPhams.putIfAbsent(bt.getSanPham().getId(), bt.getSanPham());
-        }
-        for (SanPhamQuanAo sp : sanPhams.values()) {
-            List<BienTheSanPham> dsBienThe = sp.getBienTheSanPhams();
-            if (dsBienThe == null || dsBienThe.isEmpty()) continue;
-            Map<Integer, BigDecimal> ton = tonKho(dsBienThe.stream().map(BienTheSanPham::getId).toList());
-            BigDecimal tong = BigDecimal.ZERO;
-            int soCoHang = 0;
-            for (BienTheSanPham b : dsBienThe) {
-                if (b.getGiaBan() != null && ton.getOrDefault(b.getId(), BigDecimal.ZERO).signum() > 0) {
-                    tong = tong.add(b.getGiaBan());
-                    soCoHang++;
-                }
-            }
-            if (soCoHang == 0) continue;
-            BigDecimal gia = tong.divide(BigDecimal.valueOf(soCoHang), 0, RoundingMode.CEILING);
-            if (sp.getGiaBanMacDinh() == null || sp.getGiaBanMacDinh().compareTo(gia) != 0) {
-                giaBanRepository.capNhatGiaBanMacDinh(sp.getId(), gia);
-            }
-        }
-    }
-
-    /**
-     * Chỉ quản trị viên được đổi giá bán (PATCH /sku/gia-ban đã khóa ở controller; form Sửa sản phẩm mở cho cả quản lý
-     * kho nên kiểm thêm ở đây). Gọi nội bộ (không qua HTTP) thì được.
+     * Chỉ quản trị viên được đổi giá bán (PUT /update đã khóa ở controller, kiểm thêm ở đây phòng khi mở quyền sửa
+     * sản phẩm cho vai trò khác). Gọi nội bộ (không qua HTTP) thì được.
      */
     public static boolean duocDoiGiaBan() {
         NguoiDungAuthInfo nguoiDung = SecurityContextHolder.getUser();
@@ -359,17 +237,6 @@ public class GiaBanBienTheService {
     /** Giá mới khác giá đang lưu (so theo giá trị: 2000000 và 2000000.00 là một). */
     public static boolean laGiaDoi(BigDecimal giaCu, BigDecimal giaMoi) {
         return giaCu == null ? giaMoi != null : giaMoi != null && giaCu.compareTo(giaMoi) != 0;
-    }
-
-    static String kiemTraLyDo(String lyDo) {
-        String gon = lyDo == null ? "" : lyDo.trim();
-        if (gon.isEmpty()) {
-            throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanChonLyDo"));
-        }
-        if (gon.length() > LY_DO_TOI_DA) {
-            throw new CommonException(ThongDiep.of("sanPhamMuaHang.giaBanLyDoToiDa", LY_DO_TOI_DA));
-        }
-        return gon;
     }
 
     /** Một dòng lịch sử đổi giá bán, ghi trong giao dịch của thao tác đổi giá (lỗi thì cả lần đổi giá hoàn tác). */
