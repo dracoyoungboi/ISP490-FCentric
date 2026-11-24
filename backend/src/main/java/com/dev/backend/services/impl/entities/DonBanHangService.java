@@ -32,6 +32,7 @@ import com.dev.backend.mapper.PhieuXuatKhoMapper;
 import com.dev.backend.repository.*;
 import com.dev.backend.services.impl.BaseServiceImpl;
 import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
+import com.dev.backend.utils.ShopeeWaybillMetadataHelper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Tuple;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -611,6 +612,7 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 donDto = donBanHangMapper.toDto(don);
             }
         }
+        lamGiauThongTinVanDonSan(don, donDto);
 
         List<PhieuXuatKhoSummaryDto> phieuDtos =
                 phieuList.stream()
@@ -655,6 +657,46 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 .coTheGuiSangKho(coTheGuiKho)
                 .choXacNhanSan(choXacNhanSan)
                 .build();
+    }
+
+    /** Làm giàu dữ liệu vận đơn, mã chia chọn tuyến và nhãn thanh toán COD/Ví điện tử lên DTO chi tiết đơn bán. */
+    private void lamGiauThongTinVanDonSan(DonBanHang don, DonBanHangDto dto) {
+        if (don == null || dto == null) {
+            return;
+        }
+        boolean laSan = don.getKenhBanHang() != null
+                || (don.getMaDonHangKenh() != null && !don.getMaDonHangKenh().isBlank());
+        if (!laSan) {
+            return;
+        }
+        String ghiChu = don.getGhiChu();
+        String orderSn = don.getMaDonHangKenh();
+
+        if (ShopeeWaybillMetadataHelper.isFakeShopeeTracking(dto.getMaVanDon(), orderSn)) {
+            dto.setMaVanDon(ShopeeWaybillMetadataHelper.extractTracking(ghiChu, orderSn));
+        }
+        if (dto.getDonViVanChuyen() == null || dto.getDonViVanChuyen().isBlank()) {
+            dto.setDonViVanChuyen(ShopeeWaybillMetadataHelper.extractCarrier(ghiChu));
+        }
+        if (dto.getMaKienHang() == null || dto.getMaKienHang().isBlank()) {
+            dto.setMaKienHang(ShopeeWaybillMetadataHelper.extractTag(ghiChu, ShopeeWaybillMetadataHelper.TAG_KIEN));
+        }
+        if (dto.getMaDinhTuyen() == null || dto.getMaDinhTuyen().isBlank()) {
+            dto.setMaDinhTuyen(ShopeeWaybillMetadataHelper.extractTag(ghiChu, ShopeeWaybillMetadataHelper.TAG_TUYEN));
+        }
+        if (dto.getMaTramPhat() == null || dto.getMaTramPhat().isBlank()) {
+            dto.setMaTramPhat(ShopeeWaybillMetadataHelper.extractTag(ghiChu, ShopeeWaybillMetadataHelper.TAG_TRAM));
+        }
+
+        ShopeeWaybillMetadataHelper.PaymentSummary paymentSummary =
+                ShopeeWaybillMetadataHelper.resolveOrderPaymentSummary(
+                        ghiChu,
+                        don.getTrangThaiThanhToan(),
+                        don.getTongCong(),
+                        laDonShopeeChoXacNhan(don)
+                );
+        dto.setTienThuHoCod(paymentSummary.tienThuHoCod());
+        dto.setNhanThanhToan(paymentSummary.nhanThanhToan());
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -1784,29 +1826,15 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
     }
 
     private VanDonSanDto taoVanDonShopeeHtml(DonBanHang don, String orderId, String resolvedTracking) {
-        String trackingCode = (resolvedTracking != null && !resolvedTracking.isBlank())
+        String ghiChu = don.getGhiChu();
+        String trackingCode = !ShopeeWaybillMetadataHelper.isFakeShopeeTracking(resolvedTracking, orderId)
                 ? resolvedTracking.trim()
-                : ("SPXVN" + (orderId != null ? orderId : don.getSoDonHang()));
-        String carrier = "Shopee Xpress (SPX)";
-        if ((resolvedTracking == null || resolvedTracking.isBlank())
-                && don.getGhiChu() != null && don.getGhiChu().contains("[VẬN ĐƠN:")) {
-            try {
-                int start = don.getGhiChu().indexOf("[VẬN ĐƠN:") + 9;
-                int end = don.getGhiChu().indexOf("]", start);
-                if (end > start) {
-                    trackingCode = don.getGhiChu().substring(start, end).trim();
-                }
-            } catch (Exception ignored) {}
+                : ShopeeWaybillMetadataHelper.extractTracking(ghiChu, orderId);
+        if (trackingCode == null || trackingCode.isBlank()) {
+            trackingCode = (orderId != null && !orderId.isBlank()) ? orderId : don.getSoDonHang();
         }
-        if (don.getGhiChu() != null && don.getGhiChu().contains("[ĐƠN VỊ:")) {
-            try {
-                int start = don.getGhiChu().indexOf("[ĐƠN VỊ:") + 8;
-                int end = don.getGhiChu().indexOf("]", start);
-                if (end > start) {
-                    carrier = don.getGhiChu().substring(start, end).trim();
-                }
-            } catch (Exception ignored) {}
-        }
+        String extractedCarrier = ShopeeWaybillMetadataHelper.extractCarrier(ghiChu);
+        String carrier = extractedCarrier != null ? extractedCarrier : "Shopee Xpress (SPX)";
 
         String recipientName = "Khách hàng sàn Shopee";
         String recipientPhone = "09***888";
@@ -1849,18 +1877,28 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
             }
         }
 
-        String sortingCode = "1-SGN-HUB / AN LẠC";
-        String addrUpper = recipientAddress.toUpperCase();
-        if (addrUpper.contains("HÀ NỘI") || addrUpper.contains("HA NOI") || addrUpper.contains("HN")) {
-            sortingCode = "20-HAN-ĐĐ / ĐỐNG ĐA";
-        } else if (addrUpper.contains("ĐÀ NẴNG") || addrUpper.contains("DA NANG")) {
-            sortingCode = "50-DNG-HC / HẢI CHÂU";
-        } else if (addrUpper.contains("HỒ CHÍ MINH") || addrUpper.contains("HO CHI MINH") || addrUpper.contains("HCM") || addrUpper.contains("SÀI GÒN")) {
-            sortingCode = "1-SGN-HUB / BÌNH TÂN";
+        String maTuyen = ShopeeWaybillMetadataHelper.extractTag(ghiChu, ShopeeWaybillMetadataHelper.TAG_TUYEN);
+        String maTram = ShopeeWaybillMetadataHelper.extractTag(ghiChu, ShopeeWaybillMetadataHelper.TAG_TRAM);
+        String sortingCode;
+        if (maTuyen != null) {
+            sortingCode = maTram != null ? (maTuyen + " / " + maTram) : maTuyen;
+        } else {
+            sortingCode = "Đang cập nhật tuyến";
+            String addrUpper = recipientAddress.toUpperCase();
+            if (addrUpper.contains("HÀ NỘI") || addrUpper.contains("HA NOI") || addrUpper.contains("HN")) {
+                sortingCode = "20-HAN / HÀ NỘI";
+            } else if (addrUpper.contains("ĐÀ NẴNG") || addrUpper.contains("DA NANG")) {
+                sortingCode = "50-DNG / ĐÀ NẴNG";
+            } else if (addrUpper.contains("HỒ CHÍ MINH") || addrUpper.contains("HO CHI MINH") || addrUpper.contains("HCM") || addrUpper.contains("SÀI GÒN")) {
+                sortingCode = "1-SGN / TP.HCM";
+            }
         }
 
-        boolean isCod = "chua_thanh_toan".equalsIgnoreCase(don.getTrangThaiThanhToan());
-        String codText = isCod ? String.format("%,d ₫", don.getTongCong() != null ? don.getTongCong().longValue() : 0) : "0 ₫ (ĐÃ THANH TOÁN)";
+        ShopeeWaybillMetadataHelper.PaymentSummary paySummary = ShopeeWaybillMetadataHelper.resolveOrderPaymentSummary(
+                ghiChu, don.getTrangThaiThanhToan(), don.getTongCong(), laDonShopeeChoXacNhan(don));
+        String codText = paySummary.cod()
+                ? String.format("%,d ₫", paySummary.tienThuHoCod().longValue())
+                : "0 ₫ (ĐÃ THANH TOÁN)";
 
         String html = """
                 <!DOCTYPE html>

@@ -19,6 +19,7 @@ import com.dev.backend.services.multitable.BangChungDongGoiService;
 import com.dev.backend.utils.HienThiBienThe;
 import com.dev.backend.utils.KhoDangChon;
 import com.dev.backend.utils.SauCommit;
+import com.dev.backend.utils.ShopeeWaybillMetadataHelper;
 import com.dev.backend.utils.SoChungTu;
 import com.dev.backend.services.impl.kiemke.KhoaKiemKeGuard;
 import com.dev.backend.services.impl.kiemke.PhanBoKeService;
@@ -603,35 +604,17 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 ? request.getMaVanDon().trim() : null;
 
         if (don != null) {
-            // Trích xuất từ ghi chú đơn hàng nếu request chưa có
-            if (finalTracking == null && don.getGhiChu() != null && don.getGhiChu().contains("[VẬN ĐƠN:")) {
-                try {
-                    int s = don.getGhiChu().indexOf("[VẬN ĐƠN:") + 9;
-                    int e = don.getGhiChu().indexOf("]", s);
-                    if (e > s) finalTracking = don.getGhiChu().substring(s, e).trim();
-                } catch (Exception ignored) {}
+            // Trích xuất mã vận đơn thật & ĐVVC từ ghi chú đơn hàng (không lấy mã giả SPXVN<orderSn> hay ĐVVC rỗng)
+            if (finalTracking == null) {
+                finalTracking = ShopeeWaybillMetadataHelper.extractTracking(don.getGhiChu(), don.getMaDonHangKenh());
             }
-            if (finalCarrier == null && don.getGhiChu() != null && don.getGhiChu().contains("[ĐƠN VỊ:")) {
-                try {
-                    int s = don.getGhiChu().indexOf("[ĐƠN VỊ:") + 8;
-                    int e = don.getGhiChu().indexOf("]", s);
-                    if (e > s) finalCarrier = don.getGhiChu().substring(s, e).trim();
-                } catch (Exception ignored) {}
-            }
-
-            // Nếu là Shopee: fallback mã SPX nếu chưa có
-            KenhBanHang kb = don.getKenhBanHang();
-            if (kb != null && kb.getMaKenh() != null && kb.getMaKenh().toUpperCase().contains("SHOPEE")) {
-                if (finalTracking == null) {
-                    finalTracking = "SPXVN" + (don.getMaDonHangKenh() != null ? don.getMaDonHangKenh() : don.getSoDonHang());
-                }
-                if (finalCarrier == null) {
-                    finalCarrier = "Shopee Xpress (SPX VN)";
-                }
+            if (finalCarrier == null) {
+                finalCarrier = ShopeeWaybillMetadataHelper.extractCarrier(don.getGhiChu());
             }
         }
 
-        // Nếu trong ghi chú phiếu xuất cũ đã có thì không bỏ sót
+        // Nếu trong ghi chú phiếu xuất cũ đã có thì không bỏ sót (tránh giữ lại mã giả SPXVN<orderSn>)
+        String orderSnKenh = don != null ? don.getMaDonHangKenh() : null;
         if (finalTracking == null && phieu.getGhiChu() != null && phieu.getGhiChu().contains("- Vận đơn:")) {
             try {
                 int s = phieu.getGhiChu().indexOf("- Vận đơn:") + 10;
@@ -639,7 +622,9 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 if (e == -1) e = phieu.getGhiChu().indexOf("]", s);
                 if (e > s) {
                     String val = phieu.getGhiChu().substring(s, e).trim();
-                    if (!val.equalsIgnoreCase("N/A")) finalTracking = val;
+                    if (!val.equalsIgnoreCase("N/A") && !ShopeeWaybillMetadataHelper.isFakeShopeeTracking(val, orderSnKenh)) {
+                        finalTracking = val;
+                    }
                 }
             } catch (Exception ignored) {}
         }
@@ -1179,43 +1164,26 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 }
             }
 
-            // Trích xuất mã vận đơn và đơn vị vận chuyển từ ghi chú đơn hàng nếu đã được lưu lúc sync
-            if ((trackingCode == null || trackingCode.isBlank()) && donGoc.getGhiChu() != null) {
-                if (donGoc.getGhiChu().contains("[VẬN ĐƠN:")) {
-                    try {
-                        int s = donGoc.getGhiChu().indexOf("[VẬN ĐƠN:") + 9;
-                        int e = donGoc.getGhiChu().indexOf("]", s);
-                        if (e > s) trackingCode = donGoc.getGhiChu().substring(s, e).trim();
-                    } catch (Exception ignored) {}
-                }
-                if (donGoc.getGhiChu().contains("[ĐƠN VỊ:")) {
-                    try {
-                        int s = donGoc.getGhiChu().indexOf("[ĐƠN VỊ:") + 8;
-                        int e = donGoc.getGhiChu().indexOf("]", s);
-                        if (e > s) carrierName = donGoc.getGhiChu().substring(s, e).trim();
-                    } catch (Exception ignored) {}
-                }
+            // Trích xuất mã vận đơn, đơn vị vận chuyển và mã kiện từ ghi chú đơn hàng (lọc bỏ mã giả SPXVN<orderSn> / ĐVVC rỗng)
+            if (ShopeeWaybillMetadataHelper.isFakeShopeeTracking(trackingCode, donGoc.getMaDonHangKenh())) {
+                trackingCode = ShopeeWaybillMetadataHelper.extractTracking(donGoc.getGhiChu(), donGoc.getMaDonHangKenh());
             }
-
-            // Đối với đơn hàng Shopee: Chuẩn hóa mã vận đơn SPX để in tem đóng gói A6 trực tiếp không qua API AWB
-            if (kb != null && kb.getMaKenh() != null && kb.getMaKenh().toUpperCase().contains("SHOPEE")) {
-                if (trackingCode == null || trackingCode.isBlank()) {
-                    trackingCode = "SPXVN" + (donGoc.getMaDonHangKenh() != null ? donGoc.getMaDonHangKenh() : donGoc.getSoDonHang());
-                }
-                if (carrierName == null || carrierName.isBlank()) {
-                    carrierName = "Shopee Xpress (SPX VN)";
-                }
+            if (carrierName == null || carrierName.isBlank()) {
+                carrierName = ShopeeWaybillMetadataHelper.extractCarrier(donGoc.getGhiChu());
+            }
+            if (packageId == null || packageId.isBlank()) {
+                packageId = ShopeeWaybillMetadataHelper.extractTag(donGoc.getGhiChu(), ShopeeWaybillMetadataHelper.TAG_KIEN);
             }
 
             // === TÍNH TOÁN CÁC TRƯỜNG CHO VẬN ĐƠN SÀN AWB CHUẨN 100x150MM ===
-            BigDecimal tienThuHoCod = BigDecimal.ZERO;
-            String nhanThanhToan = "ĐÃ THANH TOÁN (COD: 0 đ)";
-            boolean isCod = "chua_thanh_toan".equalsIgnoreCase(donGoc.getTrangThaiThanhToan())
-                    || (donGoc.getGhiChu() != null && donGoc.getGhiChu().toUpperCase().contains("COD"));
-            if (isCod && donGoc.getTongCong() != null && donGoc.getTongCong().compareTo(BigDecimal.ZERO) > 0) {
-                tienThuHoCod = donGoc.getTongCong();
-                nhanThanhToan = "THU HỘ(COD): " + java.text.NumberFormat.getInstance(new java.util.Locale("vi", "VN")).format(tienThuHoCod) + " VNĐ";
-            }
+            ShopeeWaybillMetadataHelper.PaymentSummary paymentSummary = ShopeeWaybillMetadataHelper.resolveOrderPaymentSummary(
+                    donGoc.getGhiChu(),
+                    donGoc.getTrangThaiThanhToan(),
+                    donGoc.getTongCong(),
+                    DonBanHangService.laDonShopeeChoXacNhan(donGoc)
+            );
+            BigDecimal tienThuHoCod = paymentSummary.tienThuHoCod();
+            String nhanThanhToan = paymentSummary.nhanInTem();
 
             String chiDanDongKiem = "ĐƯỢC ĐỒNG KIỂM";
 
@@ -1310,9 +1278,9 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                     donViPickup = "SPX EXPRESS";
                     donViDelivery = "SPX EXPRESS";
                 }
-                maDinhTuyen = "1-SGN-HUB";
-                maTramPhat = "SG100A-00-00-01";
-                tagGiaoNhan = "WKD";
+                maDinhTuyen = ShopeeWaybillMetadataHelper.extractTag(donGoc.getGhiChu(), ShopeeWaybillMetadataHelper.TAG_TUYEN);
+                maTramPhat = ShopeeWaybillMetadataHelper.extractTag(donGoc.getGhiChu(), ShopeeWaybillMetadataHelper.TAG_TRAM);
+                tagGiaoNhan = maDinhTuyen != null ? "WKD" : null;
 
                 if ((shippingDocUrl == null || shippingDocUrl.isBlank()) && donGoc.getId() != null) {
                     shippingDocUrl = "/api/v1/don-ban-hang/" + donGoc.getId() + "/van-don-san";
@@ -1353,6 +1321,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                     .ghiChu(donGoc.getGhiChu())
                     .ngayDatHang(donGoc.getNgayDatHang())
                     .tongCong(donGoc.getTongCong())
+                    .trangThaiThanhToan(donGoc.getTrangThaiThanhToan())
                     .maVanDon(trackingCode)
                     .donViVanChuyen(carrierName)
                     .maKienHang(packageId)
