@@ -1093,6 +1093,12 @@ public class OmnichannelOrderSyncJob {
             return 0;
         }
 
+        if (kenhBanHangDongBoService != null && kenh != null && kenh.getMaKenh() != null) {
+            try {
+                kenhBanHangDongBoService.getLocations(kenh.getMaKenh(), false);
+            } catch (Exception ignored) {}
+        }
+
         com.dev.backend.dto.request.TikTokOrderSearchRequest req = com.dev.backend.dto.request.TikTokOrderSearchRequest.builder()
                 .updateTimeFrom(tu.getEpochSecond())
                 .updateTimeTo(den.getEpochSecond())
@@ -1284,6 +1290,31 @@ public class OmnichannelOrderSyncJob {
                     donBanHangRepository.save(existing);
                 }
             }
+
+            if (!"CANCELLED".equalsIgnoreCase(order.getStatus())
+                    && Integer.valueOf(ITrangThaiDonBanHang.NHAP).equals(existing.getTrangThai())
+                    && existing.getDanhSachNhatHang() == null) {
+                String whTuDon = order.resolveWarehouseId();
+                String curNote = existing.getGhiChu() != null ? existing.getGhiChu() : "";
+                boolean dirty = false;
+                if (whTuDon != null && !curNote.contains("[KHO SÀN:")) {
+                    existing.setGhiChu((curNote.isBlank() ? "" : curNote + " | ") + "[KHO SÀN: " + whTuDon + "]");
+                    dirty = true;
+                }
+                String maKhoTra = whTuDon != null ? whTuDon
+                        : com.dev.backend.services.impl.entities.KenhBanHangDongBoServiceImpl.trichXuatMaKhoSanTuGhiChu(existing.getGhiChu());
+                Kho khoDung = resolveKhoXuatDonSan(kenh, maKhoTra);
+                if (khoDung != null && khoDung.getId() != null
+                        && (existing.getKhoXuat() == null || !khoDung.getId().equals(existing.getKhoXuat().getId()))) {
+                    existing.setKhoXuat(khoDung);
+                    dirty = true;
+                    log.info("[JOB-01] Đồng bộ lại kho xuất đơn Nháp TikTok {} -> {}", soDonHang, khoDung.getTenKho());
+                }
+                if (dirty) {
+                    existing.setNgayCapNhat(Instant.now());
+                    donBanHangRepository.save(existing);
+                }
+            }
             return false;
         }
 
@@ -1309,8 +1340,7 @@ public class OmnichannelOrderSyncJob {
         BigDecimal price = totalPrice.subtract(shippingFee).max(BigDecimal.ZERO);
 
         String address = addr != null && addr.getFullAddress() != null ? addr.getFullAddress() : "";
-        String whTuDon = (order.getWarehouseId() != null && !order.getWarehouseId().isBlank())
-                ? order.getWarehouseId().trim() : null;
+        String whTuDon = order.resolveWarehouseId();
         Kho defaultKho = resolveKhoXuatDonSan(kenh, whTuDon);
 
         Instant ngayDat = Instant.now();
@@ -1886,6 +1916,12 @@ public class OmnichannelOrderSyncJob {
             return 0;
         }
 
+        if (kenhBanHangDongBoService != null && maKenh != null && !maKenh.isBlank()) {
+            try {
+                kenhBanHangDongBoService.getLocations(maKenh, false);
+            } catch (Exception ignored) {}
+        }
+
         int synced = 0;
         try {
             long timeFrom = tuNgay != null ? tuNgay.getEpochSecond() : (Instant.now().getEpochSecond() - 86400L);
@@ -2255,11 +2291,34 @@ public class OmnichannelOrderSyncJob {
                 // 3. Đồng bộ & tự chữa vận đơn, ĐVVC, mã chia chọn tuyến và PTTT (COD vs Ví điện tử)
                 String currentNote = existing.getGhiChu() != null ? existing.getGhiChu() : "";
                 String updatedNote = capNhatMetadataVanDonShopeeVaoGhiChu(currentNote, order, orderId, totalPrice);
-                if (!Objects.equals(existing.getGhiChu(), updatedNote)) {
+                boolean updatedChanged = !Objects.equals(existing.getGhiChu(), updatedNote);
+                if (updatedChanged) {
                     existing.setGhiChu(updatedNote);
+                    log.info("[JOB-01] Cập nhật vận đơn/tuyến Shopee ({}) cho đơn {}", order.getTrackingNumber(), soDonHang);
+                }
+
+                // 4. Đồng bộ lại kho xuất cho đơn Nháp (0) chưa gửi kho nếu kho mặc định sàn hoặc ánh xạ mới đổi
+                if (Integer.valueOf(ITrangThaiDonBanHang.NHAP).equals(existing.getTrangThai())
+                        && existing.getDanhSachNhatHang() == null) {
+                    String whTuDon = order.resolveLocationId();
+                    String curAfter = existing.getGhiChu() != null ? existing.getGhiChu() : "";
+                    if (whTuDon != null && !whTuDon.isBlank() && !curAfter.contains("[KHO SÀN:")) {
+                        existing.setGhiChu((curAfter.isBlank() ? "" : curAfter + " | ") + "[KHO SÀN: " + whTuDon + "]");
+                        updatedChanged = true;
+                    }
+                    String maKhoTra = (whTuDon != null && !whTuDon.isBlank()) ? whTuDon
+                            : com.dev.backend.services.impl.entities.KenhBanHangDongBoServiceImpl.trichXuatMaKhoSanTuGhiChu(existing.getGhiChu());
+                    Kho khoDung = resolveKhoXuatDonSan(kenh, maKhoTra);
+                    if (khoDung != null && khoDung.getId() != null
+                            && (existing.getKhoXuat() == null || !khoDung.getId().equals(existing.getKhoXuat().getId()))) {
+                        existing.setKhoXuat(khoDung);
+                        updatedChanged = true;
+                        log.info("[JOB-01] Đồng bộ lại kho xuất đơn Nháp Shopee {} -> {}", soDonHang, khoDung.getTenKho());
+                    }
+                }
+                if (updatedChanged) {
                     existing.setNgayCapNhat(Instant.now());
                     donBanHangRepository.save(existing);
-                    log.info("[JOB-01] Cập nhật vận đơn/tuyến Shopee ({}) cho đơn {}", order.getTrackingNumber(), soDonHang);
                 }
             }
             return false;
