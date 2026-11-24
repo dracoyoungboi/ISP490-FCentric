@@ -2069,4 +2069,199 @@ class KenhBanHangDongBoServiceTest {
             assertEquals(2, spyService.resolveKhoXuatChoDonSan(kenh, "KHO_B").getId());
         }
     }
+
+    @Test
+    @DisplayName("Gói 2: getLocations loại bỏ hoàn toàn kho trả hàng và kho vô hiệu ở TikTok, Lazada và Shopee")
+    void getLocations_loaiBoKhoTraHangKhoVoHieu_oTikTokLazadaShopee() throws Exception {
+        // 1. TikTok Shop: giữ SALES_WAREHOUSE đang hiệu lực, loại RETURN_WAREHOUSE / subType return / DISABLED
+        KenhBanHang tiktok = KenhBanHang.builder().id(31).maKenh("TIKTOK").tenKenh("TikTok Shop").trangThai(1).build();
+        when(kenhBanHangRepository.findByMaKenh("TIKTOK")).thenReturn(Optional.of(tiktok));
+        when(kenhBanHangService.getDecryptedTikTokAccessToken()).thenReturn("tt_tok");
+        when(kenhBanHangService.getTikTokAppKey()).thenReturn("tt_key");
+        when(kenhBanHangService.getDecryptedTikTokAppSecret()).thenReturn("tt_sec");
+        when(kenhBanHangService.getTikTokShopCipher()).thenReturn("TT_CIPHER");
+
+        var ttMock = mock(com.dev.backend.services.tiktok.TikTokShopClient.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "tiktokShopClient", ttMock);
+        var ttResp = new com.dev.backend.dto.response.customize.TikTokWarehousesResponse();
+        ttResp.setWarehouses(List.of(
+                com.dev.backend.dto.response.customize.TikTokWarehouseDto.builder()
+                        .id("wh-sales").name("Kho bán hàng chính").type("SALES_WAREHOUSE").subType("DOMESTIC_WAREHOUSE")
+                        .isDefault(true).effectStatus("EFFECTIVE").build(),
+                com.dev.backend.dto.response.customize.TikTokWarehouseDto.builder()
+                        .id("wh-ret").name("Kho trả hàng").type("RETURN_WAREHOUSE").subType("DOMESTIC_WAREHOUSE")
+                        .isDefault(false).effectStatus("EFFECTIVE").build(),
+                com.dev.backend.dto.response.customize.TikTokWarehouseDto.builder()
+                        .id("wh-dis").name("Kho ngừng hoạt động").type("SALES_WAREHOUSE").subType("DOMESTIC_WAREHOUSE")
+                        .isDefault(false).effectStatus("DISABLED").build()
+        ));
+        when(ttMock.getWarehouses("tt_key", "tt_sec", "tt_tok", "TT_CIPHER")).thenReturn(ttResp);
+
+        var ttLocs = service.getLocations("TIKTOK", true);
+        assertEquals(1, ttLocs.size());
+        assertEquals("wh-sales", ttLocs.get(0).getMaKhoSan());
+        assertTrue(ttLocs.get(0).isMacDinh());
+
+        // 2. Lazada: giữ WH_HCM đang active, loại RETURN_WAREHOUSE, kho tên "Kho trả hàng" và kho DISABLED
+        KenhBanHang lazada = KenhBanHang.builder().id(32).maKenh("LAZADA").tenKenh("Lazada").trangThai(1).build();
+        when(kenhBanHangRepository.findByMaKenh("LAZADA")).thenReturn(Optional.of(lazada));
+        when(kenhBanHangService.getLazadaAppKey("LAZADA")).thenReturn("lzd_k");
+        when(kenhBanHangService.getDecryptedLazadaAppSecret("LAZADA")).thenReturn("lzd_s");
+        when(kenhBanHangService.getDecryptedLazadaAccessToken("LAZADA")).thenReturn("lzd_t");
+
+        var lzdMock = mock(com.dev.backend.services.lazada.LazadaClient.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "lazadaClient", lzdMock);
+        ObjectMapper om = new ObjectMapper();
+        when(lzdMock.getWarehouses("lzd_k", "lzd_s", "lzd_t")).thenReturn(om.readTree("""
+                {
+                  "result": {
+                    "warehouses": [
+                      {"warehouse_code": "WH_HCM", "warehouse_name": "Kho HCM", "status": "ENABLE", "is_default": true},
+                      {"warehouse_code": "WH_RET", "warehouse_name": "Kho hoàn", "warehouse_type": "RETURN_WAREHOUSE", "status": "ENABLE"},
+                      {"warehouse_code": "WH_TRA", "warehouse_name": "Kho trả hàng Hà Nội", "status": "ENABLE"},
+                      {"warehouse_code": "WH_OFF", "warehouse_name": "Kho tắt", "status": "DISABLED"}
+                    ]
+                  }
+                }
+                """));
+        var lzdLocs = service.getLocations("LAZADA", true);
+        assertEquals(1, lzdLocs.size());
+        assertEquals("WH_HCM", lzdLocs.get(0).getMaKhoSan());
+
+        // 3. Shopee: chỉ giữ DEFAULT_ADDRESS và PICKUP_ADDRESS, loại bỏ địa chỉ RETURN_ADDRESS thuần túy
+        KenhBanHang shopee = KenhBanHang.builder().id(33).maKenh("SHOPEE").tenKenh("Shopee").trangThai(1).build();
+        when(kenhBanHangRepository.findByMaKenh("SHOPEE")).thenReturn(Optional.of(shopee));
+        var spyService = spy(service);
+        var spMock = mock(com.dev.backend.services.shopee.ShopeeClient.class);
+        doReturn(spMock).when(spyService).getShopeeClient(shopee);
+        when(spMock.getWarehouseDetail()).thenReturn(om.readTree("{\"error\":\"\"}"));
+        when(spMock.getAddressList()).thenReturn(om.readTree("""
+                {
+                  "error": "",
+                  "response": {
+                    "address_list": [
+                      {"address_id": 1001, "address_type": ["RETURN_ADDRESS"], "address": "Kho trả hàng Q7"},
+                      {"address_id": 1002, "address_type": ["PICKUP_ADDRESS"], "address": "Kho lấy hàng phụ"},
+                      {"address_id": 1003, "address_type": ["DEFAULT_ADDRESS", "PICKUP_ADDRESS"], "address": "Kho mặc định Q1"}
+                    ]
+                  }
+                }
+                """));
+        var spLocs = spyService.getLocations("SHOPEE", true);
+        assertEquals(2, spLocs.size());
+        assertTrue(spLocs.stream().noneMatch(l -> "1001".equals(l.getMaKhoSan())), "Địa chỉ RETURN_ADDRESS không được xuất hiện");
+        assertFalse(spLocs.get(0).isMacDinh());
+        assertTrue(spLocs.get(1).isMacDinh(), "Chỉ DEFAULT_ADDRESS trên Shopee mới mang cờ mặc định sàn");
+    }
+
+    @Test
+    @DisplayName("Gói 3: layCauHinhKhoMapping tách biệt laMacDinhSan (cập nhật từ sàn) với laMacDinh (chọn ở FCentric)")
+    void layCauHinhKhoMapping_tachBietCoMacDinhSanVaLuaChonFCentric() throws Exception {
+        var kho1 = com.dev.backend.entities.Kho.builder().id(1).maKho("K1").tenKho("Kho 1").loaiKho("kho_tong").trangThai(1).build();
+        var kho2 = com.dev.backend.entities.Kho.builder().id(2).maKho("K2").tenKho("Kho 2").loaiKho("kho_nhanh").trangThai(1).build();
+        when(khoRepository.findByTrangThai(1)).thenReturn(List.of(kho1, kho2));
+
+        String savedJson = """
+                {
+                  "cheDoDaKho": true,
+                  "khoIdMacDinh": 2,
+                  "danhSachKho": [
+                    {"maKhoSan": "LOC_A", "tenKhoSan": "Tên cũ A", "khoIdFCentric": 1, "kichHoat": true, "laMacDinh": false, "laMacDinhSan": false},
+                    {"maKhoSan": "LOC_B", "tenKhoSan": "Tên cũ B", "khoIdFCentric": 2, "kichHoat": true, "laMacDinh": true, "laMacDinhSan": true},
+                    {"maKhoSan": "LOC_RET", "tenKhoSan": "Kho trả hàng cũ", "loaiKhoSan": "return", "khoIdFCentric": 1, "kichHoat": true}
+                  ]
+                }
+                """;
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_SHOPIFY_KHO_MAPPING"), any())).thenReturn(savedJson);
+
+        var spyService = spy(service);
+        doReturn(List.of(
+                com.dev.backend.dto.response.customize.ShopifyLocationDto.builder().maKhoSan("LOC_A").tenKhoSan("Kho A (Mới)").loai("fulfillment").macDinh(true).build(),
+                com.dev.backend.dto.response.customize.ShopifyLocationDto.builder().maKhoSan("LOC_B").tenKhoSan("Kho B").loai("fulfillment").macDinh(false).build()
+        )).when(spyService).getLocations("SHOPIFY", true);
+
+        var cfg = spyService.layCauHinhKhoMapping("SHOPIFY", true);
+        assertEquals(2, cfg.getDanhSachKho().size(), "Kho trả hàng cũ phải bị lọc bỏ khi đồng bộ cấu hình");
+
+        var itemA = cfg.getDanhSachKho().get(0);
+        assertEquals("Kho A (Mới)", itemA.getTenKhoSan());
+        assertTrue(Boolean.TRUE.equals(itemA.getLaMacDinhSan()), "Cờ mặc định trên sàn luôn phản ánh đúng từ API sàn");
+        assertFalse(Boolean.TRUE.equals(itemA.getLaMacDinh()), "Cờ chọn ở FCentric được giữ nguyên theo lựa chọn người dùng");
+
+        var itemB = cfg.getDanhSachKho().get(1);
+        assertFalse(Boolean.TRUE.equals(itemB.getLaMacDinhSan()));
+        assertTrue(Boolean.TRUE.equals(itemB.getLaMacDinh()));
+    }
+
+    @Test
+    @DisplayName("Gói 5: dayTonTheoQuyTacDaLuu hỗ trợ bỏ qua backoff 60 phút và ép đẩy toàn bộ SKU bất kể tồn chưa đổi")
+    void dayTonTheoQuyTacDaLuu_epDayToanBoVaBoQuaBackoffLoi() {
+        // 1. Shopify: SKU đã thanh_cong với soLuongDaDay=20 -> đợt thường bỏ qua và đếm daBoQuaKhongDoi(1); epDayToanBo=true ép đẩy lại
+        mapping1.setTrangThaiDongBo("thanh_cong");
+        mapping1.setSoLuongDaDay(20);
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(1)).thenReturn(List.of(mapping1));
+        tonKhaDung(101, 20);
+        KenhBanHangDongBoServiceImpl spy = spyVoiKetNoi(ketNoiCo("POLO-BLK-M"));
+        doReturn(KenhBanHangDongBoServiceImpl.KetQuaGuiTon.THANH_CONG).when(spy).guiTonLenShopify(any(), any(), any(), any(), anyInt());
+
+        var theoDoiThuong = mock(com.dev.backend.services.KenhBanHangDongBoService.TheoDoiDayTon.class);
+        when(theoDoiThuong.choKenhRanhToiDa()).thenReturn(java.time.Duration.ZERO);
+        spy.dayTonTheoQuyTacDaLuu("SHOPIFY", theoDoiThuong, true, false);
+        verify(theoDoiThuong).daBoQuaKhongDoi(1);
+        verify(theoDoiThuong).batDauDay(0);
+        verify(spy, never()).guiTonLenShopify(any(), any(), any(), any(), anyInt());
+
+        var theoDoiEp = mock(com.dev.backend.services.KenhBanHangDongBoService.TheoDoiDayTon.class);
+        when(theoDoiEp.choKenhRanhToiDa()).thenReturn(java.time.Duration.ZERO);
+        spy.dayTonTheoQuyTacDaLuu("SHOPIFY", theoDoiEp, true, true);
+        verify(theoDoiEp).daBoQuaKhongDoi(0);
+        verify(theoDoiEp).batDauDay(1);
+        verify(spy, times(1)).guiTonLenShopify(any(), any(), any(), any(), eq(20));
+
+        // 2. TikTok: SKU trạng thái that_bai mới thử cách đây 5 phút -> job tự động (boQuaBackoffLoi=false) bỏ qua, Đồng bộ ngay thử lại
+        KenhBanHang tikTokKenh = KenhBanHang.builder().id(5).maKenh("TIKTOK").tenKenh("TikTok Shop").trangThai(1).build();
+        BienTheSanPham bt = BienTheSanPham.builder().id(173).maSku("SKU-TT-ERR").build();
+        TrangThaiDongBoSanPham dongLoi = TrangThaiDongBoSanPham.builder()
+                .id(503).kenhBanHang(tikTokKenh).bienTheSanPham(bt)
+                .maSanPhamKenh("1738000001")
+                .soLuongDaDay(48)
+                .trangThaiDongBo("that_bai")
+                .ngayDongBoCuoi(java.time.Instant.now().minusSeconds(300))
+                .choPhepDongBo(true)
+                .build();
+        when(kenhBanHangRepository.findByMaKenh("TIKTOK")).thenReturn(Optional.of(tikTokKenh));
+        when(trangThaiDongBoSanPhamRepository.findByKenhBanHangId(5)).thenReturn(List.of(dongLoi));
+        when(tonKhoTongHopRepository.sumTongFreeToUseToanHeThongByBienTheIds(List.of(173)))
+                .thenReturn(List.<Object[]>of(new Object[]{173, BigDecimal.valueOf(48)}));
+        when(kenhBanHangService.getTikTokAppKey()).thenReturn("app_k");
+        when(kenhBanHangService.getDecryptedTikTokAppSecret()).thenReturn("app_s");
+        when(kenhBanHangService.getDecryptedTikTokAccessToken()).thenReturn("tok_1");
+        when(kenhBanHangService.getTikTokShopCipher()).thenReturn("ROW_CIPHER");
+        when(dieuHanhHeThongService.getCauHinhString(eq("KENH_TIKTOK_MA_KHO_SAN"), any())).thenReturn("wh_goc_111");
+
+        var ttMock = mock(com.dev.backend.services.tiktok.TikTokShopClient.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(spy, "tiktokShopClient", ttMock);
+        var skuDto = com.dev.backend.dto.response.customize.TikTokSkuDto.builder()
+                .id("1738000001").sellerSku("SKU-TT-ERR")
+                .inventory(List.of(new com.dev.backend.dto.response.customize.TikTokSkuDto.Inventory("wh_goc_111", 10)))
+                .build();
+        var prodDto = com.dev.backend.dto.response.customize.TikTokProductDto.builder()
+                .id("77777").status("ACTIVATE").skus(List.of(skuDto)).build();
+        var searchResp = new com.dev.backend.dto.response.customize.TikTokProductSearchResponse();
+        var searchData = new com.dev.backend.dto.response.customize.TikTokProductSearchResponse.ProductSearchData();
+        searchData.setProducts(List.of(prodDto));
+        searchResp.setData(searchData);
+        when(ttMock.searchProducts(any(), any(), any(), any(), anyInt(), any(), any(), any())).thenReturn(searchResp);
+        var okResp = new com.dev.backend.dto.response.customize.TikTokInventoryUpdateResponse();
+        okResp.setCode(0);
+        when(ttMock.updateProductInventory(any(), any(), any(), any(), eq("77777"), any())).thenReturn(okResp);
+
+        // Đợt tự động: bỏ qua backoff 60p -> không gọi updateProductInventory
+        spy.dayTonTheoQuyTacDaLuu("TIKTOK", com.dev.backend.services.KenhBanHangDongBoService.TheoDoiDayTon.KHONG_THEO_DOI, false, false);
+        verify(ttMock, never()).updateProductInventory(any(), any(), any(), any(), any(), any());
+
+        // Đợt Đồng bộ ngay: boQuaBackoffLoi = true -> thử lại ngay lập tức
+        spy.dayTonTheoQuyTacDaLuu("TIKTOK", com.dev.backend.services.KenhBanHangDongBoService.TheoDoiDayTon.KHONG_THEO_DOI, true, false);
+        verify(ttMock, times(1)).updateProductInventory(any(), any(), any(), any(), eq("77777"), any());
+    }
 }

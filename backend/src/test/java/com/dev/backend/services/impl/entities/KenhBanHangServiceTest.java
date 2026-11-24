@@ -861,5 +861,25 @@ class KenhBanHangServiceTest {
                 .accessToken("shpat_tinh_moi_6666").refreshToken("shprt_moi_7777").build());
         assertEquals("shprt_moi_7777", cipher.decrypt(kemKhoaLamMoi.getRefreshToken()));
     }
+
+    @Test
+    void getTikTokAuthUrl_customApp_uuTienAppKeyVaKhongBiServiceIdTrungAppKeyLamHongLink() {
+        KenhBanHang tiktok = KenhBanHang.builder()
+                .id(5)
+                .maKenh("TIKTOK")
+                .clientId("6lon0t7p95ihb")
+                .trangThai(1)
+                .build();
+        tiktok.setServiceId("6lon0t7p95ihb"); // Trường hợp bị lưu nhầm appKey vào serviceId
+        when(kenhBanHangRepository.findByMaKenh("TIKTOK")).thenReturn(Optional.of(tiktok));
+
+        String urlCustom = service.getTikTokAuthUrl("https://fcentric.net/channels/tiktok/callback", "tiktok_state_1");
+        assertEquals("https://auth.tiktok-shops.com/oauth/authorize?app_key=6lon0t7p95ihb&state=tiktok_state_1", urlCustom);
+
+        // Nếu thực sự cấu hình Partner Service ID dạng số khác với App Key -> mới dùng link Partner
+        tiktok.setServiceId("73999111222");
+        String urlPartner = service.getTikTokAuthUrl("https://fcentric.net/channels/tiktok/callback", "tiktok_state_2");
+        assertTrue(urlPartner.startsWith("https://services.tiktokshop.com/open/authorize?service_id=73999111222&state=tiktok_state_2"));
+    }
 }
 

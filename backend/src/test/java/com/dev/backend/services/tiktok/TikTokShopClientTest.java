@@ -800,4 +800,31 @@ class TikTokShopClientTest {
         assertEquals("7702121381413914001", prod.getSkus().get(0).getInventory().get(0).getWarehouseId());
         assertTrue(urlCaptor.getValue().contains("/product/202309/products/" + productId));
     }
+
+    @Test
+    void generateAuthUrl_customApp_sinhLinkOAuthChuanVoiAppKeyVaStateKhongServiceId() {
+        String authUrl = client.generateAuthUrl(
+                "6lon0t7p95ihb",
+                "https://fcentric.net/channels/tiktok/callback",
+                "tiktok_b6646b62a054475bbbc218f984cef8d1"
+        );
+
+        assertEquals(
+                "https://auth.tiktok-shops.com/oauth/authorize?app_key=6lon0t7p95ihb&state=tiktok_b6646b62a054475bbbc218f984cef8d1",
+                authUrl
+        );
+        assertFalse(authUrl.contains("service_id="));
+        assertFalse(authUrl.contains("redirect_uri="));
+    }
+
+    @Test
+    void generatePartnerAuthUrl_partnerApp_coServiceIdVaRedirectUri() {
+        String partnerUrl = client.generatePartnerAuthUrl(
+                "71234567890",
+                "https://fcentric.net/channels/tiktok/callback",
+                "st_partner"
+        );
+
+        assertTrue(partnerUrl.startsWith("https://services.tiktokshop.com/open/authorize?service_id=71234567890&state=st_partner&redirect_uri="));
+    }
 }

@@ -3,12 +3,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   buocDonBan,
+  coTheMoHopGuiSangKho,
   dongHangBan,
   ghiChuKhiXuat,
   gioNgay,
   hauQuaHuy,
+  laDonBaSan,
   laDonSan,
   laDonTaiQuay,
+  laDonTikTok,
   laGhiChuTuSinh,
   laGiaTriAnPii,
   laMaVanDonGiaShopee,
@@ -302,4 +305,31 @@ test("lamSachGhiChuDonSan, laGiaTriAnPii, laMaVanDonGiaShopee: dọn sạch th�
   assert.equal(laMaVanDonGiaShopee("SPXVN261120S3WBWNQG", "261120S3WBWNQG"), true);
   assert.equal(laMaVanDonGiaShopee("SPXVN05999888", "261120S3WBWNQG"), false);
   assert.equal(laMaVanDonGiaShopee("", "261120S3WBWNQG"), true);
+});
+
+test("coTheMoHopGuiSangKho: chan popup voi don 3 san da co kho, chi mo khi bat buoc thu cong", () => {
+  const donShopee = don({ kenhBanHang: { maKenh: "SHOPEE_OFFICIAL", tenKenh: "Shopee" }, khoXuat: { id: 1, tenKho: "Kho Tổng" } });
+  const donLazada = don({ kenhBanHang: { maKenh: "LAZADA", tenKenh: "Lazada" }, khoXuat: { id: 1, tenKho: "Kho Tổng" } });
+  const donTikTok = don({ kenhBanHang: { maKenh: "TIKTOK", tenKenh: "TikTok Shop" }, khoXuat: { id: 1, tenKho: "Kho Tổng" } });
+  const donShopify = don({ kenhBanHang: { maKenh: "SHOPIFY", tenKenh: "Shopify" }, khoXuat: { id: 1, tenKho: "Kho Tổng" } });
+  const donTrucTiep = don({ kenhBanHang: null, khoXuat: { id: 1, tenKho: "Kho Tổng" } });
+
+  assert.equal(laDonTikTok(donTikTok), true);
+  assert.equal(laDonBaSan(donShopee), true);
+  assert.equal(laDonBaSan(donLazada), true);
+  assert.equal(laDonBaSan(donTikTok), true);
+  assert.equal(laDonBaSan(donShopify), false);
+
+  // Đơn 3 sàn đã có kho: luôn chặn mở popup khi bấm bình thường
+  assert.equal(coTheMoHopGuiSangKho(donShopee, false), false);
+  assert.equal(coTheMoHopGuiSangKho(donLazada, false), false);
+  assert.equal(coTheMoHopGuiSangKho(donTikTok, false), false);
+
+  // Chỉ mở popup khi lỗi buộc xử lý thủ công hoặc đơn 3 sàn bị thiếu kho xuất
+  assert.equal(coTheMoHopGuiSangKho(donShopee, true), true);
+  assert.equal(coTheMoHopGuiSangKho({ ...donTikTok, khoXuat: null }, false), true);
+
+  // Đơn Shopify và đơn bán trực tiếp vẫn mở popup chọn kho bình thường
+  assert.equal(coTheMoHopGuiSangKho(donShopify, false), true);
+  assert.equal(coTheMoHopGuiSangKho(donTrucTiep, false), true);
 });

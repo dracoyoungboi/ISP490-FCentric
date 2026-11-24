@@ -546,4 +546,46 @@ class DongBoNgayServiceTest {
         assertFalse(TransactionSynchronizationManager.hasResource(emf));
         verify(em).close();
     }
+
+    @Test
+    void batDau_dongBoTay_luonBoQuaBackoffLoiVaHoTroEpDayToanBoCungSoBoQua() {
+        when(dongBo.dayTonTheoQuyTacDaLuu(eq("SHOPIFY"), any())).thenAnswer(inv -> {
+            TheoDoiDayTon theoDoi = inv.getArgument(1);
+            assertTrue(theoDoi.boQuaBackoffLoi(), "Đồng bộ tay phải luôn thử lại ngay SKU đang lỗi");
+            assertTrue(theoDoi.epDayToanBo(), "Khi truyền epDayToanBo=true phải bật cờ ép đẩy toàn bộ");
+            theoDoi.daBoQuaKhongDoi(0);
+            theoDoi.batDauDay(2);
+            theoDoi.daDay("SKU-1", null, true, null);
+            theoDoi.daDay("SKU-2", null, true, null);
+            return DayTonResultDto.builder().soDong(2).soLoi(0).soChuaDay(0).build();
+        });
+        when(dongBo.layDonHang(eq("SHOPIFY"), any())).thenReturn(LayDonResultDto.builder().soDonMoi(1).build());
+
+        DongBoNgayDto dau = service.batDau("SHOPIFY", true);
+        assertTrue(dau.isEpDayToanBo());
+
+        luong.chayHet();
+        DongBoNgayDto xong = service.hienTai("SHOPIFY");
+        assertEquals(DongBoNgayService.XONG, xong.getTrangThai());
+        assertTrue(xong.isEpDayToanBo());
+        assertEquals(0, xong.getSoBoQuaKhongDoi());
+        assertEquals(2, xong.getSoThanhCong());
+
+        // Đợt thường: vẫn bỏ qua backoff lỗi nhưng không ép đẩy toàn bộ; soBoQuaKhongDoi được ghi nhận đầy đủ
+        when(dongBo.dayTonTheoQuyTacDaLuu(eq("SHOPIFY"), any())).thenAnswer(inv -> {
+            TheoDoiDayTon theoDoi = inv.getArgument(1);
+            assertTrue(theoDoi.boQuaBackoffLoi());
+            assertFalse(theoDoi.epDayToanBo());
+            theoDoi.daBoQuaKhongDoi(9);
+            theoDoi.batDauDay(0);
+            return DayTonResultDto.builder().soDong(0).soLoi(0).soChuaDay(0).build();
+        });
+
+        service.batDau("SHOPIFY");
+        luong.chayHet();
+        DongBoNgayDto lanHai = service.hienTai("SHOPIFY");
+        assertFalse(lanHai.isEpDayToanBo());
+        assertEquals(9, lanHai.getSoBoQuaKhongDoi());
+        assertEquals(0, lanHai.getTongSku());
+    }
 }
