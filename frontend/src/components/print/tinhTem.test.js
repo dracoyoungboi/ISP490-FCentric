@@ -60,9 +60,8 @@ test("lý do bỏ qua theo thứ tự: ngừng → chưa có giá → thiếu m�
     assert.equal(maVachTem(" 2000000150"), null, "khoảng trắng đầu/cuối: không in mã khác mã đã lưu");
 });
 
-test("số tem mặc định theo nơi mở: phiếu → SL nhập, đổi giá → tồn, còn lại → 1; sửa tay thì giữ số đã sửa", () => {
+test("số tem mặc định theo nơi mở: phiếu → SL nhập, còn lại → 1; sửa tay thì giữ số đã sửa", () => {
     assert.equal(cheDoMacDinh("phieu"), "nhap");
-    assert.equal(cheDoMacDinh("doi-gia"), "ton");
     assert.equal(cheDoMacDinh("chon"), "mot");
     const d = sku(1, { soLuong: 12, tonKho: 7 });
     assert.equal(soTemCuaDong(d, "nhap"), 12);

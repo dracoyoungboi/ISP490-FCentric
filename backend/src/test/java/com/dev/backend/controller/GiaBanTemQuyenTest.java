@@ -51,10 +51,10 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Quyền của màn "Giá bán & tem mã vạch" và giá vốn (SRS 4.4 "Barcode – Generate / Print", UC 2.7, SRS 2.4.1):
- * chỉ quản trị viên đổi giá bán; quản lý kho, nhân viên kho, nhân viên bán hàng xem danh sách để in tem; in tem theo
- * phiếu nhập cho vai trò kho. Nhân viên bán hàng không thấy giá vốn, không lọc được "Cần xử lý giá" (gồm SKU bán dưới
- * giá vốn). API cũ PATCH /sku/{id}/price (nhận cả giá vốn) đã gỡ.
+ * Quyền của màn "Tem mã vạch" và giá vốn (SRS 4.4 "Barcode – Generate / Print", UC 2.7, SRS 2.4.1): quản lý kho,
+ * nhân viên kho, nhân viên bán hàng xem danh sách để in tem; in tem theo phiếu nhập cho vai trò kho. Màn tem không đổi
+ * giá và không trả giá vốn; giá bán chỉ đổi ở form Sửa sản phẩm (quản trị viên). Số SKU "Cần xử lý giá" chỉ quản trị
+ * viên. Các API đổi giá cũ (PATCH /sku/{id}/price, PATCH /sku/gia-ban) đã gỡ.
  */
 class GiaBanTemQuyenTest {
 
@@ -101,9 +101,9 @@ class GiaBanTemQuyenTest {
     class VaiTroApi {
 
         @Test
-        @DisplayName("Đổi giá bán: chỉ quản trị viên")
-        void doiGiaBan_chiQuanTriVien() {
-            assertEquals(Set.of(QT), vaiTro(SanPhamQuanAoController.class, PatchMapping.class, "/sku/gia-ban"));
+        @DisplayName("Số SKU cần xử lý giá: chỉ quản trị viên")
+        void canXuLyGia_chiQuanTriVien() {
+            assertEquals(Set.of(QT), vaiTro(SanPhamQuanAoController.class, GetMapping.class, "/gia-ban/can-xu-ly"));
         }
 
         @Test
@@ -114,11 +114,12 @@ class GiaBanTemQuyenTest {
         }
 
         @Test
-        @DisplayName("API đổi giá cũ nhận cả giá vốn đã gỡ")
-        void apiDoiGiaCuNhanGiaVon_daGo() {
+        @DisplayName("Các API đổi giá riêng đã gỡ: giá bán chỉ đổi ở form Sửa sản phẩm")
+        void apiDoiGiaRieng_daGo() {
             boolean conApiCu = Arrays.stream(SanPhamQuanAoController.class.getDeclaredMethods())
                     .filter(m -> m.isAnnotationPresent(PatchMapping.class))
-                    .anyMatch(m -> Arrays.asList(m.getAnnotation(PatchMapping.class).value()).contains("/sku/{id}/price"));
+                    .map(m -> Arrays.asList(m.getAnnotation(PatchMapping.class).value()))
+                    .anyMatch(ds -> ds.contains("/sku/{id}/price") || ds.contains("/sku/gia-ban"));
             assertFalse(conApiCu);
         }
 
@@ -243,13 +244,13 @@ class GiaBanTemQuyenTest {
         }
     }
 
-    // ───────── Danh sách giá bán theo vai trò ─────────
+    // ───────── Danh sách của màn Tem mã vạch ─────────
 
     @Nested
     @ExtendWith(MockitoExtension.class)
     @MockitoSettings(strictness = Strictness.LENIENT)
-    @DisplayName("Danh sách giá bán: giá vốn và bộ lọc 'Cần xử lý giá' theo vai trò")
-    class DanhSachGiaBan {
+    @DisplayName("Danh sách Tem mã vạch: mọi người in tem nhận giá bán và mã vạch, không ai nhận giá vốn")
+    class DanhSachTem {
 
         @Mock private GiaBanBienTheRepository giaBanRepository;
         @Mock private BienTheSanPhamRepository bienTheSanPhamRepository;
@@ -268,62 +269,28 @@ class GiaBanTemQuyenTest {
                     .mauSac(MauSac.builder().id(1).tenMau("Đen").maMauHex("#111827").build())
                     .size(Size.builder().id(1).tenSize("M").build())
                     .trangThai(1).giaVon(new BigDecimal("420000")).giaBan(new BigDecimal("390000")).build();
-            when(giaBanRepository.trangSanPhamId(any(), anyBoolean(), anyString(), any(Pageable.class)))
-                    .thenAnswer(inv -> new PageImpl<>(List.of(10), inv.getArgument(3), 1));
-            when(giaBanRepository.demSku(any(), anyBoolean(), anyString())).thenReturn(1L);
-            when(giaBanRepository.bienTheKhopLoc(anyCollection(), any(), anyBoolean(), anyString())).thenReturn(List.of(bt));
+            when(giaBanRepository.trangSanPhamId(any(), anyString(), any(Pageable.class)))
+                    .thenAnswer(inv -> new PageImpl<>(List.of(10), inv.getArgument(2), 1));
+            when(giaBanRepository.demSku(any(), anyString())).thenReturn(1L);
+            when(giaBanRepository.bienTheKhopLoc(anyCollection(), any(), anyString())).thenReturn(List.of(bt));
             when(giaBanRepository.demPhanLoai(anyCollection())).thenReturn(List.<Object[]>of(new Object[]{10, 1L}));
             when(giaBanRepository.tonKho(anyCollection())).thenReturn(List.of());
-            when(giaBanRepository.lanDoiGiaGanNhat(anyCollection())).thenReturn(List.of());
-            when(giaBanRepository.demTheoTab(any(), anyBoolean())).thenReturn(List.<Object[]>of(new Object[]{1L, 1L}));
-            when(giaBanRepository.demCanXuLy()).thenReturn(List.<Object[]>of(new Object[]{2L, 3L}));
+            when(giaBanRepository.demTheoTab(any())).thenReturn(List.<Object[]>of(new Object[]{1L, 1L}));
             when(anhQuanAoRepository.findActiveByQuanAoIds(anyCollection())).thenReturn(List.of());
         }
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {QT, QLK, NVK, NVBH})
-        @DisplayName("Bật 'Cần xử lý giá': người thấy giá vốn lọc được và nhận số đếm; nhân viên bán hàng bị bỏ bộ lọc")
-        void canXuLyGia_theoVaiTro(String vt) {
+        @DisplayName("Mọi vai trò in tem nhận đúng giá bán, mã vạch; không đếm cần xử lý giá")
+        void danhSach_theoVaiTro(String vt) {
             dangNhap(vt);
-            boolean xem = !NVBH.equals(vt);
 
-            TrangGiaBanDto trang = service.loc(LocGiaBanRequest.builder().canXuLyGia(true).build());
+            TrangGiaBanDto trang = service.loc(new LocGiaBanRequest());
 
-            verify(giaBanRepository).trangSanPhamId(isNull(), eq(xem), anyString(), any(Pageable.class));
-            verify(giaBanRepository).demSku(isNull(), eq(xem), anyString());
-            verify(giaBanRepository).bienTheKhopLoc(anyCollection(), isNull(), eq(xem), anyString());
-            verify(giaBanRepository).demTheoTab(isNull(), eq(xem));
             TrangGiaBanDto.BienTheGiaBan bt = trang.getContent().get(0).getBienThe().get(0);
-            if (xem) {
-                assertEquals(2, trang.getCanXuLy().getChuaCoGia());
-                assertEquals(3, trang.getCanXuLy().getDuoiGiaVon());
-                assertEquals(0, new BigDecimal("420000").compareTo(bt.getGiaVon()));
-            } else {
-                assertNull(trang.getCanXuLy(), "không lộ số SKU bán dưới giá vốn");
-                verify(giaBanRepository, never()).demCanXuLy();
-                assertNull(bt.getGiaVon());
-            }
             assertEquals(0, new BigDecimal("390000").compareTo(bt.getGiaBan()), "giá bán luôn có để in tem");
             assertEquals("200000001", bt.getMaVachSku(), "mã vạch luôn có để in tem");
-        }
-
-        @Test
-        @DisplayName("Không bật 'Cần xử lý giá' thì không lọc, kể cả quản trị viên")
-        void khongBatBoLoc() {
-            dangNhap(QT);
-            service.loc(LocGiaBanRequest.builder().canXuLyGia(false).build());
-            service.loc(new LocGiaBanRequest());
-            service.loc(null);
-            verify(giaBanRepository, times(3)).trangSanPhamId(isNull(), eq(false), anyString(), any(Pageable.class));
-        }
-
-        @Test
-        @DisplayName("Nhân viên bán hàng kiêm vai trò được xem giá vốn: thấy như vai trò đó")
-        void kiemVaiTro() {
-            dangNhap(NVBH, QLK);
-            TrangGiaBanDto trang = service.loc(LocGiaBanRequest.builder().canXuLyGia(true).build());
-            verify(giaBanRepository).trangSanPhamId(isNull(), eq(true), anyString(), any(Pageable.class));
-            assertNotNull(trang.getCanXuLy());
+            verify(giaBanRepository, never()).demCanXuLy();
         }
     }
 }

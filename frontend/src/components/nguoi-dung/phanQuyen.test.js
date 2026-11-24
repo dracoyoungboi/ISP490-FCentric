@@ -70,7 +70,7 @@ const MENU = [
   { to: "/users", roles: [QTV] },
   {
     roles: [QTV, QLK, NVK, NVM, NVB],
-    children: [{ to: "/categories" }, { to: "/attributes" }, { to: "/products" }, { to: "/products/gia-ban-tem", roles: [QTV, QLK] }],
+    children: [{ to: "/categories" }, { to: "/attributes" }, { to: "/products" }, { to: "/products/barcode-labels", roles: [QTV, QLK] }],
   },
   {
     roles: [QTV, QLK, NVM, NVK],
