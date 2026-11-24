@@ -39,6 +39,8 @@ import useTabTrenUrl from '@/hooks/useTabTrenUrl';
 import useTaiLaiDanhSach from '@/hooks/useTaiLaiDanhSach';
 import { trangCuoiNeuVuot } from '@/lib/tinhTaiLai';
 import { t } from "@/i18n";
+import OPhaiTra from '@/components/order/danh-sach-don-mua/OPhaiTra';
+import { coTheTaoPhieuNhap, tomTatPhaiTra } from '@/components/order/danh-sach-don-mua/phaiTraDonMua';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const ROLE = {
@@ -562,7 +564,7 @@ export default function PurchaseOrderList() {
                     <ul className="divide-y divide-bo-border md:hidden">
                         {orders.map((order) => {
                             const cfg = getDonMuaHangStatus(order.trangThai);
-                            const coTheNhap = canCreateReceipt && (order.trangThai === 3 || order.trangThai === 5);
+                            const coTheNhap = canCreateReceipt && coTheTaoPhieuNhap(order);
                             return (
                                 <li key={order.id}>
                                     <Link to={`/purchase-orders/${order.id}`} className="grid grid-cols-1 gap-1 px-4 py-3 active:bg-bo-surface-subtle">
@@ -582,7 +584,7 @@ export default function PurchaseOrderList() {
                                                 {order.yeuCauMuaHang?.soYeuCauMuaHang ? t(" · Từ {{soYeuCauMuaHang}}", { soYeuCauMuaHang: order.yeuCauMuaHang.soYeuCauMuaHang }) : ''}
                                             </span>
                                             <span className="shrink-0 text-[15px] font-semibold tabular-nums text-bo-foreground">
-                                                {order.tongTien != null ? formatCurrency(order.tongTien) : '—'}
+                                                {(() => { const so = tomTatPhaiTra(order).phaiTra; return so != null ? formatCurrency(so) : '—'; })()}
                                             </span>
                                         </span>
                                     </Link>
@@ -614,15 +616,14 @@ export default function PurchaseOrderList() {
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Nhà cung cấp")}</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Ngày tạo")}</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Trạng thái")}</th>
-                                <th className="h-10 px-3 text-right tabular-nums whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Tổng tiền")}</th>
+                                <th className="h-10 px-3 text-right tabular-nums whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Phải trả")}</th>
                                 <th className="h-10 w-32 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Thao tác")}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-bo-border">
                             {orders.map((order, index) => {
                                 const cfg = getDonMuaHangStatus(order.trangThai);
-                                const isStatus3 = order.trangThai === 3;
-                                const isStatus5 = order.trangThai === 5;
+                                const coTheNhap = canCreateReceipt && coTheTaoPhieuNhap(order);
 
                                 return (
                                     <tr
@@ -655,7 +656,7 @@ export default function PurchaseOrderList() {
 
                                         <td className="whitespace-nowrap px-3 py-3">
                                             <StatusBadge quyTrinh="donMua" label={cfg.label} />
-                                            {canCreateReceipt && (isStatus3 || isStatus5) ? (
+                                            {coTheNhap ? (
                                                 <Button
                                                     type="button"
                                                     variant="outline"
@@ -672,7 +673,7 @@ export default function PurchaseOrderList() {
                                         </td>
 
                                         <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums font-semibold text-bo-foreground">
-                                            {order.tongTien != null ? formatCurrency(order.tongTien) : <span className="font-normal text-bo-muted">—</span>}
+                                            <OPhaiTra don={order} />
                                         </td>
 
                                         <td className="px-3 py-3 cam-ung:max-lg:hidden">
@@ -682,14 +683,17 @@ export default function PurchaseOrderList() {
                                                     label={t("Xem chi tiết đơn")}
                                                     onClick={() => navigate(`/purchase-orders/${order.id}`)}
                                                 />
-                                                {/* Nhập kho (Chỉ trạng thái 3 hoặc 5, và có quyền) */}
-                                                {canCreateReceipt && (isStatus3 || isStatus5) && (
+                                                {/* Nhập kho: chỉ đơn Đang vận chuyển (đơn Đã nhận đủ không còn gì để nhập), và có quyền */}
+                                                {coTheNhap ? (
                                                     <RowActionButton
                                                         icon={PackagePlus}
                                                         label={t("Tạo phiếu nhập kho")}
                                                         onClick={() => navigate(`/goods-receipts/create?poId=${order.id}`)}
                                                     />
-                                                )}
+                                                ) : canCreateReceipt ? (
+                                                    // Giữ chỗ nút để nút Xem đứng cùng một chỗ ở mọi dòng
+                                                    <span className="size-8 shrink-0" aria-hidden="true" />
+                                                ) : null}
                                             </RowActions>
                                         </td>
                                     </tr>

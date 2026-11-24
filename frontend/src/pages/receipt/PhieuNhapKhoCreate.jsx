@@ -172,8 +172,10 @@ export default function PhieuNhapKhoCreate() {
 
             // === 1. XỬ LÝ PO (Logic nguyên gốc) ===
             const rawPoList = poRes.data?.content || poRes.content || [];
+            // Chỉ đơn Đang vận chuyển: đơn Đã nhận đủ (5) không còn gì để nhập (máy chủ báo 409). Vẫn tải đơn 5 để mở
+            // đường dẫn cũ ?poId= của đơn đã đủ thì báo đúng lý do
             const validPoList = rawPoList.filter(po => {
-                if (po.trangThai !== 3 && po.trangThai !== 5) return false;
+                if (po.trangThai !== 3) return false;
                 const targetKhoId = po.khoNhap?.id || po.khoNhapId;
                 if (!targetKhoId) return false;
 
@@ -233,7 +235,10 @@ export default function PhieuNhapKhoCreate() {
                     // Gọi hàm handleSelectPO để load chi tiết và set selectedPO
                     await handleSelectPO(urlPoId);
                 } else {
-                    toast.warning(t("Đơn mua này không đủ điều kiện để nhập kho hoặc bạn không có quyền"));
+                    const donDaDu = rawPoList.find(p => String(p.id) === String(urlPoId) && p.trangThai === 5);
+                    toast.warning(donDaDu
+                        ? t("Đơn mua {{ma}} đã nhận đủ hàng, không cần nhập thêm. Chọn một đơn khác đang chờ hàng.", { ma: donDaDu.soDonMua })
+                        : t("Đơn mua này không đủ điều kiện để nhập kho hoặc bạn không có quyền"));
                 }
             }
 
