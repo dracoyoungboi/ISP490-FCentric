@@ -24,9 +24,10 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Hàng nhập về Kho tổng cho màn Tạo yêu cầu nhập hàng: lấy trực tiếp 100% số liệu tồn kho, điểm đặt hàng lại (ROP),
- * tồn an toàn (SS), số lượng đề xuất đặt (Q) và trạng thái bán chậm / xả hàng / ngừng nhập từ {@link DssReplenishmentService},
- * ghép thêm mã vạch quét tay và danh sách yêu cầu nhập hàng đang mở.
+ * Hàng nhập về Kho tổng cho màn Tạo yêu cầu nhập hàng: lấy trực tiếp 100% số liệu tồn khả dụng, hàng đang về,
+ * điểm đặt hàng lại (ROP), tồn an toàn (SS), số lượng đề xuất đặt (Q) và trạng thái bán chậm / xả hàng / ngừng nhập
+ * từ {@link DssReplenishmentService} (tính tổng trên toàn bộ kho đang hoạt động), ghép thêm mã vạch quét tay
+ * và danh sách yêu cầu nhập hàng đang mở. Chứng từ yêu cầu nhập hàng vẫn nhận về {@code Kho tổng}.
  */
 @Service
 public class HangNhapKhoTongService {

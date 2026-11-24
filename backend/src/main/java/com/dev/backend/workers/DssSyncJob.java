@@ -23,7 +23,7 @@ public class DssSyncJob {
     public void runNightlyDssReplenishment() {
         try {
             int warehouses = dssReplenishmentService.recalculateAllActiveWarehouses();
-            log.info("[DssSyncJob] Đã hoàn tất cập nhật ROP & cảnh báo DSS cho {} kho.", warehouses);
+            log.info("[DssSyncJob] Đã hoàn tất cập nhật ROP và cảnh báo DSS toàn hệ thống (tổng hợp {} kho).", warehouses);
         } catch (Exception e) {
             log.error("[DssSyncJob] Lỗi chạy batch DSS ban đêm: {}", e.getMessage(), e);
         }

@@ -92,30 +92,35 @@ public class DssReplenishmentService {
 
     @Transactional(readOnly = true)
     public DssReplenishmentResponse getRecommendations(Integer khoId) {
-        return evaluateWarehouse(khoId, false);
+        return evaluateAllWarehouses(khoId, false);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public DssReplenishmentResponse recalculateAndSyncAlerts(Integer khoId) {
-        DssReplenishmentResponse response = evaluateWarehouse(khoId, true);
+        DssReplenishmentResponse response = evaluateAllWarehouses(khoId, true);
         recordAuditLog(response);
         return response;
     }
 
+    /**
+     * Tính toán lại DSS một lần trên tổng tất cả các kho đang hoạt động và đồng bộ cảnh báo {@code canh_bao}
+     * vào Kho tổng chính (tránh ghi ngưỡng toàn hệ thống sang các kho chi nhánh).
+     *
+     * @return số lượng kho đang hoạt động được tổng hợp trong lần chạy
+     */
     @Transactional(rollbackFor = Exception.class)
     public int recalculateAllActiveWarehouses() {
         List<KhoInfo> warehouses = repo.listActiveWarehouses();
         if (warehouses == null || warehouses.isEmpty()) {
             return 0;
         }
+        KhoInfo anchorKho = resolveAnchorCentralWarehouse(warehouses, null);
         DssConfigDto config = readConfig();
         LocalDate todayVn = LocalDate.now(DssReplenishmentRepository.VN_ZONE);
-        for (KhoInfo kho : warehouses) {
-            List<SkuRawInput> rawInputs = repo.loadRawInputs(
-                    kho.id(), config.getObservationDaysN(), config.getLeadTimeSampleM(), todayVn);
-            CalculationOutput out = DssPolicyEngine.calculate(rawInputs, config, todayVn);
-            repo.syncLowStockAlerts(kho.id(), out.items());
-        }
+        List<SkuRawInput> rawInputs = repo.loadRawInputsAllWarehouses(
+                config.getObservationDaysN(), config.getLeadTimeSampleM(), todayVn);
+        CalculationOutput out = DssPolicyEngine.calculate(rawInputs, config, todayVn);
+        repo.syncLowStockAlerts(anchorKho.id(), out.items());
         return warehouses.size();
     }
 
@@ -150,21 +155,22 @@ public class DssReplenishmentService {
         return recalculateAndSyncAlerts(req.getKhoId());
     }
 
-    private DssReplenishmentResponse evaluateWarehouse(Integer khoId, boolean persistAlerts) {
-        KhoInfo kho = repo.resolveWarehouse(khoId);
-        if (kho == null) {
+    private DssReplenishmentResponse evaluateAllWarehouses(Integer requestedKhoId, boolean persistAlerts) {
+        List<KhoInfo> activeWarehouses = repo.listActiveWarehouses();
+        if (activeWarehouses == null || activeWarehouses.isEmpty()) {
             throw new CommonException(ThongDiep.of("dss.chuaCoKhoTong"));
         }
+        KhoInfo anchorKho = resolveAnchorCentralWarehouse(activeWarehouses, requestedKhoId);
 
         DssConfigDto config = readConfig();
         LocalDate todayVn = LocalDate.now(DssReplenishmentRepository.VN_ZONE);
-        List<SkuRawInput> rawInputs = repo.loadRawInputs(
-                kho.id(), config.getObservationDaysN(), config.getLeadTimeSampleM(), todayVn);
+        List<SkuRawInput> rawInputs = repo.loadRawInputsAllWarehouses(
+                config.getObservationDaysN(), config.getLeadTimeSampleM(), todayVn);
         CalculationOutput output = DssPolicyEngine.calculate(rawInputs, config, todayVn);
 
         int alertedCount;
         if (persistAlerts) {
-            alertedCount = repo.syncLowStockAlerts(kho.id(), output.items());
+            alertedCount = repo.syncLowStockAlerts(anchorKho.id(), output.items());
         } else {
             alertedCount = (int) output.items().stream()
                     .filter(it -> !it.isPrCreationLocked() && it.getReorderPoint() > 0 && it.getFtu() <= it.getReorderPoint())
@@ -175,14 +181,33 @@ public class DssReplenishmentService {
         }
 
         return DssReplenishmentResponse.builder()
-                .khoId(kho.id())
-                .tenKho(kho.tenKho())
-                .laKhoTong(kho.laKhoTong())
+                .khoId(anchorKho.id())
+                .tenKho(anchorKho.tenKho())
+                .laKhoTong(anchorKho.laKhoTong())
+                .scope(DssReplenishmentResponse.SCOPE_ALL_WAREHOUSES)
+                .includedWarehouseCount(activeWarehouses.size())
+                .includedWarehouses(activeWarehouses)
                 .config(config)
                 .summary(output.summary())
                 .calculatedAt(Instant.now().toString())
                 .items(output.items())
                 .build();
+    }
+
+    private static KhoInfo resolveAnchorCentralWarehouse(List<KhoInfo> activeWarehouses, Integer requestedKhoId) {
+        if (requestedKhoId != null) {
+            for (KhoInfo k : activeWarehouses) {
+                if (requestedKhoId.equals(k.id()) && k.laKhoTong()) {
+                    return k;
+                }
+            }
+        }
+        for (KhoInfo k : activeWarehouses) {
+            if (k.laKhoTong()) {
+                return k;
+            }
+        }
+        return activeWarehouses.get(0);
     }
 
     private static void addConfigUpdate(List<CauHinhHeThongBulkUpdateRequest> list, String key, Object val) {
@@ -217,7 +242,7 @@ public class DssReplenishmentService {
                             + ",\"alerted\":" + (s != null ? s.getAlertedInCanhBaoCount() : 0) + "}")
                     .nguoiThucHien(user)
                     .ngayThucHien(Instant.now())
-                    .ghiChu("Chạy tính toán DSS nhập hàng cho kho " + response.getTenKho())
+                    .ghiChu("Chạy tính toán DSS nhập hàng toàn hệ thống (" + response.getIncludedWarehouseCount() + " kho)")
                     .build());
         } catch (Exception e) {
             log.warn("[DSS] Không thể ghi lịch sử chạy DSS: {}", e.getMessage());
