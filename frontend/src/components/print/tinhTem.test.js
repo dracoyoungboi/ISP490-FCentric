@@ -21,7 +21,7 @@ const K35 = KHO_TEM["35x22"];
 const K50 = KHO_TEM["50x30"];
 const sku = (id, extra = {}) => ({
     id, tenSanPham: "Nike Sportswear", tenMau: "Đen", kichCo: "M", maSku: `AK2610234-CL001-M-MS-${id}`,
-    maVachSku: `20000000${String(id).padStart(2, "0")}`, giaBan: 2000000, trangThai: 1, tonKho: 3, ...extra,
+    maVachSku: `20000000${String(id).padStart(2, "0")}`, giaBan: 2000000, trangThai: 1, ...extra,
 });
 
 test("khổ tem dựng sẵn: 35×22 hai cột trên cuộn 74 mm, 50×30 một cột trên cuộn 52 mm, lề cuộn 1 mm", () => {
@@ -63,12 +63,10 @@ test("lý do bỏ qua theo thứ tự: ngừng → chưa có giá → thiếu m�
 test("số tem mặc định theo nơi mở: phiếu → SL nhập, còn lại → 1; sửa tay thì giữ số đã sửa", () => {
     assert.equal(cheDoMacDinh("phieu"), "nhap");
     assert.equal(cheDoMacDinh("chon"), "mot");
-    const d = sku(1, { soLuong: 12, tonKho: 7 });
+    const d = sku(1, { soLuong: 12 });
     assert.equal(soTemCuaDong(d, "nhap"), 12);
-    assert.equal(soTemCuaDong(d, "ton"), 7);
     assert.equal(soTemCuaDong(d, "mot"), 1);
-    assert.equal(soTemCuaDong(d, "ton", { 1: 0 }), 0);
-    assert.equal(soTemCuaDong(sku(2, { tonKho: "4.000" }), "ton"), 4);
+    assert.equal(soTemCuaDong(d, "nhap", { 1: 0 }), 0);
     assert.equal(gioiHanSoTem(12000), 9999);
     assert.equal(gioiHanSoTem(-3), 0);
     assert.equal(gioiHanSoTem("abc"), 0);
