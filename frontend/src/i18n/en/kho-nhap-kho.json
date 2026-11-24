@@ -1630,5 +1630,6 @@
   "đã giao trả và tiêu hủy theo từng sản phẩm": "returned and disposed of item by item",
   "Bỏ chọn sản phẩm chưa tiêu hủy lần này; ghi sau khi tiêu hủy nốt.": "Untick items not disposed of this time; record them once disposed of.",
   "còn {{con}}/{{count}} sản phẩm ở kho_one": "{{con}} of {{count}} unit still at the warehouse",
-  "còn {{con}}/{{count}} sản phẩm ở kho_other": "{{con}} of {{count}} units still at the warehouse"
+  "còn {{con}}/{{count}} sản phẩm ở kho_other": "{{con}} of {{count}} units still at the warehouse",
+  "Đơn mua {{ma}} đã nhận đủ hàng, không cần nhập thêm. Chọn một đơn khác đang chờ hàng.": "Purchase order {{ma}} has been fully received; there is nothing left to receive. Choose another order that is awaiting delivery."
 }
