@@ -962,5 +962,6 @@
   "Thiếu {{so}} tại kho": "{{so}} short at warehouse",
   "Kho đang thiếu hàng cho đơn này. Xem dải cảnh báo trên đơn để chuyển thêm hàng về kho.": "The warehouse is short on stock for this order. See the warning on the order to transfer more stock in.",
   "Lập phiếu chuyển kho": "Create transfer order",
-  "Tất cả thanh toán": "All payment statuses"
+  "Tất cả thanh toán": "All payment statuses",
+  "Ngày tạo mã QR": "QR created date"
 }

@@ -568,12 +568,9 @@
   "Loại phiếu xuất": "Goods issue type",
   "Bỏ lọc loại phiếu": "Clear note type filter",
   "Tên kho": "Warehouse name",
-  "Lọc ngày chỉ áp dụng cho trang đang xem": "The date filter only applies to the current page",
   "Đang tải danh sách phiếu xuất kho": "Loading goods issue notes",
   "Không thể tải danh sách phiếu xuất kho. Vui lòng thử lại.": "Couldn't load goods issue notes. Please try again.",
   "Không tìm thấy phiếu xuất kho phù hợp": "No matching goods issue notes",
-  "Trang này không có phiếu của ngày đã chọn. Chuyển trang ở dưới để xem tiếp, hoặc đổi điều kiện lọc.": "This page has no notes for the selected date. Go to another page below, or change the filters.",
-  "Thử đổi từ khóa, loại phiếu, tên kho hoặc ngày xuất.": "Try a different keyword, note type, warehouse name or issue date.",
   "Không có phiếu xuất kho nào ở trạng thái \"{{emptyTabLabel}}\"": "No goods issue notes with status \"{{emptyTabLabel}}\"",
   "Chọn tab Tất cả để xem mọi phiếu xuất kho.": "Choose the All tab to see every goods issue note.",
   "Chưa có phiếu xuất kho": "No goods issue notes yet",
@@ -656,5 +653,6 @@
   "Đã giao_phan_cong": "Assigned",
   "Đơn bán_loai": "Sales order",
   "ĐƯỢC ĐỒNG KIỂM": "Inspection on delivery allowed",
-  "ĐÃ THANH TOÁN (COD: 0 đ)": "Paid (COD: 0 ₫)"
+  "ĐÃ THANH TOÁN (COD: 0 đ)": "Paid (COD: 0 ₫)",
+  "Thử đổi từ khóa, loại phiếu, kho hoặc ngày xuất.": "Try a different keyword, note type, warehouse or issue date."
 }

@@ -183,5 +183,12 @@
   "Thông báo": "Notifications",
   "Nhật ký": "Activity log",
   "Biên bản giao nhận": "Handover record",
-  "Mẫu in": "Print templates"
+  "Mẫu in": "Print templates",
+  "Tất cả thời gian": "All time",
+  "Chọn ít nhất một ngày.": "Pick at least one date.",
+  "Ngày không hợp lệ.": "Invalid date.",
+  "Không chọn ngày sau hôm nay.": "Dates can't be after today.",
+  "Đến {{ngay}}": "Until {{ngay}}",
+  "Kỳ nhanh": "Quick ranges",
+  "Khoảng tùy chọn": "Custom range"
 }
