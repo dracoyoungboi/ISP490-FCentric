@@ -6,7 +6,6 @@ import {
     AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -21,7 +20,9 @@ import AttentionBar from '@/components/shared/AttentionBar';
 import EmptyState from '@/components/shared/EmptyState';
 import ErrorState from '@/components/shared/ErrorState';
 import ListPageHeader from '@/components/shared/ListPageHeader';
+import SearchInput from "@/components/shared/SearchInput";
 import ListToolbar from '@/components/shared/ListToolbar';
+import LocKhoangNgay from '@/components/shared/LocKhoangNgay';
 import LoadingState from '@/components/shared/LoadingState';
 import StatusBadge from '@/components/shared/StatusBadge';
 import StatusTabs from '@/components/shared/StatusTabs';
@@ -106,6 +107,9 @@ export default function PurchaseRequestList() {
     const khoParam = searchParams.get('kho') ?? '';
     const khoId = warehouses.some((w) => String(w.id) === khoParam) ? khoParam : '';
     const [dateRange, setDateRange] = useState({ from: '', to: '' });
+    // Ô tìm mã yêu cầu: searchText là chữ đang gõ, keyword là từ khóa đang lọc (ngừng gõ 300 ms hoặc Enter)
+    const [searchText, setSearchText] = useState('');
+    const [keyword, setKeyword] = useState('');
 
     // Action Dialogs
     const [approvingId, setApprovingId] = useState(null);  // { id, action: 'approve'|'reject' }
@@ -155,8 +159,13 @@ export default function PurchaseRequestList() {
     useEffect(() => { queueMicrotask(() => loadInitialData()); }, [loadInitialData]);
 
     // ── Điều kiện lọc dùng chung cho danh sách, số trên tab và dòng chú ý ──
-    const buildFilterArray = useCallback(({ trangThai, kho, ngay }) => {
+    const buildFilterArray = useCallback(({ trangThai, kho, ngay, tuKhoa }) => {
         const filterArray = [];
+
+        // Mã yêu cầu (PR…), chứa chuỗi gõ vào, không phân biệt hoa thường
+        if (tuKhoa) {
+            filterArray.push({ fieldName: 'soYeuCauMuaHang', operation: 'LIKE', value: tuKhoa, logicType: 'AND' });
+        }
 
         // Filter trạng thái (tab "Đã chuyển báo giá" gồm 2 trạng thái 3 và 5)
         if (trangThai?.length === 1) {
@@ -200,7 +209,7 @@ export default function PurchaseRequestList() {
         if (!silent) setLoading(true);
         try {
             const res = await purchaseRequestService.filter({
-                filters: buildFilterArray({ trangThai: tabTrangThai, kho: khoId, ngay: dateRange }),
+                filters: buildFilterArray({ trangThai: tabTrangThai, kho: khoId, ngay: dateRange, tuKhoa: keyword }),
                 sorts: [{ fieldName: 'ngayTao', direction: 'DESC' }],
                 page, size,
             });
@@ -233,7 +242,7 @@ export default function PurchaseRequestList() {
             if (requestId === requestIdRef.current) setLoading(false);
         }
         // tabTrangThai là mảng hằng trong YEU_CAU_NHAP_HANG_TABS, chỉ đổi khi đổi tab
-    }, [buildFilterArray, tabTrangThai, khoId, dateRange]);
+    }, [buildFilterArray, tabTrangThai, khoId, dateRange, keyword]);
 
     // Hoãn qua microtask để tránh setState đồng bộ trong effect; vẫn fetch lại
     // ngay khi bộ lọc / trang thay đổi hoặc thông tin quyền tải xong.
@@ -250,8 +259,9 @@ export default function PurchaseRequestList() {
             trangThai: YEU_CAU_NHAP_HANG_TABS.find((tb) => tb.ma === ma)?.trangThai,
             kho: khoId,
             ngay: dateRange,
+            tuKhoa: keyword,
         })),
-        `${phamViKho}|${khoId}|${dateRange.from}|${dateRange.to}`,
+        `${phamViKho}|${khoId}|${dateRange.from}|${dateRange.to}|${keyword}`,
         { enabled: !loadingInitial }
     );
 
@@ -309,16 +319,31 @@ export default function PurchaseRequestList() {
 
     const changeTab = (value) => updateUrl({ trangThai: value });
 
-    const hasActiveFilters = Boolean(khoId || dateRange.from || dateRange.to);
+    // Gõ là lọc: ngừng gõ 300 ms thì áp từ khóa, không gọi API ở mỗi phím
+    useEffect(() => {
+        const value = searchText.trim();
+        if (value === keyword) return undefined;
+        const timer = setTimeout(() => {
+            setKeyword(value);
+            setPagination((p) => ({ ...p, pageNumber: 0 }));
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchText, keyword]);
 
-    // "Xóa lọc": bỏ kho + ngày, giữ tab đang chọn
+    const hasActiveFilters = Boolean(searchText.trim() || keyword || khoId || dateRange.from || dateRange.to);
+
+    // "Xóa lọc": bỏ mã yêu cầu + kho + ngày, giữ tab đang chọn
     const clearFilters = () => {
+        setSearchText('');
+        setKeyword('');
         setDateRange(prev => (prev.from || prev.to ? { from: '', to: '' } : prev));
         updateUrl({ kho: '' });
     };
 
     // Nút của dòng chú ý: mở tab Chờ duyệt, bỏ các bộ lọc khác để số dòng khớp số trên dòng chú ý
     const showPending = () => {
+        setSearchText('');
+        setKeyword('');
         setDateRange(prev => (prev.from || prev.to ? { from: '', to: '' } : prev));
         updateUrl({ trangThai: 'cho-duyet', kho: '' });
     };
@@ -388,6 +413,17 @@ export default function PurchaseRequestList() {
                         hasFilter={hasActiveFilters}
                         onClear={clearFilters}
                     >
+                        <SearchInput
+                            value={searchText}
+                            onChange={e => setSearchText(e.target.value)}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter') { setKeyword(searchText.trim()); setPagination((p) => ({ ...p, pageNumber: 0 })); }
+                            }}
+                            onClear={() => { setSearchText(''); setKeyword(''); setPagination((p) => ({ ...p, pageNumber: 0 })); }}
+                            placeholder={t("Mã yêu cầu")}
+                            label={t("Tìm theo mã yêu cầu")}
+                            className="sm:w-[300px]"
+                        />
                         {/* Kho nhập */}
                         <DropdownMenu modal={false}>
                             <DropdownMenuTrigger asChild>
@@ -429,26 +465,13 @@ export default function PurchaseRequestList() {
                             </DropdownMenuContent>
                         </DropdownMenu>
 
-                        {/* Từ ngày / Đến ngày: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
-                        {[
-                            { key: 'from', label: t("Từ ngày") },
-                            { key: 'to', label: t("Đến ngày") },
-                        ].map(({ key, label }) => (
-                            <label
-                                key={key}
-                                className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto"
-                            >
-                                <Calendar className="size-4 shrink-0 text-bo-muted" />
-                                <span className="shrink-0 text-xs text-bo-muted">{label}</span>
-                                <Input
-                                    type="date"
-                                    aria-label={label}
-                                    className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm text-bo-foreground shadow-none focus-visible:ring-0"
-                                    value={dateRange[key]}
-                                    onChange={e => { setDateRange(p => ({ ...p, [key]: e.target.value })); setPagination(p => ({ ...p, pageNumber: 0 })); }}
-                                />
-                            </label>
-                        ))}
+                        {/* Ngày tạo: ô lọc khoảng ngày dùng chung (kỳ nhanh + tùy chọn có kiểm từ ≤ đến) */}
+                        <LocKhoangNgay
+                            nhan={t("Ngày tạo")}
+                            tuNgay={dateRange.from}
+                            denNgay={dateRange.to}
+                            onDoi={({ tuNgay, denNgay }) => { setDateRange({ from: tuNgay, to: denNgay }); setPagination((p) => ({ ...p, pageNumber: 0 })); }}
+                        />
                     </ListToolbar>
                 }
                 footer={
@@ -546,6 +569,7 @@ export default function PurchaseRequestList() {
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-bo-border bg-bo-surface-subtle">
                                 <th className="h-10 w-14 px-3 text-center whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("STT")}</th>
+                                <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Mã yêu cầu")}</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Kho nhập")}</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted">{t("Người tạo")}</th>
                                 <th className="h-10 px-3 text-left whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-bo-muted cam-ung:max-lg:hidden">{t("Ngày tạo")}</th>
@@ -564,6 +588,9 @@ export default function PurchaseRequestList() {
                                     >
                                         <td className="px-3 py-3 text-center text-xs text-bo-muted cam-ung:max-lg:hidden">
                                             {pagination.pageNumber * pagination.pageSize + index + 1}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-3 font-semibold text-bo-primary">
+                                            {req.soYeuCauMuaHang || `#${req.id}`}
                                         </td>
                                         <td className="px-3 py-3">
                                             <p className="font-semibold text-bo-foreground">{req.khoNhap?.tenKho || '-'}</p>
