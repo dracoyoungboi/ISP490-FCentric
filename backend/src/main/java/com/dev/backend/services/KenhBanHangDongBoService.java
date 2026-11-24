@@ -88,6 +88,20 @@ public interface KenhBanHangDongBoService {
 
     List<ShopifyLocationDto> getLocations(String maKenh);
 
+    default List<ShopifyLocationDto> getLocations(String maKenh, boolean forceRefresh) {
+        return getLocations(maKenh);
+    }
+
+    /** Định tuyến kho FCentric xuất hàng cho đơn sàn dựa trên bảng ánh xạ kho và cấu hình kênh. */
+    default com.dev.backend.entities.Kho resolveKhoXuatChoDonSan(com.dev.backend.entities.KenhBanHang kenh, String maKhoSanTuDon) {
+        return null;
+    }
+
+    /** Tra cứu address_id Shopee tương ứng với kho xuất FCentric (nếu có ánh xạ nhiều địa chỉ lấy hàng). */
+    default Long resolveShopeeAddressIdChoKho(com.dev.backend.entities.KenhBanHang kenh, Integer khoId) {
+        return null;
+    }
+
     DongBoTongQuanDto luuCaiDat(String maKenh, KenhBanHangCaiDatRequest request);
 
     Page<NhatKyDongBoDto> filterNhatKy(String maKenh, String loai, String trangThai, String search, Pageable pageable);
@@ -197,6 +211,10 @@ public interface KenhBanHangDongBoService {
      * Lấy cấu hình ánh xạ kho sàn với kho FCentric (tự động phát hiện 1 kho vs đa kho).
      */
     com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto layCauHinhKhoMapping(String maKenh);
+
+    default com.dev.backend.dto.channel.warehouse.KenhKhoMappingConfigDto layCauHinhKhoMapping(String maKenh, boolean forceRefresh) {
+        return layCauHinhKhoMapping(maKenh);
+    }
 
     /**
      * Cập nhật cấu hình ánh xạ kho sàn với kho FCentric.
