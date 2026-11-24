@@ -7,6 +7,7 @@ import {
     Lock,
     LockOpen,
     Plus,
+    ScrollText,
     SearchX,
     ShieldCheck,
     Users,
@@ -119,6 +120,24 @@ const DEFAULT_FILTERS = {
 };
 
 const formatRole = (role) => t(ROLES.find((r) => r.value === role)?.label) || role || "—";
+
+/**
+ * Biểu tượng cảnh báo cạnh tên khi tài khoản BẤT THƯỜNG về bảo mật (PA C · chỉ biểu tượng khi bất thường). Dựng từ
+ * trạng thái đăng nhập (GET /admin/users/trang-thai-dang-nhap). Chỉ cảnh báo bảo mật (24 giờ) — "lâu/chưa đăng nhập" là
+ * thông tin vòng đời bình thường, không gắn nhãn ở đây (các hệ thống lớn cũng chỉ hiện "đăng nhập gần nhất", không báo).
+ */
+function DauHieuDangNhap({ st }) {
+    if (!st?.canChuY) return null;
+    const nhan =
+        st.lyDoChuY === "khoa_dung_mat_khau"
+            ? t("Có người nhập đúng mật khẩu khi tài khoản đang khóa (24 giờ qua)")
+            : t("Đăng nhập sai mật khẩu nhiều lần (24 giờ qua)");
+    return (
+        <span role="img" aria-label={nhan} title={nhan} className="inline-flex shrink-0">
+            <AlertTriangle className="size-3.5 text-bo-danger" aria-hidden="true" />
+        </span>
+    );
+}
 
 /** Gọi tên trong câu (hộp xác nhận, thông báo): họ tên kèm tên đăng nhập, vì họ tên không duy nhất. */
 function tenTrongCau(user) {
@@ -253,6 +272,10 @@ export default function ViewUserListByAdmin() {
     const [loadError, setLoadError] = useState(null);
     const requestIdRef = useRef(0);
 
+    // Trạng thái đăng nhập của các dòng đang hiện (biểu tượng bất thường — PA C). Tải sau danh sách, không chặn bảng.
+    const [trangThaiDN, setTrangThaiDN] = useState({});
+    const dnReqRef = useRef(0);
+
     const [currentUserId] = useState(() => getCurrentUserId());
 
     // Hộp Gửi liên kết đặt lại mật khẩu và hộp Khóa / mở khóa (mở từ menu ⋯ của dòng). Giữ người đang thao tác cả lúc hộp
@@ -334,6 +357,28 @@ export default function ViewUserListByAdmin() {
     useEffect(() => {
         queueMicrotask(() => fetchUsers());
     }, [fetchUsers]);
+
+    // ── Biểu tượng bất thường: tải trạng thái đăng nhập cho đúng các dòng đang hiện ──
+    useEffect(() => {
+        const ids = users.map((u) => u.id).filter((x) => x != null);
+        if (ids.length === 0) {
+            setTrangThaiDN({});
+            return;
+        }
+        const reqId = ++dnReqRef.current;
+        adminService
+            .layTrangThaiDangNhap(ids)
+            .then((list) => {
+                if (reqId !== dnReqRef.current) return;
+                const map = {};
+                for (const s of list) if (s?.id != null) map[s.id] = s;
+                setTrangThaiDN(map);
+            })
+            .catch(() => {
+                // Biểu tượng là phụ trợ: lỗi thì bỏ qua, không ảnh hưởng bảng
+                if (reqId === dnReqRef.current) setTrangThaiDN({});
+            });
+    }, [users]);
 
     // ── Số trên từng tab: cùng từ khóa + vai trò đang lọc, chỉ thay trạng thái (R1) ──
     const tabCounts = useDemTheoTrangThai(
@@ -522,13 +567,23 @@ export default function ViewUserListByAdmin() {
         <PageContainer fill className="space-y-4">
             <ListPageHeader
                 actions={
-                    <Button
-                        onClick={() => setCreateOpen(true)}
-                        className="bg-bo-primary text-white hover:bg-bo-primary-hover"
-                    >
-                        <Plus className="size-4" />
-                        {t("Thêm người dùng")}
-                    </Button>
+                    <>
+                        <Button
+                            variant="outline"
+                            onClick={() => navigate("/users/sign-in-log", { state: detailLinkState })}
+                            className="border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle"
+                        >
+                            <ScrollText className="size-4" />
+                            {t("Nhật ký đăng nhập")}
+                        </Button>
+                        <Button
+                            onClick={() => setCreateOpen(true)}
+                            className="bg-bo-primary text-white hover:bg-bo-primary-hover"
+                        >
+                            <Plus className="size-4" />
+                            {t("Thêm người dùng")}
+                        </Button>
+                    </>
                 }
             />
 
@@ -673,6 +728,7 @@ export default function ViewUserListByAdmin() {
                                                     >
                                                         {tenHienThi}
                                                     </span>
+                                                    <DauHieuDangNhap st={trangThaiDN[u.id]} />
                                                     {isCurrentUser(u) ? (
                                                         <span className="shrink-0 rounded-full bg-bo-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-bo-primary">
                                                             {t("Bạn")}
@@ -782,6 +838,7 @@ export default function ViewUserListByAdmin() {
                                                         >
                                                             {tenHienThi}
                                                         </Link>
+                                                        <DauHieuDangNhap st={trangThaiDN[u.id]} />
                                                         {isSelf ? (
                                                             <span className="shrink-0 rounded-full bg-bo-primary-soft px-1.5 py-0.5 text-[10px] font-semibold text-bo-primary">
                                                                 {t("Bạn")}
