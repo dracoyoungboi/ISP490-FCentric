@@ -139,16 +139,22 @@ public class PhieuNhapKhoService extends BaseServiceImpl<PhieuNhapKho, Integer> 
     private static final int DON_MUA_DANG_VAN_CHUYEN = 3;
 
     /**
-     * Đơn mua còn nhận hàng (tạo phiếu nhập) được: đang vận chuyển (3) hoặc đã nhận đủ (5, phần còn lại = 0 nên tạo phiếu
-     * sẽ báo vượt). Đã đóng nhận thiếu (6) / đã hủy (7) — DonMuaHangService.ketThucDon — thì 409 "không nhập thêm được";
-     * trạng thái khác 400 như trước.
+     * Đơn mua còn nhận hàng (tạo phiếu nhập) được: chỉ đang vận chuyển (3). Đã nhận đủ (5): mọi dòng đã hết còn thiếu,
+     * không còn gì để nhập nên 409 "đã nhận đủ" ngay, không để người dùng chọn hàng rồi mới báo vượt. Đã đóng nhận thiếu
+     * (6) / đã hủy (7) — DonMuaHangService.ketThucDon — thì 409 "không nhập thêm được"; trạng thái khác 400 như trước.
+     * Chỉ kiểm lúc tạo phiếu: phiếu nháp tạo khi đơn còn chờ hàng vẫn nhập kho theo kiểm tra vượt số đặt.
      */
     private static void kiemTraDonConNhanHang(DonMuaHang don, Integer trangThai) {
         ThongDiep cauKetThuc = cauDonDaKetThuc(don, trangThai);
         if (cauKetThuc != null) {
             throw new CommonException(HttpStatus.CONFLICT, cauKetThuc);
         }
-        if (trangThai == null || (trangThai != DON_MUA_DANG_VAN_CHUYEN && trangThai != DON_MUA_DA_NHAN_DU)) {
+        if (Objects.equals(trangThai, DON_MUA_DA_NHAN_DU)) {
+            throw new CommonException(HttpStatus.CONFLICT, don.getSoDonMua() == null || don.getSoDonMua().isBlank()
+                    ? ThongDiep.of("chungTuKho.donMuaNayDaNhanDu")
+                    : ThongDiep.of("chungTuKho.donMuaDaNhanDu", don.getSoDonMua()));
+        }
+        if (trangThai == null || trangThai != DON_MUA_DANG_VAN_CHUYEN) {
             throw new CommonException(HttpStatus.BAD_REQUEST,
                     ThongDiep.of("chungTuKho.donMuaKhongChoNhanHang", don.getSoDonMua()));
         }
