@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import apiClient from "@/services/apiClient";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -18,6 +17,7 @@ import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import ListPageHeader from "@/components/shared/ListPageHeader";
 import ListToolbar from "@/components/shared/ListToolbar";
+import LocKhoangNgay from "@/components/shared/LocKhoangNgay";
 import LoadingState from "@/components/shared/LoadingState";
 import { RowActionButton, RowActions } from "@/components/shared/RowActions";
 import SearchInput from "@/components/shared/SearchInput";
@@ -361,10 +361,6 @@ export default function QuotationRequestList() {
         toFirstPage();
     };
 
-    const handleDateChange = (field, value) => {
-        setDateRange(prev => ({ ...prev, [field]: value }));
-        toFirstPage();
-    };
 
     const applyKeyword = (value) => {
         setKeyword(value);
@@ -493,26 +489,13 @@ export default function QuotationRequestList() {
                             </DropdownMenuContent>
                         </DropdownMenu>
 
-                        {/* Từ ngày / Đến ngày: nhãn nằm trong ô để hàng công cụ gọn một dòng */}
-                        {[
-                            { key: 'from', label: t("Từ ngày") },
-                            { key: 'to', label: t("Đến ngày") },
-                        ].map(({ key, label }) => (
-                            <label
-                                key={key}
-                                className="flex h-9 w-full items-center gap-2 rounded-md border border-bo-border bg-bo-surface pl-3 pr-2 text-sm focus-within:border-bo-primary focus-within:ring-2 focus-within:ring-bo-primary/15 sm:w-auto"
-                            >
-                                <Calendar className="size-4 shrink-0 text-bo-muted" />
-                                <span className="shrink-0 text-xs text-bo-muted">{label}</span>
-                                <Input
-                                    type="date"
-                                    aria-label={label}
-                                    className="h-8 min-w-0 flex-1 border-0 bg-transparent px-0 text-sm text-bo-foreground shadow-none focus-visible:ring-0"
-                                    value={dateRange[key]}
-                                    onChange={e => handleDateChange(key, e.target.value)}
-                                />
-                            </label>
-                        ))}
+                        {/* Ngày tạo: ô lọc khoảng ngày dùng chung (kỳ nhanh + tùy chọn có kiểm từ ≤ đến) */}
+                        <LocKhoangNgay
+                            nhan={t("Ngày tạo")}
+                            tuNgay={dateRange.from}
+                            denNgay={dateRange.to}
+                            onDoi={({ tuNgay, denNgay }) => { setDateRange({ from: tuNgay, to: denNgay }); toFirstPage(); }}
+                        />
                     </ListToolbar>
                 }
                 footer={
