@@ -528,6 +528,55 @@ class NguoiDungServiceResetPasswordTest {
                 .noneMatch(o -> o.getCreatedAt().isBefore(Instant.now().minusSeconds(900))));
     }
 
+    /**
+     * Gửi song song: lần sai thứ 5 đã đếm nhưng chưa kịp hủy mã (mã còn trong bộ nhớ), một yêu cầu khác mang mã đúng
+     * vẫn phải bị từ chối. Trước bản sửa, yêu cầu đó được so tiếp và đặt được mật khẩu.
+     */
+    @Test
+    void maDaSaiDuNamLanChuaKipHuy_nhapDungVanBiTuChoi() {
+        when(calcService.getRandomActiveCode(6L)).thenReturn("111111");
+        forgot();
+        resetOtpsInCache().get(0).getFailedAttempts().set(NguoiDungService.RESET_OTP_MAX_FAILED_ATTEMPTS);
+
+        CommonException datLai = assertThrows(CommonException.class, () -> reset("111111", "matkhaumoi"));
+        assertEquals(NguoiDungService.RESET_OTP_EXPIRED_CODE, dataField(datLai, "code"));
+        assertEquals(OLD_HASH, user.getMatKhauHash());
+        assertTrue(resetOtpsInCache().isEmpty(), "mã đã đủ lần sai phải bị hủy");
+    }
+
+    @Test
+    void xacThucMa_daSaiDuNamLanChuaKipHuy_nhapDungVanBiTuChoi() {
+        when(calcService.getRandomActiveCode(6L)).thenReturn("111111");
+        forgot();
+        resetOtpsInCache().get(0).getFailedAttempts().set(NguoiDungService.RESET_OTP_MAX_FAILED_ATTEMPTS);
+
+        CommonException ex = assertThrows(CommonException.class, () -> verifyOtp("111111"));
+        assertEquals(NguoiDungService.RESET_OTP_EXPIRED_CODE, dataField(ex, "code"));
+    }
+
+    /** Nhiều yêu cầu sai cùng lúc: mã bị hủy, đúng 5 lần được tính, mã đúng gửi sau không dùng được nữa. */
+    @Test
+    void nhapSaiDongThoi_khongThuQuaNamLan() throws Exception {
+        when(calcService.getRandomActiveCode(6L)).thenReturn("111111");
+        forgot();
+        OtpScheduleObj ma = resetOtpsInCache().get(0);
+        AtomicInteger saiConLuot = new AtomicInteger();
+
+        runConcurrently(32, () -> {
+            try {
+                verifyOtp("999999");
+            } catch (CommonException e) {
+                if (NguoiDungService.RESET_OTP_WRONG_CODE.equals(dataField(e, "code"))) saiConLuot.incrementAndGet();
+            }
+        });
+
+        assertEquals(NguoiDungService.RESET_OTP_MAX_FAILED_ATTEMPTS, ma.getFailedAttempts().get(),
+                "chỉ được đếm đúng số lần thử cho phép");
+        assertEquals(NguoiDungService.RESET_OTP_MAX_FAILED_ATTEMPTS - 1, saiConLuot.get());
+        assertThrows(CommonException.class, () -> reset("111111", "matkhaumoi"));
+        assertEquals(OLD_HASH, user.getMatKhauHash());
+    }
+
     private static void runConcurrently(int threads, ThrowingRunnable task) throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(threads);
         CountDownLatch start = new CountDownLatch(1);
