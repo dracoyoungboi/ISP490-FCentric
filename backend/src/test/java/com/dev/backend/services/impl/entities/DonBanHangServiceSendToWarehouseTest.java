@@ -419,8 +419,7 @@ class DonBanHangServiceSendToWarehouseTest {
         // Thiếu tồn tại kho hiện tại: vẫn gửi đơn sang kho1 (trangThai = 1) và trả thông báo cảnh báo chuyển kho nội bộ
         String canhBaoThieuTon = service.sendToWarehouse(131, 1, false);
         assertNotNull(canhBaoThieuTon);
-        assertTrue(canhBaoThieuTon.contains("Kho Kho Hà Nội không đủ tồn khả dụng (SKU-102: cần 10, còn 3) cho đơn này."));
-        assertTrue(canhBaoThieuTon.contains("Vui lòng sau khi nhận đơn về kho thì sẽ phải chuyển kho nội bộ để đủ lượng tồn."));
+        assertTrue(canhBaoThieuTon.contains("Đã gửi đơn sang Kho Hà Nội, nhưng kho đang thiếu hàng cho 1 sản phẩm."));
         assertEquals(1, donThieuTon.getTrangThai());
         assertEquals(kho1, donThieuTon.getKhoXuat());
         verify(donBanHangRepository).save(donThieuTon);
@@ -470,5 +469,40 @@ class DonBanHangServiceSendToWarehouseTest {
         assertNull(canhBaoThuCong);
         assertEquals(1, donThieuKho.getTrangThai());
         assertEquals(kho2, donThieuKho.getKhoXuat());
+    }
+
+    @Test
+    void donBaSan_thieuNhieuDong_demDuMoiBienTheThieuVaCongDongTrung() {
+        KenhBanHang lazada = KenhBanHang.builder().id(12).maKenh("LAZADA").tenKenh("Lazada").build();
+        com.dev.backend.entities.BienTheSanPham bt102 = com.dev.backend.entities.BienTheSanPham.builder().id(102).maSku("SKU-102").build();
+        com.dev.backend.entities.BienTheSanPham bt103 = com.dev.backend.entities.BienTheSanPham.builder().id(103).maSku("SKU-103").build();
+        com.dev.backend.entities.BienTheSanPham bt104 = com.dev.backend.entities.BienTheSanPham.builder().id(104).maSku("SKU-104").build();
+        // bt102 nằm ở hai dòng (2 + 3 = 5) mà kho chỉ còn 4: thiếu dù từng dòng riêng lẻ đều đủ
+        List<com.dev.backend.entities.ChiTietDonBanHang> chiTiet = List.of(
+                com.dev.backend.entities.ChiTietDonBanHang.builder().id(11).bienTheSanPham(bt102).soLuongDat(java.math.BigDecimal.valueOf(2)).build(),
+                com.dev.backend.entities.ChiTietDonBanHang.builder().id(12).bienTheSanPham(bt103).soLuongDat(java.math.BigDecimal.ONE).build(),
+                com.dev.backend.entities.ChiTietDonBanHang.builder().id(13).bienTheSanPham(bt102).soLuongDat(java.math.BigDecimal.valueOf(3)).build(),
+                com.dev.backend.entities.ChiTietDonBanHang.builder().id(14).bienTheSanPham(bt104).soLuongDat(java.math.BigDecimal.valueOf(2)).build());
+        DonBanHang don = DonBanHang.builder()
+                .id(140)
+                .soDonHang("LZD-140")
+                .maDonHangKenh("LZD140")
+                .kenhBanHang(lazada)
+                .loaiChungTu("don_ban_hang")
+                .trangThai(0)
+                .khoXuat(kho1)
+                .build();
+        when(donBanHangRepository.findById(140)).thenReturn(Optional.of(don));
+        when(chiTietDonBanHangRepository.findByDonBanHangId(140)).thenReturn(chiTiet);
+        when(tonKhoTheoLoRepository.sumKhaDungLoTheoKhoBan(List.of(102, 103, 104)))
+                .thenReturn(List.<Object[]>of(
+                        new Object[]{102, 1, java.math.BigDecimal.valueOf(4)},
+                        new Object[]{103, 1, java.math.BigDecimal.valueOf(5)}));
+        when(donBanHangRepository.save(any(DonBanHang.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        String canhBao = service.sendToWarehouse(140, 1, false);
+
+        assertEquals("Đã gửi đơn sang Kho Hà Nội, nhưng kho đang thiếu hàng cho 2 sản phẩm. Lập phiếu chuyển kho về kho này để nhặt được đơn.", canhBao);
+        assertEquals(1, don.getTrangThai());
     }
 }

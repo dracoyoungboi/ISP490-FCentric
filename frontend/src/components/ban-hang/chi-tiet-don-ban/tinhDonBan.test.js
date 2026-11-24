@@ -5,6 +5,7 @@ import {
   buocDonBan,
   coTheMoHopGuiSangKho,
   dongHangBan,
+  duongDanChuyenKhoBu,
   ghiChuKhiXuat,
   gioNgay,
   hauQuaHuy,
@@ -23,6 +24,7 @@ import {
   tachTenDong,
   thanhToanDonBan,
   thaoTacDonBan,
+  thieuTonDonBan,
   thongBaoDonBan,
   tienDonBan,
 } from "./tinhDonBan.js";
@@ -350,4 +352,74 @@ test("nenMoHopGuiKhoThuCongKhiLoi: chi mo popup chon kho khi loi API gui tu dong
   assert.equal(nenMoHopGuiKhoThuCongKhiLoi({ maLoi: null, status: 403 }), false);
   assert.equal(nenMoHopGuiKhoThuCongKhiLoi({ maLoi: "TRANG_THAI_KHONG_HOP_LE", status: 409 }), false);
   assert.equal(nenMoHopGuiKhoThuCongKhiLoi({ maLoi: null, status: 422 }), false);
+});
+
+// ── Kho xuất thiếu hàng (dải cảnh báo PA B) ─────────────────────────────────
+const ctThieu = (thieuTonKhoXuat, extra = {}) => ({
+  donBanHang: don({ trangThai: 1, khoXuat: { id: 7, tenKho: "Cửa hàng Hà Nội" } }),
+  chiTiet: [
+    { id: 1, bienTheSanPhamId: 101, sku: "AP-M", tenSanPhamGoc: "Áo polo", tenMau: "Xanh Than", kichCo: "M", soLuongDat: 1, donGia: 120000 },
+    { id: 2, bienTheSanPhamId: 102, sku: "QK-L", tenSanPhamGoc: "Quần kaki", tenMau: "Ghi", kichCo: "L", soLuongDat: 2, donGia: 185000 },
+  ],
+  thieuTonKhoXuat,
+  ...extra,
+});
+
+test("thieuTonDonBan: ghép tên/biến thể theo dòng đơn, bỏ dòng không thiếu, Map số thiếu", () => {
+  const th = thieuTonDonBan(ctThieu({
+    khoId: 7,
+    tenKho: "Cửa hàng Hà Nội",
+    dong: [
+      { bienTheId: 101, maSku: "AP-M", soLuongCan: 1, tonKhaDung: 0, soLuongThieu: 1 },
+      { bienTheId: 102, maSku: "QK-L", soLuongCan: 2, tonKhaDung: 2, soLuongThieu: 0 },
+    ],
+  }));
+  assert.equal(th.tenKho, "Cửa hàng Hà Nội");
+  assert.equal(th.dong.length, 1);
+  assert.equal(th.dong[0].tenSanPham, "Áo polo");
+  assert.match(th.dong[0].nhanBienThe, /Xanh Than/);
+  assert.deepEqual([th.dong[0].can, th.dong[0].con, th.dong[0].thieu], [1, 0, 1]);
+  assert.equal(th.thieuTheoBienThe.get(101), 1);
+  assert.equal(th.thieuTheoBienThe.has(102), false);
+});
+
+test("thieuTonDonBan: null khi máy chủ không trả, không còn dòng thiếu, hoặc đơn không ở Chờ nhặt hàng", () => {
+  assert.equal(thieuTonDonBan(ctThieu(null)), null);
+  assert.equal(thieuTonDonBan(ctThieu({ khoId: 7, dong: [] })), null);
+  const daDongGoi = ctThieu({ khoId: 7, dong: [{ bienTheId: 101, soLuongCan: 1, tonKhaDung: 0, soLuongThieu: 1 }] });
+  daDongGoi.donBanHang.trangThai = 7;
+  assert.equal(thieuTonDonBan(daDongGoi), null);
+});
+
+test("thieuTonDonBan: kho đang kiểm kê toàn kho vẫn ra dải dù không có dòng", () => {
+  const th = thieuTonDonBan(ctThieu({ khoId: 7, tenKho: "Cửa hàng Hà Nội", dotKiemKeToanKho: "KK-0012", dong: [] }));
+  assert.equal(th.dotKiemKe, "KK-0012");
+  assert.equal(th.dong.length, 0);
+});
+
+test("thongBaoDonBan: có dải thiếu hàng thì bỏ dòng chờ kho gom", () => {
+  const coThieu = ctThieu({ khoId: 7, dong: [{ bienTheId: 101, soLuongCan: 1, tonKhaDung: 0, soLuongThieu: 1 }] });
+  assert.equal(thongBaoDonBan(coThieu, { laKho: true }).some((n) => n.ma === "choGom"), false);
+  assert.equal(thongBaoDonBan(ctThieu(null), { laKho: true }).some((n) => n.ma === "choGom"), true);
+});
+
+test("dongHangBan: gắn số thiếu tại kho theo biến thể", () => {
+  const ct = ctThieu({ khoId: 7, dong: [{ bienTheId: 102, soLuongCan: 2, tonKhaDung: 1, soLuongThieu: 1 }] });
+  const dong = dongHangBan(ct.chiTiet, thieuTonDonBan(ct).thieuTheoBienThe);
+  assert.deepEqual(dong.map((d) => d.thieuTaiKho), [0, 1]);
+  assert.deepEqual(dongHangBan(ct.chiTiet).map((d) => d.thieuTaiKho), [0, 0]);
+});
+
+test("duongDanChuyenKhoBu: kho nhận là kho xuất; một dòng thiếu thì điền sẵn sản phẩm và số thiếu", () => {
+  const motDong = thieuTonDonBan(ctThieu({ khoId: 7, dong: [{ bienTheId: 101, soLuongCan: 3, tonKhaDung: 1, soLuongThieu: 2 }] }));
+  assert.equal(duongDanChuyenKhoBu(motDong), "/transfer-tickets/create?khoNhapId=7&bienTheId=101&soLuong=2");
+  const haiDong = thieuTonDonBan(ctThieu({
+    khoId: 7,
+    dong: [
+      { bienTheId: 101, soLuongCan: 1, tonKhaDung: 0, soLuongThieu: 1 },
+      { bienTheId: 102, soLuongCan: 2, tonKhaDung: 0, soLuongThieu: 2 },
+    ],
+  }));
+  assert.equal(duongDanChuyenKhoBu(haiDong), "/transfer-tickets/create?khoNhapId=7");
+  assert.equal(duongDanChuyenKhoBu(null), "/transfer-tickets/create");
 });
