@@ -166,7 +166,7 @@ export const SIDEBAR_MENU = [
         roles: VAI_TRO_XEM_YEU_CAU_NHAP,
       },
       {
-        label: t("Gợi ý nhập hàng (DSS)"),
+        label: t("Gợi ý nhập hàng"),
         to: "/purchase-requests/dss",
         nhom: CHUNG_TU,
         roles: VAI_TRO_XEM_YEU_CAU_NHAP,

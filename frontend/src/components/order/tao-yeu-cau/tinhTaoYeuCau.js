@@ -476,9 +476,9 @@ export function cauCanhBao({ trung = [], khoaNhap = [], tonDu = [], banCham = []
   const ma = maYeuCau.length > 3 ? t("{{dsMa}} và {{count}} yêu cầu khác", { dsMa: maYeuCau.slice(0, 3).join(", "), count: maYeuCau.length - 3 }) : maYeuCau.join(", ");
   const phan = [
     trung.length ? t("{{soMa}} mã đang nằm trong yêu cầu nhập khác chưa xong{{dsMa}}", { count: trung.length, soMa: trung.length.toLocaleString("vi-VN"), dsMa: ma ? ` (${ma})` : "" }) : "",
-    khoaNhap.length ? t("{{soMa}} mã đang ở kịch bản ngừng nhập theo DSS", { count: khoaNhap.length, soMa: khoaNhap.length.toLocaleString("vi-VN") }) : "",
-    tonDu.length ? t("{{soMa}} mã đang có tồn dư cần xả theo DSS", { count: tonDu.length, soMa: tonDu.length.toLocaleString("vi-VN") }) : "",
-    banCham.length ? t("{{soMa}} mã bán chậm theo DSS", { count: banCham.length, soMa: banCham.length.toLocaleString("vi-VN") }) : "",
+    khoaNhap.length ? t("{{soMa}} mã đang ở kịch bản ngừng nhập", { count: khoaNhap.length, soMa: khoaNhap.length.toLocaleString("vi-VN") }) : "",
+    tonDu.length ? t("{{soMa}} mã đang có tồn dư cần xả", { count: tonDu.length, soMa: tonDu.length.toLocaleString("vi-VN") }) : "",
+    banCham.length ? t("{{soMa}} mã bán chậm", { count: banCham.length, soMa: banCham.length.toLocaleString("vi-VN") }) : "",
   ].filter(Boolean);
   return phan.length ? t("{{canhBao}}. Kiểm tra kỹ trước khi gửi để tránh mua trùng hoặc tăng tồn chậm.", { canhBao: phan.join("; ") }) : "";
 }

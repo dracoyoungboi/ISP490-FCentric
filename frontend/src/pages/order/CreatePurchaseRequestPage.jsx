@@ -331,7 +331,7 @@ export default function CreatePurchaseRequestPage() {
     const kq = theoSoDeXuat(dong, ids, chiMuc.theoId);
     setDong(kq.dong);
     toast.success(t("Đã đưa {{dat}} dòng về số đề xuất", { count: kq.dat, dat: soVN(kq.dat) }), {
-      description: kq.khong ? t("Giữ nguyên {{khong}} dòng chưa có số đề xuất theo DSS.", { count: kq.khong, khong: soVN(kq.khong) }) : undefined,
+      description: kq.khong ? t("Giữ nguyên {{khong}} dòng chưa có số đề xuất.", { count: kq.khong, khong: soVN(kq.khong) }) : undefined,
     });
   };
 
@@ -456,8 +456,8 @@ export default function CreatePurchaseRequestPage() {
           <>
             {" "}
             {Number(btDienSan.soLuongDeXuat) > 0
-              ? t("Đề xuất hiện tại của DSS cho mã này là {{deXuat}}.", { deXuat: soVN(btDienSan.soLuongDeXuat) })
-              : t("Theo DSS hiện tại, mã này chưa cần nhập thêm.")}
+              ? t("Số đề xuất hiện tại cho mã này là {{deXuat}}.", { deXuat: soVN(btDienSan.soLuongDeXuat) })
+              : t("Theo gợi ý hiện tại, mã này chưa cần nhập thêm.")}
           </>
         ) : null}{" "}
         {t("Kiểm tra lại, chọn ngày giao dự kiến rồi gửi duyệt.")}
@@ -539,7 +539,7 @@ export default function CreatePurchaseRequestPage() {
           icon={PackagePlus}
           title={t("Chưa có sản phẩm nào")}
           description={soGoiYMoi
-            ? t("Toàn hệ thống đang có {{soGoiYMoi}} mã cần bổ sung theo gợi ý DSS. Lấy cả loạt theo số đề xuất, hoặc tìm và quét từng mã ở ô phía trên.", { count: soGoiYMoi, soGoiYMoi: soVN(soGoiYMoi) })
+            ? t("Toàn hệ thống đang có {{soGoiYMoi}} mã cần bổ sung theo gợi ý nhập hàng. Lấy cả loạt theo số đề xuất, hoặc tìm và quét từng mã ở ô phía trên.", { count: soGoiYMoi, soGoiYMoi: soVN(soGoiYMoi) })
             : t("Tìm hoặc quét từng mã ở ô phía trên. Quét lại cùng mã thì cộng thêm 1.")}
           action={soGoiYMoi && !khoa && !duLieuCu ? (
             <Button type="button" onClick={() => setHop("goiY")} className="gap-1.5 bg-bo-primary text-white hover:bg-bo-primary-hover">

@@ -109,17 +109,17 @@ function NoiDung({ dsHang, dong, tenKho, cauHinhDss, onThem, onDong }) {
         </DialogTitle>
         <DialogDescription className={MO_TA_HOP}>
           {cauHinhDss?.cheDo === "GLOBAL_PRESET"
-            ? t("Áp dụng cùng công thức Gợi ý nhập hàng (DSS) trên tổng toàn bộ kho đang hoạt động theo kịch bản {{kichBan}} (quan sát {{n}} ngày, dự trữ {{t}} ngày). Chỉ hiển thị mã đã chạm điểm đặt hàng lại (ROP) và cần bổ sung.", {
+            ? t("Áp dụng cùng công thức của màn Gợi ý nhập hàng trên tổng toàn bộ kho đang hoạt động theo kịch bản {{kichBan}} (quan sát {{n}} ngày, dự trữ {{t}} ngày). Chỉ hiển thị mã đã chạm điểm đặt hàng lại (ROP) và cần bổ sung.", {
                 kichBan: NHAN_KICH_BAN[cauHinhDss?.kichBanChung] || t("Hoạt động chuẩn"),
                 n: soVN(cauHinhDss?.chuKyQuanSatN || 14),
                 t: soVN(cauHinhDss?.chuKyDuTruT || 14),
               })
-            : t("Áp dụng cùng công thức Gợi ý nhập hàng (DSS) trên tổng toàn bộ kho đang hoạt động theo nhóm ABC tự động (quan sát {{n}} ngày, dự trữ {{t}} ngày). Chỉ hiển thị mã đã chạm điểm đặt hàng lại (ROP) và cần bổ sung.", {
+            : t("Áp dụng cùng công thức của màn Gợi ý nhập hàng trên tổng toàn bộ kho đang hoạt động theo nhóm ABC tự động (quan sát {{n}} ngày, dự trữ {{t}} ngày). Chỉ hiển thị mã đã chạm điểm đặt hàng lại (ROP) và cần bổ sung.", {
                 n: soVN(cauHinhDss?.chuKyQuanSatN || 14),
                 t: soVN(cauHinhDss?.chuKyDuTruT || 14),
               })}{" "}
           <Link to="/purchase-requests/dss" className="font-medium text-bo-primary hover:underline">
-            {t("Xem và điều chỉnh ở Gợi ý nhập hàng (DSS)")}
+            {t("Xem và điều chỉnh ở Gợi ý nhập hàng")}
           </Link>
         </DialogDescription>
       </DialogHeader>
@@ -276,8 +276,8 @@ function NoiDung({ dsHang, dong, tenKho, cauHinhDss, onThem, onDong }) {
               {goiY.length
                 ? t("Không có mã gợi ý nào khớp.")
                 : cauHinhDss?.cheDo === "GLOBAL_PRESET" && cauHinhDss?.kichBanChung === "PRESET_04_PHASE_OUT"
-                  ? t("Hệ thống DSS đang ở kịch bản Ngừng nhập và xả hàng nên không đề xuất nhập mới.")
-                  : t("Toàn hệ thống chưa có mã nào chạm điểm đặt hàng lại (ROP) theo DSS.")}
+                  ? t("Gợi ý nhập hàng đang ở kịch bản Ngừng nhập và xả hàng nên không đề xuất nhập mới.")
+                  : t("Toàn hệ thống chưa có mã nào chạm điểm đặt hàng lại (ROP).")}
             </p>
           ) : null}
         </div>

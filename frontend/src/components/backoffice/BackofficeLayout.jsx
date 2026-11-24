@@ -350,7 +350,7 @@ export default function BackofficeLayout({ metaCoDinh = null }) {
         {
             key: "PURCHASE_REQUESTS_DSS",
             match: (path) => path === "/purchase-requests/dss",
-            title: t("Gợi ý nhập hàng (DSS)"),
+            title: t("Gợi ý nhập hàng"),
         },
         {
             key: "PURCHASE_ORDER_CREATE",

@@ -113,7 +113,7 @@ export default function LuoiNhapSoLuong({ sanPham, dong, onDoiO, onBoSanPham, ph
         );
       })}
       <p className="px-4 py-3 text-xs leading-4 text-bo-muted sm:px-6">
-        {t("Gõ số lượng vào ô, để trống hoặc 0 là không nhập biến thể đó. Chữ cam dưới ô: toàn hệ thống đang cần nhập theo gợi ý DSS. Ô “—”: sản phẩm không có màu, cỡ này.")}
+        {t("Gõ số lượng vào ô, để trống hoặc 0 là không nhập biến thể đó. Chữ cam dưới ô: toàn hệ thống đang cần nhập theo gợi ý nhập hàng. Ô “—”: sản phẩm không có màu, cỡ này.")}
       </p>
       {phanTrang ? <PhanTrangBang {...phanTrang} /> : null}
     </section>

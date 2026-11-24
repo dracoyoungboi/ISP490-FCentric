@@ -38,7 +38,7 @@ export default function DssCreatePrModal({
   useEffect(() => {
     if (open) {
       setNgayGiao(defaultDeliveryDateStr(selectedItems));
-      setGhiChu(t("Đề xuất tự động từ hệ thống gợi ý nhập hàng (DSS)"));
+      setGhiChu(t("Lập từ màn Gợi ý nhập hàng"));
       setSelectedKhoId(khoTong?.id ?? dsKhoTong[0]?.id ?? null);
     }
   }, [open, selectedItems, khoTong?.id, dsKhoTong]);
@@ -101,7 +101,7 @@ export default function DssCreatePrModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>{t("Xác nhận tạo yêu cầu nhập hàng từ DSS")}</DialogTitle>
+          <DialogTitle>{t("Xác nhận tạo yêu cầu nhập hàng từ gợi ý")}</DialogTitle>
           <DialogDescription>
             {t("Nhập về {{kho}} với {{soMa}} mã hàng và tổng {{tong}} sản phẩm.", {
               kho: activeKho?.tenKho || t("Kho tổng"),

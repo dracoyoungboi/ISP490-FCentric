@@ -106,7 +106,7 @@ export default function DssReplenishmentPage() {
         setCustomQtyMap({});
       }
     } catch (err) {
-      toast.error(getApiErrorMessage(err, t("Không tải được dữ liệu gợi ý nhập hàng DSS.")));
+      toast.error(getApiErrorMessage(err, t("Không tải được gợi ý nhập hàng.")));
     } finally {
       setLoading(false);
     }
@@ -191,9 +191,9 @@ export default function DssReplenishmentPage() {
         }
         setSelectedIds(autoSelected);
       }
-      toast.success(t("Đã cập nhật kịch bản DSS và đồng bộ ngưỡng cảnh báo mới."));
+      toast.success(t("Đã lưu tham số và cập nhật ngưỡng cảnh báo tồn thấp."));
     } catch (err) {
-      toast.error(getApiErrorMessage(err, t("Không lưu được tham số DSS.")));
+      toast.error(getApiErrorMessage(err, t("Không lưu được tham số gợi ý nhập hàng.")));
     } finally {
       setSaving(false);
     }
@@ -210,7 +210,7 @@ export default function DssReplenishmentPage() {
       }
       toast.success(t("Đã tính toán lại tồn an toàn và ngưỡng đặt hàng từ dữ liệu mới nhất."));
     } catch (err) {
-      toast.error(getApiErrorMessage(err, t("Không tính lại được dữ liệu DSS.")));
+      toast.error(getApiErrorMessage(err, t("Không tính lại được gợi ý nhập hàng.")));
     } finally {
       setSaving(false);
     }
@@ -300,13 +300,13 @@ export default function DssReplenishmentPage() {
   return (
     <PageContainer className="space-y-4">
       <PageHeader
-        title={t("Gợi ý nhập hàng (DSS)")}
+        title={t("Gợi ý nhập hàng")}
         actions={
           <>
             {soKhoHoatDong > 0 ? (
               <span
                 title={tenCacKho || undefined}
-                aria-label={t("Phạm vi tính toán DSS")}
+                aria-label={t("Phạm vi tính gợi ý")}
                 className="inline-flex h-9 items-center gap-1.5 rounded-md border border-bo-border bg-bo-surface-subtle px-3 text-xs font-medium text-bo-heading"
               >
                 {t("Toàn hệ thống ({{count}} kho)", { count: soKhoHoatDong })}

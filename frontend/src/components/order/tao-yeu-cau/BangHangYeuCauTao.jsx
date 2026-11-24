@@ -38,7 +38,7 @@ function ODeXuat({ d }) {
     return (
       <span
         className="text-xs text-bo-muted"
-        title={t("Hệ thống DSS đang khóa đề xuất nhập ở kịch bản Ngừng nhập")}
+        title={t("Mã đang ở kịch bản Ngừng nhập nên không có đề xuất nhập")}
       >
         {t("Ngừng nhập")}
       </span>
@@ -52,7 +52,7 @@ function ODeXuat({ d }) {
     );
   }
   return (
-    <span className="text-bo-muted" title={t("Chưa chạm điểm đặt hàng lại (ROP) theo DSS")}>
+    <span className="text-bo-muted" title={t("Chưa chạm điểm đặt hàng lại (ROP)")}>
       —
     </span>
   );
@@ -201,7 +201,7 @@ export default function BangHangYeuCauTao({
                 <th scope="col" className={O_TIEU_DE}>{t("Sản phẩm")}</th>
                 <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)} title={t("Tổng khả dụng trên toàn bộ kho đang hoạt động")}>{t("Khả dụng")}</th>
                 <th scope="col" className={cn(O_TIEU_DE, "w-20 text-right", AN_DIEN_THOAI)} title={t("Tổng phần chưa nhận của đơn mua đã chốt trên toàn hệ thống")}>{t("Đang về")}</th>
-                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)} title={t("Số lượng đặt gợi ý theo mô hình DSS (tính từ sức bán, thời gian giao hàng và tồn an toàn)")}>{t("Đề xuất")}</th>
+                <th scope="col" className={cn(O_TIEU_DE, "w-24 text-right", AN_DIEN_THOAI)} title={t("Số lượng đặt gợi ý (tính từ sức bán, thời gian giao hàng và tồn an toàn)")}>{t("Đề xuất")}</th>
                 <th scope="col" className={cn(O_TIEU_DE, O_SO_LUONG, "text-right")}>{t("Số lượng nhập")}</th>
                 <th scope="col" className={cn(O_TIEU_DE, O_BO, O_CUOI)}><span className="sr-only">{t("Bỏ dòng")}</span></th>
               </tr>
@@ -293,14 +293,14 @@ export default function BangHangYeuCauTao({
                           ) : d.khoaTaoYeuCau ? (
                             <span
                               className={cn(NHAN_CANH_BAO, NHAN_DU)}
-                              title={t("Hệ thống DSS đang ở kịch bản Ngừng nhập cho mã này")}
+                              title={t("Mã này đang ở kịch bản Ngừng nhập")}
                             >
-                              {t("Ngừng nhập theo DSS")}
+                              {t("Đang ngừng nhập")}
                             </span>
                           ) : d.tonDuXaHang > 0 ? (
                             <span
                               className={cn(NHAN_CANH_BAO, NHAN_DU)}
-                              title={t("Lượng hàng vượt nhu cầu còn lại cần xả theo DSS")}
+                              title={t("Lượng hàng vượt nhu cầu còn lại, nên xả")}
                             >
                               {t("Tồn dư cần xả ({{soDu}})", { soDu: soVN(d.tonDuXaHang) })}
                             </span>
@@ -309,7 +309,7 @@ export default function BangHangYeuCauTao({
                               className={cn(NHAN_CANH_BAO, NHAN_DU)}
                               title={t("Không phát sinh đơn trong 30 ngày qua hoặc tồn vượt 60 ngày bán")}
                             >
-                              {t("Bán chậm theo DSS")}
+                              {t("Bán chậm")}
                             </span>
                           ) : null}
                           <div className={cn("mt-0.5 text-xs text-bo-muted", CHI_DIEN_THOAI)}>
