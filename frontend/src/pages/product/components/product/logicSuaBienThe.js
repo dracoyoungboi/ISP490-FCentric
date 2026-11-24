@@ -283,6 +283,17 @@ export function thongKeSua(nhom, state) {
 export const demDoiGiaBanConHang = (state) =>
     dsCu(state).filter((b) => b.conTonKho && b.giaBan !== "" && b.giaBan !== b.goc.giaBan).length;
 
+/**
+ * Id biến thể đang hoạt động đổi giá bán từ một giá đã có (tem đang dán còn giá cũ): sau khi lưu, nút "In lại tem" mở
+ * màn Tem mã vạch chọn sẵn các SKU này. Biến thể trước đó chưa có giá thì chưa có tem để in lại.
+ */
+export const idDoiGiaBan = (state) =>
+    state.thuTuCu.filter((id) => {
+        const b = state.bienTheCu[id];
+        // Giá gốc trống / 0 (form đọc giá null thành 0) là lần đặt giá đầu tiên: chưa có tem nào để in lại
+        return b && Number(b.trangThai) === 1 && Number(b.goc.giaBan) > 0 && Number(b.giaBan) > 0 && b.giaBan !== b.goc.giaBan;
+    });
+
 /** Có thay đổi gì ở phần biến thể không (để chọn đường lưu và hỏi trước khi bỏ). */
 export function coThayDoiBienThe(state, thongKe) {
     if (thongKe.soTao > 0) return true;

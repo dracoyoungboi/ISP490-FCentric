@@ -2,6 +2,7 @@ import { getApiErrorMessage } from "@/utils/apiError";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { useState, useEffect, useCallback, useMemo, useReducer, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
+import { useNavigate } from "react-router-dom";
 import { yupResolver } from "@hookform/resolvers/yup";
 import {
     Dialog,
@@ -66,6 +67,7 @@ import { SO_BIEN_THE_TOI_DA, kiemTraTepAnh, sapXepKichCo } from "./logicBienThe"
 import {
     coThayDoiBienThe,
     demDoiGiaBanConHang,
+    idDoiGiaBan,
     kichCoBiKhoa,
     khoiTaoSuaBienThe,
     mauBiKhoa,
@@ -117,6 +119,7 @@ const anhTuMayChu = (anh) => ({ id: `cu-${anh.id}`, anhId: anh.id, url: anh.tepT
 const chuKyAnh = (anhs) => anhs.map((anh) => anh.id).join(",");
 
 export default function EditProductModal({ isOpen, onClose, onSuccess, productId }) {
+    const navigate = useNavigate();
     const [categories, setCategories] = useState([]);
     const [colors, setColors] = useState([]);
     const [sizes, setSizes] = useState([]);
@@ -434,10 +437,22 @@ export default function EditProductModal({ isOpen, onClose, onSuccess, productId
                 toast.error(res.data.message || t("Có lỗi xảy ra"));
                 return;
             }
+            // Đổi giá bán biến thể đã có giá: tem trên hàng còn giá cũ → nút "In lại tem" mở màn Tem mã vạch, tab Đổi giá
+            // gần đây, chọn sẵn các SKU vừa đổi (không bấm thì SKU vẫn nằm ở tab đó 7 ngày)
+            const doiGia = idDoiGiaBan(bienThe);
             toast.success(
                 thongKe.soTao > 0
                     ? t("Cập nhật sản phẩm thành công, thêm {{count}} biến thể mới.", { count: thongKe.soTao })
                     : t("Cập nhật sản phẩm thành công."),
+                doiGia.length
+                    ? {
+                          description: t("{{count}} phân loại đổi giá bán. Tem đang dán trên hàng vẫn ghi giá cũ.", { count: doiGia.length }),
+                          action: {
+                              label: t("In lại tem"),
+                              onClick: () => navigate("/products/barcode-labels?trangThai=doi-gia", { state: { chonBienThe: doiGia } }),
+                          },
+                      }
+                    : undefined,
             );
             onSuccess?.();
             onClose();
