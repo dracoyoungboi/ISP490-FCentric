@@ -112,7 +112,7 @@ public class ShopeeOrderDto {
         return null;
     }
 
-    /** Lấy location_id định tuyến kho từ cấp đơn hoặc dòng hàng đầu tiên của Shopee (MWH). */
+    /** Lấy location_id định tuyến kho từ cấp đơn hoặc dòng hàng đầu tiên của Shopee (MWH: location_id / model_location_id). */
     public String resolveLocationId() {
         if (locationId != null && !locationId.isBlank()) {
             return locationId.trim();
@@ -121,6 +121,9 @@ public class ShopeeOrderDto {
             for (ShopeeOrderItemDto item : itemList) {
                 if (item != null && item.getLocationId() != null && !item.getLocationId().isBlank()) {
                     return item.getLocationId().trim();
+                }
+                if (item != null && item.getModelLocationId() != null && !item.getModelLocationId().isBlank()) {
+                    return item.getModelLocationId().trim();
                 }
             }
         }
@@ -176,6 +179,9 @@ public class ShopeeOrderDto {
 
         @JsonProperty("location_id")
         String locationId;
+
+        @JsonProperty("model_location_id")
+        String modelLocationId;
     }
 
     @Data

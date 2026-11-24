@@ -676,6 +676,7 @@
   "Đã thu tiền và trừ tồn ở {{tenKho}} ngay lúc bán.": "Payment was collected and stock deducted at {{tenKho}} at the time of sale.",
   "Đơn nháp, bán hàng chưa gửi sang kho.": "Draft order; sales has not sent it to the warehouse yet.",
   "Đơn {{tenKenh}} tự về {{tenKho}}. Chọn kho gần khách rồi gửi sang kho.": "The {{tenKenh}} order was assigned to {{tenKho}} automatically. Choose a warehouse near the customer, then send it to the warehouse.",
+  "Đơn {{tenKenh}} được định tuyến về {{tenKho}}. Bấm Gửi sang kho để chuyển thẳng sang kho này.": "The {{tenKenh}} order is routed to {{tenKho}}. Click Send to warehouse to send it directly to this warehouse.",
   "Đơn nháp đã trừ vào tồn có thể bán của {{tenKho}}, chưa giữ lô. Gửi sang kho để kho bắt đầu nhặt hàng.": "The draft order has been deducted from {{tenKho}}'s sellable stock, with no lots reserved yet. Send it to the warehouse so the warehouse can start picking.",
   "Đơn đang ở Đơn chờ nhặt hàng của {{tenKho}}, chờ kho gom vào phiếu nhặt hàng.": "The order is in {{tenKho}}'s Orders awaiting picking, waiting to be grouped into a pick list.",
   "Phiếu xuất {{soPhieuXuat}}": "Goods issue note {{soPhieuXuat}}",

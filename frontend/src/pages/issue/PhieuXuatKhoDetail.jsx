@@ -330,7 +330,6 @@ function ManPhieuXuatKho({ id }) {
   const laLazada = Boolean(
     phieu.donBanHang?.soDonHang?.startsWith("LZD-") ||
     phieu.donBanHang?.kenhBanHang?.maKenh === "LAZADA" ||
-    phieu.donBanHang?.kenhBanHang?.maKenh === "LAZADA_SANDBOX" ||
     phieu.donBanHang?.kenhBanHang?.tenKenh?.toLowerCase()?.includes("lazada") ||
     phieu.donBanHang?.maDonHangKenh?.startsWith("LZD-")
   );
@@ -339,7 +338,6 @@ function ManPhieuXuatKho({ id }) {
     phieu.donBanHang?.soDonHang?.startsWith("SHP-") ||
     phieu.donBanHang?.kenhBanHang?.maKenh === "SHOPEE" ||
     phieu.donBanHang?.kenhBanHang?.maKenh === "SHOPEE_OFFICIAL" ||
-    phieu.donBanHang?.kenhBanHang?.maKenh === "SHOPEE_SANDBOX" ||
     phieu.donBanHang?.kenhBanHang?.tenKenh?.toLowerCase()?.includes("shopee") ||
     phieu.donBanHang?.maDonHangKenh?.startsWith("SHP-")
   );

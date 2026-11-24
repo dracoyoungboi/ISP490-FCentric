@@ -423,3 +423,25 @@ test("duongDanChuyenKhoBu: kho nhận là kho xuất; một dòng thiếu thì �
   assert.equal(duongDanChuyenKhoBu(haiDong), "/transfer-tickets/create?khoNhapId=7");
   assert.equal(duongDanChuyenKhoBu(null), "/transfer-tickets/create");
 });
+
+test("laDonTikTok & thongBaoDonBan cho đơn 3 sàn (Shopee, TikTok, Lazada): hiện đúng thông báo chuyển thẳng tới kho đã ánh xạ", () => {
+  assert.equal(laDonTikTok({ soDonHang: "TTS-999" }), true);
+  assert.equal(laDonTikTok({ maDonHangKenh: "TTS-888" }), true);
+  assert.equal(laDonTikTok({ soDonHang: "SHP-111" }), false);
+
+  for (const [maKenh, tenKenh] of [
+    ["SHOPEE_OFFICIAL", "Shopee"],
+    ["TIKTOK", "TikTok Shop"],
+    ["LAZADA", "Lazada"],
+  ]) {
+    const tb = thongBaoDonBan(
+      ct({ kenhBanHang: { maKenh, tenKenh }, khoXuat: { id: 2, tenKho: "Cửa hàng Hà Nội" }, trangThai: 0 }),
+      { laBan: true },
+    );
+    assert.match(
+      tb[0].chu,
+      /được định tuyến về Cửa hàng Hà Nội\. Bấm Gửi sang kho để chuyển thẳng sang kho này\./,
+      `${maKenh} phải báo rõ bấm Gửi sang kho để chuyển thẳng tới Cửa hàng Hà Nội`,
+    );
+  }
+});

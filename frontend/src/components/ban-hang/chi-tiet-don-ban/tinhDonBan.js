@@ -92,25 +92,28 @@ export const laDonSan = (don) => Boolean(don?.kenhBanHang) || coChu(don?.maDonHa
 const maKenhCua = (don) => String(don?.kenhBanHang?.maKenh ?? "").trim().toUpperCase();
 
 /**
- * Đơn sàn Lazada / Lazada Sandbox: bắt buộc chỉ xuất từ Kho Tổng (khớp OmnichannelOrderSyncJob.isLazada). Nhận theo mã
+ * Đơn sàn Lazada: định tuyến theo bảng cấu hình kho (khớp OmnichannelOrderSyncJob.isLazada). Nhận theo mã
  * kênh; chỉ đơn cũ không có kênh bán mới đoán theo số đơn "LZD-".
  */
 export const laDonLazada = (don) => {
-  if (don?.kenhBanHang) return ["LAZADA", "LAZADA_SANDBOX"].includes(maKenhCua(don));
+  if (don?.kenhBanHang) return ["LAZADA"].includes(maKenhCua(don));
   return [don?.soDonHang, don?.maDonHangKenh].some((so) => String(so ?? "").startsWith("LZD-"));
 };
 
 /**
- * Đơn sàn Shopee / Shopee Sandbox: bắt buộc chỉ xuất từ Kho Tổng (khớp OmnichannelOrderSyncJob.isShopee). Chỉ nhận theo
- * mã kênh: Shopify và Shopee cùng tiền tố số đơn "SHP-", đoán theo số đơn sẽ khóa đơn Shopify vào Kho Tổng.
+ * Đơn sàn Shopee: định tuyến theo bảng cấu hình kho (khớp OmnichannelOrderSyncJob.isShopee). Chỉ nhận theo
+ * mã kênh: Shopify và Shopee cùng tiền tố số đơn "SHP-", đoán theo số đơn sẽ khóa đơn Shopify vào kho Shopee.
  */
-export const laDonShopee = (don) => ["SHOPEE", "SHOPEE_SANDBOX", "SHOPEE_OFFICIAL"].includes(maKenhCua(don));
+export const laDonShopee = (don) => ["SHOPEE", "SHOPEE_OFFICIAL"].includes(maKenhCua(don));
 
 /** Đơn sàn Shopify: không có tem vận đơn sàn (người bán tự giao hoặc dùng đơn vị vận chuyển ngoài). */
 export const laDonShopify = (don) => maKenhCua(don) === "SHOPIFY";
 
-/** Đơn sàn TikTok Shop / TikTok. */
-export const laDonTikTok = (don) => ["TIKTOK", "TIKTOK_SHOP"].includes(maKenhCua(don));
+/** Đơn sàn TikTok Shop / TikTok (hỗ trợ dự phòng tiền tố TTS- cho đơn cũ thiếu thông tin kênh). */
+export const laDonTikTok = (don) => {
+  if (don?.kenhBanHang) return ["TIKTOK", "TIKTOK_SHOP"].includes(maKenhCua(don));
+  return [don?.soDonHang, don?.maDonHangKenh].some((so) => String(so ?? "").startsWith("TTS-"));
+};
 
 /** Đơn thuộc 3 sàn Shopee, Lazada, TikTok Shop: gửi sang kho đi thẳng kho hiện tại của đơn, chỉ mở popup khi lỗi. */
 export const laDonBaSan = (don) => laDonShopee(don) || laDonLazada(don) || laDonTikTok(don);
@@ -474,6 +477,7 @@ export function thongBaoDonBan(ct, { laBan = false, laKho = false, laQuanLyKhoTo
         t("Đơn {{tenKenh}} đang ở trạng thái Chờ xác nhận nên chỉ xem được. Hệ thống sẽ mở Gửi sang kho khi sàn chuyển Chờ lấy hàng (Chưa xử lý).", { tenKenh }),
       );
     } else if (!coTheDieuTiet) them("nhap", "neutral", t("Đơn nháp, bán hàng chưa gửi sang kho."));
+    else if (laDonBaSan(don)) them("nhap", "info", t("Đơn {{tenKenh}} được định tuyến về {{tenKho}}. Bấm Gửi sang kho để chuyển thẳng sang kho này.", { tenKenh, tenKho }));
     else if (laSan) them("nhap", "info", t("Đơn {{tenKenh}} tự về {{tenKho}}. Chọn kho gần khách rồi gửi sang kho.", { tenKenh, tenKho }));
     else them("nhap", "info", t("Đơn nháp đã trừ vào tồn có thể bán của {{tenKho}}, chưa giữ lô. Gửi sang kho để kho bắt đầu nhặt hàng.", { tenKho }));
 

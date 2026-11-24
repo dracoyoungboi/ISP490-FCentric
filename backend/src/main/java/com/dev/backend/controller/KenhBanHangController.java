@@ -154,7 +154,7 @@ public class KenhBanHangController {
                             .build()
             );
         }
-        if ("LAZADA".equals(ma) || "LAZADA_SANDBOX".equals(ma)) {
+        if ("LAZADA".equals(ma)) {
             LazadaConfigUpdating lazadaReq = LazadaConfigUpdating.builder()
                     .appKey(request.getAppKey() != null ? request.getAppKey() : request.getClientId())
                     .appSecret(request.getAppSecret() != null ? request.getAppSecret() : request.getApiSecret())
@@ -165,7 +165,7 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message(ThongDiep.dich("kenhBan.capNhatCauHinhSanThanhCong", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")))
+                            .message(ThongDiep.dich("kenhBan.capNhatCauHinhSanThanhCong", "Lazada"))
                             .build()
             );
         }
@@ -185,7 +185,7 @@ public class KenhBanHangController {
                             .build()
             );
         }
-        if ("SHOPEE_OFFICIAL".equals(ma)) {
+        if ("SHOPEE_OFFICIAL".equals(ma) || "SHOPEE".equals(ma)) {
             String shopId = (request.getShopDomain() != null && request.getShopDomain().matches("^\\d+$")) ? request.getShopDomain().trim() : null;
             com.dev.backend.dto.request.ShopeeConfigUpdating shopeeReq = com.dev.backend.dto.request.ShopeeConfigUpdating.builder()
                     .partnerId(request.getAppKey())
@@ -193,32 +193,6 @@ public class KenhBanHangController {
                     .shopId(shopId)
                     .trangThai(request.getTrangThai())
                     .isSandbox(false)
-                    .build();
-            kenhBanHangService.updateShopeeConfig("SHOPEE_OFFICIAL", shopeeReq);
-            if (request.getTenGianHang() != null && !request.getTenGianHang().isBlank()) {
-                com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh("SHOPEE_OFFICIAL").orElse(null);
-                if (kenh != null) {
-                    kenh.setTenKenh(request.getTenGianHang().trim());
-                    kenhBanHangRepository.save(kenh);
-                }
-            }
-            return ResponseEntity.ok(
-                    ResponseData.<ShopifyConfigResponse>builder()
-                            .status(HttpStatus.OK.value())
-                            .data(kenhBanHangService.getKetNoi(ma))
-                            .message(ThongDiep.dich("kenhBan.capNhatCauHinhSanThanhCong", "Shopee Chính Thống"))
-                            .build()
-            );
-        }
-        if ("SHOPEE_SANDBOX".equals(ma) || "SHOPEE".equals(ma)) {
-            boolean isSandbox = "SHOPEE_SANDBOX".equals(ma);
-            String shopId = (request.getShopDomain() != null && request.getShopDomain().matches("^\\d+$")) ? request.getShopDomain().trim() : null;
-            com.dev.backend.dto.request.ShopeeConfigUpdating shopeeReq = com.dev.backend.dto.request.ShopeeConfigUpdating.builder()
-                    .partnerId(request.getAppKey())
-                    .partnerKey(request.getAppSecret())
-                    .shopId(shopId)
-                    .trangThai(request.getTrangThai())
-                    .isSandbox(isSandbox)
                     .build();
             kenhBanHangService.updateShopeeConfig(ma, shopeeReq);
             if (request.getTenGianHang() != null && !request.getTenGianHang().isBlank()) {
@@ -232,7 +206,7 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message(ThongDiep.dich("kenhBan.capNhatCauHinhSanThanhCong", (isSandbox ? "Shopee Sandbox" : "Shopee")))
+                            .message(ThongDiep.dich("kenhBan.capNhatCauHinhSanThanhCong", "Shopee"))
                             .build()
             );
         }
@@ -248,13 +222,13 @@ public class KenhBanHangController {
             @RequestParam(required = false) String redirectUri,
             @RequestParam(required = false) String state) {
         String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
-        if ("LAZADA".equals(ma) || "LAZADA_SANDBOX".equals(ma)) {
+        if ("LAZADA".equals(ma)) {
             String authUrl = kenhBanHangService.getLazadaAuthUrl(ma, redirectUri, state);
             return ResponseEntity.ok(
                     ResponseData.<Map<String, String>>builder()
                             .status(HttpStatus.OK.value())
                             .data(Map.of("authUrl", authUrl))
-                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")))
+                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", "Lazada"))
                             .build()
             );
         }
@@ -268,13 +242,13 @@ public class KenhBanHangController {
                             .build()
             );
         }
-        if ("SHOPEE_OFFICIAL".equals(ma) || "SHOPEE_SANDBOX".equals(ma) || "SHOPEE".equals(ma)) {
+        if ("SHOPEE_OFFICIAL".equals(ma) || "SHOPEE".equals(ma)) {
             String authUrl = kenhBanHangService.getShopeeAuthUrl(ma, redirectUri);
             return ResponseEntity.ok(
                     ResponseData.<Map<String, String>>builder()
                             .status(HttpStatus.OK.value())
                             .data(Map.of("authUrl", authUrl))
-                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", ("SHOPEE_SANDBOX".equals(ma) ? "Shopee Sandbox" : "Shopee")))
+                            .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", "Shopee"))
                             .build()
             );
         }
@@ -288,13 +262,13 @@ public class KenhBanHangController {
             @PathVariable String maKenh,
             @RequestBody LazadaOAuthCallbackRequest request) {
         String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
-        if ("LAZADA".equals(ma) || "LAZADA_SANDBOX".equals(ma)) {
+        if ("LAZADA".equals(ma)) {
             kenhBanHangService.exchangeLazadaToken(ma, request);
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message(ThongDiep.dich("kenhBan.uyQuyenGianHangThanhCong", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")))
+                            .message(ThongDiep.dich("kenhBan.uyQuyenGianHangThanhCong", "Lazada"))
                             .build()
             );
         }
@@ -311,14 +285,14 @@ public class KenhBanHangController {
                             .build()
             );
         }
-        if ("SHOPEE_OFFICIAL".equals(ma) || "SHOPEE_SANDBOX".equals(ma) || "SHOPEE".equals(ma)) {
+        if ("SHOPEE_OFFICIAL".equals(ma) || "SHOPEE".equals(ma)) {
             String shopId = request.getShopId() != null ? String.valueOf(request.getShopId()) : null;
             kenhBanHangService.exchangeShopeeToken(ma, request.getCode(), shopId);
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message(ThongDiep.dich("kenhBan.uyQuyenGianHangThanhCong", ("SHOPEE_SANDBOX".equals(ma) ? "Shopee Sandbox" : "Shopee")))
+                            .message(ThongDiep.dich("kenhBan.uyQuyenGianHangThanhCong", "Shopee"))
                             .build()
             );
         }
@@ -358,13 +332,13 @@ public class KenhBanHangController {
     @Operation(summary = "Kiểm tra kết nối tới sàn bán hàng")
     public ResponseEntity<ResponseData<?>> kiemTraKetNoi(@PathVariable String maKenh) {
         String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
-        if ("LAZADA".equals(ma) || "LAZADA_SANDBOX".equals(ma)) {
+        if ("LAZADA".equals(ma)) {
             LazadaTestConnectionResponse res = kenhBanHangService.testLazadaConnection(ma, new LazadaTestConnectionRequest());
             return ResponseEntity.ok(
                     ResponseData.<LazadaTestConnectionResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(res)
-                            .message(res.isConnected() ? ThongDiep.dich("kenhBan.ketNoiSanThanhCong", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")) : ThongDiep.dich("kenhBan.kiemTraKetNoiSanThatBai", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")))
+                            .message(res.isConnected() ? ThongDiep.dich("kenhBan.ketNoiSanThanhCong", "Lazada") : ThongDiep.dich("kenhBan.kiemTraKetNoiSanThatBai", "Lazada"))
                             .build()
             );
         }
@@ -381,7 +355,7 @@ public class KenhBanHangController {
         if ("SHOPEE_OFFICIAL".equals(ma)) {
             boolean connected = kenhBanHangService.testShopeeConnection("SHOPEE_OFFICIAL");
             com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh("SHOPEE_OFFICIAL").orElse(null);
-            String shopName = (kenh != null && kenh.getTenKenh() != null) ? kenh.getTenKenh() : "Shopee Chính Thống";
+            String shopName = (kenh != null && kenh.getTenKenh() != null) ? kenh.getTenKenh() : "Shopee";
             return ResponseEntity.ok(
                     ResponseData.<LazadaTestConnectionResponse>builder()
                             .status(HttpStatus.OK.value())
@@ -390,21 +364,21 @@ public class KenhBanHangController {
                                     .shopName(shopName)
                                     .country("VN")
                                     .build())
-                            .message(connected ? ThongDiep.dich("kenhBan.ketNoiSanThanhCong", "Shopee Chính Thống")
-                                    : ThongDiep.dich("kenhBan.kiemTraKetNoiSanThatBai", "Shopee Chính Thống"))
+                            .message(connected ? ThongDiep.dich("kenhBan.ketNoiSanThanhCong", "Shopee")
+                                    : ThongDiep.dich("kenhBan.kiemTraKetNoiSanThatBai", "Shopee"))
                             .build()
             );
         }
-        if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
+        if ("SHOPEE".equals(ma)) {
             return ResponseEntity.ok(
                     ResponseData.<LazadaTestConnectionResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(LazadaTestConnectionResponse.builder()
                                     .connected(true)
-                                    .shopName("Gian hàng Shopee Sandbox FCentric")
+                                    .shopName("Shopee")
                                     .country("VN")
                                     .build())
-                            .message(ThongDiep.dich("kenhBan.ketNoiSanThanhCong", (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee")))
+                            .message(ThongDiep.dich("kenhBan.ketNoiSanThanhCong", "Shopee"))
                             .build()
             );
         }
@@ -435,38 +409,38 @@ public class KenhBanHangController {
                             .build()
             );
         }
-        if ("LAZADA".equals(ma) || "LAZADA_SANDBOX".equals(ma)) {
+        if ("LAZADA".equals(ma)) {
             boolean success = kenhBanHangService.refreshLazadaAccessToken(ma);
             if (!success) {
-                throw new LoiCoMaException(HttpStatus.FAILED_DEPENDENCY, MaLoi.LAM_MOI_KHOA_LOI, ThongDiep.of("kenhBan.khongTheLamMoiTokenSan", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")));
+                throw new LoiCoMaException(HttpStatus.FAILED_DEPENDENCY, MaLoi.LAM_MOI_KHOA_LOI, ThongDiep.of("kenhBan.khongTheLamMoiTokenSan", "Lazada"));
             }
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message(ThongDiep.dich("kenhBan.lamMoiAccessTokenSanThanhCong", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")))
+                            .message(ThongDiep.dich("kenhBan.lamMoiAccessTokenSanThanhCong", "Lazada"))
                             .build()
             );
         }
         if ("SHOPEE_OFFICIAL".equals(ma)) {
             boolean success = kenhBanHangService.refreshShopeeAccessToken("SHOPEE_OFFICIAL");
             if (!success) {
-                throw new LoiCoMaException(HttpStatus.FAILED_DEPENDENCY, MaLoi.LAM_MOI_KHOA_LOI, ThongDiep.of("kenhBan.khongTheLamMoiTokenSan", "Shopee Chính Thống"));
+                throw new LoiCoMaException(HttpStatus.FAILED_DEPENDENCY, MaLoi.LAM_MOI_KHOA_LOI, ThongDiep.of("kenhBan.khongTheLamMoiTokenSan", "Shopee"));
             }
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message(ThongDiep.dich("kenhBan.lamMoiAccessTokenSanThanhCong", "Shopee Chính Thống"))
+                            .message(ThongDiep.dich("kenhBan.lamMoiAccessTokenSanThanhCong", "Shopee"))
                             .build()
             );
         }
-        if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
+        if ("SHOPEE".equals(ma)) {
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message(ThongDiep.dich("kenhBan.lamMoiAccessTokenSanThanhCong", (ma.contains("SANDBOX") ? "Shopee Sandbox" : "Shopee")))
+                            .message(ThongDiep.dich("kenhBan.lamMoiAccessTokenSanThanhCong", "Shopee"))
                             .build()
             );
         }
@@ -492,13 +466,13 @@ public class KenhBanHangController {
     @Operation(summary = "Ngắt kết nối (hiện chỉ Shopify): xóa khóa, dừng job, giữ tên miền, liên kết và đơn; đang đồng bộ thì 409 DANG_DONG_BO")
     public ResponseEntity<ResponseData<ShopifyConfigResponse>> ngatKetNoi(@PathVariable String maKenh) {
         String ma = maKenh != null ? maKenh.trim().toUpperCase() : "";
-        if ("LAZADA".equals(ma) || "LAZADA_SANDBOX".equals(ma)) {
+        if ("LAZADA".equals(ma)) {
             kenhBanHangService.xoaKhoaLazada(ma);
             return ResponseEntity.ok(
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message(ThongDiep.dich("kenhBan.daNgatKetNoiKenhSan", (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")))
+                            .message(ThongDiep.dich("kenhBan.daNgatKetNoiKenhSan", "Lazada"))
                             .build()
             );
         }
@@ -518,11 +492,11 @@ public class KenhBanHangController {
                     ResponseData.<ShopifyConfigResponse>builder()
                             .status(HttpStatus.OK.value())
                             .data(kenhBanHangService.getKetNoi(ma))
-                            .message(ThongDiep.dich("kenhBan.daNgatKetNoiKenhSan", "Shopee Chính Thống"))
+                            .message(ThongDiep.dich("kenhBan.daNgatKetNoiKenhSan", "Shopee"))
                             .build()
             );
         }
-        if ("SHOPEE".equals(ma) || "SHOPEE_SANDBOX".equals(ma)) {
+        if ("SHOPEE".equals(ma)) {
             com.dev.backend.entities.KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
             if (kenh != null) {
                 kenh.setClientId(null);
@@ -604,7 +578,7 @@ public class KenhBanHangController {
                 ResponseData.<String>builder()
                         .status(HttpStatus.OK.value())
                         .data(kenhBanHangService.getLazadaAuthUrl(maKenh, redirectUri, null))
-                        .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", (maKenh.toUpperCase().contains("SANDBOX") ? "Lazada Sandbox" : "Lazada")))
+                        .message(ThongDiep.dich("kenhBan.sinhUrlUyQuyenThanhCong", "Lazada"))
                         .build()
         );
     }
@@ -1037,7 +1011,7 @@ public class KenhBanHangController {
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Shopee: Hủy đơn hàng từ phía nhà bán hàng (/api/v2/order/cancel_order)")
     public ResponseEntity<ResponseData<JsonNode>> cancelShopeeOrder(
-            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh,
+            @RequestParam(required = false, defaultValue = "SHOPEE_OFFICIAL") String maKenh,
             @RequestParam String orderSn,
             @RequestParam(defaultValue = "OUT_OF_STOCK") String cancelReason) {
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
@@ -1056,7 +1030,7 @@ public class KenhBanHangController {
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Shopee: Xử lý chấp nhận hoặc từ chối yêu cầu hủy của người mua (/api/v2/order/handle_buyer_cancellation)")
     public ResponseEntity<ResponseData<JsonNode>> handleShopeeBuyerCancellation(
-            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh,
+            @RequestParam(required = false, defaultValue = "SHOPEE_OFFICIAL") String maKenh,
             @RequestParam String orderSn,
             @RequestParam(defaultValue = "ACCEPT") String operation) {
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
@@ -1076,7 +1050,7 @@ public class KenhBanHangController {
     @Operation(summary = "Shopee: Cập nhật ghi chú người bán cho đơn hàng (/api/v2/order/set_note)")
     public ResponseEntity<ResponseData<JsonNode>> setShopeeOrderNote(
             @PathVariable String orderSn,
-            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh,
+            @RequestParam(required = false, defaultValue = "SHOPEE_OFFICIAL") String maKenh,
             @RequestParam String note) {
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
@@ -1095,7 +1069,7 @@ public class KenhBanHangController {
     @Operation(summary = "Shopee: Lấy thông số phương thức giao nhận Dropoff/Pickup (/api/v2/logistics/get_shipping_parameter)")
     public ResponseEntity<ResponseData<JsonNode>> getShopeeShippingParameter(
             @PathVariable String orderSn,
-            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh) {
+            @RequestParam(required = false, defaultValue = "SHOPEE_OFFICIAL") String maKenh) {
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
         JsonNode res = client.getShippingParameter(orderSn);
@@ -1113,7 +1087,7 @@ public class KenhBanHangController {
     @Operation(summary = "Shopee: Xác nhận sẵn sàng giao / phát lệnh ship đơn hàng (/api/v2/logistics/ship_order)")
     public ResponseEntity<ResponseData<JsonNode>> shipShopeeOrder(
             @PathVariable String orderSn,
-            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh,
+            @RequestParam(required = false, defaultValue = "SHOPEE_OFFICIAL") String maKenh,
             @RequestParam(required = false, defaultValue = "dropoff") String method) {
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
@@ -1132,7 +1106,7 @@ public class KenhBanHangController {
     @Operation(summary = "Shopee: Lấy mã vận đơn Shopee/SPX Express (/api/v2/logistics/get_tracking_number)")
     public ResponseEntity<ResponseData<JsonNode>> getShopeeTrackingNumber(
             @PathVariable String orderSn,
-            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh) {
+            @RequestParam(required = false, defaultValue = "SHOPEE_OFFICIAL") String maKenh) {
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
         JsonNode res = client.getTrackingNumber(orderSn);
@@ -1150,7 +1124,7 @@ public class KenhBanHangController {
     @Operation(summary = "Shopee: Tra cứu chi tiết hành trình vận chuyển đơn hàng (/api/v2/logistics/get_tracking_info)")
     public ResponseEntity<ResponseData<JsonNode>> getShopeeTrackingInfo(
             @PathVariable String orderSn,
-            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh) {
+            @RequestParam(required = false, defaultValue = "SHOPEE_OFFICIAL") String maKenh) {
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
         JsonNode res = client.getTrackingInfo(orderSn);
@@ -1168,7 +1142,7 @@ public class KenhBanHangController {
     @Operation(summary = "Shopee: Tải tài liệu in vận đơn khổ A6 dạng HTML / PDF (/api/v2/logistics/download_shipping_document)")
     public ResponseEntity<ResponseData<Map<String, String>>> downloadShopeeShippingDocument(
             @PathVariable String orderSn,
-            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh) {
+            @RequestParam(required = false, defaultValue = "SHOPEE_OFFICIAL") String maKenh) {
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
         byte[] docBytes = client.downloadShippingDocument(orderSn);
@@ -1220,7 +1194,7 @@ public class KenhBanHangController {
     @Operation(summary = "Shopee: Tra cứu đối soát chi tiết thanh toán và tiền về ví (/api/v2/payment/get_escrow_detail)")
     public ResponseEntity<ResponseData<JsonNode>> getShopeeEscrowDetail(
             @PathVariable String orderSn,
-            @RequestParam(required = false, defaultValue = "SHOPEE_SANDBOX") String maKenh) {
+            @RequestParam(required = false, defaultValue = "SHOPEE_OFFICIAL") String maKenh) {
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(maKenh.toUpperCase()).orElse(null);
         com.dev.backend.services.shopee.ShopeeClient client = getShopeeClientForController(kenh, maKenh);
         JsonNode res = client.getEscrowDetail(orderSn);
@@ -1247,7 +1221,7 @@ public class KenhBanHangController {
         String partnerKey = kenhBanHangService.getDecryptedShopeePartnerKey(maKenh);
         String accessToken = kenhBanHangService.getDecryptedShopeeAccessToken(maKenh);
         Long shopId = kenhBanHangService.getShopeeShopId(maKenh);
-        boolean isSandbox = OmnichannelOrderSyncJob.isShopeeSandbox(maKenh);
+        boolean isSandbox = false;
 
         return new com.dev.backend.services.shopee.ShopeeClient(
                 partnerId != null ? partnerId : 0L,

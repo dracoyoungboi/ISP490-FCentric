@@ -67,11 +67,9 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     public static final String MA_KENH_SHOPIFY = "SHOPIFY";
     public static final String DEFAULT_API_VERSION = "2024-01";
     public static final String MA_KENH_LAZADA = "LAZADA";
-    public static final String MA_KENH_LAZADA_SANDBOX = "LAZADA_SANDBOX";
     public static final String DEFAULT_LAZADA_API_URL = "https://api.lazada.vn/rest";
     public static final String MA_KENH_SHOPEE = "SHOPEE";
     public static final String MA_KENH_SHOPEE_OFFICIAL = "SHOPEE_OFFICIAL";
-    public static final String MA_KENH_SHOPEE_SANDBOX = "SHOPEE_SANDBOX";
 
     /** Kiểu kết nối trả về giao diện: Shopify dán khóa, Lazada / TikTok Shop ủy quyền. */
     public static final String KIEU_KHOA = "khoa";
@@ -760,10 +758,9 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         if (MA_KENH_SHOPIFY.equals(ma)) {
             return getShopifyConfig();
         }
-        if (MA_KENH_LAZADA.equals(ma) || MA_KENH_LAZADA_SANDBOX.equals(ma)) {
+        if (MA_KENH_LAZADA.equals(ma)) {
             KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
-            boolean isSandbox = MA_KENH_LAZADA_SANDBOX.equals(ma);
-            String defaultTenKenh = isSandbox ? "Lazada Sandbox" : "Gian hàng Lazada";
+            String defaultTenKenh = "Gian hàng Lazada";
             if (kenh == null) {
                 return ShopifyConfigResponse.builder()
                         .maKenh(ma)
@@ -819,17 +816,16 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .ngayCapNhat(kenh.getNgayCapNhat())
                     .build();
         }
-        if (MA_KENH_SHOPEE.equals(ma) || MA_KENH_SHOPEE_OFFICIAL.equals(ma) || MA_KENH_SHOPEE_SANDBOX.equals(ma)) {
+        if (MA_KENH_SHOPEE.equals(ma) || MA_KENH_SHOPEE_OFFICIAL.equals(ma)) {
             KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
-            boolean isSandbox = MA_KENH_SHOPEE_SANDBOX.equals(ma);
             boolean isOfficial = MA_KENH_SHOPEE_OFFICIAL.equals(ma);
-            String defaultTenKenh = isOfficial ? "Shopee Chính Thống" : (isSandbox ? "Shopee Sandbox" : "Gian hàng Shopee");
+            String defaultTenKenh = isOfficial ? "Shopee" : "Gian hàng Shopee";
             if (kenh == null) {
                 return ShopifyConfigResponse.builder()
                         .maKenh(ma)
                         .tenKenh(defaultTenKenh)
                         .loaiKenh("online")
-                        .kieuKetNoi(isOfficial || isSandbox ? KIEU_UY_QUYEN : "ben_thu_ba")
+                        .kieuKetNoi(isOfficial ? KIEU_UY_QUYEN : "ben_thu_ba")
                         .trangThaiKetNoi(CHUA_KET_NOI)
                         .trangThai(1)
                         .build();
@@ -840,7 +836,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             boolean isExpired = hasToken && kenh.getTokenExpiresAt() != null && Instant.now().isAfter(kenh.getTokenExpiresAt());
 
             String trangThaiKetNoi = CHUA_KET_NOI;
-            if (!isOfficial && !isSandbox && hasShopId) {
+            if (!isOfficial && hasShopId) {
                 // Kênh Shopee Shop ID kết nối trực tiếp chỉ cần có Shop ID hợp lệ
                 trangThaiKetNoi = Integer.valueOf(1).equals(kenh.getTrangThai()) ? DANG_HOAT_DONG : "tam_dung";
             } else if (hasToken) {
@@ -849,7 +845,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
 
             Long soNgayCon = null;
             Instant hanUyQuyen = kenh.getTokenExpiresAt();
-            if ((isOfficial || isSandbox) && kenh.getRefreshToken() != null && !kenh.getRefreshToken().isBlank()) {
+            if (isOfficial && kenh.getRefreshToken() != null && !kenh.getRefreshToken().isBlank()) {
                 // Shopee OAuth cấp refresh token dài hạn (365 ngày), hệ thống tự động làm mới access token định kỳ
                 Instant batDau = kenh.getNgayCapNhat() != null ? kenh.getNgayCapNhat() : Instant.now();
                 hanUyQuyen = batDau.plus(Duration.ofDays(365));
@@ -858,7 +854,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             } else if (kenh.getTokenExpiresAt() != null) {
                 long seconds = Duration.between(Instant.now(), kenh.getTokenExpiresAt()).getSeconds();
                 soNgayCon = Math.max(0L, seconds / 86400L);
-            } else if (!isOfficial && !isSandbox && hasShopId) {
+            } else if (!isOfficial && hasShopId) {
                 soNgayCon = 365L;
             }
             String maskedToken = hasToken ? cheKhoa(kenh.getApiKey(), this::maskToken) : null;
@@ -897,7 +893,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                     .maKhoSan(maKhoSan)
                     .tenKhoSan(tenKhoSan)
                     .trangThai(kenh.getTrangThai() != null ? kenh.getTrangThai() : 1)
-                    .kieuKetNoi(isOfficial || isSandbox ? KIEU_UY_QUYEN : "ben_thu_ba")
+                    .kieuKetNoi(isOfficial ? KIEU_UY_QUYEN : "ben_thu_ba")
                     .trangThaiKetNoi(trangThaiKetNoi)
                     .ngayCapNhat(kenh.getNgayCapNhat())
                     .build();
@@ -1173,8 +1169,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     @Transactional(readOnly = true)
     public LazadaConfigResponse getLazadaConfig(String maKenh) {
         String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
-        boolean isSandbox = MA_KENH_LAZADA_SANDBOX.equals(ma);
-        String defaultTenKenh = isSandbox ? "Lazada Sandbox (Môi trường Thử nghiệm)" : "Gian hàng Lazada";
+        String defaultTenKenh = "Gian hàng Lazada";
 
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
         if (kenh == null) {
@@ -1245,8 +1240,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         }
 
         String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
-        boolean isSandbox = MA_KENH_LAZADA_SANDBOX.equals(ma);
-        String defaultTenKenh = isSandbox ? "Lazada Sandbox (Môi trường Thử nghiệm)" : "Gian hàng Lazada";
+        String defaultTenKenh = "Gian hàng Lazada";
 
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma)
                 .orElseGet(() -> KenhBanHang.builder()
@@ -1285,7 +1279,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         }
 
         KenhBanHang saved = kenhBanHangRepository.save(kenh);
-        ghiLichSuThayDoi(saved, (isSandbox ? "Lazada Sandbox" : "Lazada") + " AppKey: " + maskToken(request.getAppKey()));
+        ghiLichSuThayDoi(saved, "Lazada AppKey: " + maskToken(request.getAppKey()));
 
         return getLazadaConfig(ma);
     }
@@ -1326,18 +1320,11 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     @Override
     public String getLazadaAuthUrl(String maKenh, String redirectUri, String state) {
         String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
-        boolean isSandbox = MA_KENH_LAZADA_SANDBOX.equals(ma);
-
         String appKey = getLazadaAppKey(ma);
         if (appKey == null || appKey.isBlank()) {
-            if (isSandbox) {
-                appKey = getLazadaAppKey(MA_KENH_LAZADA);
-            }
-            if (appKey == null || appKey.isBlank()) {
-                throw new CommonException(ThongDiep.of("kenhBan.chuaCauHinhAppKeyKenh", (isSandbox ? "Lazada Sandbox" : "Lazada")), HttpStatus.BAD_REQUEST, null);
-            }
+            throw new CommonException(ThongDiep.of("kenhBan.chuaCauHinhAppKeyKenh", "Lazada"), HttpStatus.BAD_REQUEST, null);
         }
-        return getLazadaClient().generateAuthUrl(appKey, redirectUri, state, !isSandbox);
+        return getLazadaClient().generateAuthUrl(appKey, redirectUri, state, true);
     }
 
     @Override
@@ -1354,13 +1341,11 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         }
 
         String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
-        boolean isSandbox = MA_KENH_LAZADA_SANDBOX.equals(ma);
-
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
         if (kenh == null) {
             kenh = KenhBanHang.builder()
                     .maKenh(ma)
-                    .tenKenh(isSandbox ? "Lazada Sandbox (Môi trường Thử nghiệm)" : "Gian hàng Lazada")
+                    .tenKenh("Gian hàng Lazada")
                     .loaiKenh("online")
                     .apiUrl(DEFAULT_LAZADA_API_URL)
                     .trangThai(1)
@@ -1370,22 +1355,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         String appKey = request.getAppKey() != null && !request.getAppKey().isBlank()
                 ? request.getAppKey().trim()
                 : kenh.getClientId();
-        if ((appKey == null || appKey.isBlank()) && isSandbox) {
-            appKey = getLazadaAppKey(MA_KENH_LAZADA);
-            kenh.setClientId(appKey);
-        }
-
         String appSecret = getDecryptedLazadaAppSecret(ma);
-        if ((appSecret == null || appSecret.isBlank()) && isSandbox) {
-            appSecret = getDecryptedLazadaAppSecret(MA_KENH_LAZADA);
-            KenhBanHang prodKenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
-            if (prodKenh != null && prodKenh.getApiSecret() != null) {
-                kenh.setApiSecret(prodKenh.getApiSecret());
-            }
-        }
 
         if (appKey == null || appKey.isBlank() || appSecret == null || appSecret.isBlank()) {
-            throw new CommonException(ThongDiep.of("kenhBan.chuaCauHinhAppKeySecretKenh", (isSandbox ? "Lazada Sandbox" : "Lazada")), HttpStatus.BAD_REQUEST, null);
+            throw new CommonException(ThongDiep.of("kenhBan.chuaCauHinhAppKeySecretKenh", "Lazada"), HttpStatus.BAD_REQUEST, null);
         }
 
         try {
@@ -1427,11 +1400,11 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             if (doiCuaHang && saved.getId() != null) {
                 trangThaiDongBoSanPhamRepository.xoaDuLieuCuaHangCu(saved.getId());
                 trangThaiDongBoSanPhamRepository.danhDauChuaGhep(saved.getId(), LY_DO_CHUA_GHEP);
-                ghiLichSuThayDoi(saved.getId(), "Kết nối " + (isSandbox ? "Lazada Sandbox" : "Lazada") + " sang gian hàng khác: " + oldSellerId + " → " + newIdentifier,
+                ghiLichSuThayDoi(saved.getId(), "Kết nối Lazada sang gian hàng khác: " + oldSellerId + " → " + newIdentifier,
                         "Làm sạch mã SKU sàn cũ để ghép lại, bảo toàn 100% đơn hàng");
             }
 
-            ghiLichSuThayDoi(kenh, "Ủy quyền OAuth2 " + (isSandbox ? "Lazada Sandbox" : "Lazada") + " thành công (Token hiệu lực " + (expiresIn / 86400) + " ngày)");
+            ghiLichSuThayDoi(kenh, "Ủy quyền OAuth2 Lazada thành công (Token hiệu lực " + (expiresIn / 86400) + " ngày)");
             uyQuyenDaOn(ma);
 
             return getLazadaConfig(ma);
@@ -1468,7 +1441,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 trangThaiDongBoSanPhamRepository.danhDauChuaGhep(kenh.getId(), "Gian hàng đã ngắt kết nối. Vui lòng kết nối lại để tiếp tục đồng bộ.");
             }
 
-            ghiLichSuThayDoi(kenh, "Ngắt kết nối gian hàng " + (ma.contains("SANDBOX") ? "Lazada Sandbox" : "Lazada") + " (xóa Access Token, làm sạch mã SKU sàn cũ, bảo toàn đơn hàng)");
+            ghiLichSuThayDoi(kenh, "Ngắt kết nối gian hàng Lazada (xóa Access Token, làm sạch mã SKU sàn cũ, bảo toàn đơn hàng)");
             if (thongBaoHeThongService != null) thongBaoHeThongService.kenhDaNgat(ma);
         }
     }
@@ -1564,9 +1537,6 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     public String getDecryptedLazadaAppSecret(String maKenh) {
         String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
-        if ((kenh == null || kenh.getApiSecret() == null || kenh.getApiSecret().isBlank()) && MA_KENH_LAZADA_SANDBOX.equals(ma)) {
-            kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
-        }
         if (kenh == null || kenh.getApiSecret() == null || kenh.getApiSecret().isBlank()) {
             return null;
         }
@@ -1587,9 +1557,6 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     public String getLazadaAppKey(String maKenh) {
         String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_LAZADA;
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
-        if ((kenh == null || kenh.getClientId() == null || kenh.getClientId().isBlank()) && MA_KENH_LAZADA_SANDBOX.equals(ma)) {
-            kenh = kenhBanHangRepository.findByMaKenh(MA_KENH_LAZADA).orElse(null);
-        }
         return kenh != null ? kenh.getClientId() : null;
     }
 
@@ -2129,8 +2096,8 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     @Transactional(readOnly = true)
     public com.dev.backend.dto.response.entities.ShopeeConfigResponse getShopeeConfig(String maKenh) {
         String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_SHOPEE;
-        boolean isSandbox = MA_KENH_SHOPEE_SANDBOX.equals(ma);
-        String defaultTen = isSandbox ? "Shopee Sandbox (Môi trường Thử nghiệm)" : "Gian hàng Shopee";
+        boolean isSandbox = false;
+        String defaultTen = MA_KENH_SHOPEE_OFFICIAL.equals(ma) ? "Shopee" : "Gian hàng Shopee";
 
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElse(null);
         if (kenh == null) {
@@ -2214,12 +2181,12 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
     @Transactional
     public com.dev.backend.dto.response.entities.ShopeeConfigResponse updateShopeeConfig(String maKenh, com.dev.backend.dto.request.ShopeeConfigUpdating request) {
         String ma = (maKenh != null && !maKenh.isBlank()) ? maKenh.trim().toUpperCase() : MA_KENH_SHOPEE;
-        boolean isSandbox = MA_KENH_SHOPEE_SANDBOX.equals(ma) || Boolean.TRUE.equals(request.getIsSandbox());
+        boolean isSandbox = Boolean.TRUE.equals(request.getIsSandbox());
 
         KenhBanHang kenh = kenhBanHangRepository.findByMaKenh(ma).orElseGet(() -> {
             KenhBanHang newKenh = new KenhBanHang();
             newKenh.setMaKenh(ma);
-            newKenh.setTenKenh(isSandbox ? "Shopee Sandbox (Môi trường Thử nghiệm)" : "Gian hàng Shopee");
+            newKenh.setTenKenh(MA_KENH_SHOPEE_OFFICIAL.equals(ma) ? "Shopee" : "Gian hàng Shopee");
             newKenh.setLoaiKenh("online");
             newKenh.setTrangThai(0);
             return newKenh;
@@ -2266,7 +2233,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 partnerKey != null ? partnerKey : "",
                 shopId != null ? shopId : 0L,
                 accessToken != null ? accessToken : "",
-                MA_KENH_SHOPEE_SANDBOX.equals(ma)
+                false
         );
         try {
             com.fasterxml.jackson.databind.JsonNode res = client.getShopInfo();
@@ -2293,7 +2260,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 partnerKey != null ? partnerKey : "",
                 0L,
                 "",
-                MA_KENH_SHOPEE_SANDBOX.equals(ma)
+                false
         );
         return client.generateAuthUrl(redirectUri);
     }
@@ -2316,7 +2283,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 partnerKey != null ? partnerKey : "",
                 shopId != null ? shopId : 0L,
                 "",
-                MA_KENH_SHOPEE_SANDBOX.equals(ma)
+                false
         );
 
         com.fasterxml.jackson.databind.JsonNode tokenRes = client.getAccessToken(code, shopId != null ? shopId : 0L);
@@ -2366,7 +2333,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                         partnerKey != null ? partnerKey : "",
                         shopId,
                         accessToken,
-                        MA_KENH_SHOPEE_SANDBOX.equals(ma)
+                        false
                 );
                 com.fasterxml.jackson.databind.JsonNode shopInfo = authedClient.getShopInfo();
                 if (shopInfo != null && shopInfo.hasNonNull("shop_name")) {
@@ -2402,7 +2369,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 partnerKey != null ? partnerKey : "",
                 shopId != null ? shopId : 0L,
                 "",
-                MA_KENH_SHOPEE_SANDBOX.equals(ma)
+                false
         );
 
         com.fasterxml.jackson.databind.JsonNode res = client.refreshAccessToken(refreshToken, shopId != null ? shopId : 0L);
@@ -2511,7 +2478,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         String partnerKey = getDecryptedShopeePartnerKey(ma);
         if (partnerId != null && partnerId > 0 && partnerKey != null && !partnerKey.isBlank()) {
             try {
-                boolean isSandbox = MA_KENH_SHOPEE_SANDBOX.equals(ma);
+                boolean isSandbox = false;
                 com.dev.backend.services.shopee.ShopeeClient client = new com.dev.backend.services.shopee.ShopeeClient(
                         partnerId, partnerKey, 0L, "", isSandbox
                 );

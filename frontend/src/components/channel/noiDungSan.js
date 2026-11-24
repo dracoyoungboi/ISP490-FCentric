@@ -23,22 +23,6 @@ const NOI_DUNG = {
     // Không lặp số phút: thẻ Đơn hàng đã ghi chu kỳ ở công tắc và dòng "Chu kỳ chạy"
     ghiChuDon: t("Lazada không gửi thông báo tới máy chủ này nên đơn mới chỉ về theo chu kỳ quét."),
   },
-  LAZADA_SANDBOX: {
-    nhanIdSan: "Seller ID (Test)",
-    khachMacDinh: "Khách Lazada Sandbox", // i18n-giu-nguyen: tên khách hàng mặc định đã lưu trong DB
-    goiYAppKey: t("Lấy ở Lazada Open Platform › App Console (Ứng dụng Sandbox)."),
-    coServiceId: false,
-    moTaUyQuyen:
-      t("Bấm Ủy quyền, Lazada mở cổng đăng nhập tài khoản Sandbox Seller Center và yêu cầu cấp quyền đọc sản phẩm, đơn hàng và tồn kho. Vui lòng sử dụng tài khoản test từ Lazada Console."),
-    hanUyQuyen: t("Ủy quyền môi trường Sandbox có hiệu lực tương tự Production (50 ngày). Bạn có thể bấm Ủy quyền lại bất cứ lúc nào để làm mới token thử nghiệm."),
-    khoSan: {
-      nhan: t("Kho trên Lazada Sandbox"),
-      moTa: t("Tự động đồng bộ theo kho bán hàng mặc định trên Lazada Sandbox; để thay đổi, thao tác trực tiếp tại Lazada Seller Center rồi bấm Tải lại từ sàn."),
-      chiDoc: null,
-    },
-    ghiChuTon: t("Môi trường Sandbox phục vụ mô phỏng kiểm thử cập nhật tồn kho an toàn, không ảnh hưởng gian hàng thật."),
-    ghiChuDon: t("Đơn hàng Sandbox đồng bộ độc lập với tiền tố LZD-SBX- và tự động gắn nhãn đơn test thử nghiệm."),
-  },
   SHOPEE: {
     nhanIdSan: "Shop ID",
     khachMacDinh: "Khách Shopee", // i18n-giu-nguyen: tên khách hàng mặc định đã lưu trong DB
@@ -67,23 +51,6 @@ const NOI_DUNG = {
     khoSan: {
       nhan: t("Kho trên Shopee"),
       moTa: t("Tự động đồng bộ theo kho lấy hàng mặc định trên Shopee; để thay đổi, thao tác trực tiếp tại Shopee Seller Center rồi bấm Tải lại từ sàn."),
-      chiDoc: null,
-    },
-    ghiChuTon: t("Cập nhật tồn kho trực tiếp qua Shopee Open Platform API v2 (/api/v2/product/update_stock)."),
-    ghiChuDon: t("Đồng bộ đơn hàng tự động qua Shopee Open Platform API v2 (/api/v2/order/get_order_list)."),
-  },
-  SHOPEE_SANDBOX: {
-    nhanIdSan: "Shop ID (Sandbox)",
-    khachMacDinh: "Khách Shopee Sandbox", // i18n-giu-nguyen: tên khách hàng mặc định đã lưu trong DB
-    goiYAppKey: t("Partner ID ứng dụng đối tác trên Shopee Open Platform Console."),
-    coServiceId: false,
-    moTaUyQuyen:
-      t("Bấm Ủy quyền, Shopee mở trang đăng nhập Shopee Partner và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong Shopee đưa bạn quay lại đây."),
-    hanUyQuyen:
-      t("Hạn ủy quyền Shopee Sandbox là 365 ngày (hệ thống tự động làm mới mã truy cập mỗi 4 giờ bằng mã làm mới)."),
-    khoSan: {
-      nhan: t("Kho trên Shopee Sandbox"),
-      moTa: t("Tự động đồng bộ theo kho lấy hàng mặc định trên Shopee Sandbox; để thay đổi, thao tác trực tiếp tại Shopee Seller Center rồi bấm Tải lại từ sàn."),
       chiDoc: null,
     },
     ghiChuTon: t("Cập nhật tồn kho trực tiếp qua Shopee Open Platform API v2 (/api/v2/product/update_stock)."),

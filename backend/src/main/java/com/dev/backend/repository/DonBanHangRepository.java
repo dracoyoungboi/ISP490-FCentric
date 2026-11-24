@@ -115,6 +115,8 @@ public interface DonBanHangRepository
 
     List<DonBanHang> findByKhoXuat_IdAndTrangThaiAndDanhSachNhatHangIsNull(Integer khoId, Integer trangThai);
 
+    List<DonBanHang> findByKenhBanHangIdAndTrangThaiAndDanhSachNhatHangIsNull(Integer kenhBanHangId, Integer trangThai);
+
     List<DonBanHang> findByIdInAndKhoXuat_Id(List<Integer> ids, Integer khoId);
     List<DonBanHang> findByKhachHangIdOrderByNgayDatHangDesc(Integer khachHangId);
     List<DonBanHang> findByDanhSachNhatHang_Id(Integer danhSachNhatHangId);

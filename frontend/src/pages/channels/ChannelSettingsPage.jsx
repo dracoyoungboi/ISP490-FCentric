@@ -170,10 +170,9 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, hoTroMapp
     if (dangTaiKhoTuSan) return;
     setDangTaiKhoTuSan(true);
     try {
-      const [dsMoi, mappingMoi] = await Promise.all([
-        kenhBanHangService.getKhoSan(SAN.maKenh, { forceRefresh: true }),
-        kenhBanHangService.getKhoMapping(SAN.maKenh, { forceRefresh: true }).catch(() => null),
-      ]);
+      // Gọi tuần tự: getKhoSan(forceRefresh) cập nhật MA_KHO_SAN/TEN_KHO_SAN & mapping trước khi getKhoMapping đọc lại
+      const dsMoi = await kenhBanHangService.getKhoSan(SAN.maKenh, { forceRefresh: true });
+      const mappingMoi = await kenhBanHangService.getKhoMapping(SAN.maKenh).catch(() => null);
       dsKhoSan?.setData(dsMoi);
       if (mappingMoi) {
         khoMapping?.setData(mappingMoi);

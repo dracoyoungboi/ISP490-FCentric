@@ -1,18 +1,14 @@
 /**
  * Danh sách giá trị bộ lọc kênh được hỗ trợ trên màn Báo cáo đồng bộ kênh (/channels/analytics).
  */
-export const MA_KENH_BAO_CAO = Object.freeze(["ALL", "SHOPIFY", "SHOPEE", "SHOPEE_SANDBOX", "LAZADA", "TIKTOK"]);
+export const MA_KENH_BAO_CAO = Object.freeze(["ALL", "SHOPIFY", "SHOPEE", "LAZADA", "TIKTOK"]);
 
 const ALIAS_KENH_BAO_CAO = Object.freeze({
   SHOPIFY: "SHOPIFY",
   SHOPEE: "SHOPEE",
   SHOPEE_OFFICIAL: "SHOPEE",
   "SHOPEE-OFFICIAL": "SHOPEE",
-  SHOPEE_SANDBOX: "SHOPEE_SANDBOX",
-  "SHOPEE-SANDBOX": "SHOPEE_SANDBOX",
   LAZADA: "LAZADA",
-  LAZADA_SANDBOX: "LAZADA",
-  "LAZADA-SANDBOX": "LAZADA",
   TIKTOK: "TIKTOK",
   TIKTOK_SHOP: "TIKTOK",
   "TIKTOK-SHOP": "TIKTOK",

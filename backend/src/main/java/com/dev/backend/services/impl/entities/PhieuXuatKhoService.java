@@ -1151,7 +1151,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                     .tenKenh(kb.getTenKenh())
                     .build() : null;
 
-            if (kb != null && ("LAZADA".equalsIgnoreCase(kb.getMaKenh()) || "LAZADA_SANDBOX".equalsIgnoreCase(kb.getMaKenh())) && donGoc.getMaDonHangKenh() != null
+            if (kb != null && "LAZADA".equalsIgnoreCase(kb.getMaKenh()) && donGoc.getMaDonHangKenh() != null
                     && lazadaClient != null && kenhBanHangService != null) {
                 try {
                     String appKey = kenhBanHangService.getLazadaAppKey(kb.getMaKenh());
@@ -1282,8 +1282,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                     }
                 }
             } else if (isShopee) {
-                loaiDichVu = com.dev.backend.workers.OmnichannelOrderSyncJob.isShopeeSandbox(kb.getMaKenh())
-                        ? "Sandbox SPX Express" : "SPX Express";
+                loaiDichVu = "SPX Express";
                 if (carrierName == null || carrierName.isBlank()) {
                     donViPickup = "SPX EXPRESS";
                     donViDelivery = "SPX EXPRESS";
@@ -1297,7 +1296,7 @@ public class PhieuXuatKhoService extends BaseServiceImpl<PhieuXuatKho, Integer> 
                 }
             } else if (lazadaRoutingDecoder != null) {
                 com.fasterxml.jackson.databind.JsonNode traceNode = null;
-                if (kb != null && ("LAZADA".equalsIgnoreCase(kb.getMaKenh()) || "LAZADA_SANDBOX".equalsIgnoreCase(kb.getMaKenh()))
+                if (kb != null && "LAZADA".equalsIgnoreCase(kb.getMaKenh())
                         && donGoc.getMaDonHangKenh() != null && lazadaClient != null && kenhBanHangService != null) {
                     try {
                         String appKey = kenhBanHangService.getLazadaAppKey(kb.getMaKenh());

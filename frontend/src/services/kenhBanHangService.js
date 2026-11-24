@@ -133,7 +133,7 @@ const realApi = {
     apiClient.post(`${BASE}/${ma(maKenh)}/uy-quyen`, null, { params: redirectUri ? { redirectUri } : {} })
       .then(data)
       .catch(baoApiChuaCo(maKenh)),
-  /** { authUrl }: đường dẫn ủy quyền riêng của Lazada Open Platform (hỗ trợ cả LAZADA và LAZADA_SANDBOX) */
+  /** { authUrl }: đường dẫn ủy quyền riêng của Lazada Open Platform */
   getLazadaAuthUrl: (redirectUri, maKenh = "LAZADA") => {
     const maSan = ma(maKenh);
     return apiClient.post(`${BASE}/${maSan}/uy-quyen`, null, { params: redirectUri ? { redirectUri } : {} })
@@ -147,24 +147,24 @@ const realApi = {
   kiemTraKetNoi: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/kiem-tra-ket-noi`, {}).then(data).catch(baoApiChuaCo(maKenh)),
   lamMoiToken: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/lam-moi-token`).then(data).catch(baoApiChuaCo(maKenh)),
 
-  // ── Shopee APIs chi tiết (Hỗ trợ cả SHOPEE production và SHOPEE_SANDBOX) ──
-  huyDonShopee: (orderSn, cancelReason = "OUT_OF_STOCK", maKenh = "SHOPEE") =>
+  // ── Shopee APIs chi tiết (Shopee Open Platform v2) ──
+  huyDonShopee: (orderSn, cancelReason = "OUT_OF_STOCK", maKenh = "SHOPEE_OFFICIAL") =>
     apiClient.post(`${BASE}/shopee/orders/cancel`, null, { params: { orderSn, cancelReason, maKenh } }).then(data),
-  xuLyHuyShopee: (orderSn, operation = "ACCEPT", maKenh = "SHOPEE") =>
+  xuLyHuyShopee: (orderSn, operation = "ACCEPT", maKenh = "SHOPEE_OFFICIAL") =>
     apiClient.post(`${BASE}/shopee/orders/handle-cancellation`, null, { params: { orderSn, operation, maKenh } }).then(data),
-  ghiChuDonShopee: (orderSn, note, maKenh = "SHOPEE") =>
+  ghiChuDonShopee: (orderSn, note, maKenh = "SHOPEE_OFFICIAL") =>
     apiClient.post(`${BASE}/shopee/orders/${orderSn}/note`, null, { params: { note, maKenh } }).then(data),
-  layThamSoGiaoHangShopee: (orderSn, maKenh = "SHOPEE") =>
+  layThamSoGiaoHangShopee: (orderSn, maKenh = "SHOPEE_OFFICIAL") =>
     apiClient.get(`${BASE}/shopee/orders/${orderSn}/shipping-parameter`, { params: { maKenh } }).then(data),
-  giaoHangShopee: (orderSn, method = "dropoff", maKenh = "SHOPEE") =>
+  giaoHangShopee: (orderSn, method = "dropoff", maKenh = "SHOPEE_OFFICIAL") =>
     apiClient.post(`${BASE}/shopee/orders/${orderSn}/ship`, null, { params: { method, maKenh } }).then(data),
-  layMaVanDonShopee: (orderSn, maKenh = "SHOPEE") =>
+  layMaVanDonShopee: (orderSn, maKenh = "SHOPEE_OFFICIAL") =>
     apiClient.get(`${BASE}/shopee/orders/${orderSn}/tracking-number`, { params: { maKenh } }).then(data),
-  layLichTrinhVanChuyenShopee: (orderSn, maKenh = "SHOPEE") =>
+  layLichTrinhVanChuyenShopee: (orderSn, maKenh = "SHOPEE_OFFICIAL") =>
     apiClient.get(`${BASE}/shopee/orders/${orderSn}/tracking-info`, { params: { maKenh } }).then(data),
-  inVanDonShopee: (orderSn, maKenh = "SHOPEE") =>
+  inVanDonShopee: (orderSn, maKenh = "SHOPEE_OFFICIAL") =>
     apiClient.get(`${BASE}/shopee/orders/${orderSn}/shipping-document`, { params: { maKenh } }).then(data),
-  doiSoatViShopee: (orderSn, maKenh = "SHOPEE") =>
+  doiSoatViShopee: (orderSn, maKenh = "SHOPEE_OFFICIAL") =>
     apiClient.get(`${BASE}/shopee/orders/${orderSn}/escrow`, { params: { maKenh } }).then(data),
   giaLapNguoiMuaHuyShopee: (orderSn) =>
     apiClient.post(`${BASE}/shopee/mock-cancel`, null, { params: { orderSn } }).then(data),
@@ -274,7 +274,6 @@ const cauHinhSanMau = (ma) => (daThietLapMau(ma) ? cauHinhMau(true) : cauHinhMau
 const mockCauHinh = {
   SHOPIFY: cauHinhMau(false),
   LAZADA: cauHinhSanMau("LAZADA"),
-  LAZADA_SANDBOX: cauHinhSanMau("LAZADA_SANDBOX"),
   TIKTOK: cauHinhSanMau("TIKTOK"),
   ...docSessionMau(KHOA_CAU_HINH_MAU),
 };
@@ -489,7 +488,7 @@ const mockApi = {
   },
   async dayVaLienKetSanPham(maKenh) {
     const k = String(maKenh ?? "").toUpperCase();
-    if (!laShopify(maKenh) && k !== "LAZADA" && k !== "LAZADA_SANDBOX" && k !== "SHOPEE" && k !== "SHOPEE_SANDBOX") {
+    if (!laShopify(maKenh) && k !== "LAZADA" && k !== "SHOPEE" && k !== "SHOPEE_OFFICIAL" && k !== "TIKTOK") {
       await mockDelay();
       throw mockError(400, t("Sàn không hỗ trợ đưa sản phẩm lên từ FCentric"));
     }

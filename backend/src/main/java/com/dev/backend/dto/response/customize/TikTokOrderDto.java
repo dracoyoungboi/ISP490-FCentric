@@ -93,6 +93,11 @@ public class TikTokOrderDto implements Serializable {
     @JsonProperty("line_items")
     List<TikTokOrderItemDto> lineItems;
 
+    /** Lấy warehouse_id chuẩn hóa từ payload đơn TikTok Shop (null nếu trống). */
+    public String resolveWarehouseId() {
+        return (warehouseId != null && !warehouseId.isBlank()) ? warehouseId.trim() : null;
+    }
+
     /**
      * Lấy ID kiện hàng đầu tiên để phục vụ fulfillment (ship package, lấy shipping label).
      */

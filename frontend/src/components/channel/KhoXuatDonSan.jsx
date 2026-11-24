@@ -50,15 +50,16 @@ export default function KhoXuatDonSan({ tenSan, mappingConfig, onChange, disable
       };
     });
     const dongSua = dsMoi[index];
-    const dongMacDinh = dsMoi.find((item) => Boolean(item.laMacDinh));
-    const khoIdMacDinhMoi = dongSua?.laMacDinh
+    const laDongMacDinh = Boolean(dongSua?.laMacDinhSan) || Boolean(dongSua?.laMacDinh);
+    const dongMacDinh = dsMoi.find((item) => Boolean(item.laMacDinhSan)) ?? dsMoi.find((item) => Boolean(item.laMacDinh));
+    const khoIdMacDinhMoi = laDongMacDinh
       ? kId
-      : (mappingConfig.khoIdMacDinh ?? dongMacDinh?.khoIdFCentric ?? kId);
+      : (dongMacDinh?.khoIdFCentric ?? mappingConfig.khoIdMacDinh ?? kId);
     onChange?.({
       ...mappingConfig,
       cheDoDaKho: false,
       khoIdMacDinh: khoIdMacDinhMoi,
-      tenKhoMacDinh: dongSua?.laMacDinh ? (khoTim?.tenKho || "") : (mappingConfig.tenKhoMacDinh || ""),
+      tenKhoMacDinh: laDongMacDinh ? (khoTim?.tenKho || "") : (mappingConfig.tenKhoMacDinh || ""),
       danhSachKho: dsMoi,
     });
   };

@@ -48,8 +48,8 @@ function TrangQuayVe({ san }) {
   const tuChoi = !ketQuaTruoc && (Boolean(searchParams.get("error")) || !code);
   // Có mã mà không có state: TikTok Shop bắt buộc state; Lazada và Shopee cho phép xử lý bằng mã code
   // vì mã code chỉ dùng được một lần và máy chủ xác thực chữ ký HMAC-SHA256 với Open Platform.
-  const isLazadaAny = san.maKenh === "LAZADA" || san.maKenh === "LAZADA_SANDBOX";
-  const isShopeeAny = san.maKenh === "SHOPEE_OFFICIAL" || san.maKenh === "SHOPEE_SANDBOX" || san.maKenh === "SHOPEE";
+  const isLazadaAny = san.maKenh === "LAZADA";
+  const isShopeeAny = san.maKenh === "SHOPEE_OFFICIAL" || san.maKenh === "SHOPEE";
   const thieuPhien = !ketQuaTruoc && !tuChoi && !maPhien && !isLazadaAny && !isShopeeAny;
   const [ketQua, setKetQua] = useState(null); // { loai: "xong" | "phien" | "khac" | "loi" | "tu_choi", dto?, message?, giaHan? }
   const guiRef = useRef(null);
@@ -71,7 +71,7 @@ function TrangQuayVe({ san }) {
       choKetQuaRef.current({ loai: tuChoi ? "tu_choi" : "phien" });
       return undefined;
     }
-    const defaultState = san.maKenh === "LAZADA_SANDBOX" ? "lazada_sandbox_oauth" : (isShopeeAny ? "shopee_oauth" : "lazada_oauth");
+    const defaultState = isShopeeAny ? "shopee_oauth" : "lazada_oauth";
     const shopId = searchParams.get("shop_id");
     if (!guiRef.current) guiRef.current = kenhBanHangService.hoanTatUyQuyen(san.maKenh, { code, state: maPhien ?? defaultState, shopId });
     let conGan = true;

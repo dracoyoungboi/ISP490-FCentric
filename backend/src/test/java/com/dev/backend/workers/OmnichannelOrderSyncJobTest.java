@@ -809,4 +809,124 @@ class OmnichannelOrderSyncJobTest {
         assertTrue(healed.contains("[PTTT: COD]"));
         assertTrue(healed.contains("[COD: 320000]"));
     }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("Shopee model_location_id & đồng bộ lại đơn Nháp Shopee khi đổi ánh xạ kho -> tự cập nhật khoXuat cho đơn Nháp, giữ nguyên đơn đã gửi kho")
+    void processSingleShopeeOrder_modelLocationIdVaDonNhapCapNhatKhoXuatTheoMappingMoi() {
+        var syncMock = mock(com.dev.backend.services.KenhBanHangDongBoService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(job, "kenhBanHangDongBoService", syncMock);
+
+        var kenh = KenhBanHang.builder().id(8).maKenh("SHOPEE_OFFICIAL").tenKenh("Shopee").build();
+        var kho1 = com.dev.backend.entities.Kho.builder().id(1).maKho("KHO_TONG").tenKho("Kho Tổng").loaiKho("kho_tong").trangThai(1).build();
+        var kho2 = com.dev.backend.entities.Kho.builder().id(2).maKho("CH_HN").tenKho("Cửa hàng Hà Nội").loaiKho("kho_nhanh").trangThai(1).build();
+        when(syncMock.resolveKhoXuatChoDonSan(kenh, "LOC_B")).thenReturn(kho2);
+        when(khachHangRepository.findFirstBySoDienThoai("0904445566"))
+                .thenReturn(Optional.of(KhachHang.builder().id(15).tenKhachHang("Khách Shopee").build()));
+        when(donBanHangRepository.findBySoDonHang("SHP-261125MWH")).thenReturn(Optional.empty());
+
+        var addr = new com.dev.backend.dto.response.customize.ShopeeOrderDto.ShopeeRecipientAddressDto();
+        addr.setName("Lê MWH");
+        addr.setPhone("0904445566");
+        addr.setFullAddress("Hà Nội");
+
+        var item = com.dev.backend.dto.response.customize.ShopeeOrderDto.ShopeeOrderItemDto.builder()
+                .itemSku("POLO-1")
+                .modelLocationId("LOC_B")
+                .modelQuantityPurchased(1)
+                .modelDiscountedPrice(199000.0)
+                .build();
+        var newOrder = new com.dev.backend.dto.response.customize.ShopeeOrderDto();
+        newOrder.setOrderSn("261125MWH");
+        newOrder.setOrderStatus("READY_TO_SHIP");
+        newOrder.setPaymentMethod("ShopeePay");
+        newOrder.setTotalAmount(199000.0);
+        newOrder.setRecipientAddress(addr);
+        newOrder.setItemList(List.of(item));
+
+        assertTrue(job.processSingleShopeeOrder(newOrder, kenh));
+
+        ArgumentCaptor<DonBanHang> savedCap = ArgumentCaptor.forClass(DonBanHang.class);
+        verify(donBanHangRepository).save(savedCap.capture());
+        assertEquals(kho2, savedCap.getValue().getKhoXuat());
+        assertTrue(savedCap.getValue().getGhiChu().contains("[KHO SÀN: LOC_B]"));
+
+        // Đơn Nháp (0) cũ đang lưu kho1: đồng bộ lại sau khi map LOC_B -> kho2 phải cập nhật khoXuat = kho2
+        var draftOld = DonBanHang.builder()
+                .id(801).soDonHang("SHP-261125OLD").maDonHangKenh("261125OLD")
+                .kenhBanHang(kenh).khoXuat(kho1).trangThai(0).trangThaiThanhToan("da_thanh_toan")
+                .ghiChu("Đơn hàng đồng bộ tự động từ Shopee #261125OLD")
+                .build();
+        when(donBanHangRepository.findBySoDonHang("SHP-261125OLD")).thenReturn(Optional.of(draftOld));
+        var draftDto = new com.dev.backend.dto.response.customize.ShopeeOrderDto();
+        draftDto.setOrderSn("261125OLD");
+        draftDto.setOrderStatus("READY_TO_SHIP");
+        draftDto.setPaymentMethod("ShopeePay");
+        draftDto.setItemList(List.of(item));
+
+        assertFalse(job.processSingleShopeeOrder(draftDto, kenh));
+        assertEquals(kho2, draftOld.getKhoXuat());
+        assertTrue(draftOld.getGhiChu().contains("[KHO SÀN: LOC_B]"));
+
+        // Đơn đã gửi sang kho (trangThai = 1) giữ nguyên kho1
+        var sentOrder = DonBanHang.builder()
+                .id(802).soDonHang("SHP-261125SENT").maDonHangKenh("261125SENT")
+                .kenhBanHang(kenh).khoXuat(kho1).trangThai(1).trangThaiThanhToan("da_thanh_toan")
+                .ghiChu("Đơn hàng đồng bộ tự động từ Shopee #261125SENT")
+                .build();
+        when(donBanHangRepository.findBySoDonHang("SHP-261125SENT")).thenReturn(Optional.of(sentOrder));
+        var sentDto = new com.dev.backend.dto.response.customize.ShopeeOrderDto();
+        sentDto.setOrderSn("261125SENT");
+        sentDto.setOrderStatus("PROCESSED");
+        sentDto.setPaymentMethod("ShopeePay");
+        sentDto.setItemList(List.of(item));
+
+        assertFalse(job.processSingleShopeeOrder(sentDto, kenh));
+        assertEquals(kho1, sentOrder.getKhoXuat());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("syncTikTokOrders làm mới cache kho sàn & processSingleTikTokOrder cập nhật lại khoXuat đơn Nháp theo warehouse_id mới")
+    void syncTikTokOrdersVaProcessSingleTikTokOrder_donNhapCapNhatKhoXuatTheoWarehouseId() {
+        var syncMock = mock(com.dev.backend.services.KenhBanHangDongBoService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(job, "kenhBanHangDongBoService", syncMock);
+        var ttClientMock = mock(com.dev.backend.services.tiktok.TikTokShopClient.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(job, "tiktokShopClient", ttClientMock);
+
+        var kenh = KenhBanHang.builder().id(5).maKenh("TIKTOK").tenKenh("TikTok Shop").build();
+        var kho1 = com.dev.backend.entities.Kho.builder().id(1).maKho("KHO_TONG").tenKho("Kho Tổng").loaiKho("kho_tong").trangThai(1).build();
+        var kho2 = com.dev.backend.entities.Kho.builder().id(2).maKho("CH_HN").tenKho("Cửa hàng Hà Nội").loaiKho("kho_nhanh").trangThai(1).build();
+        when(syncMock.resolveKhoXuatChoDonSan(kenh, "TT_WH_2")).thenReturn(kho2);
+
+        when(kenhBanHangService.getTikTokAppKey()).thenReturn("tt_k");
+        when(kenhBanHangService.getDecryptedTikTokAppSecret()).thenReturn("tt_s");
+        when(kenhBanHangService.getDecryptedTikTokAccessToken()).thenReturn("tt_t");
+        when(kenhBanHangService.getTikTokShopCipher()).thenReturn("TT_CIPHER");
+
+        var draftTt = DonBanHang.builder()
+                .id(803).soDonHang("TTS-9001").maDonHangKenh("9001")
+                .kenhBanHang(kenh).khoXuat(kho1).trangThai(0).trangThaiThanhToan("chua_thanh_toan")
+                .ghiChu("Đơn hàng đồng bộ tự động từ TikTok Shop #9001")
+                .build();
+        when(donBanHangRepository.findBySoDonHang("TTS-9001")).thenReturn(Optional.of(draftTt));
+
+        var orderDto = new com.dev.backend.dto.response.customize.TikTokOrderDto();
+        orderDto.setId("9001");
+        orderDto.setStatus("AWAITING_SHIPMENT");
+        orderDto.setWarehouseId(" TT_WH_2 ");
+        orderDto.setTotalAmount("250000");
+
+        var resp = com.dev.backend.dto.response.customize.TikTokOrderSearchResponse.builder()
+                .code(0)
+                .data(com.dev.backend.dto.response.customize.TikTokOrderSearchResponse.OrderSearchData.builder()
+                        .orders(List.of(orderDto))
+                        .build())
+                .build();
+        when(ttClientMock.searchOrders(eq("tt_k"), eq("tt_s"), eq("tt_t"), eq("TT_CIPHER"), any())).thenReturn(resp);
+
+        job.syncTikTokOrders(kenh, Instant.now().minusSeconds(600), Instant.now());
+
+        verify(syncMock).getLocations("TIKTOK", false);
+        assertEquals(kho2, draftTt.getKhoXuat());
+        assertTrue(draftTt.getGhiChu().contains("[KHO SÀN: TT_WH_2]"));
+    }
 }

@@ -75,7 +75,7 @@ export function DongCaiDat({ title, description, control, htmlFor, children, cla
             </p>
           ) : null}
         </div>
-        {control ? <div className={cn("flex shrink-0 items-center gap-2", giaTriChu && "max-sm:basis-full")}>{control}</div> : null}
+        {control ? <div className={cn("flex max-w-full items-center gap-2", giaTriChu ? "min-w-0 shrink max-sm:basis-full" : "shrink-0")}>{control}</div> : null}
       </div>
       {children ? <div className="mt-3">{children}</div> : null}
     </div>

@@ -30,22 +30,22 @@ export default function DongKhoSan({
       onClick={onTaiLaiTuSan}
       disabled={disabled || dangTaiLaiTuSan || khoSan?.loading}
       title={t("Tải lại danh sách kho mới nhất trực tiếp từ {{tenSan}}", { tenSan })}
-      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-bo-primary hover:bg-bo-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:opacity-50"
+      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium text-bo-primary hover:bg-bo-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:opacity-50"
     >
       <RefreshCw className={cn("size-3.5", (dangTaiLaiTuSan || khoSan?.loading) && "animate-spin")} aria-hidden="true" />
       {t("Tải lại từ sàn")}
     </button>
   ) : null;
 
-  let control;
+  let noiDungKho;
   if (chiDoc) {
-    control = <span className="text-sm text-bo-foreground">{chiDoc}</span>;
+    noiDungKho = <p className="min-w-0 break-words text-sm text-bo-foreground">{chiDoc}</p>;
   } else if (khoSan?.initialLoading) {
-    control = <span className="text-sm text-bo-muted">{t("Đang tải…")}</span>;
+    noiDungKho = <p className="text-sm text-bo-muted">{t("Đang tải…")}</p>;
   } else if (khoSan?.error && !ds.length) {
-    control = (
-      <span className="flex flex-wrap items-center gap-x-2 text-sm text-bo-danger">
-        {t("Không đọc được kho từ {{tenSan}}.", { tenSan })}
+    noiDungKho = (
+      <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 break-words text-sm text-bo-danger">
+        <span>{t("Không đọc được kho từ {{tenSan}}.", { tenSan })}</span>
         <button
           type="button"
           onClick={onTaiLaiTuSan || khoSan.reload}
@@ -54,28 +54,32 @@ export default function DongKhoSan({
         >
           {t("Thử lại")}
         </button>
-      </span>
+      </p>
     );
   } else if (!khoMacDinh) {
-    control = (
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <span className="max-w-[240px] text-sm text-bo-muted">{t("{{tenSan}} chưa có kho bán hàng nào", { tenSan })}</span>
-        {nutTaiLai}
-      </div>
+    noiDungKho = (
+      <p className="min-w-0 break-words text-sm text-bo-muted">
+        {t("{{tenSan}} chưa có kho bán hàng nào", { tenSan })}
+      </p>
     );
   } else {
-    control = (
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <span className="text-sm font-medium text-bo-foreground">
+    noiDungKho = (
+      <div className="min-w-0 rounded-lg border border-bo-border bg-bo-surface-subtle/60 px-3 py-2.5">
+        <p className="min-w-0 break-words text-sm font-medium leading-5 text-bo-foreground">
           {tenKhoSanHienThi(khoMacDinh.tenKhoSan || khoMacDinh.maKhoSan)}
-        </span>
-        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-          {t("Mặc định trên sàn")}
-        </span>
-        {nutTaiLai}
+        </p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+            {t("Mặc định trên sàn")}
+          </span>
+        </div>
       </div>
     );
   }
 
-  return <DongCaiDat title={nhan} description={moTa} control={control} giaTriChu />;
+  return (
+    <DongCaiDat title={nhan} description={moTa} control={chiDoc ? null : nutTaiLai} giaTriChu>
+      {noiDungKho}
+    </DongCaiDat>
+  );
 }
