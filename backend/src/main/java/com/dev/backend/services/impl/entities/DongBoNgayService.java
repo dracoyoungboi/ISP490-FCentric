@@ -87,6 +87,11 @@ public class DongBoNgayService {
 
     /** Bắt đầu một đợt; kênh đang có đợt chạy thì trả đợt đó, không tạo đợt thứ hai. */
     public DongBoNgayDto batDau(String maKenh) {
+        return batDau(maKenh, false);
+    }
+
+    /** Bắt đầu một đợt; nếu {@code epDayToanBo = true} sẽ ép đẩy lại toàn bộ SKU bất kể tồn chưa đổi. */
+    public DongBoNgayDto batDau(String maKenh, boolean epDayToanBo) {
         String ma = chuanHoaMa(maKenh);
         // Kiểm tra trước khi lập phiếu theo dõi, để mã kênh không có thật không nằm lại trong bộ nhớ
         if (!dongBoService.coKenh(ma)) {
@@ -96,7 +101,7 @@ public class DongBoNgayService {
         dongBoService.kiemTraDaKetNoi(ma);
         NguoiDungAuthInfo nguoi = SecurityContextHolder.getUser();
         Integer khoId = SecurityContextHolder.getKhoId();
-        Phien moi = new Phien(ma, nguoi != null ? nguoi.getHoTen() : null, dongHo);
+        Phien moi = new Phien(ma, nguoi != null ? nguoi.getHoTen() : null, dongHo, epDayToanBo);
         Phien phien = phienTheoKenh.compute(ma, (k, cu) -> cu != null && cu.dangChay() ? cu : moi);
         if (phien != moi) {
             return phien.chup();
@@ -213,6 +218,7 @@ public class DongBoNgayService {
         final String maPhien = UUID.randomUUID().toString();
         final String maKenh;
         final String nguoiBam;
+        final boolean epDayToanBo;
         private final Clock dongHo;
         private final Instant batDau;
 
@@ -222,6 +228,7 @@ public class DongBoNgayService {
         private int daXuLy;
         private int soThanhCong;
         private int soLoi;
+        private int soBoQuaKhongDoi;
         private Integer soChuaDay;
         private String skuDangDay;
         private Integer soDonMoi;
@@ -232,10 +239,11 @@ public class DongBoNgayService {
         private Instant thoiDiemKetThuc;
         private final List<DongBoNgayDto.LoiSkuDto> dsLoi = new ArrayList<>();
 
-        Phien(String maKenh, String nguoiBam, Clock dongHo) {
+        Phien(String maKenh, String nguoiBam, Clock dongHo, boolean epDayToanBo) {
             this.maKenh = maKenh;
             this.nguoiBam = nguoiBam;
             this.dongHo = dongHo;
+            this.epDayToanBo = epDayToanBo;
             this.batDau = dongHo.instant();
         }
 
@@ -273,6 +281,22 @@ public class DongBoNgayService {
         @Override
         public Duration choKenhRanhToiDa() {
             return CHO_KENH_RANH_TOI_DA;
+        }
+
+        /** Đồng bộ tay luôn thử lại ngay SKU đang lỗi, không chờ backoff 60 phút của job định kỳ */
+        @Override
+        public boolean boQuaBackoffLoi() {
+            return true;
+        }
+
+        @Override
+        public boolean epDayToanBo() {
+            return epDayToanBo;
+        }
+
+        @Override
+        public synchronized void daBoQuaKhongDoi(int soSkuKhongDoi) {
+            this.soBoQuaKhongDoi += Math.max(0, soSkuKhongDoi);
         }
 
         synchronized void yeuCauDung() {
@@ -328,6 +352,8 @@ public class DongBoNgayService {
                     .daXuLy(daXuLy)
                     .soThanhCong(soThanhCong)
                     .soLoi(soLoi)
+                    .soBoQuaKhongDoi(soBoQuaKhongDoi)
+                    .epDayToanBo(epDayToanBo)
                     .soChuaDay(soChuaDay)
                     .skuDangDay(skuDangDay)
                     .soDonMoi(soDonMoi)

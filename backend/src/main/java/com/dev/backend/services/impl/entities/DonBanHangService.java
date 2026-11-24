@@ -26,6 +26,8 @@ import com.dev.backend.dto.response.entities.DonBanHangDto;
 import com.dev.backend.dto.response.entities.NguoiDungAuthInfo;
 import com.dev.backend.entities.*;
 import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.exception.customize.LoiCoMaException;
+import com.dev.backend.exception.customize.MaLoi;
 import com.dev.backend.mapper.ChiTietDonBanHangMapper;
 import com.dev.backend.mapper.DonBanHangMapper;
 import com.dev.backend.mapper.PhieuXuatKhoMapper;
@@ -701,11 +703,16 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
 
     @Transactional(rollbackFor = Exception.class)
     public void sendToWarehouse(Integer id) {
-        sendToWarehouse(id, null);
+        sendToWarehouse(id, null, false);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void sendToWarehouse(Integer id, Integer khoId) {
+        sendToWarehouse(id, khoId, false);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void sendToWarehouse(Integer id, Integer khoId, boolean thuCongKhiLoi) {
         DonBanHang don = repository.findById(id)
                 .orElseThrow(() -> new CommonException(ThongDiep.of("banHang.donBanKhongTimThayVoiId", id), HttpStatus.NOT_FOUND, null));
         kiemTraPhamVi(don);
@@ -727,7 +734,42 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         }
 
         Kho khoChon;
-        if (khoId != null) {
+        boolean donBaSanTrucTiep = laDonBaSan(don) && !thuCongKhiLoi;
+        if (donBaSanTrucTiep) {
+            Kho khoHienTai = don.getKhoXuat();
+            if (khoHienTai == null) {
+                throw new LoiCoMaException(
+                        HttpStatus.CONFLICT,
+                        MaLoi.DON_SAN_CAN_CHON_KHO_THU_CONG,
+                        ThongDiep.of("banHang.donSanCanChonKhoThuCong", "Chưa có kho xuất")
+                );
+            }
+            if (khoId != null && !khoId.equals(khoHienTai.getId())) {
+                throw new CommonException(
+                        ThongDiep.of("banHang.donSanChiGuiKhoHienTai", khoHienTai.getTenKho()),
+                        HttpStatus.BAD_REQUEST,
+                        null
+                );
+            }
+            if (!Integer.valueOf(1).equals(khoHienTai.getTrangThai()) || KhoService.laKhoAo(khoHienTai)) {
+                throw new LoiCoMaException(
+                        HttpStatus.CONFLICT,
+                        MaLoi.DON_SAN_CAN_CHON_KHO_THU_CONG,
+                        ThongDiep.of("banHang.donSanCanChonKhoThuCong", khoHienTai.getTenKho()),
+                        Map.of("khoId", khoHienTai.getId(), "tenKho", khoHienTai.getTenKho(), "lyDo", "kho_khong_hoat_dong")
+                );
+            }
+            String chiTietThieu = kiemTraDuTonTaiKho(don, khoHienTai);
+            if (chiTietThieu != null) {
+                throw new LoiCoMaException(
+                        HttpStatus.CONFLICT,
+                        MaLoi.DON_SAN_CAN_CHON_KHO_THU_CONG,
+                        ThongDiep.of("banHang.donSanKhongDuTonTaiKhoHienTai", khoHienTai.getTenKho(), chiTietThieu),
+                        Map.of("khoId", khoHienTai.getId(), "tenKho", khoHienTai.getTenKho(), "lyDo", "khong_du_ton")
+                );
+            }
+            khoChon = khoHienTai;
+        } else if (khoId != null) {
             khoChon = khoRepository.findById(khoId)
                     .orElseThrow(() -> new CommonException(ThongDiep.of("banHang.khoXuatKhongTimThay", khoId), HttpStatus.NOT_FOUND, null));
         } else if (don.getKhoXuat() != null) {
@@ -976,6 +1018,82 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
         }
         giuChoChuyenKhoService.theoKho(bienTheIds).forEach((bienTheId, theoKho) -> theoKho.forEach((khoId, giuCho) ->
                 ketQua.computeIfAbsent(khoId, k -> new HashMap<>()).merge(bienTheId, giuCho, BigDecimal::add)));
+        return ketQua;
+    }
+
+    private static boolean laDonBaSan(DonBanHang don) {
+        if (don == null || don.getKenhBanHang() == null) return false;
+        String ma = don.getKenhBanHang().getMaKenh();
+        return OmnichannelOrderSyncJob.isShopee(ma)
+                || OmnichannelOrderSyncJob.isLazada(ma)
+                || OmnichannelOrderSyncJob.isTikTok(ma);
+    }
+
+    /**
+     * Kiểm tra tồn khả dụng của đơn tại kho hiện tại. Trả null nếu đủ hàng; ngược lại trả mô tả ngắn
+     * (vd. SKU hoặc đợt kiểm kê) để kích hoạt luồng fallback chọn kho thủ công.
+     */
+    private String kiemTraDuTonTaiKho(DonBanHang don, Kho kho) {
+        if (chiTietDonBanHangRepository == null || tonKhoTheoLoRepository == null || don.getId() == null) {
+            return null;
+        }
+        List<ChiTietDonBanHang> chiTiets = chiTietDonBanHangRepository.findByDonBanHangId(don.getId());
+        if (chiTiets == null || chiTiets.isEmpty()) {
+            return null;
+        }
+        List<Integer> bienTheIds = chiTiets.stream()
+                .map(ct -> ct.getBienTheSanPham() != null ? ct.getBienTheSanPham().getId() : null)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (bienTheIds.isEmpty()) {
+            return null;
+        }
+        Integer khoId = kho.getId();
+        Map<Integer, BigDecimal> khoOnHand = khaDungLoTheoKho(bienTheIds).getOrDefault(khoId, Collections.emptyMap());
+        Map<Integer, BigDecimal> khoOutgoing = choXuatTheoKhoAnToan(bienTheIds, don.getId()).getOrDefault(khoId, Collections.emptyMap());
+        KhoaKiemKeGuard.KiemKeTheoMa khoKiemKe = khoaKiemKeGuard != null
+                ? khoaKiemKeGuard.dangKiemKeTheoMa(khoId, bienTheIds)
+                : KhoaKiemKeGuard.KiemKeTheoMa.RONG;
+        if (khoKiemKe.dotToanKho() != null) {
+            return "đang kiểm kê " + khoKiemKe.dotToanKho();
+        }
+        for (ChiTietDonBanHang ct : chiTiets) {
+            BienTheSanPham bt = ct.getBienTheSanPham();
+            Integer btId = bt != null ? bt.getId() : null;
+            BigDecimal soLuongDat = ct.getSoLuongDat() != null ? ct.getSoLuongDat() : BigDecimal.ZERO;
+            if (soLuongDat.signum() <= 0 || btId == null) {
+                continue;
+            }
+            BigDecimal onHand = khoOnHand.getOrDefault(btId, BigDecimal.ZERO);
+            BigDecimal outgoing = khoOutgoing.getOrDefault(btId, BigDecimal.ZERO);
+            BigDecimal dangKiem = khoKiemKe.cua(btId);
+            BigDecimal tonKhaDung = onHand.subtract(outgoing).subtract(dangKiem).max(BigDecimal.ZERO);
+            if (tonKhaDung.compareTo(soLuongDat) < 0) {
+                String sku = bt.getMaSku() != null && !bt.getMaSku().isBlank() ? bt.getMaSku() : ("#" + btId);
+                return sku + ": cần " + soLuongDat.stripTrailingZeros().toPlainString()
+                        + ", còn " + tonKhaDung.stripTrailingZeros().toPlainString();
+            }
+        }
+        return null;
+    }
+
+    private Map<Integer, Map<Integer, BigDecimal>> choXuatTheoKhoAnToan(List<Integer> bienTheIds, Integer boQuaDonId) {
+        Map<Integer, Map<Integer, BigDecimal>> ketQua = new HashMap<>();
+        if (chiTietDonBanHangRepository != null) {
+            for (Object[] row : chiTietDonBanHangRepository.sumDatDonGiuHangTheoKho(bienTheIds, boQuaDonId, ITrangThaiDonBanHang.DANG_GIU_HANG)) {
+                ketQua.computeIfAbsent((Integer) row[1], k -> new HashMap<>()).merge((Integer) row[0], soLuong(row[2]), BigDecimal::add);
+            }
+        }
+        if (chiTietPhieuXuatKhoRepository != null) {
+            for (Object[] row : chiTietPhieuXuatKhoRepository.sumDaXuatDonGiuHangTheoKho(bienTheIds, boQuaDonId, ITrangThaiDonBanHang.DANG_GIU_HANG)) {
+                ketQua.computeIfAbsent((Integer) row[1], k -> new HashMap<>()).merge((Integer) row[0], soLuong(row[2]).negate(), BigDecimal::add);
+            }
+        }
+        if (giuChoChuyenKhoService != null) {
+            giuChoChuyenKhoService.theoKho(bienTheIds).forEach((bienTheId, theoKho) -> theoKho.forEach((khoId, giuCho) ->
+                    ketQua.computeIfAbsent(khoId, k -> new HashMap<>()).merge(bienTheId, giuCho, BigDecimal::add)));
+        }
         return ketQua;
     }
 
