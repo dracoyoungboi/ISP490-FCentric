@@ -58,10 +58,13 @@ public class DonMuaHangController {
             rolesLogic = RequireAuth.LogicType.OR
     )
     public ResponseEntity<ResponseData<Page<DonMuaHangDto>>> filter(@RequestBody BaseFilterRequest filter) {
+        Page<DonMuaHangDto> trang = donMuaHangMapper.toDtoPage(donMuaHangService.filter(filter));
+        // Số phải trả (trừ hàng lỗi, đóng thiếu) cho cả trang: danh sách đơn mua và tab Đơn mua của nhà cung cấp
+        donMuaHangService.boSungPhaiTra(trang.getContent());
         return ResponseEntity.ok(
                 ResponseData.<Page<DonMuaHangDto>>builder()
                         .status(HttpStatus.OK.value())
-                        .data(donMuaHangMapper.toDtoPage(donMuaHangService.filter(filter)))
+                        .data(trang)
                         .error(null)
                         .message("Success")
                         .build()

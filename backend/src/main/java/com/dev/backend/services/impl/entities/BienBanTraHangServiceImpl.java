@@ -1589,19 +1589,49 @@ public class BienBanTraHangServiceImpl implements BienBanTraHangService {
     @Override
     @Transactional(readOnly = true)
     public Map<Integer, Integer> truTienTheoBienThe(Integer donMuaHangId) {
-        List<BienBanTraHangNcc> ds = bienBanTraHangNccRepository.timChoDanhSach(null, donMuaHangId).stream()
+        if (donMuaHangId == null) return new LinkedHashMap<>();
+        TraHangTheoDon t = traHangTheoDon(List.of(donMuaHangId)).get(donMuaHangId);
+        return t == null ? new LinkedHashMap<>() : new LinkedHashMap<>(t.truTheoBienThe());
+    }
+
+    /**
+     * Một truy vấn biên bản, một lần đọc nhật ký, một truy vấn dòng cho cả nhóm đơn. Số trừ tiền tính như trước (biên bản
+     * trừ tiền lập trước khi có nhật ký: toàn bộ số lỗi của phiếu). Lỗi chưa chốt: dòng còn chờ chọn cách bù của biên
+     * bản còn hiệu lực, đơn chưa đóng / hủy (đóng đơn đã chuyển phần chưa bù sang trừ tiền).
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Map<Integer, TraHangTheoDon> traHangTheoDon(Collection<Integer> donMuaHangIds) {
+        Map<Integer, TraHangTheoDon> kq = new HashMap<>();
+        if (donMuaHangIds == null || donMuaHangIds.isEmpty()) return kq;
+        List<BienBanTraHangNcc> ds = bienBanTraHangNccRepository.timTheoDonMua(new HashSet<>(donMuaHangIds)).stream()
                 .filter(BienBanTraHangNcc::dangHieuLuc).toList();
-        Map<Integer, Integer> kq = new LinkedHashMap<>();
         if (ds.isEmpty()) return kq;
-        Map<Integer, NhatKyTraHangNcc.NhatKy> nk = nhatKy.doc(ds.stream().map(BienBanTraHangNcc::getId).toList());
+        List<Integer> bbIds = ds.stream().map(BienBanTraHangNcc::getId).toList();
+        Map<Integer, NhatKyTraHangNcc.NhatKy> nk = nhatKy.doc(bbIds);
+        Map<Integer, List<ChiTietTraHangNcc>> dong = dongTheoBienBan(bbIds);
+        Map<Integer, Map<Integer, Integer>> tru = new HashMap<>();
+        Map<Integer, Integer> choChot = new HashMap<>();
         for (BienBanTraHangNcc bb : ds) {
-            NhatKyTraHangNcc.NhatKy n = nk.get(bb.getId());
+            DonMuaHang don = bb.getPhieuNhapKho().getDonMuaHang();
+            Integer donId = don.getId();
+            Map<Integer, Integer> truDon = tru.computeIfAbsent(donId, k -> new LinkedHashMap<>());
+            NhatKyTraHangNcc.NhatKy n = nk.getOrDefault(bb.getId(), NhatKyTraHangNcc.NhatKy.TRONG);
             if (n.lap() == null && n.soTru() == 0 && BienBanTraHangNcc.PA_TRU_CONG_NO.equals(bb.phuongAn())
                     && laPhieuDaNhap(bb.getPhieuNhapKho())) {
-                soLoiTheoBienThe(bb.getPhieuNhapKho().getId()).forEach((k, v) -> kq.merge(k, v, Integer::sum));
+                soLoiTheoBienThe(bb.getPhieuNhapKho().getId()).forEach((k, v) -> truDon.merge(k, v, Integer::sum));
             } else {
-                n.truTheoBienThe().forEach((k, v) -> kq.merge(k, v, Integer::sum));
+                n.truTheoBienThe().forEach((k, v) -> truDon.merge(k, v, Integer::sum));
             }
+            if (!donKetThuc(don.getTrangThai())) {
+                int cho = dungDong(bb, n, dong.getOrDefault(bb.getId(), List.of())).stream()
+                        .filter(d -> BienBanTraHangNcc.PA_CHO_CHOT.equals(d.cachBu()))
+                        .mapToInt(Dong::soLuong).sum();
+                if (cho > 0) choChot.merge(donId, cho, Integer::sum);
+            }
+        }
+        for (Map.Entry<Integer, Map<Integer, Integer>> e : tru.entrySet()) {
+            kq.put(e.getKey(), new TraHangTheoDon(e.getValue(), choChot.getOrDefault(e.getKey(), 0)));
         }
         return kq;
     }

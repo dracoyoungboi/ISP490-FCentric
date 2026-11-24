@@ -49,6 +49,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import com.dev.backend.services.BienBanTraHangService;
 import java.util.*;
 
 @Service
@@ -929,12 +930,74 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
      * tiền. Lấy từ nhật ký các biên bản trả hàng của đơn.
      */
     private void boSungTruTien(DonMuaHangDto dto) {
-        if (bienBanTraHangService == null || dto.getChiTietDonMuaHangs() == null) return;
-        Map<Integer, Integer> tru = bienBanTraHangService.truTienTheoBienThe(dto.getId());
+        if (dto.getChiTietDonMuaHangs() == null) return;
+        BienBanTraHangService.TraHangTheoDon th = bienBanTraHangService == null
+                ? BienBanTraHangService.TraHangTheoDon.TRONG
+                : bienBanTraHangService.traHangTheoDon(List.of(dto.getId()))
+                        .getOrDefault(dto.getId(), BienBanTraHangService.TraHangTheoDon.TRONG);
         for (ChiTietDonMuaHangDto ct : dto.getChiTietDonMuaHangs()) {
             Integer btId = ct.getBienTheSanPham() == null ? null : ct.getBienTheSanPham().getId();
-            ct.setSoLuongTruTien(BigDecimal.valueOf(btId == null ? 0 : tru.getOrDefault(btId, 0)));
+            ct.setSoLuongTruTien(BigDecimal.valueOf(btId == null ? 0 : th.truTheoBienThe().getOrDefault(btId, 0)));
         }
+        tinhPhaiTra(dto, th);
+    }
+
+    /**
+     * Điền số phải trả cho các đơn của một trang danh sách (đọc biên bản trả hàng của cả trang một lần). Danh sách đơn
+     * mua, tab Đơn mua của nhà cung cấp dùng chung số này với màn chi tiết.
+     */
+    @Transactional(readOnly = true)
+    public <T extends Collection<DonMuaHangDto>> T boSungPhaiTra(T ds) {
+        if (ds == null || ds.isEmpty()) return ds;
+        List<Integer> ids = ds.stream().filter(Objects::nonNull).map(DonMuaHangDto::getId).filter(Objects::nonNull).toList();
+        Map<Integer, BienBanTraHangService.TraHangTheoDon> th = bienBanTraHangService == null
+                ? Map.of() : bienBanTraHangService.traHangTheoDon(ids);
+        for (DonMuaHangDto dto : ds) {
+            if (dto == null) continue;
+            tinhPhaiTra(dto, th.getOrDefault(dto.getId(), BienBanTraHangService.TraHangTheoDon.TRONG));
+        }
+        return ds;
+    }
+
+    /**
+     * Số tính tiền của một dòng: đã đóng thì hàng đạt đã nhận (đã nhận − trừ tiền, tối đa đặt − trừ tiền); đơn khác thì
+     * đặt − trừ tiền. Số trừ tiền không vượt số đã nhận (đã nhận gồm hàng lỗi đã trừ tiền).
+     */
+    static void tinhPhaiTra(DonMuaHangDto dto, BienBanTraHangService.TraHangTheoDon th) {
+        List<ChiTietDonMuaHangDto> dong = dto.getChiTietDonMuaHangs() == null ? List.of() : dto.getChiTietDonMuaHangs();
+        boolean daDong = Objects.equals(dto.getTrangThai(), TRANG_THAI_DA_DONG);
+        BigDecimal theoDat = BigDecimal.ZERO, phaiTra = BigDecimal.ZERO, giamTru = BigDecimal.ZERO, khongGiao = BigDecimal.ZERO;
+        int soTru = 0, soKhongGiao = 0;
+        for (ChiTietDonMuaHangDto ct : dong) {
+            if (ct == null) continue;
+            BigDecimal gia = ct.getDonGia() == null ? BigDecimal.ZERO : ct.getDonGia();
+            int dat = nguyen(ct.getSoLuongDat());
+            int nhan = nguyen(ct.getSoLuongDaNhan());
+            Integer btId = ct.getBienTheSanPham() == null ? null : ct.getBienTheSanPham().getId();
+            int tru = Math.min(nhan, Math.max(0, btId == null ? 0 : th.truTheoBienThe().getOrDefault(btId, 0)));
+            int canTra = Math.max(0, dat - tru);
+            int tinhTien = daDong ? Math.min(Math.max(0, nhan - tru), canTra) : canTra;
+            theoDat = theoDat.add(gia.multiply(BigDecimal.valueOf(dat)));
+            phaiTra = phaiTra.add(gia.multiply(BigDecimal.valueOf(tinhTien)));
+            giamTru = giamTru.add(gia.multiply(BigDecimal.valueOf(tru)));
+            soTru += tru;
+            if (daDong && canTra > tinhTien) {
+                khongGiao = khongGiao.add(gia.multiply(BigDecimal.valueOf(canTra - tinhTien)));
+                soKhongGiao += canTra - tinhTien;
+            }
+        }
+        boolean daHuy = Objects.equals(dto.getTrangThai(), TRANG_THAI_DA_HUY);
+        dto.setTienTheoDat(dong.isEmpty() ? dto.getTongTien() : theoDat);
+        dto.setPhaiTra(daHuy ? null : dong.isEmpty() ? dto.getTongTien() : phaiTra);
+        dto.setGiamTruLoi(giamTru);
+        dto.setSoLoiTruTien(soTru);
+        dto.setKhongGiao(khongGiao);
+        dto.setSoKhongGiao(soKhongGiao);
+        dto.setSoLoiChoChot(daHuy ? 0 : th.soLoiChoChot());
+    }
+
+    private static int nguyen(BigDecimal so) {
+        return so == null ? 0 : Math.max(0, so.intValue());
     }
 
     // =====================================================================================================

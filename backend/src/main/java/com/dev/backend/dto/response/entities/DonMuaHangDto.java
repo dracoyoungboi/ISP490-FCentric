@@ -55,6 +55,22 @@ public class DonMuaHangDto implements Serializable {
     String lyDoKetThuc;
     Instant ngayKetThuc;
     String nguoiKetThuc;
+    /**
+     * Máy chủ tính (DonMuaHangService.boSungPhaiTra), không lưu cột: số phải trả nhà cung cấp = đơn giá × số tính tiền
+     * của từng dòng. Đơn còn mở / đã nhận đủ: đặt − lỗi đã trừ tiền. Đã đóng: hàng đạt đã nhận (phần không giao không
+     * trả). Đã hủy: null. {@code tongTien} vẫn là tiền theo số đặt (phiếu in, báo giá).
+     */
+    BigDecimal phaiTra;
+    /** Tiền theo số đặt (cộng các dòng): phaiTra + giamTruLoi + khongGiao. */
+    BigDecimal tienTheoDat;
+    /** Tiền hàng lỗi nhà cung cấp đã chọn trừ tiền, và số sản phẩm. */
+    BigDecimal giamTruLoi;
+    Integer soLoiTruTien;
+    /** Đơn đã đóng khi giao thiếu: tiền và số sản phẩm không giao (không trả). Đơn khác: 0. */
+    BigDecimal khongGiao;
+    Integer soKhongGiao;
+    /** Số sản phẩm lỗi chưa chốt cách bù với nhà cung cấp (số phải trả còn có thể giảm). */
+    Integer soLoiChoChot;
     NguoiDungDto nguoiTao;
     NguoiDungDto nguoiDuyet;
     Instant ngayTao;
