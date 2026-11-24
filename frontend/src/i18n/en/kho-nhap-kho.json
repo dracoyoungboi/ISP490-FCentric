@@ -423,6 +423,8 @@
   " · chỉ tính {{soTinh}} vì đủ số đặt": " · only {{soTinh}} counted because the ordered quantity is reached",
   "Chờ chọn Đạt / Không đạt · {{sl}}": "Awaiting Passed / Failed · {{sl}}",
   "Không đạt {{loi}} · {{lyDo}}{{phanDat}}": "Failed {{loi}} · {{lyDo}}{{phanDat}}",
+  "Ghi rõ lý do (không bắt buộc)": "Describe the reason (optional)",
+  "Ghi rõ lý do không đạt": "Describe the failure reason",
   "chưa chọn lý do": "no reason chosen",
   " · Đạt {{soDat}}": " · Passed {{soDat}}",
   "Đạt {{sl}}": "Passed {{sl}}",

@@ -3,15 +3,17 @@
  *
  * "Phiên" là lô đang kiểm của một biến thể, lưu tạm trong trình duyệt tới khi khóa lô:
  *   { log: [Lượt], cur, dem, dsKe, maLo, nsx }
- *   Lượt = { id, gio, ma, nguon, sl, kq: "cho" | "dat" | "loi", loi, lyDo, huy }
+ *   Lượt = { id, gio, ma, nguon, sl, kq: "cho" | "dat" | "loi", loi, lyDo, ghiChu, huy }
  *   - dsKe: kệ cho hàng đạt theo thứ tự quét [{ id, sl }]; kệ đầu là kệ chính. `sl` null = máy tự chia (lấp từng kệ
  *     theo chỗ trống), số = người kiểm gõ tay. Một lô xếp được vào nhiều kệ (chốt 20/11/2026, PA A).
  *   - kq "cho": chế độ "Quét thẻ cho từng cái", đang chờ quét ĐẠT / KHÔNG ĐẠT.
  *   - kq "loi": `loi` cái không đạt (1..sl), phần còn lại của lượt là đạt; `lyDo` bắt buộc trước lượt kế tiếp.
+ *     `ghiChu` chỉ dùng khi lý do là "Khác": người kiểm ghi rõ thêm (không bắt buộc), gộp theo lý do khi khóa lô.
  *   - maLo null: dùng mã gợi ý.
  */
 
 import { TIEN_TO_THE_LENH } from "../../utils/maVach.js";
+import { LY_DO_KHAC } from "../../constants/nhapKho.js";
 import { t } from "../../i18n/t.js";
 
 /** Cấu hình KIEM_DEM_XAC_NHAN (Cấu hình › Nhập kho). */
@@ -78,6 +80,7 @@ export function chuanHoaPhien(raw, nsxMacDinh = "") {
       kq: ["cho", "dat", "loi"].includes(e.kq) ? e.kq : "dat",
       loi: e.kq === "loi" ? Math.max(1, Math.min(Number(e.loi) || 1, e.sl)) : 0,
       lyDo: e.kq === "loi" && typeof e.lyDo === "string" && e.lyDo ? e.lyDo : null,
+      ghiChu: e.kq === "loi" && e.lyDo === LY_DO_KHAC && typeof e.ghiChu === "string" && e.ghiChu ? e.ghiChu : null,
       huy: Boolean(e.huy),
     }));
   const dem = Math.max(Number(raw.dem) || 1, ...log.map((e) => e.id + 1), 1);
@@ -257,6 +260,7 @@ export function themLuot(phien, { ma, nguon, soLuong, conLai, cheDo, gio }) {
     kq: cheDo === CHE_DO_XAC_NHAN.QUET_THE_TUNG_CAI ? "cho" : "dat",
     loi: 0,
     lyDo: null,
+    ghiChu: null,
     huy: false,
   };
   return { phien: { ...phien, log: [luot, ...phien.log], cur: luot.id, dem: phien.dem + 1 }, luot, soTinh };
@@ -274,7 +278,12 @@ export const thanhDat = (phien) => suaLuotHienTai(phien, () => ({ kq: "dat", loi
 export const thanhKhongDat = (phien) =>
   suaLuotHienTai(phien, (e) => ({ kq: "loi", loi: Math.max(1, Math.min(e.loi || 1, e.sl)), lyDo: e.kq === "loi" ? e.lyDo : null }));
 
-export const chonLyDo = (phien, lyDo) => suaLuotHienTai(phien, (e) => (e.kq === "loi" ? { lyDo } : {}));
+// Đổi lý do: lý do khác "Khác" thì bỏ ghi chú (ghi chú chỉ đi với "Khác")
+export const chonLyDo = (phien, lyDo) =>
+  suaLuotHienTai(phien, (e) => (e.kq === "loi" ? { lyDo, ghiChu: lyDo === LY_DO_KHAC ? e.ghiChu : null } : {}));
+
+/** Ghi rõ lý do "Khác" của lượt hiện tại (không bắt buộc). */
+export const datGhiChu = (phien, ghiChu) => suaLuotHienTai(phien, (e) => (e.kq === "loi" ? { ghiChu } : {}));
 
 /** ± số lượng của lượt hiện tại: tối thiểu 1, tối đa = số hiện tại + số còn lại theo đơn mua. */
 export const doiSoLuong = (phien, delta, conLai) =>
@@ -300,20 +309,31 @@ export function hoanTacLuot(phien, id) {
 /** Lượt để thẻ HOÀN TÁC lùi: lượt hiện tại, không có thì lượt gần nhất còn hiệu lực (quét nhiều lần thì lùi dần). */
 export const luotDeHoanTac = (phien) => luotHienTai(phien) ?? phien.log.find((e) => !e.huy) ?? null;
 
-/** Hàng không đạt của lô đang kiểm, gộp theo lý do (gửi máy chủ khi khóa lô). */
+/**
+ * Hàng không đạt của lô đang kiểm, gộp theo lý do (gửi máy chủ khi khóa lô). Ghi chú của các lượt cùng lý do nối lại
+ * bằng "; " (bỏ trùng); chỉ lý do "Khác" mới có ghi chú. Máy chủ cắt còn 255 ký tự.
+ */
 export function nhomLoiTheoLyDo(log) {
   const theoLyDo = new Map();
   for (const e of log) {
     const n = loiCua(e);
-    if (n > 0) theoLyDo.set(e.lyDo, (theoLyDo.get(e.lyDo) ?? 0) + n);
+    if (n <= 0) continue;
+    const cu = theoLyDo.get(e.lyDo) ?? { soLuong: 0, ghiChus: [] };
+    cu.soLuong += n;
+    const gc = String(e.ghiChu ?? "").trim();
+    if (gc && !cu.ghiChus.includes(gc)) cu.ghiChus.push(gc);
+    theoLyDo.set(e.lyDo, cu);
   }
-  return [...theoLyDo].map(([lyDo, soLuong]) => ({ lyDo, soLuong }));
+  return [...theoLyDo].map(([lyDo, v]) => ({ lyDo, soLuong: v.soLuong, ...(v.ghiChus.length ? { ghiChu: v.ghiChus.join("; ") } : {}) }));
 }
 
 /** Câu mô tả một lượt trong tab "Lượt quét lô này". */
 export function nhanLuot(e) {
   if (e.kq === "cho") return t("Chờ chọn Đạt / Không đạt · {{sl}}", { sl: e.sl });
-  if (e.kq === "loi") return t("Không đạt {{loi}} · {{lyDo}}{{phanDat}}", { loi: e.loi, lyDo: e.lyDo ? t(e.lyDo) : t("chưa chọn lý do"), phanDat: e.sl - e.loi ? t(" · Đạt {{soDat}}", { soDat: e.sl - e.loi }) : "" });
+  if (e.kq === "loi") {
+    const cau = t("Không đạt {{loi}} · {{lyDo}}{{phanDat}}", { loi: e.loi, lyDo: e.lyDo ? t(e.lyDo) : t("chưa chọn lý do"), phanDat: e.sl - e.loi ? t(" · Đạt {{soDat}}", { soDat: e.sl - e.loi }) : "" });
+    return e.ghiChu ? `${cau} · ${e.ghiChu}` : cau;
+  }
   return t("Đạt {{sl}}", { sl: e.sl });
 }
 

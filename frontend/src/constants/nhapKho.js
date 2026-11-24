@@ -9,6 +9,20 @@
  */
 export const LY_DO_LOI = ["Bung chỉ", "Rách vải", "Ố bẩn", "Sai màu / kích cỡ", "Lỗi phụ liệu", "Khác"];
 
+/** Lý do "Khác": người kiểm có thể ghi rõ thêm ở ô ghi chú (không bắt buộc). */
+export const LY_DO_KHAC = "Khác"; // i18n-giu-nguyen: giá trị danh mục LY_DO_LOI, so khớp và gửi máy chủ
+
+/**
+ * Lý do in trên biên bản trả hàng NCC. Lý do "Khác" có ghi chú thì hiện thẳng ghi chú (chữ "Khác" không thêm thông tin
+ * gì); lý do khác có ghi chú thì ghép "lý do — ghi chú"; không ghi chú thì chỉ lý do. `dich` để dịch nhãn lý do (t /
+ * tDuLieu), ghi chú là chữ người dùng nhập nên giữ nguyên.
+ */
+export function lyDoBienBanTraHang(lyDo, ghiChu, dich = (x) => x) {
+  const gc = typeof ghiChu === "string" ? ghiChu.trim() : "";
+  if (!gc) return dich(lyDo);
+  return lyDo === LY_DO_KHAC ? gc : `${dich(lyDo)} — ${gc}`;
+}
+
 /*
  * Biên bản trả hàng nhà cung cấp (FO-099): hai việc tách riêng.
  *  1. Hàng lỗi đi đâu: kho chọn CACH_XU_LY_HANG lúc lập; hàng giữ ở kho thì nhà cung cấp chọn nhận lại / tiêu hủy trên

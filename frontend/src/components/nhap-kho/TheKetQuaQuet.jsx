@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import { AlertCircle, Check, HelpCircle, Minus, Plus, ScanLine, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CHE_DO_XAC_NHAN } from "@/pages/receipt/kiemDem";
@@ -53,7 +54,20 @@ export default function TheKetQuaQuet({
   onAn,
   nhanLoi = t("Không đạt"),
   dongPhu,
+  // Màn nhập kho NCC: mỗi lượt là 1 cái nên ẩn ô ± số lượng; màn nhận hàng chuyển kho giữ ô ± để nhận nhanh lô lớn.
+  anSoLuong = false,
+  // Lý do được phép ghi rõ thêm ("Khác"); chọn đúng lý do này thì hiện ô ghi chú (không bắt buộc).
+  lyDoGhiChu,
+  onGhiChu,
 }) {
+  // Ô ghi chú lý do "Khác" tự cao theo nội dung để lý do dài không bị trôi ngang.
+  const ghiChuRef = useRef(null);
+  useLayoutEffect(() => {
+    const el = ghiChuRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  });
   if (!luot) return null;
   const laLoi = luot.kq === "loi";
   const laCho = luot.kq === "cho";
@@ -146,13 +160,30 @@ export default function TheKetQuaQuet({
           </div>
         ) : null}
 
+        {laLoi && lyDoGhiChu && luot.lyDo === lyDoGhiChu ? (
+          <textarea
+            ref={ghiChuRef}
+            value={luot.ghiChu ?? ""}
+            onChange={(e) => onGhiChu?.(e.target.value)}
+            onMouseDown={(e) => e.stopPropagation()}
+            rows={1}
+            maxLength={255}
+            disabled={khoa}
+            placeholder={t("Ghi rõ lý do (không bắt buộc)")}
+            aria-label={t("Ghi rõ lý do không đạt")}
+            className="block max-h-40 w-full resize-none overflow-y-auto rounded-md border border-bo-border bg-bo-surface px-2.5 py-1.5 text-[13.5px] leading-5 text-bo-foreground placeholder:text-bo-muted focus:border-bo-primary focus:outline-none focus:ring-1 focus:ring-bo-primary disabled:opacity-50"
+          />
+        ) : null}
+
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="inline-flex items-center gap-2">
-            <span className="text-xs font-medium text-bo-muted">{t("Số lượng")}</span>
-            <BuocSo nhan={t("số lượng")} giaTri={luot.sl} disabled={khoa} khoaGiam={luot.sl <= 1} khoaTang={conLai <= 0}
-              onGiam={() => onSoLuong(-1)} onTang={() => onSoLuong(+1)} />
-          </span>
-          {laLoi && luot.sl > 1 ? (
+          {anSoLuong ? null : (
+            <span className="inline-flex items-center gap-2">
+              <span className="text-xs font-medium text-bo-muted">{t("Số lượng")}</span>
+              <BuocSo nhan={t("số lượng")} giaTri={luot.sl} disabled={khoa} khoaGiam={luot.sl <= 1} khoaTang={conLai <= 0}
+                onGiam={() => onSoLuong(-1)} onTang={() => onSoLuong(+1)} />
+            </span>
+          )}
+          {!anSoLuong && laLoi && luot.sl > 1 ? (
             <span className="inline-flex items-center gap-2">
               <span className="text-xs font-medium text-bo-muted">{t("Trong đó {{nhanLoiThuong}}", { nhanLoiThuong })}</span>
               <BuocSo nhan={nhanLoiThuong} giaTri={luot.loi} disabled={khoa} khoaGiam={luot.loi <= 1} khoaTang={luot.loi >= luot.sl}

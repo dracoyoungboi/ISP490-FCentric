@@ -18,7 +18,7 @@ import HopInTheLenh from "@/components/nhap-kho/HopInTheLenh";
 import HopKhoaLo from "@/components/nhap-kho/HopKhoaLo";
 import HopMaChuaCo from "@/components/nhap-kho/HopMaChuaCo";
 import TheKetQuaQuet from "@/components/nhap-kho/TheKetQuaQuet";
-import { LY_DO_LOI } from "@/constants/nhapKho";
+import { LY_DO_KHAC, LY_DO_LOI } from "@/constants/nhapKho";
 import useScanQueue from "@/hooks/useScanQueue";
 import useTaiLaiKhiQuayLai from "@/hooks/useTaiLaiKhiQuayLai";
 import { cn } from "@/lib/utils";
@@ -40,13 +40,12 @@ import {
   chiaKe,
   chonLyDo,
   chuanHoaPhien,
+  datGhiChu,
   coKeHoatDong,
   conTrongKe,
   dieuKienKhoaLo,
   docTheLenh,
   doiChieuKhoaChuaRo,
-  doiSoLoi,
-  doiSoLuong,
   goiYMaLo,
   hoanTacLuot,
   keDungDuoc,
@@ -370,6 +369,12 @@ function KiemDemLoNoiDung() {
     setThongBao(null);
     if (bip) bipKiemDem(bip);
     focusQuet();
+  };
+
+  // Gõ ghi chú lý do "Khác": không kéo con trỏ về ô quét (khác suaLuot), nếu không mỗi phím gõ lại mất focus ô ghi chú.
+  const ghiChuLuot = (text) => {
+    if (dangKhoaRef.current || !luotHienTai(phienRef.current)) return;
+    setPhien(datGhiChu(phienRef.current, text));
   };
 
   const hoanTac = (id) => {
@@ -1413,11 +1418,12 @@ function KiemDemLoNoiDung() {
           conLai={tg.conLai}
           lyDoDs={LY_DO_LOI}
           khoa={dangKhoa}
+          anSoLuong
+          lyDoGhiChu={LY_DO_KHAC}
           onDat={() => suaLuot(thanhDat, "ok")}
           onKhongDat={() => suaLuot(thanhKhongDat, "loi")}
           onLyDo={(ten) => suaLuot((x) => chonLyDo(x, ten), "ok")}
-          onSoLuong={(d) => suaLuot((x) => doiSoLuong(x, d, tinhHienTai().conLai))}
-          onSoLoi={(d) => suaLuot((x) => doiSoLoi(x, d))}
+          onGhiChu={ghiChuLuot}
           onHoanTac={() => hoanTac(cur.id)}
           onAn={() => {
             setAnThe(true);
