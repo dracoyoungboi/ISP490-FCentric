@@ -10,6 +10,7 @@
  */
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { lyDoBienBanTraHang } from "@/constants/nhapKho";
 import { AlertCircle, Loader2, PenLine, Printer, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -453,7 +454,7 @@ function NoiDung({ bb, onDong, onDaDoi }) {
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs text-slate-600">{d.maLo || "—"}</td>
-                        <td className="px-3 py-2.5 text-slate-700">{t(d.lyDo)}</td>
+                        <td className="px-3 py-2.5 text-slate-700">{lyDoBienBanTraHang(d.lyDo, d.ghiChu, t)}</td>
                         {coLuaChon ? <td className="px-3 py-2.5"><LuaChonDong d={d} bb={bb} /></td> : null}
                         <td className="px-3 py-2.5 text-right tabular-nums text-bo-foreground last:pr-4">{d.soLuong}</td>
                         {coGia ? <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-slate-600">{gia != null ? formatCurrency(gia) : "—"}</td> : null}

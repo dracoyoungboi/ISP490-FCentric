@@ -114,6 +114,17 @@ public class PdfBienBanTraHang {
                         String taoLuc) {
     }
 
+    /**
+     * Lý do in cho nhà cung cấp. Lý do "Khác" có ghi chú thì hiện thẳng ghi chú (chữ "Khác" không thêm thông tin gì);
+     * lý do khác có ghi chú thì ghép "lý do — ghi chú"; không ghi chú thì chỉ lý do.
+     */
+    private static String lyDoKemGhiChu(String lyDo, String ghiChu) {
+        String ld = lyDo == null ? "" : lyDo.trim();
+        String gc = ghiChu == null ? "" : ghiChu.trim();
+        if (gc.isEmpty()) return ld;
+        return "Khác".equals(ld) || ld.isEmpty() ? gc : ld + " — " + gc;
+    }
+
     static BanIn banIn(BienBanTraHangDto bb, CuaHangEmail ch) {
         Map<Integer, BigDecimal> gia = new HashMap<>();
         for (BienBanTraHangDto.TheoBienTheDto t : danhSach(bb.getTheoBienThe())) {
@@ -131,7 +142,7 @@ public class PdfBienBanTraHang {
             if (thanhTien == null) duGia = false;
             else tongTien = tongTien.add(thanhTien);
             dong.add(new Dong(dong.size() + 1, it.getSku(), it.getTenBienThe(), noi(" / ", it.getMauSac(), it.getKichCo()),
-                    it.getMaLo(), it.getLyDo(), String.valueOf(sl), tien(donGia), tien(thanhTien)));
+                    it.getMaLo(), lyDoKemGhiChu(it.getLyDo(), it.getGhiChu()), String.valueOf(sl), tien(donGia), tien(thanhTien)));
         }
 
         String ten = sach(ch.tenDangKy()) != null ? ch.tenDangKy().trim() : sach(ch.tenHienThi());

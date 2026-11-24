@@ -11,6 +11,7 @@ import KhungCongNhaCungCap from '@/components/supplier-portal/KhungCongNhaCungCa
 import TheNguoiPhuTrach from '@/components/supplier-portal/TheNguoiPhuTrach';
 import { KhungKhongTimThay, KhungLoiTai, KhungXuongCong } from '@/components/supplier-portal/TrangThaiTaiCong';
 import { gioVaNgay } from '@/components/supplier-portal/baoGiaUtils';
+import { lyDoBienBanTraHang } from '@/constants/nhapKho';
 import {
     GHI_CHU_BIEN_BAN_HIEN_DEM,
     GHI_CHU_BIEN_BAN_TOI_DA,
@@ -555,7 +556,7 @@ function TheDong({ d, bb, chon, onChon: onChonDong, dangGui, baoLoi, theRef }) {
                             {thuocTinh ? <span className="font-normal text-bo-muted"> · {thuocTinh}</span> : null}
                         </h3>
                         <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-bo-muted">
-                            {d.lyDo ? <span className="inline-flex h-5 items-center rounded bg-red-50 px-1.5 font-medium text-red-700">{tDuLieu(d.lyDo)}</span> : null}
+                            {d.lyDo ? <span className="inline-flex max-w-full items-center break-words rounded bg-red-50 px-1.5 py-0.5 font-medium text-red-700">{lyDoBienBanTraHang(d.lyDo, d.ghiChu, tDuLieu)}</span> : null}
                             {d.sku ? <span className="font-mono break-all">{d.sku}</span> : null}
                             {d.maLo ? <span className="font-mono break-all">{t("Lô {{ma}}", { ma: d.maLo })}</span> : null}
                         </p>

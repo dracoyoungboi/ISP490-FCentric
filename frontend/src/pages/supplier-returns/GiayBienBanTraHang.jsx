@@ -1,6 +1,7 @@
 /* i18n-giu-nguyen-ca-tep: nội dung chứng từ in */
 import { ngayDu, soIn, tienIn } from "@/components/chuyen-kho/inChuyenKho";
 import { DauGiay, Ky } from "@/components/print/GiayChungTu";
+import { lyDoBienBanTraHang } from "@/constants/nhapKho";
 
 /*
  * Giấy in "Biên bản trả hàng nhà cung cấp" (A4, ký 3 bên). Khung giấy (CSS, đầu giấy, ô ký) dùng chung ở
@@ -68,6 +69,7 @@ function dongHangTra(bb) {
       mauCo: mauCo(d),
       maLo: d.maLo,
       lyDo: d.lyDo,
+      ghiChu: d.ghiChu,
       soLuong,
       donGia: coGia ? donGia : null,
       thanhTien: coGia ? soLuong * donGia : null,
@@ -170,7 +172,7 @@ export function GiayBienBanTraHang({ bb, hoSo }) {
               <td>{d.ten}</td>
               <td>{d.mauCo}</td>
               <td>{d.maLo}</td>
-              <td>{d.lyDo}</td>
+              <td>{lyDoBienBanTraHang(d.lyDo, d.ghiChu)}</td>
               <td className="r">{soIn(d.soLuong)}</td>
               <td className="r">{tienIn(d.donGia)}</td>
               <td className="r">{tienIn(d.thanhTien)}</td>

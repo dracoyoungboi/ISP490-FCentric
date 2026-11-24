@@ -366,7 +366,7 @@ public class CongNhaCungCapService {
             BigDecimal donGia = it.getDonGia() != null ? it.getDonGia() : gia.get(it.getBienTheSanPhamId());
             BigDecimal giaTri = donGia == null ? null : donGia.multiply(BigDecimal.valueOf(sl));
             dong.add(new CongNcc.DongLoi(it.getId(), it.getTenBienThe(), it.getMauSac(), it.getKichCo(), it.getSku(),
-                    it.getMaLo(), it.getLyDo(), sl, donGia, giaTri, it.getCachBu(), it.getNguonCachBu(),
+                    it.getMaLo(), it.getLyDo(), it.getGhiChu(), sl, donGia, giaTri, it.getCachBu(), it.getNguonCachBu(),
                     danhSach(it.getCachBuMo()), Boolean.TRUE.equals(it.getBuXong()), it.getHangLoiNcc(),
                     it.getTrangThaiHang(), danhSach(it.getHangLoiMo()), it.getNguoiNhanHang(), it.getThoiDiemRoiKho(),
                     it.getSoLuongTru() == null ? 0 : it.getSoLuongTru(), it.getTienTru()));

@@ -60,6 +60,7 @@ public final class CongNcc {
      * tiền — số lỗi và số tiền trừ (một phần khi đơn chỉ còn chờ một phần, phần kia coi như đã giao bù).
      */
     public record DongLoi(Integer id, String tenSanPham, String mauSac, String kichCo, String sku, String maLo, String lyDo,
+                          String ghiChu,
                           int soLuong, BigDecimal donGia, BigDecimal giaTri, String cachBu, String nguonCachBu,
                           List<String> cachBuMo, boolean buXong, String hangLoi, String viTriHang, List<String> hangLoiMo,
                           String nguoiNhanHang, Instant thoiDiemRoiKho, int soLuongTru, BigDecimal tienTru) {
