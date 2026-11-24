@@ -1172,6 +1172,12 @@ public class DonBanHangService extends BaseServiceImpl<DonBanHang, Integer> {
                 }
                 log.info("[CHANNEL-DELIVERY] Đơn {} đã giao thành công trên sàn -> Chuyển Hoàn thành (5)", don.getSoDonHang());
                 return true;
+            } else if (trangThaiHienTai == ITrangThaiDonBanHang.CHO_NHAT_HANG
+                    || trangThaiHienTai == ITrangThaiDonBanHang.NHAP) {
+                log.warn("[CHANNEL-DELIVERY] Đơn {} sàn báo {}, nhưng FCentric mới ở trạng thái {} (chưa nhặt/đóng gói) -> Giữ nguyên trạng thái kho và gửi cảnh báo",
+                        don.getSoDonHang(), trangThaiSan, trangThaiHienTai);
+                ghiCanhBaoLechTrangThaiSan(don, trangThaiSan, "đơn chưa nhặt/đóng gói trên FCentric");
+                return false;
             }
         } else if (st.contains("shipped") || st.contains("in_transit") || st.contains("fulfilled") || st.contains("to_confirm_receive")) {
             // Sàn đã xuất giao (shipped / in_transit / fulfilled / to_confirm_receive):
