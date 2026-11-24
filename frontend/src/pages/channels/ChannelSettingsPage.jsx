@@ -17,6 +17,7 @@ import KhoaUngDungDialog from "@/components/channel/KhoaUngDungDialog";
 import TheGianHangUyQuyen from "@/components/channel/TheGianHangUyQuyen";
 import DongKhoSan from "@/components/channel/DongKhoSan";
 import BangMappingKhoSan from "@/components/channel/BangMappingKhoSan";
+import KhoXuatDonSan from "@/components/channel/KhoXuatDonSan";
 import { TrangThaiCham } from "@/components/channel/HienThiKenh";
 import StatusBadge from "@/components/shared/StatusBadge";
 import { TheCaiDat, ThanhLuuTrenCung, VUNG_CHAM_CONG_TAC } from "@/components/channel/KhuonCaiDat";
@@ -77,7 +78,7 @@ export default function ChannelSettingsPage() {
   const khoMapping = useTaiDuLieu(
     () => kenhBanHangService.getKhoMapping(SAN.maKenh).catch(() => null),
     `kho-mapping|${SAN.maKenh}`,
-    { enabled: ketNoi && hoTroMappingKho },
+    { enabled: ketNoi },
   );
 
   if (cfg.initialLoading || ch.initialLoading) {
@@ -329,8 +330,9 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, hoTroMapp
         }
         if (doiKhoMapping && khoMappingConfig) {
           const dto = await kenhBanHangService.luuKhoMapping(SAN.maKenh, {
-            cheDoDaKho: khoMappingConfig.cheDoDaKho,
+            cheDoDaKho: hoTroMappingKho ? Boolean(khoMappingConfig.cheDoDaKho) : false,
             danhSachKho: khoMappingConfig.danhSachKho,
+            khoIdMacDinh: khoMappingConfig.khoIdMacDinh ?? null,
           });
           khoMapping?.setData(dto);
           setKhoMappingConfig(dto);
@@ -650,7 +652,16 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, hoTroMapp
             nhanCongTac={uyQuyen ? t("Tự động lấy đơn từ {{ten}}", { ten: SAN.ten }) : undefined}
             khachMacDinh={noiDung?.khachMacDinh}
             ghiChu={noiDung?.ghiChuDon}
-          />
+          >
+            {!hoTroMappingKho && khoMappingConfig && (khoMappingConfig.dsKhoFCentricKhaDung?.length ?? 0) > 0 ? (
+              <KhoXuatDonSan
+                tenSan={SAN.ten}
+                mappingConfig={khoMappingConfig}
+                onChange={setKhoMappingConfig}
+                disabled={khoa}
+              />
+            ) : null}
+          </TheDonHang>
         </div>
 
         {hoTroMappingKho && khoMappingConfig && khoMappingConfig.soKhoSanHopLe >= 2 ? (

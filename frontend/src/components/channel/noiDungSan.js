@@ -13,10 +13,10 @@ const NOI_DUNG = {
     moTaUyQuyen:
       t("Bấm Ủy quyền, Lazada mở trang đăng nhập Seller Center và hỏi bạn có cho FCentric đọc sản phẩm, đơn hàng và cập nhật tồn không. Đồng ý xong Lazada đưa bạn quay lại đây."),
     hanUyQuyen: t("Ủy quyền có hạn 50 ngày và không tự gia hạn được. Hệ thống nhắc trước 7 ngày; bạn chỉ cần bấm Ủy quyền lại."),
-    // Tự động nhận diện 1 kho (chỉ đọc) hoặc >= 2 kho trên Lazada Seller Center (chọn kho nhận tồn / đa kho)
+    // Tự động nhận diện 1 kho (chỉ đọc) hoặc >= 2 kho trên Lazada Seller Center
     khoSan: {
       nhan: t("Kho trên Lazada"),
-      moTa: t("Kho mặc định trên Lazada nhận tồn đồng bộ; bấm tải lại khi cần cập nhật từ Seller Center."),
+      moTa: t("Chọn kho nhận tồn và định tuyến đơn trên FCentric; để đổi kho mặc định trên sàn, thao tác trực tiếp tại Lazada Seller Center."),
       chiDoc: null,
     },
     ghiChuTon: t("Trong giờ sale lớn Lazada khóa cập nhật tồn; hệ thống chuyển sang cộng/trừ và đẩy lại ở lượt sau."),
@@ -33,7 +33,7 @@ const NOI_DUNG = {
     hanUyQuyen: t("Ủy quyền môi trường Sandbox có hiệu lực tương tự Production (50 ngày). Bạn có thể bấm Ủy quyền lại bất cứ lúc nào để làm mới token thử nghiệm."),
     khoSan: {
       nhan: t("Kho trên Lazada Sandbox"),
-      moTa: t("Kho mặc định trên Lazada Sandbox nhận tồn đồng bộ; bấm tải lại khi cần cập nhật từ Seller Center."),
+      moTa: t("Chọn kho nhận tồn và định tuyến đơn Sandbox trên FCentric; để đổi kho mặc định trên sàn, thao tác trực tiếp tại Lazada Seller Center."),
       chiDoc: null,
     },
     ghiChuTon: t("Môi trường Sandbox phục vụ mô phỏng kiểm thử cập nhật tồn kho an toàn, không ảnh hưởng gian hàng thật."),
@@ -49,7 +49,7 @@ const NOI_DUNG = {
     hanUyQuyen: t("Thời hạn kết nối có hiệu lực 365 ngày (hệ thống tự động gia hạn)."),
     khoSan: {
       nhan: t("Kho trên Shopee"),
-      moTa: t("Kho mặc định hoặc địa chỉ lấy hàng trên Shopee nhận tồn đồng bộ."),
+      moTa: t("Chọn địa chỉ lấy hàng hoặc kho áp dụng trong FCentric; để đổi địa chỉ mặc định trên Shopee, thao tác trực tiếp tại Seller Center."),
       chiDoc: null,
     },
     ghiChuTon: t("Hệ thống tự động gom cụm đẩy tồn kho theo lô sang Shopee theo quy tắc tồn khả dụng đã cấu hình."),
@@ -66,7 +66,7 @@ const NOI_DUNG = {
       t("Hạn ủy quyền Shopee là 30 ngày (hệ thống tự động làm mới mã truy cập mỗi 4 giờ bằng mã làm mới)."),
     khoSan: {
       nhan: t("Kho trên Shopee"),
-      moTa: t("Kho mặc định hoặc địa chỉ lấy hàng trên Shopee nhận tồn đồng bộ."),
+      moTa: t("Chọn địa chỉ lấy hàng hoặc kho áp dụng trong FCentric; để đổi địa chỉ mặc định trên Shopee, thao tác trực tiếp tại Seller Center."),
       chiDoc: null,
     },
     ghiChuTon: t("Cập nhật tồn kho trực tiếp qua Shopee Open Platform API v2 (/api/v2/product/update_stock)."),
@@ -83,7 +83,7 @@ const NOI_DUNG = {
       t("Hạn ủy quyền Shopee Sandbox là 365 ngày (hệ thống tự động làm mới mã truy cập mỗi 4 giờ bằng mã làm mới)."),
     khoSan: {
       nhan: t("Kho trên Shopee Sandbox"),
-      moTa: t("Kho mặc định hoặc địa chỉ lấy hàng trên Shopee Sandbox nhận tồn đồng bộ."),
+      moTa: t("Chọn địa chỉ lấy hàng hoặc kho áp dụng Sandbox trong FCentric; để đổi địa chỉ mặc định trên Shopee, thao tác trực tiếp tại Seller Center."),
       chiDoc: null,
     },
     ghiChuTon: t("Cập nhật tồn kho trực tiếp qua Shopee Open Platform API v2 (/api/v2/product/update_stock)."),
@@ -100,7 +100,7 @@ const NOI_DUNG = {
       t("Thời hạn ủy quyền do bạn chọn khi đồng ý trên TikTok Shop. Hệ thống tự làm mới khóa 7 ngày một lần và nhắc trước 7 ngày khi sắp hết hạn."),
     khoSan: {
       nhan: t("Kho bán hàng trên TikTok Shop"),
-      moTa: t("Số tồn chỉ được ghi vào kho này. Kho khác trên TikTok Shop giữ nguyên."),
+      moTa: t("Chọn kho bán hàng nhận tồn và định tuyến đơn trong FCentric (kho khác giữ nguyên); để đổi kho mặc định trên TikTok Shop, thao tác trực tiếp tại Seller Center."),
       chiDoc: null,
     },
     ghiChuTon: null,
