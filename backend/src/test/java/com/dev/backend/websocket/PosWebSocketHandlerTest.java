@@ -1,6 +1,8 @@
 package com.dev.backend.websocket;
 
 import com.dev.backend.dto.response.customize.PayosPaymentLinkDto;
+import com.dev.backend.websocket.VeKetNoiRealtime.DangKy;
+import com.dev.backend.websocket.VeKetNoiRealtime.Kenh;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -8,11 +10,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
@@ -21,33 +26,35 @@ import static org.mockito.Mockito.*;
 class PosWebSocketHandlerTest {
 
     private PosWebSocketHandler handler;
-    private ObjectMapper objectMapper;
 
     @Mock
     private WebSocketSession session;
 
     @BeforeEach
     void setUp() {
-        objectMapper = new ObjectMapper();
-        handler = new PosWebSocketHandler(objectMapper);
+        handler = new PosWebSocketHandler(new ObjectMapper());
+    }
+
+    /** Phiên đã qua bắt tay có vé: đơn được nghe nằm ở thuộc tính phiên. */
+    private void ketNoiCoVe(long orderCode, String duongDan) {
+        Map<String, Object> thuocTinh = new HashMap<>();
+        thuocTinh.put(KiemVeKetNoi.DANG_KY, new DangKy(Kenh.THANH_TOAN_POS, orderCode));
+        when(session.getAttributes()).thenReturn(thuocTinh);
+        lenient().when(session.getUri()).thenReturn(URI.create(duongDan));
+        handler.afterConnectionEstablished(session);
+    }
+
+    private static PayosPaymentLinkDto daTra(long orderCode) {
+        return PayosPaymentLinkDto.builder().orderCode(orderCode).trangThai("PAID").build();
     }
 
     @Test
-    void test_afterConnectionEstablished_and_broadcastPayment_orderCodeMatched() throws IOException {
-        // Given: Client kết nối lắng nghe orderCode 123456
-        when(session.getUri()).thenReturn(URI.create("ws://localhost:8080/ws-pos?orderCode=123456"));
+    void coVe_nhanKetQuaDungDon() throws IOException {
+        ketNoiCoVe(123456L, "ws://localhost:8080/ws-pos?ve=abc");
         when(session.isOpen()).thenReturn(true);
-        handler.afterConnectionEstablished(session);
 
-        PayosPaymentLinkDto dto = PayosPaymentLinkDto.builder()
-                .orderCode(123456L)
-                .trangThai("PAID")
-                .build();
+        handler.broadcastPayment(123456L, daTra(123456L));
 
-        // When: Server bắn notification cho orderCode 123456
-        handler.broadcastPayment(123456L, 1, dto);
-
-        // Then: Session nhận được TextMessage chứa JSON
         ArgumentCaptor<TextMessage> captor = ArgumentCaptor.forClass(TextMessage.class);
         verify(session, times(1)).sendMessage(captor.capture());
         String payload = captor.getValue().getPayload();
@@ -56,21 +63,32 @@ class PosWebSocketHandlerTest {
     }
 
     @Test
-    void test_broadcastPayment_orderCodeNotMatched_sessionDoesNotReceive() throws IOException {
-        // Given: Client đăng ký orderCode 111111
-        when(session.getUri()).thenReturn(URI.create("ws://localhost:8080/ws-pos?orderCode=111111"));
+    void donKhac_khongNhan() throws IOException {
+        ketNoiCoVe(111111L, "ws://localhost:8080/ws-pos?ve=abc");
+
+        handler.broadcastPayment(999999L, daTra(999999L));
+
+        verify(session, never()).sendMessage(any(TextMessage.class));
+    }
+
+    /** orderCode trên đường dẫn không còn tác dụng: chỉ vé quyết định được nghe đơn nào. */
+    @Test
+    void orderCodeTrenDuongDan_biBoQua() throws IOException {
+        ketNoiCoVe(111111L, "ws://localhost:8080/ws-pos?ve=abc&orderCode=999999");
+
+        handler.broadcastPayment(999999L, daTra(999999L));
+
+        verify(session, never()).sendMessage(any(TextMessage.class));
+    }
+
+    @Test
+    void khongCoDangKy_dongPhienNgay() throws IOException {
+        when(session.getAttributes()).thenReturn(new HashMap<>());
+
         handler.afterConnectionEstablished(session);
+        handler.broadcastPayment(123456L, daTra(123456L));
 
-        PayosPaymentLinkDto dto = PayosPaymentLinkDto.builder()
-                .orderCode(999999L)
-                .trangThai("PAID")
-                .build();
-
-        // When: Server bắn notification cho orderCode khác (999999)
-        handler.broadcastPayment(999999L, 2, dto);
-
-        // Then: Session 111111 không bị spam tin nhắn
+        verify(session).close(CloseStatus.POLICY_VIOLATION);
         verify(session, never()).sendMessage(any(TextMessage.class));
     }
 }
-
