@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  bienBanConCho,
   conThieuDong,
   docSo,
   dungBangDotNhan,
@@ -372,4 +373,19 @@ test("tomTatPhuongAn: chưa chốt, trừ tiền, giao bù", () => {
   assert.equal(tomTatPhuongAn(bienBan(1, "DOI_HANG", []), tien), "giao bù");
   assert.equal(tomTatPhuongAn(bienBan(1, "DOI_HANG", [], { buXong: true }), tien), "giao bù, đã đủ");
   assert.equal(tomTatPhuongAn(bienBan(1, "CHO_CHOT", [], { phieuDaNhap: false }), tien), "");
+});
+
+test("biên bản dòng trừ tiền dòng giao bù (HON_HOP): chỉ phần giao bù / chờ chọn còn chờ", () => {
+  const hon = {
+    id: 9, soBienBan: "RTV-9", phieuDaNhap: true, phuongAn: "HON_HOP", buXong: false, tienTruTien: 30000,
+    theoBienThe: [
+      { bienTheSanPhamId: 1, soLuongLoi: 2, soLuongGiaoBu: 0, soLuongChoChon: 0, conThieuDongDon: 0 },
+      { bienTheSanPhamId: 2, soLuongLoi: 1, soLuongGiaoBu: 1, soLuongChoChon: 0, conThieuDongDon: 1 },
+    ],
+  };
+  assert.equal(bienBanConCho(hon), true);
+  assert.deepEqual(nhanBuTheoBienThe([hon]), { 2: "choHangBu" }, "biến thể toàn dòng trừ tiền không còn chờ");
+  assert.deepEqual(hangLoiChuyenKhiDongDon([hon], []), { soLuong: 1, soBienBan: ["RTV-9"] });
+  assert.equal(tomTatPhuongAn(hon, (n) => `${n} đ`), "trừ tiền 30000 đ, giao bù");
+  assert.equal(bienBanConCho({ ...hon, buXong: true }), false);
 });
