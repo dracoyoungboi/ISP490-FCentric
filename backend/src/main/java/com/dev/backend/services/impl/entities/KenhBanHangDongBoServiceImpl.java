@@ -174,6 +174,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     private static final Duration WAREHOUSE_CACHE_TTL = Duration.ofMinutes(5);
     final Map<String, CachedWarehouseLocations> lazadaWarehouseCache = new ConcurrentHashMap<>();
     final Map<String, CachedWarehouseLocations> tiktokWarehouseCache = new ConcurrentHashMap<>();
+    final Map<String, CachedWarehouseLocations> shopeeWarehouseCache = new ConcurrentHashMap<>();
 
     private record DongCanCapNhat(TrangThaiDongBoSanPham dong, int soDay, String skuSan, String sellerSku) {
         public String skuId() {
@@ -3077,7 +3078,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     if (chosenId != null && !chosenId.isBlank()) {
                         log.info("[TIKTOK-WAREHOUSE] Đã xác định SALES_WAREHOUSE hợp lệ: id={} (tên={}, type={}, isDefault={})",
                                 chosenId, chosen.getName(), chosen.getType(), chosen.getIsDefault());
-                        dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "MA_KHO_SAN"), chosenId);
+                        String normTt = KenhCauHinhDongBo.chuanHoaMaKenh(maKenh);
+                        dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(normTt, "MA_KHO_SAN"), chosenId);
+                        String chosenName = (chosen.getWarehouseName() != null && !chosen.getWarehouseName().isBlank())
+                                ? chosen.getWarehouseName().trim() : chosen.getName();
+                        if (chosenName != null && !chosenName.isBlank()) {
+                            dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(normTt, "TEN_KHO_SAN"), chosenName);
+                        }
+                        dongBoCoMacDinhTrongKhoMapping(normTt, chosenId);
                         return chosenId;
                     }
                 }
@@ -5343,18 +5351,28 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Transactional
     public List<ShopifyLocationDto> getLocations(String maKenh, boolean forceRefresh) {
         KenhBanHang kenh = getKenhActive(maKenh);
-        String normKenh = kenh.getMaKenh() != null ? kenh.getMaKenh().trim().toUpperCase(Locale.ROOT) : "";
+        String normKenh = (kenh.getMaKenh() != null && !kenh.getMaKenh().isBlank())
+                ? KenhCauHinhDongBo.chuanHoaMaKenh(kenh.getMaKenh())
+                : "";
         if (forceRefresh) {
             if (maKenh != null) {
+                String normArg = KenhCauHinhDongBo.chuanHoaMaKenh(maKenh);
                 SHOPEE_WH_DETAIL_UNSUPPORTED.remove(maKenh);
-                SHOPEE_WH_DETAIL_UNSUPPORTED.remove(maKenh.trim().toUpperCase(Locale.ROOT));
+                SHOPEE_WH_DETAIL_UNSUPPORTED.remove(normArg);
                 lazadaWarehouseCache.remove(maKenh);
+                lazadaWarehouseCache.remove(normArg);
                 tiktokWarehouseCache.remove(maKenh);
+                tiktokWarehouseCache.remove(normArg);
+                shopeeWarehouseCache.remove(maKenh);
+                shopeeWarehouseCache.remove(normArg);
             }
             if (!normKenh.isBlank()) {
-                SHOPEE_WH_DETAIL_UNSUPPORTED.remove(normKenh);
-                lazadaWarehouseCache.remove(normKenh);
-                tiktokWarehouseCache.remove(normKenh);
+                for (String alias : danhSachMaKenhDuPhong(normKenh)) {
+                    SHOPEE_WH_DETAIL_UNSUPPORTED.remove(alias);
+                    shopeeWarehouseCache.remove(alias);
+                    tiktokWarehouseCache.remove(alias);
+                    lazadaWarehouseCache.remove(alias);
+                }
             }
         }
         if (OmnichannelOrderSyncJob.isLazada(kenh.getMaKenh())) {
@@ -5366,6 +5384,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (OmnichannelOrderSyncJob.isTikTok(kenh.getMaKenh())) {
             CachedWarehouseLocations cachedTt = !forceRefresh ? tiktokWarehouseCache.get(normKenh) : null;
             if (cachedTt != null && cachedTt.expiresAt() != null && cachedTt.expiresAt().isAfter(Instant.now())) {
+                dongBoKhoMacDinhKhiDocSan(!normKenh.isBlank() ? normKenh : "TIKTOK", cachedTt.locations(), false);
                 return new ArrayList<>(cachedTt.locations());
             }
             String token = kenhBanHangService.getDecryptedTikTokAccessToken();
@@ -5416,6 +5435,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                             } else if (list.stream().noneMatch(ShopifyLocationDto::isMacDinh)) {
                                 list.get(0).setMacDinh(true);
                             }
+                            list.sort(Comparator.comparing(ShopifyLocationDto::isMacDinh).reversed());
                             dongBoKhoMacDinhKhiDocSan(!normKenh.isBlank() ? normKenh : "TIKTOK", list, forceRefresh);
                             if (!normKenh.isBlank()) {
                                 tiktokWarehouseCache.put(normKenh, new CachedWarehouseLocations(List.copyOf(list), Instant.now().plus(WAREHOUSE_CACHE_TTL)));
@@ -5617,26 +5637,37 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
      * khi khóa đã lưu không còn hợp lệ (vd. kho trả hàng cũ) hoặc người dùng bấm Tải lại từ sàn.
      */
     private void dongBoKhoMacDinhKhiDocSan(String maKenh, List<ShopifyLocationDto> dsKho, boolean forceRefresh) {
-        if (dieuHanhHeThongService == null || dsKho == null || dsKho.isEmpty() || maKenh == null || maKenh.isBlank()) {
+        if (dieuHanhHeThongService == null || dsKho == null || dsKho.isEmpty()
+                || maKenh == null || maKenh.isBlank()
+                || OmnichannelOrderSyncJob.isShopify(maKenh)) {
             return;
         }
-        String curSaved = dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "MA_KHO_SAN"), null);
+        String normKenh = KenhCauHinhDongBo.chuanHoaMaKenh(maKenh);
+        ShopifyLocationDto targetKho = dsKho.stream().filter(ShopifyLocationDto::isMacDinh)
+                .findFirst().orElse(dsKho.get(0));
+        if (targetKho.getMaKhoSan() == null || targetKho.getMaKhoSan().isBlank()) {
+            return;
+        }
+        String curSaved = dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa(normKenh, "MA_KHO_SAN"), null);
         boolean savedHopLe = curSaved != null && !curSaved.isBlank()
-                && dsKho.stream().anyMatch(l -> curSaved.trim().equals(l.getMaKhoSan()));
-        if (!savedHopLe || forceRefresh) {
-            ShopifyLocationDto targetKho = dsKho.stream().filter(ShopifyLocationDto::isMacDinh)
-                    .findFirst().orElse(dsKho.get(0));
-            if (targetKho.getMaKhoSan() == null || targetKho.getMaKhoSan().isBlank()) {
-                return;
-            }
+                && dsKho.stream().anyMatch(l -> l.getMaKhoSan() != null
+                && (curSaved.trim().equals(l.getMaKhoSan())
+                || (!chuanHoaMaKhoSanSoSanh(curSaved).isBlank()
+                && chuanHoaMaKhoSanSoSanh(curSaved).equalsIgnoreCase(chuanHoaMaKhoSanSoSanh(l.getMaKhoSan())))));
+        boolean khacMacDinhSan = curSaved == null || curSaved.isBlank()
+                || !chuanHoaMaKhoSanSoSanh(curSaved).equalsIgnoreCase(chuanHoaMaKhoSanSoSanh(targetKho.getMaKhoSan()));
+        if (!savedHopLe || forceRefresh || khacMacDinhSan) {
             try {
-                dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "MA_KHO_SAN"), targetKho.getMaKhoSan());
+                dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(normKenh, "MA_KHO_SAN"), targetKho.getMaKhoSan());
                 if (targetKho.getTenKhoSan() != null && !targetKho.getTenKhoSan().isBlank()) {
-                    dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "TEN_KHO_SAN"), targetKho.getTenKhoSan());
+                    dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(normKenh, "TEN_KHO_SAN"), targetKho.getTenKhoSan());
                 }
-                dongBoCoMacDinhTrongKhoMapping(maKenh, targetKho.getMaKhoSan());
+                dongBoCoMacDinhTrongKhoMapping(normKenh, targetKho.getMaKhoSan());
+                if (khacMacDinhSan || forceRefresh) {
+                    capNhatKhoXuatChoDonNhapTheoMaKenh(normKenh);
+                }
             } catch (Exception ex) {
-                log.debug("[WAREHOUSE] Không thể tự động đồng bộ MA_KHO_SAN cho {}: {}", maKenh, ex.getMessage());
+                log.debug("[WAREHOUSE] Không thể tự động đồng bộ MA_KHO_SAN cho {}: {}", normKenh, ex.getMessage());
             }
         }
     }
@@ -5654,6 +5685,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Transactional(rollbackFor = Exception.class)
     public DongBoTongQuanDto luuCaiDat(String maKenh, KenhBanHangCaiDatRequest request) {
         KenhBanHang kenh = getKenhActive(maKenh);
+        String canonKenh = (kenh.getMaKenh() != null && !kenh.getMaKenh().isBlank())
+                ? KenhCauHinhDongBo.chuanHoaMaKenh(kenh.getMaKenh())
+                : KenhCauHinhDongBo.chuanHoaMaKenh(maKenh);
         if (request.getKhoId() != null) {
             Optional<Kho> khoOpt = khoRepository.findById(request.getKhoId());
             if (khoOpt.isPresent()) {
@@ -5662,26 +5696,26 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 throw new CommonException(ThongDiep.of("kenhBan.khoKhongTonTai", request.getKhoId()), HttpStatus.BAD_REQUEST, null);
             }
             if (dieuHanhHeThongService != null) {
-                dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "KHO_ID"), String.valueOf(request.getKhoId()));
+                dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(canonKenh, "KHO_ID"), String.valueOf(request.getKhoId()));
             }
         }
 
         String oldMaKhoSan = dieuHanhHeThongService != null
-                ? dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "MA_KHO_SAN"), null) : null;
+                ? dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa(canonKenh, "MA_KHO_SAN"), null) : null;
         String newMaKhoSan = (request.getMaKhoSan() != null && !request.getMaKhoSan().isBlank())
                 ? request.getMaKhoSan().trim() : null;
         boolean doiKhoSan = newMaKhoSan != null
                 && (oldMaKhoSan == null || !newMaKhoSan.equals(oldMaKhoSan.trim()));
 
         if (newMaKhoSan != null && dieuHanhHeThongService != null) {
-            dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "MA_KHO_SAN"), newMaKhoSan);
+            dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(canonKenh, "MA_KHO_SAN"), newMaKhoSan);
         }
         if (request.getTenKhoSan() != null && !request.getTenKhoSan().isBlank() && dieuHanhHeThongService != null) {
-            dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "TEN_KHO_SAN"), request.getTenKhoSan().trim());
+            dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(canonKenh, "TEN_KHO_SAN"), request.getTenKhoSan().trim());
         }
 
         if (doiKhoSan) {
-            dongBoCoMacDinhTrongKhoMapping(maKenh, newMaKhoSan);
+            dongBoCoMacDinhTrongKhoMapping(canonKenh, newMaKhoSan);
         }
 
         kenh.setNgayCapNhat(Instant.now());
@@ -5718,24 +5752,29 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     }
 
     private List<ShopifyLocationDto> layDanhSachKhoShopee(KenhBanHang kenh, boolean forceRefresh) {
-        String maKenh = kenh.getMaKenh();
+        String maKenh = (kenh != null && kenh.getMaKenh() != null && !kenh.getMaKenh().isBlank())
+                ? KenhCauHinhDongBo.chuanHoaMaKenh(kenh.getMaKenh())
+                : OmnichannelOrderSyncJob.MA_KENH_SHOPEE;
+        CachedWarehouseLocations cached = !forceRefresh ? shopeeWarehouseCache.get(maKenh) : null;
+        if (cached != null && cached.expiresAt() != null && cached.expiresAt().isAfter(Instant.now())) {
+            dongBoKhoMacDinhKhiDocSan(maKenh, cached.locations(), false);
+            return new ArrayList<>(cached.locations());
+        }
+
         boolean isSandbox = OmnichannelOrderSyncJob.isShopeeSandbox(maKenh);
         List<ShopifyLocationDto> list = new ArrayList<>();
         Set<String> seenIds = new HashSet<>();
 
         try {
             com.dev.backend.services.shopee.ShopeeClient client = getShopeeClient(kenh);
-            Instant unsupportedAt = (!forceRefresh && maKenh != null) ? SHOPEE_WH_DETAIL_UNSUPPORTED.get(maKenh) : null;
+            Instant unsupportedAt = !forceRefresh ? SHOPEE_WH_DETAIL_UNSUPPORTED.get(maKenh) : null;
             boolean skipWarehouseDetail = unsupportedAt != null
                     && Duration.between(unsupportedAt, Instant.now()).toHours() < 24;
             if (!skipWarehouseDetail) {
                 try {
                     JsonNode whRes = client.getWarehouseDetail();
                     if (whRes != null && whRes.path("error").asText("").isEmpty()) {
-                        if (maKenh != null) {
-                            SHOPEE_WH_DETAIL_UNSUPPORTED.remove(maKenh);
-                            SHOPEE_WH_DETAIL_UNSUPPORTED.remove(maKenh.trim().toUpperCase(Locale.ROOT));
-                        }
+                        SHOPEE_WH_DETAIL_UNSUPPORTED.remove(maKenh);
                         JsonNode resp = whRes.path("response");
                         JsonNode whArray = resp.isArray() ? resp
                                 : (resp.path("warehouse_list").isArray() ? resp.path("warehouse_list") : resp.path("list"));
@@ -5774,23 +5813,23 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                         .build());
                             }
                         }
-                    } else if (whRes != null && !whRes.path("error").asText("").isBlank() && maKenh != null) {
+                    } else if (whRes != null && !whRes.path("error").asText("").isBlank()) {
                         SHOPEE_WH_DETAIL_UNSUPPORTED.put(maKenh, Instant.now());
                     }
                 } catch (Exception ex) {
-                    if (maKenh != null) {
-                        SHOPEE_WH_DETAIL_UNSUPPORTED.put(maKenh, Instant.now());
-                    }
+                    SHOPEE_WH_DETAIL_UNSUPPORTED.put(maKenh, Instant.now());
                     log.debug("[SHOPEE-WAREHOUSE] Gian hàng {} chưa bật get_warehouse_detail: {}", maKenh, ex.getMessage());
                 }
             }
 
-            if (list.size() <= 1) {
+            if (list.isEmpty()) {
                 try {
                     JsonNode addrRes = client.getAddressList();
                     if (addrRes != null && addrRes.path("error").asText("").isEmpty()) {
                         JsonNode addrList = addrRes.path("response").path("address_list");
                         if (addrList.isArray()) {
+                            record ShopeeAddrFlag(ShopifyLocationDto dto, boolean hasDefault, boolean hasPickup) {}
+                            List<ShopeeAddrFlag> addrEntries = new ArrayList<>();
                             for (JsonNode addr : addrList) {
                                 long addrId = addr.path("address_id").asLong(0);
                                 if (addrId <= 0) continue;
@@ -5830,15 +5869,32 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                                         .filter(s -> !s.isBlank())
                                         .collect(Collectors.joining(", "));
                                 String label = "Kho lấy hàng Shopee #" + idStr + (diaChi.isBlank() ? "" : " - " + diaChi);
-                                list.add(ShopifyLocationDto.builder()
+                                ShopifyLocationDto dto = ShopifyLocationDto.builder()
                                         .maKhoSan(idStr)
                                         .tenKhoSan(label)
                                         .loai("pickup")
-                                        .macDinh(hasDefaultAddress)
-                                        .build());
+                                        .macDinh(false)
+                                        .build();
+                                addrEntries.add(new ShopeeAddrFlag(dto, hasDefaultAddress, hasPickupAddress));
+                                list.add(dto);
                             }
-                            if (!list.isEmpty() && list.stream().noneMatch(ShopifyLocationDto::isMacDinh)) {
-                                list.get(0).setMacDinh(true);
+                            if (!addrEntries.isEmpty()) {
+                                // Xếp hạng 4 bậc: (DEFAULT + PICKUP) > PICKUP_ADDRESS > DEFAULT_ADDRESS > đầu tiên
+                                boolean anyBoth = addrEntries.stream().anyMatch(e -> e.hasDefault() && e.hasPickup());
+                                boolean anyPickup = addrEntries.stream().anyMatch(ShopeeAddrFlag::hasPickup);
+                                boolean anyDefault = addrEntries.stream().anyMatch(ShopeeAddrFlag::hasDefault);
+                                for (ShopeeAddrFlag entry : addrEntries) {
+                                    boolean isDefault = anyBoth
+                                            ? (entry.hasDefault() && entry.hasPickup())
+                                            : (anyPickup ? entry.hasPickup() : (anyDefault && entry.hasDefault()));
+                                    if (isDefault) {
+                                        entry.dto().setMacDinh(true);
+                                        break;
+                                    }
+                                }
+                                if (list.stream().noneMatch(ShopifyLocationDto::isMacDinh)) {
+                                    list.get(0).setMacDinh(true);
+                                }
                             }
                         }
                     }
@@ -5850,7 +5906,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             log.debug("[SHOPEE-WAREHOUSE] Không khởi tạo được ShopeeClient cho {}: {}", maKenh, ex.getMessage());
         }
 
-        if (list.isEmpty()) {
+        boolean tuSanThuc = !list.isEmpty();
+        if (!tuSanThuc) {
             list.add(ShopifyLocationDto.builder()
                     .maKhoSan("shopee-default-warehouse")
                     .tenKhoSan("Kho mặc định Shopee" + (isSandbox ? " Sandbox" : ""))
@@ -5874,6 +5931,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
 
         dongBoKhoMacDinhKhiDocSan(maKenh, list, forceRefresh);
+        if (tuSanThuc) {
+            shopeeWarehouseCache.put(maKenh, new CachedWarehouseLocations(List.copyOf(list), Instant.now().plus(WAREHOUSE_CACHE_TTL)));
+        }
         return list;
     }
 
@@ -5945,22 +6005,152 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return khaDungToanChuoi(bienTheId);
     }
 
+    private static List<String> danhSachMaKenhDuPhong(String maKenh) {
+        if (maKenh == null || maKenh.isBlank()) {
+            return List.of();
+        }
+        String norm = KenhCauHinhDongBo.chuanHoaMaKenh(maKenh);
+        LinkedHashSet<String> keys = new LinkedHashSet<>();
+        keys.add(norm);
+        if ("SHOPEE_OFFICIAL".equals(norm)) {
+            keys.add("SHOPEE");
+        } else if ("SHOPEE".equals(norm)) {
+            keys.add("SHOPEE_OFFICIAL");
+        } else if ("TIKTOK_SHOP".equals(norm)) {
+            keys.add("TIKTOK");
+        } else if ("TIKTOK".equals(norm)) {
+            keys.add("TIKTOK_SHOP");
+        } else if (OmnichannelOrderSyncJob.isLazada(norm) && !OmnichannelOrderSyncJob.MA_KENH_LAZADA.equals(norm)) {
+            keys.add(OmnichannelOrderSyncJob.MA_KENH_LAZADA);
+        }
+        return new ArrayList<>(keys);
+    }
+
+    private static final java.util.regex.Pattern PATTERN_KHO_SAN_GHI_CHU =
+            java.util.regex.Pattern.compile("\\[KHO SÀN:\\s*([^\\]]+)\\]");
+
+    /** Trích xuất mã kho sàn đã gắn trong ghi chú đơn hàng ([KHO SÀN: ...]) để đồng bộ lại kho xuất cho đơn Nháp. */
+    public static String trichXuatMaKhoSanTuGhiChu(String ghiChu) {
+        if (ghiChu == null || ghiChu.isBlank()) {
+            return null;
+        }
+        java.util.regex.Matcher m = PATTERN_KHO_SAN_GHI_CHU.matcher(ghiChu);
+        if (m.find()) {
+            String val = m.group(1).trim();
+            return val.isBlank() ? null : val;
+        }
+        return null;
+    }
+
+    private String docCauHinhDauTienTheoAlias(String maKenh, String tenKhoa) {
+        if (dieuHanhHeThongService == null || maKenh == null || maKenh.isBlank()) {
+            return null;
+        }
+        for (String alias : danhSachMaKenhDuPhong(maKenh)) {
+            String v = dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa(alias, tenKhoa), null);
+            if (v != null && !v.isBlank()) {
+                return v.trim();
+            }
+        }
+        return null;
+    }
+
+    private KenhKhoMappingConfigDto layCauHinhKhoMappingTheoAlias(String maKenh) {
+        for (String alias : danhSachMaKenhDuPhong(maKenh)) {
+            KenhKhoMappingConfigDto cfg = layCauHinhKhoMappingDaLuu(alias);
+            if (cfg != null) {
+                return cfg;
+            }
+        }
+        return null;
+    }
+
+    private void capNhatKhoXuatChoDonNhapTheoMaKenh(String normKenh) {
+        if (kenhBanHangRepository == null || normKenh == null || normKenh.isBlank()
+                || OmnichannelOrderSyncJob.isShopify(normKenh)) {
+            return;
+        }
+        for (String alias : danhSachMaKenhDuPhong(normKenh)) {
+            Optional<KenhBanHang> kenhOpt = timKenh(alias);
+            if (kenhOpt.isPresent()) {
+                capNhatKhoXuatChoDonNhapCuaKenh(kenhOpt.get());
+                return;
+            }
+        }
+    }
+
+    /** Cập nhật lại khoXuat cho các đơn Nháp (0) chưa có phiếu nhặt khi sàn đổi kho mặc định hoặc người dùng lưu KhoXuatDonSan. */
+    void capNhatKhoXuatChoDonNhapCuaKenh(KenhBanHang kenh) {
+        if (kenh == null || kenh.getId() == null || donBanHangRepository == null
+                || OmnichannelOrderSyncJob.isShopify(kenh.getMaKenh())) {
+            return;
+        }
+        try {
+            List<DonBanHang> donNhaps = donBanHangRepository.findByKenhBanHangIdAndTrangThaiAndDanhSachNhatHangIsNull(
+                    kenh.getId(), ITrangThaiDonBanHang.NHAP);
+            if (donNhaps == null || donNhaps.isEmpty()) {
+                return;
+            }
+            List<DonBanHang> updated = new ArrayList<>();
+            Instant now = Instant.now();
+            for (DonBanHang don : donNhaps) {
+                if (don == null || !Integer.valueOf(ITrangThaiDonBanHang.NHAP).equals(don.getTrangThai())
+                        || don.getDanhSachNhatHang() != null) {
+                    continue;
+                }
+                String whTuGhiChu = trichXuatMaKhoSanTuGhiChu(don.getGhiChu());
+                Kho khoMoi = resolveKhoXuatChoDonSan(kenh, whTuGhiChu);
+                if (khoMoi != null && khoMoi.getId() != null
+                        && (don.getKhoXuat() == null || !khoMoi.getId().equals(don.getKhoXuat().getId()))) {
+                    don.setKhoXuat(khoMoi);
+                    don.setNgayCapNhat(now);
+                    updated.add(don);
+                }
+            }
+            if (!updated.isEmpty()) {
+                donBanHangRepository.saveAll(updated);
+                log.info("[KHO-MAPPING] Đã cập nhật lại kho xuất cho {} đơn Nháp của kênh {}",
+                        updated.size(), kenh.getMaKenh());
+            }
+        } catch (Exception ex) {
+            log.warn("[KHO-MAPPING] Không thể cập nhật kho xuất cho đơn Nháp của kênh {}: {}",
+                    kenh.getMaKenh(), ex.getMessage());
+        }
+    }
+
     private void dongBoCoMacDinhTrongKhoMapping(String maKenh, String newMaKhoSan) {
-        KenhKhoMappingConfigDto savedMapping = layCauHinhKhoMappingDaLuu(maKenh);
+        String normKenh = KenhCauHinhDongBo.chuanHoaMaKenh(maKenh);
+        KenhKhoMappingConfigDto savedMapping = layCauHinhKhoMappingTheoAlias(normKenh);
         if (savedMapping == null || savedMapping.getDanhSachKho() == null || savedMapping.getDanhSachKho().isEmpty()) {
             return;
         }
         List<KenhKhoMappingItemDto> cleanList = savedMapping.getDanhSachKho().stream()
                 .filter(item -> !laKhoTraHangMapping(item))
                 .collect(Collectors.toCollection(ArrayList::new));
-        boolean matched = cleanList.stream()
-                .anyMatch(item -> item.getMaKhoSan() != null && newMaKhoSan.equals(item.getMaKhoSan().trim()));
+        String normNew = chuanHoaMaKhoSanSoSanh(newMaKhoSan);
+        boolean matched = newMaKhoSan != null && !newMaKhoSan.isBlank() && cleanList.stream()
+                .anyMatch(item -> item.getMaKhoSan() != null && (newMaKhoSan.trim().equalsIgnoreCase(item.getMaKhoSan().trim())
+                        || (!normNew.isBlank() && normNew.equalsIgnoreCase(chuanHoaMaKhoSanSoSanh(item.getMaKhoSan())))));
         if (!matched) {
+            boolean coCoCu = cleanList.stream().anyMatch(item -> Boolean.TRUE.equals(item.getLaMacDinhSan()));
+            if (!coCoCu) {
+                return;
+            }
+            for (KenhKhoMappingItemDto item : cleanList) {
+                item.setLaMacDinhSan(false);
+            }
+            savedMapping.setDanhSachKho(cleanList);
+            try {
+                dieuHanhHeThongService.setCauHinhString("KENH_" + normKenh + "_KHO_MAPPING", objectMapper.writeValueAsString(savedMapping));
+            } catch (Exception ex) {
+                log.warn("[KHO-MAPPING] Không thể gỡ cờ mặc định sàn cũ trong KHO_MAPPING cho kênh {}: {}", normKenh, ex.getMessage());
+            }
             return;
         }
         Integer matchedKhoId = null;
         for (KenhKhoMappingItemDto item : cleanList) {
-            boolean isMatched = item.getMaKhoSan() != null && newMaKhoSan.equals(item.getMaKhoSan().trim());
+            boolean isMatched = item.getMaKhoSan() != null && (newMaKhoSan.trim().equalsIgnoreCase(item.getMaKhoSan().trim())
+                    || (!normNew.isBlank() && normNew.equalsIgnoreCase(chuanHoaMaKhoSanSoSanh(item.getMaKhoSan()))));
             item.setLaMacDinh(isMatched);
             item.setLaMacDinhSan(isMatched);
             if (isMatched && item.getKhoIdFCentric() != null) {
@@ -5972,13 +6162,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             savedMapping.setKhoIdMacDinh(matchedKhoId);
         }
         try {
-            String normKenh = maKenh != null ? maKenh.trim().toUpperCase(Locale.ROOT) : "SHOPIFY";
             dieuHanhHeThongService.setCauHinhString("KENH_" + normKenh + "_KHO_MAPPING", objectMapper.writeValueAsString(savedMapping));
             if (matchedKhoId != null) {
-                dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "KHO_ID"), String.valueOf(matchedKhoId));
+                dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(normKenh, "KHO_ID"), String.valueOf(matchedKhoId));
             }
         } catch (Exception ex) {
-            log.warn("[KHO-MAPPING] Không thể đồng bộ cờ mặc định sang KHO_MAPPING cho kênh {}: {}", maKenh, ex.getMessage());
+            log.warn("[KHO-MAPPING] Không thể đồng bộ cờ mặc định sang KHO_MAPPING cho kênh {}: {}", normKenh, ex.getMessage());
         }
     }
 
@@ -6288,7 +6477,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     @Transactional
     public KenhKhoMappingConfigDto layCauHinhKhoMapping(String maKenh, boolean forceRefresh) {
         KenhBanHang kenh = getKenhActive(maKenh);
-        List<ShopifyLocationDto> dsKhoSan = forceRefresh ? getLocations(maKenh, true) : getLocations(maKenh);
+        String canonKenh = (kenh.getMaKenh() != null && !kenh.getMaKenh().isBlank())
+                ? KenhCauHinhDongBo.chuanHoaMaKenh(kenh.getMaKenh())
+                : KenhCauHinhDongBo.chuanHoaMaKenh(maKenh);
+        List<ShopifyLocationDto> dsKhoSan = forceRefresh ? getLocations(canonKenh, true) : getLocations(canonKenh);
         int soKhoSanHopLe = (dsKhoSan != null) ? dsKhoSan.size() : 0;
 
         // Lấy danh sách kho nội bộ FCentric đang hoạt động, loại trừ KHO_TRANSIT
@@ -6309,7 +6501,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
         // Xác định kho mặc định hiện tại
         Integer khoIdMacDinh = null;
-        String savedKhoId = (dieuHanhHeThongService != null) ? dieuHanhHeThongService.getCauHinhString("KENH_" + maKenh.toUpperCase(Locale.ROOT) + "_KHO_ID", null) : null;
+        String savedKhoId = docCauHinhDauTienTheoAlias(canonKenh, "KHO_ID");
         if (savedKhoId != null && !savedKhoId.isBlank()) {
             try {
                 khoIdMacDinh = Integer.parseInt(savedKhoId.trim());
@@ -6323,9 +6515,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         String tenKhoMacDinh = khoHoatDong.stream().filter(k -> k.getId().equals(defaultKhoId)).map(Kho::getTenKho).findFirst().orElse("Kho Tổng");
 
         // Đọc cấu hình đã lưu trong DB (nếu có)
-        KenhKhoMappingConfigDto savedCfg = layCauHinhKhoMappingDaLuu(maKenh);
+        KenhKhoMappingConfigDto savedCfg = layCauHinhKhoMappingTheoAlias(canonKenh);
         KenhKhoMappingConfigDto result = KenhKhoMappingConfigDto.builder()
-                .maKenh(maKenh.toUpperCase(Locale.ROOT))
+                .maKenh(canonKenh)
                 .soKhoSanHopLe(soKhoSanHopLe)
                 .khoIdMacDinh(defaultKhoId)
                 .tenKhoMacDinh(tenKhoMacDinh)
@@ -6409,7 +6601,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     mergedList.add(existing);
                 } else {
                     Integer assignedKhoId = defaultKhoId;
-                    if (i < khoHoatDong.size()) {
+                    // Chỉ Shopify tự rải tạm theo thứ tự kho khi chưa lưu mapping; 3 sàn đơn kho giữ đúng defaultKhoId (WYSIWYG)
+                    if (hoTroDaKhoSan && i < khoHoatDong.size()) {
                         assignedKhoId = khoHoatDong.get(i).getId();
                     }
                     final Integer aId = assignedKhoId;
@@ -6446,6 +6639,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (request == null) {
             throw new CommonException(ThongDiep.of("kenhBan.cauHinhKhongHopLe"), HttpStatus.BAD_REQUEST, null);
         }
+        String canonKenh = (kenh.getMaKenh() != null && !kenh.getMaKenh().isBlank())
+                ? KenhCauHinhDongBo.chuanHoaMaKenh(kenh.getMaKenh())
+                : KenhCauHinhDongBo.chuanHoaMaKenh(maKenh);
 
         List<Kho> khoHoatDong = khoRepository.findByTrangThai(1);
         Set<Integer> validKhoIds = khoHoatDong.stream()
@@ -6453,7 +6649,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .map(Kho::getId)
                 .collect(Collectors.toSet());
 
-        KenhKhoMappingConfigDto existingCfg = layCauHinhKhoMappingDaLuu(maKenh);
+        KenhKhoMappingConfigDto existingCfg = layCauHinhKhoMappingTheoAlias(canonKenh);
         Map<String, Boolean> macDinhSanCu = new HashMap<>();
         if (existingCfg != null && existingCfg.getDanhSachKho() != null) {
             for (KenhKhoMappingItemDto cu : existingCfg.getDanhSachKho()) {
@@ -6462,6 +6658,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             }
         }
+        boolean laShopify = OmnichannelOrderSyncJob.isShopify(canonKenh);
+        String savedMaKhoSan = !laShopify ? docCauHinhDauTienTheoAlias(canonKenh, "MA_KHO_SAN") : null;
+        String normSavedSan = chuanHoaMaKhoSanSoSanh(savedMaKhoSan);
 
         if (request.getDanhSachKho() != null) {
             List<KenhKhoMappingItemDto> sach = new ArrayList<>();
@@ -6473,7 +6672,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                     throw new CommonException(ThongDiep.of("kenhBan.khoKhongTonTai", item.getKhoIdFCentric()), HttpStatus.BAD_REQUEST, null);
                 }
                 String maSan = item.getMaKhoSan() != null ? item.getMaKhoSan().trim() : "";
-                if (!maSan.isEmpty() && macDinhSanCu.containsKey(maSan)) {
+                if (!laShopify && savedMaKhoSan != null && !savedMaKhoSan.isBlank() && !maSan.isEmpty()) {
+                    boolean khopSan = maSan.equalsIgnoreCase(savedMaKhoSan.trim())
+                            || (!normSavedSan.isBlank() && normSavedSan.equalsIgnoreCase(chuanHoaMaKhoSanSoSanh(maSan)));
+                    item.setLaMacDinhSan(khopSan);
+                } else if (!maSan.isEmpty() && macDinhSanCu.containsKey(maSan)) {
                     item.setLaMacDinhSan(macDinhSanCu.get(maSan));
                 }
                 sach.add(item);
@@ -6482,7 +6685,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
 
         // Hướng B: chỉ cho phép bật đa kho tồn trên Shopify; Lazada/TikTok/Shopee giữ cheDoDaKho = false và luôn kích hoạt ánh xạ định tuyến kho đơn
-        boolean laShopify = OmnichannelOrderSyncJob.isShopify(maKenh);
         if (!laShopify) {
             request.setCheDoDaKho(false);
             if (request.getDanhSachKho() != null) {
@@ -6498,7 +6700,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         Integer resolvedDefaultKhoId = request.getKhoIdMacDinh();
         if (resolvedDefaultKhoId == null && !laShopify && request.getDanhSachKho() != null && !request.getDanhSachKho().isEmpty()) {
             resolvedDefaultKhoId = request.getDanhSachKho().stream()
-                    .filter(item -> item != null && Boolean.TRUE.equals(item.getLaMacDinh()) && item.getKhoIdFCentric() != null)
+                    .filter(item -> item != null
+                            && (Boolean.TRUE.equals(item.getLaMacDinhSan()) || Boolean.TRUE.equals(item.getLaMacDinh()))
+                            && item.getKhoIdFCentric() != null)
                     .map(KenhKhoMappingItemDto::getKhoIdFCentric)
                     .findFirst()
                     .orElse(request.getDanhSachKho().size() == 1 ? request.getDanhSachKho().get(0).getKhoIdFCentric() : null);
@@ -6509,7 +6713,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             }
             request.setKhoIdMacDinh(resolvedDefaultKhoId);
             if (dieuHanhHeThongService != null) {
-                dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "KHO_ID"), String.valueOf(resolvedDefaultKhoId));
+                dieuHanhHeThongService.setCauHinhString(KenhCauHinhDongBo.khoa(canonKenh, "KHO_ID"), String.valueOf(resolvedDefaultKhoId));
             }
         }
 
@@ -6527,9 +6731,9 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         // Lưu vào cấu hình hệ thống
         try {
             String json = objectMapper.writeValueAsString(request);
-            dieuHanhHeThongService.setCauHinhString("KENH_" + maKenh.trim().toUpperCase(Locale.ROOT) + "_KHO_MAPPING", json);
+            dieuHanhHeThongService.setCauHinhString("KENH_" + canonKenh + "_KHO_MAPPING", json);
         } catch (Exception e) {
-            log.error("[KHO-MAPPING] Lỗi lưu cấu hình ánh xạ kho cho kênh {}: {}", maKenh, e.getMessage());
+            log.error("[KHO-MAPPING] Lỗi lưu cấu hình ánh xạ kho cho kênh {}: {}", canonKenh, e.getMessage());
             throw new CommonException(ThongDiep.of("kenhBan.loiLuuCauHinhKho"), HttpStatus.INTERNAL_SERVER_ERROR, null);
         }
 
@@ -6539,12 +6743,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (laShopify || cheDoThayDoi) {
             resetDeltaSyncChoKenh(kenh.getId());
         }
+        if (!laShopify) {
+            capNhatKhoXuatChoDonNhapCuaKenh(kenh);
+        }
 
         ghiNhatKy(kenh.getId(), IHanhDong.cap_nhat_kenh_ban,
                 String.format("Lưu cấu hình ánh xạ kho kênh %s: Đa kho = %s, Số kho = %d",
-                        maKenh, request.getCheDoDaKho(), request.getDanhSachKho() != null ? request.getDanhSachKho().size() : 0));
+                        canonKenh, request.getCheDoDaKho(), request.getDanhSachKho() != null ? request.getDanhSachKho().size() : 0));
 
-        return layCauHinhKhoMapping(maKenh);
+        return layCauHinhKhoMapping(canonKenh);
     }
 
     @Override
@@ -6565,12 +6772,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
 
         if (kenh != null && kenh.getMaKenh() != null && !kenh.getMaKenh().isBlank()) {
-            String maKenh = kenh.getMaKenh().trim();
-            KenhKhoMappingConfigDto cfg = layCauHinhKhoMappingDaLuu(maKenh);
-            if (cfg == null && OmnichannelOrderSyncJob.isLazada(maKenh)
-                    && !OmnichannelOrderSyncJob.MA_KENH_LAZADA.equalsIgnoreCase(maKenh)) {
-                cfg = layCauHinhKhoMappingDaLuu(OmnichannelOrderSyncJob.MA_KENH_LAZADA);
-            }
+            String maKenh = KenhCauHinhDongBo.chuanHoaMaKenh(kenh.getMaKenh());
+            KenhKhoMappingConfigDto cfg = layCauHinhKhoMappingTheoAlias(maKenh);
 
             // 1. Ưu tiên mã kho gắn trực tiếp trên payload đơn sàn (warehouse_id / warehouse_code / location_id)
             if (maKhoSanTuDon != null && !maKhoSanTuDon.isBlank()) {
@@ -6587,10 +6790,8 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             }
 
-            // 2. Tra theo MA_KHO_SAN đang chọn ở cấu hình kênh
-            String savedMaKhoSan = dieuHanhHeThongService != null
-                    ? dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "MA_KHO_SAN"), null)
-                    : null;
+            // 2. Tra theo MA_KHO_SAN đang chọn ở cấu hình kênh (kèm fallback alias SHOPEE_OFFICIAL <-> SHOPEE, TIKTOK_SHOP <-> TIKTOK)
+            String savedMaKhoSan = docCauHinhDauTienTheoAlias(maKenh, "MA_KHO_SAN");
             if (savedMaKhoSan != null && !savedMaKhoSan.isBlank()) {
                 String cleanSaved = savedMaKhoSan.trim();
                 if (cfg != null && cfg.getDanhSachKho() != null) {
@@ -6605,7 +6806,7 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             }
 
-            // 3. Tra dòng mặc định hoặc dòng đầu tiên đang bật trong KHO_MAPPING
+            // 3. Tra dòng mặc định đang bật trong KHO_MAPPING
             if (cfg != null && cfg.getDanhSachKho() != null) {
                 Kho defMapped = cfg.getDanhSachKho().stream()
                         .filter(m -> m != null && Boolean.TRUE.equals(m.getKichHoat())
@@ -6620,17 +6821,15 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 }
             }
 
-            // 4. Tra KENH_<MA>_KHO_ID hoặc cfg.khoIdMacDinh
-            if (dieuHanhHeThongService != null) {
-                String savedKhoId = dieuHanhHeThongService.getCauHinhString(KenhCauHinhDongBo.khoa(maKenh, "KHO_ID"), null);
-                if (savedKhoId != null && !savedKhoId.isBlank()) {
-                    try {
-                        Integer kId = Integer.parseInt(savedKhoId.trim());
-                        if (validById.containsKey(kId)) {
-                            return validById.get(kId);
-                        }
-                    } catch (NumberFormatException ignored) {}
-                }
+            // 4. Tra KENH_<MA>_KHO_ID (kèm alias) hoặc cfg.khoIdMacDinh
+            String savedKhoId = docCauHinhDauTienTheoAlias(maKenh, "KHO_ID");
+            if (savedKhoId != null && !savedKhoId.isBlank()) {
+                try {
+                    Integer kId = Integer.parseInt(savedKhoId.trim());
+                    if (validById.containsKey(kId)) {
+                        return validById.get(kId);
+                    }
+                } catch (NumberFormatException ignored) {}
             }
             if (cfg != null && cfg.getKhoIdMacDinh() != null && validById.containsKey(cfg.getKhoIdMacDinh())) {
                 return validById.get(cfg.getKhoIdMacDinh());
@@ -6694,29 +6893,55 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         if (kenh == null || kenh.getMaKenh() == null || kenh.getMaKenh().isBlank()) {
             return null;
         }
-        String maKenh = kenh.getMaKenh().trim();
+        String maKenh = KenhCauHinhDongBo.chuanHoaMaKenh(kenh.getMaKenh());
+        String savedMaKhoSan = docCauHinhDauTienTheoAlias(maKenh, "MA_KHO_SAN");
+        String normSaved = chuanHoaMaKhoSanSoSanh(savedMaKhoSan);
         if (khoId != null) {
-            KenhKhoMappingConfigDto cfg = layCauHinhKhoMappingDaLuu(maKenh);
+            KenhKhoMappingConfigDto cfg = layCauHinhKhoMappingTheoAlias(maKenh);
             if (cfg != null && cfg.getDanhSachKho() != null) {
+                Long firstMatch = null;
+                Long defaultFlagMatch = null;
                 for (KenhKhoMappingItemDto item : cfg.getDanhSachKho()) {
                     if (item == null || !Boolean.TRUE.equals(item.getKichHoat())
                             || !khoId.equals(item.getKhoIdFCentric())
                             || item.getMaKhoSan() == null) {
                         continue;
                     }
-                    String candidate = item.getMaKhoSan().trim();
-                    if (candidate.startsWith("addr-")) candidate = candidate.substring("addr-".length()).trim();
-                    else if (candidate.startsWith("pickup-")) candidate = candidate.substring("pickup-".length()).trim();
-                    if (candidate.matches("\\d+")) {
-                        try {
-                            long val = Long.parseLong(candidate);
-                            if (val > 0) return val;
-                        } catch (NumberFormatException ignored) {}
+                    String candidate = chuanHoaMaKhoSanSoSanh(item.getMaKhoSan());
+                    if (!candidate.matches("\\d+")) {
+                        continue;
                     }
+                    try {
+                        long val = Long.parseLong(candidate);
+                        if (val <= 0) {
+                            continue;
+                        }
+                        if (!normSaved.isBlank() && normSaved.equalsIgnoreCase(candidate)) {
+                            return val;
+                        }
+                        if (Boolean.TRUE.equals(item.getLaMacDinhSan()) && defaultFlagMatch == null) {
+                            defaultFlagMatch = val;
+                        }
+                        if (firstMatch == null) {
+                            firstMatch = val;
+                        }
+                    } catch (NumberFormatException ignored) {}
+                }
+                if (defaultFlagMatch != null) {
+                    return defaultFlagMatch;
+                }
+                if (firstMatch != null) {
+                    return firstMatch;
                 }
             }
         }
-        return layPreferredAddressIdShopee(maKenh);
+        for (String alias : danhSachMaKenhDuPhong(maKenh)) {
+            Long addrId = layPreferredAddressIdShopee(alias);
+            if (addrId != null) {
+                return addrId;
+            }
+        }
+        return null;
     }
 
     @Override
