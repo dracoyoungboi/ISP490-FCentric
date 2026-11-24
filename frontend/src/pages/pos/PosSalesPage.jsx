@@ -40,6 +40,7 @@ import {
   savePosDrafts,
   removePendingCheckoutId,
 } from '@/services/posService';
+import { moKenhRealtime } from '@/services/realtimeService';
 import {
   canTraLaiTienMat,
   khoaTaoQrKemTienMat,
@@ -1756,16 +1757,20 @@ export default function PosSalesPage({
     let inFlight = false;
     const controller = new AbortController();
 
-    // 1. Kết nối WebSocket native real-time (< 50ms) cho từng đơn hàng đang chờ thanh toán
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsHost = window.location.port === '5173' ? `${window.location.hostname}:8080` : window.location.host;
+    // 1. Kênh realtime cho từng đơn đang chờ thanh toán, mở bằng vé xin cho đúng đơn đó. Không mở được thì
+    // phần hỏi định kỳ bên dưới vẫn bắt được kết quả.
     const sockets = [];
+    // lang=en: máy chủ gửi câu lỗi (errorMessage) bằng tiếng Anh cho màn này
+    const thamSoKenh = laTiengAnh() ? { lang: 'en' } : {};
 
     targets.forEach((target) => {
-      try {
-        // lang=en: máy chủ gửi câu lỗi (errorMessage) bằng tiếng Anh cho màn này
-        const wsUrl = `${wsProtocol}//${wsHost}/ws-pos?orderCode=${target.orderCode}${laTiengAnh() ? '&lang=en' : ''}`;
-        const ws = new WebSocket(wsUrl);
+      moKenhRealtime(`/api/v1/realtime/ve/thanh-toan/${target.orderCode}`, '/ws-pos', thamSoKenh).then((ws) => {
+        if (!ws) return;
+        // Đã thôi theo dõi trong lúc xin vé: đóng ngay khi nối xong
+        if (stopped) {
+          ws.onopen = () => ws.close();
+          return;
+        }
         ws.onmessage = (event) => {
           if (stopped) return;
           try {
@@ -1778,9 +1783,7 @@ export default function PosSalesPage({
           }
         };
         sockets.push(ws);
-      } catch (err) {
-        console.debug('Không thể khởi tạo kết nối WebSocket, tiếp tục dùng polling dự phòng:', err);
-      }
+      });
     });
 
     // 2. Polling dự phòng (Fail-safe Fallback): đảm bảo không bao giờ kẹt đơn nếu WebSocket bị chập chờn

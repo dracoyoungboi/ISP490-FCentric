@@ -94,7 +94,7 @@ const SO_LAN_TAI_LAI_KHI_DOI = 3;
  * và cột phải (kho, người nhặt, ghi chú, đơn trong phiếu).
  *
  * Giữ nguyên: API `/api/v1/nhat-hang/...`, hàng đợi quét tuần tự (useScanQueue), âm "rè" khi mã không cộng được,
- * WebSocket `/ws-outbound?pickListId=` (ping 30 giây), hộp Phân công / Phân bổ lô / Bằng chứng, chế độ dữ liệu mẫu.
+ * WebSocket `/ws-outbound` (mở bằng vé của phiếu) (ping 30 giây), hộp Phân công / Phân bổ lô / Bằng chứng, chế độ dữ liệu mẫu.
  */
 export default function PickListDetail() {
     const { id } = useParams();
