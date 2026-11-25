@@ -231,7 +231,8 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         return switch (ma) {
             case MA_KENH_SHOPIFY -> "Shopify";
             case "LAZADA" -> "Lazada";
-            case "TIKTOK" -> "TikTok Shop";
+            case "TIKTOK", "TIKTOK_SHOP" -> "TikTok Shop";
+            case MA_KENH_SHOPEE, MA_KENH_SHOPEE_OFFICIAL -> "Shopee";
             default -> maKenh == null || maKenh.isBlank() ? "sàn này" : maKenh.trim();
         };
     }
