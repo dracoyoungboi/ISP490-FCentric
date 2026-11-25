@@ -53,8 +53,8 @@ const NOI_DUNG = {
       moTa: t("Tự động đồng bộ theo kho lấy hàng mặc định trên Shopee; để thay đổi, thao tác trực tiếp tại Shopee Seller Center rồi bấm Tải lại từ sàn."),
       chiDoc: null,
     },
-    ghiChuTon: t("Cập nhật tồn kho trực tiếp qua Shopee Open Platform API v2 (/api/v2/product/update_stock)."),
-    ghiChuDon: t("Đồng bộ đơn hàng tự động qua Shopee Open Platform API v2 (/api/v2/order/get_order_list)."),
+    ghiChuTon: null,
+    ghiChuDon: null,
   },
   TIKTOK: {
     nhanIdSan: "Shop ID",
