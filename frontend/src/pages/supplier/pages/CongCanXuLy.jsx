@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Check, ChevronRight, Clock, Info, Mail, MessageSquareReply, Phone, ReceiptText, Search } from 'lucide-react';
+import { Check, ChevronRight, Clock, Info, MessageSquareReply, ReceiptText, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import StatusBadge from '@/components/shared/StatusBadge';
 import TablePagination from '@/components/shared/TablePagination';
@@ -18,7 +18,6 @@ import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters';
 import { t, tDuLieu } from '@/i18n';
 
 const TIEU_DE_TRANG = 'text-xl leading-7 font-bold tracking-tight text-bo-heading md:text-2xl md:leading-8';
-const LIEN_KET_FOCUS = 'rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40';
 /** Màu chữ ngày hạn theo mức gấp (xepViecCanLam). */
 const MAU_HAN = { do: 'text-bo-danger', cam: 'text-bo-warning', xam: 'text-bo-foreground' };
 /** 10 việc mỗi trang như Lịch sử; danh sách không quá số này thì không có chân phân trang. */
@@ -35,9 +34,10 @@ function datThamSo(thamSo, moi) {
 }
 
 /**
- * Cổng nhà cung cấp · Cần xử lý (/supplier/portal): cả trang trong MỘT khối trắng — tiêu đề + người phụ trách mua hàng,
- * nhắc việc quá hạn, lọc theo loại + ô tìm, một danh sách chung biên bản hàng lỗi chờ trả lời và đơn chờ báo giá, gấp
- * nhất trước (xepViecCanLam). Số việc chỉ hiện ở tab và nút lọc; số liệu 30 ngày để ở Lịch sử.
+ * Cổng nhà cung cấp · Cần xử lý (/supplier/portal): cả trang trong MỘT khối trắng — tiêu đề, nhắc việc quá hạn, lọc
+ * theo loại + ô tìm, một danh sách chung biên bản hàng lỗi chờ trả lời và đơn chờ báo giá, gấp nhất trước
+ * (xepViecCanLam). Số việc chỉ hiện ở tab và nút lọc; số liệu 30 ngày để ở Lịch sử. Người phụ trách ghi tên trên từng
+ * việc (các việc có thể do nhiều người lo); số điện thoại, email ở màn chi tiết đơn / biên bản.
  * Dữ liệu: GET /cong-ncc/viec-can-lam.
  */
 export default function CongCanXuLy() {
@@ -65,9 +65,8 @@ export default function CongCanXuLy() {
         <KhungCongNhaCungCap tenNhaCungCap={tenNcc} email={emailNcc} onThoat={thoat} tab="can-xu-ly" tuTaiSoViec={false}>
             <main className="mx-auto w-full max-w-[1600px] flex-1 p-4 md:p-6">
                 <div className="overflow-hidden rounded-xl border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-                    <div className="flex flex-col gap-4 px-4 pt-5 pb-4 md:flex-row md:items-center md:justify-between md:gap-8 md:px-6 md:pt-6">
+                    <div className="px-4 pt-5 pb-4 md:px-6 md:pt-6">
                         <h1 className={TIEU_DE_TRANG}>{t("Việc cần Quý công ty xử lý")}</h1>
-                        {tai.trangThai === 'xong' && viec.nguoiPhuTrach ? <NguoiPhuTrachGon nguoi={viec.nguoiPhuTrach} /> : null}
                     </div>
 
                     {tai.trangThai === 'dang-tai' ? (
@@ -80,38 +79,6 @@ export default function CongCanXuLy() {
                 </div>
             </main>
         </KhungCongNhaCungCap>
-    );
-}
-
-const soGoi = (sdt) => String(sdt ?? '').replace(/[^\d+]/g, '');
-
-/** Người phụ trách mua hàng gọn trong một ô ở đầu khối: tên, số điện thoại, email (bấm gọi / gửi thư). */
-function NguoiPhuTrachGon({ nguoi }) {
-    const sdt = String(nguoi?.soDienThoai ?? '').trim();
-    const email = String(nguoi?.email ?? '').trim();
-    return (
-        <section aria-label={t("Người phụ trách mua hàng")} className="min-w-0 rounded-lg bg-bo-surface-subtle px-4 py-2.5 md:max-w-[460px]">
-            <div className="min-w-0 text-sm">
-                <p className="truncate">
-                    <span className="text-bo-muted">{t("Phụ trách mua hàng:")}</span>{' '}
-                    <span className="font-semibold text-bo-heading">{nguoi?.hoTen}</span>
-                </p>
-                {sdt || email ? (
-                    <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[13px]">
-                        {sdt ? (
-                            <a href={`tel:${soGoi(sdt)}`} className={cn('inline-flex items-center gap-1 text-bo-primary hover:underline', LIEN_KET_FOCUS)}>
-                                <Phone className="size-3.5" aria-hidden="true" /> {sdt}
-                            </a>
-                        ) : null}
-                        {email ? (
-                            <a href={`mailto:${email}`} className={cn('inline-flex min-w-0 items-center gap-1 break-all text-bo-primary hover:underline', LIEN_KET_FOCUS)}>
-                                <Mail className="size-3.5 shrink-0" aria-hidden="true" /> {email}
-                            </a>
-                        ) : null}
-                    </p>
-                ) : null}
-            </div>
-        </section>
     );
 }
 
@@ -302,12 +269,16 @@ function chuHangLoi(hangLoi) {
     }
 }
 
-/** Một việc: cả dòng là liên kết. Số chứng từ + nhãn · dòng số liệu · dòng ngày hạn (tô theo mức gấp); nút bên phải. */
+/**
+ * Một việc: cả dòng là liên kết. Số chứng từ + nhãn · dòng số liệu · dòng ngày hạn (tô theo mức gấp) kèm người phụ trách;
+ * nút bên phải.
+ */
 function DongViec({ v }) {
     const laBienBan = v.loai === 'bien-ban';
     const d = v.duLieu;
     const mucGap = chuMucGap(v);
     const moc = laBienBan ? d.hanTraLoi : d.ngayCanGiao;
+    const phuTrach = String(d.nguoiPhuTrach?.hoTen ?? '').trim();
     return (
         <li>
             <Link
@@ -360,6 +331,12 @@ function DongViec({ v }) {
                             <>{moc ? ' · ' : null}{chuHangLoi(d.hangLoi)}</>
                         ) : d.ngayGuiYeuCau ? (
                             <>{moc ? ' · ' : null}{t("yêu cầu ngày {{ngay}}", { ngay: formatDate(d.ngayGuiYeuCau) })}</>
+                        ) : null}
+                        {phuTrach ? (
+                            <span className="whitespace-nowrap">
+                                {moc || laBienBan || d.ngayGuiYeuCau ? ' · ' : null}
+                                {t("phụ trách")} <span className="font-medium text-slate-700">{phuTrach}</span>
+                            </span>
                         ) : null}
                     </p>
                 </div>

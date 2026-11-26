@@ -1137,7 +1137,7 @@
   "Các lần đăng nhập của mọi người sẽ hiện ở đây.": "Everyone's sign-ins will appear here.",
   "Có người nhập đúng mật khẩu khi tài khoản đang khóa (24 giờ qua)": "Someone entered the correct password while the account was locked (last 24 hours)",
   "Đăng nhập sai mật khẩu nhiều lần (24 giờ qua)": "Many wrong-password sign-ins (last 24 hours)",
-  "Phụ trách mua hàng:": "Purchasing contact:",
+  "phụ trách": "handled by",
   "Biên bản hàng lỗi": "Defect reports",
   "Lọc theo loại việc": "Filter by task type",
   "Tìm số đơn hoặc số biên bản": "Search by order or report number",
