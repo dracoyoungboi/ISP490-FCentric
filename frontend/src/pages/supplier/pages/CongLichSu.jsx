@@ -1,20 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronRight, Inbox, Search, SearchX } from 'lucide-react';
+import { CalendarX, ChevronRight, Inbox, Search, SearchX, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import StatusBadge from '@/components/shared/StatusBadge';
+import LocKhoangNgay from '@/components/shared/LocKhoangNgay';
+import TablePagination from '@/components/shared/TablePagination';
 import KhungCongNhaCungCap from '@/components/supplier-portal/KhungCongNhaCungCap';
 import { KhungLoiTai, KhungXuongCong } from '@/components/supplier-portal/TrangThaiTaiCong';
-import {
-    KHOANG_LICH_SU,
-    cachXuLyLichSu,
-    nhanHangLoi,
-    chuanHoaKhoang,
-    tenKhoang,
-    tuNgayTheoKhoang,
-} from '@/components/supplier-portal/congUtils';
+import { cachXuLyLichSu, nhanHangLoi } from '@/components/supplier-portal/congUtils';
 import { xuLyLoiTai } from '@/components/supplier-portal/loiCong';
 import { NHAN_KET_QUA_BAO_GIA } from '@/constants/congNhaCungCap';
+import { LUA_CHON_SO_DONG } from '@/constants/phanTrang';
 import { duongDanBaoGia, duongDanBienBan } from '@/components/supplier-portal/phienCong';
 import { useCongNcc, useTieuDeCong } from '@/components/supplier-portal/useCongNcc';
 import congNhaCungCapService from '@/services/congNhaCungCapService';
@@ -23,10 +19,16 @@ import { cn } from '@/lib/utils';
 import { formatCurrency, formatDate, formatNumber } from '@/utils/formatters';
 import { t } from '@/i18n';
 
-const THE = 'rounded-lg border border-bo-border bg-bo-surface';
+const TIEU_DE_TRANG = 'text-xl leading-7 font-bold tracking-tight text-bo-heading md:text-2xl md:leading-8';
 const TIEU_DE_COT = 'h-10 px-4 text-left text-[11px] font-semibold uppercase tracking-wide text-bo-muted';
+/** Cột đầu / cuối bảng thẳng mép 24px của khối (cùng tiêu đề và thanh lọc). */
+const COT_DAU = 'md:pl-6';
 const LIEN_KET_O = 'rounded-sm font-semibold text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40';
+const NUT_PHU = 'h-10 border-bo-border bg-bo-surface px-4 text-bo-foreground hover:bg-bo-surface-subtle';
 const TRE_TIM = 300;
+/** Cổng mặc định 10 dòng mỗi trang (trang quản trị 20): nhà cung cấp thường chỉ tra vài chứng từ gần đây. */
+const SO_DONG_MAC_DINH = 10;
+const NGAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Đổi vài tham số trên địa chỉ (null / rỗng: bỏ tham số), giữ các tham số khác. */
 function datThamSo(thamSo, moi) {
@@ -38,10 +40,11 @@ function datThamSo(thamSo, moi) {
     return ts;
 }
 
-const chuanHoaLichSu = (kq) => ({ items: Array.isArray(kq?.items) ? kq.items : [], tomTat: kq?.tomTat ?? {} });
+const chuanHoaLichSu = (kq) => ({ items: Array.isArray(kq?.items) ? kq.items : [] });
+const ngayTuDiaChi = (v) => (NGAY.test(v ?? '') ? v : '');
 
-async function taiLichSu(khoang, tuKhoa) {
-    const thamSo = { tuNgay: tuNgayTheoKhoang(khoang), tuKhoa };
+async function taiLichSu(tuNgay, denNgay, tuKhoa) {
+    const thamSo = { tuNgay, denNgay, tuKhoa };
     const [baoGia, traHang] = await Promise.all([
         congNhaCungCapService.lichSuBaoGia(thamSo),
         congNhaCungCapService.lichSuTraHang(thamSo),
@@ -55,17 +58,24 @@ const CAC_THE = [
 ];
 
 /**
- * Cổng nhà cung cấp · Lịch sử (/supplier/portal/history?the=bao-gia|tra-hang&khoang=1|6|12&q=):
- * hai thẻ Báo giá / Hàng lỗi trả lại, ô tìm (gõ là lọc, chờ 300ms), khoảng thời gian, dải 4 số tóm tắt, bảng (máy tính)
- * hoặc thẻ (điện thoại). Bấm dòng báo giá → trang báo giá đơn đó; bấm dòng biên bản → trang biên bản.
+ * Cổng nhà cung cấp · Lịch sử (/supplier/portal/history?the=bao-gia|tra-hang&q=&tu=&den=&trang=&so=): cả trang trong
+ * MỘT khối trắng như màn Cần xử lý — tiêu đề, thanh lọc (nút Báo giá / Hàng lỗi trả lại, ô tìm gõ là lọc sau 300ms,
+ * ô khoảng ngày dùng chung LocKhoangNgay + "Xóa lọc"), bảng (máy tính) hoặc thẻ (điện thoại), chân bảng phân trang.
+ * Mặc định mọi thời gian; báo giá lọc theo ngày yêu cầu, biên bản theo ngày lập. Máy chủ trả hết dòng khớp, trang tự
+ * chia trang (số trang, số dòng lưu trên địa chỉ để Quay lại đúng chỗ).
  */
 export default function CongLichSu() {
     const { phien, hetPhien, thoat } = useCongNcc();
     const navigate = useNavigate();
     const [thamSo, setThamSo] = useSearchParams();
     const the = thamSo.get('the') === 'tra-hang' ? 'tra-hang' : 'bao-gia';
-    const khoang = chuanHoaKhoang(thamSo.get('khoang'));
     const tuKhoa = thamSo.get('q') ?? '';
+    const tuNgay = ngayTuDiaChi(thamSo.get('tu'));
+    const denNgay = ngayTuDiaChi(thamSo.get('den'));
+    const soDongDiaChi = Number(thamSo.get('so'));
+    const soDong = LUA_CHON_SO_DONG.includes(soDongDiaChi) ? soDongDiaChi : SO_DONG_MAC_DINH;
+    const trangDiaChi = Math.max(0, (Number.parseInt(thamSo.get('trang'), 10) || 1) - 1);
+    const dauBangRef = useRef(null);
     const [oTim, setOTim] = useState(tuKhoa);
     // Ô tìm theo ?q hai chiều: ?q đổi từ ngoài (bấm tab Lịch sử trên thanh trên, Quay lại…) thì ô đổi theo, không ghi
     // từ khóa cũ trở lại. Chỉnh state ngay lúc vẽ (cách React khuyên) để hiệu ứng chờ gõ bên dưới thấy giá trị mới.
@@ -74,10 +84,10 @@ export default function CongLichSu() {
         setQDaThay(tuKhoa);
         if (oTim.trim() !== tuKhoa.trim()) setOTim(tuKhoa);
     }
-    // Tải cả hai thẻ một lần (cùng khoảng thời gian và từ khóa): đổi thẻ không phải chờ, và thẻ nào cũng có số kết quả
+    // Tải cả hai thẻ một lần (cùng khoảng ngày và từ khóa): đổi thẻ không phải chờ, và thẻ nào cũng có số kết quả
     const { data, error, loading, dungKhoa, reload } = useTaiDuLieu(
-        () => taiLichSu(khoang, tuKhoa),
-        `${khoang}|${tuKhoa.trim()}`,
+        () => taiLichSu(tuNgay, denNgay, tuKhoa),
+        `${tuNgay}|${denNgay}|${tuKhoa.trim()}`,
         { enabled: Boolean(phien) },
     );
     const loiTai = error ? xuLyLoiTai(error) : null;
@@ -89,31 +99,48 @@ export default function CongLichSu() {
         if (loiTai?.loai === 'phien-het-han') hetPhien();
     }, [loiTai?.loai, hetPhien]);
 
-    // Gõ là lọc: chờ 300ms sau phím cuối mới đổi từ khóa trên địa chỉ (và gọi máy chủ)
+    // Gõ là lọc: chờ 300ms sau phím cuối mới đổi từ khóa trên địa chỉ (và gọi máy chủ), về trang 1
     useEffect(() => {
         if (oTim.trim() === tuKhoa.trim()) return undefined;
-        const hen = setTimeout(() => setThamSo(datThamSo(thamSo, { q: oTim.trim() || null }), { replace: true }), TRE_TIM);
+        const hen = setTimeout(() => setThamSo(datThamSo(thamSo, { q: oTim.trim() || null, trang: null }), { replace: true }), TRE_TIM);
         return () => clearTimeout(hen);
     }, [oTim, tuKhoa, thamSo, setThamSo]);
 
-    const doiThamSo = (moi) => setThamSo(datThamSo(thamSo, moi), { replace: true });
+    // Đổi bộ lọc thì về trang 1; chỉ đổi trang thì giữ bộ lọc
+    const doiThamSo = (moi) => setThamSo(datThamSo(thamSo, { trang: null, ...moi }), { replace: true });
+    const doiTrang = (trang) => {
+        setThamSo(datThamSo(thamSo, { trang: trang > 0 ? String(trang + 1) : null }), { replace: true });
+        // Đang cuộn quá đầu bảng thì đưa đầu bảng lên; bảng còn trong màn thì không nhảy
+        const dau = dauBangRef.current;
+        if (dau && dau.getBoundingClientRect().top < 0) {
+            const giam = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+            dau.scrollIntoView({ block: 'start', behavior: giam ? 'auto' : 'smooth' });
+        }
+    };
     const demThe = { 'bao-gia': data?.baoGia.items.length ?? null, 'tra-hang': data?.traHang.items.length ?? null };
 
     if (!phien) return null;
     const traHang = the === 'tra-hang';
-    const dangLoc = Boolean(tuKhoa.trim());
+    const dangTim = Boolean(tuKhoa.trim());
+    const dangLocNgay = Boolean(tuNgay || denNgay);
+    const xoaLocNgay = () => doiThamSo({ tu: null, den: null });
+
+    const tong = duLieu?.items.length ?? 0;
+    const soTrang = Math.max(1, Math.ceil(tong / soDong));
+    const trang = Math.min(trangDiaChi, soTrang - 1);
+    const dongTrang = duLieu ? duLieu.items.slice(trang * soDong, (trang + 1) * soDong) : [];
 
     return (
         <KhungCongNhaCungCap tenNhaCungCap={phien.nhaCungCap?.ten} email={phien.nhaCungCap?.email} onThoat={thoat} tab="lich-su">
-            <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-4 p-4 md:gap-5 md:p-6">
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-xl leading-7 font-bold tracking-tight text-bo-heading md:text-2xl md:leading-8">{t("Lịch sử")}</h1>
-                    <p className="text-sm text-slate-600">{t("Các đơn Quý công ty đã báo giá và biên bản hàng lỗi chúng tôi đã lập.")}</p>
-                </div>
+            <main className="mx-auto w-full max-w-[1600px] flex-1 p-4 md:p-6">
+                <div className="overflow-hidden rounded-xl border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+                    <div className="px-4 pt-5 pb-4 md:px-6 md:pt-6">
+                        <h1 className={TIEU_DE_TRANG}>{t("Lịch sử báo giá và hàng lỗi")}</h1>
+                    </div>
 
-                <section className={cn(THE, 'overflow-hidden')}>
-                    <div className="flex flex-col gap-3 border-b border-bo-border px-4 py-3 md:flex-row md:items-center md:justify-between md:px-5">
-                        <div role="tablist" aria-label={t("Loại lịch sử")} className="inline-flex w-full rounded-lg bg-bo-surface-subtle p-1 md:w-auto">
+                    {/* Thanh lọc: cùng kiểu nút lọc + ô tìm của Cần xử lý; ô khoảng ngày ở cuối hàng */}
+                    <div className="flex flex-col gap-3 border-y border-bo-border px-4 py-2.5 md:px-6 lg:flex-row lg:items-center lg:justify-between">
+                        <div role="tablist" aria-label={t("Loại lịch sử")} className="-mx-1 flex gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                             {CAC_THE.map(({ ma, ten }) => {
                                 const bat = the === ma;
                                 return (
@@ -128,141 +155,140 @@ export default function CongLichSu() {
                                             if (!bat) doiThamSo({ the: ma === 'tra-hang' ? ma : null });
                                         }}
                                         className={cn(
-                                            'flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md px-3.5 text-sm font-semibold whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40 md:flex-none',
-                                            bat ? 'bg-bo-surface text-bo-heading shadow-sm' : 'text-bo-muted hover:text-bo-foreground',
+                                            'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30',
+                                            bat ? 'bg-bo-primary-soft text-bo-primary' : 'text-slate-600 hover:bg-slate-100 hover:text-bo-foreground',
                                         )}
                                     >
                                         {ten()}
-                                        {demThe[ma] != null ? <span className="text-xs font-medium tabular-nums text-bo-muted">{demThe[ma]}</span> : null}
+                                        {demThe[ma] != null ? <span className={cn('tabular-nums', !bat && 'text-bo-muted')}>{formatNumber(demThe[ma])}</span> : null}
                                     </button>
                                 );
                             })}
                         </div>
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                            <label className="relative block sm:w-[280px]">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <label className="relative block sm:w-64">
                                 <span className="sr-only">{traHang ? t("Tìm mã biên bản, mã đơn") : t("Tìm mã đơn mua")}</span>
-                                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-bo-muted" aria-hidden="true" />
+                                <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-bo-muted" aria-hidden="true" />
                                 <input
                                     type="search"
                                     value={oTim}
                                     onChange={(e) => setOTim(e.target.value)}
                                     placeholder={traHang ? t("Tìm mã biên bản, mã đơn") : t("Tìm mã đơn mua")}
                                     maxLength={100}
-                                    className="h-10 w-full rounded-md border border-bo-border bg-bo-surface pr-3 pl-9 text-base placeholder:text-bo-muted focus-visible:border-bo-primary focus-visible:ring-2 focus-visible:ring-bo-primary/15 focus-visible:outline-none sm:h-9 md:text-sm"
+                                    className="h-9 w-full rounded-md border border-bo-input-border bg-bo-surface pr-3 pl-8 text-base placeholder:text-slate-400 focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/20 md:text-sm"
                                 />
                             </label>
-                            <select
-                                value={khoang}
-                                aria-label={t("Khoảng thời gian")}
-                                onChange={(e) => doiThamSo({ khoang: e.target.value === '6' ? null : e.target.value })}
-                                className="h-10 rounded-md border border-bo-border bg-bo-surface px-3 text-base text-bo-foreground focus-visible:border-bo-primary focus-visible:ring-2 focus-visible:ring-bo-primary/15 focus-visible:outline-none sm:h-9 sm:w-[180px] md:text-sm"
-                            >
-                                {KHOANG_LICH_SU.map((k) => (
-                                    <option key={k} value={k}>{tenKhoang(k)}</option>
-                                ))}
-                            </select>
+                            <div className="flex items-center gap-1">
+                                <LocKhoangNgay
+                                    nhan={traHang ? t("Ngày lập") : t("Ngày yêu cầu")}
+                                    tuNgay={tuNgay}
+                                    denNgay={denNgay}
+                                    onDoi={({ tuNgay: tu, denNgay: den }) => doiThamSo({ tu, den })}
+                                    canHop="end"
+                                    className="min-w-0 flex-1 sm:flex-none"
+                                />
+                                {dangLocNgay ? (
+                                    <Button type="button" variant="ghost" onClick={xoaLocNgay} className="h-9 shrink-0 gap-1 px-2 text-[13px] font-medium text-slate-600 hover:bg-slate-100 hover:text-bo-foreground">
+                                        <X className="size-3.5" aria-hidden="true" /> {t("Xóa lọc")}
+                                    </Button>
+                                ) : null}
+                            </div>
                         </div>
                     </div>
 
                     <div
+                        ref={dauBangRef}
                         id="ls-noi-dung"
                         role="tabpanel"
                         aria-labelledby={`ls-the-${the}`}
                         aria-busy={loading || undefined}
-                        className={cn('transition-opacity', loading && !dungKhoa && duLieu && 'opacity-60')}
+                        className={cn('scroll-mt-4 transition-opacity', loading && !dungKhoa && duLieu && 'opacity-60')}
                     >
                         {/* Lỗi của lần tải theo bộ lọc đang chọn: báo lỗi, không để bảng của bộ lọc cũ như thể là kết quả */}
                         {loiTai && (!duLieu || !dungKhoa) ? (
-                            <div className="p-4 md:p-5">
+                            <div className="p-4 md:p-6">
                                 <KhungLoiTai cau={loiTai.cau} onThuLai={reload} />
                             </div>
                         ) : !duLieu ? (
                             <KhungXuongCong kieu="bang" />
+                        ) : tong === 0 ? (
+                            <Rong
+                                dangTim={dangTim}
+                                dangLocNgay={dangLocNgay}
+                                traHang={traHang}
+                                onBoTim={() => {
+                                    setOTim('');
+                                    doiThamSo({ q: null });
+                                }}
+                                onXoaLocNgay={xoaLocNgay}
+                            />
                         ) : (
                             <>
-                                <DaiSo traHang={traHang} tomTat={duLieu.tomTat} />
-                                {duLieu.items.length === 0 ? (
-                                    <Rong
-                                        dangLoc={dangLoc}
-                                        traHang={traHang}
-                                        khoang={khoang}
-                                        onBoLoc={() => {
-                                            setOTim('');
-                                            doiThamSo({ q: null });
-                                        }}
-                                        onMoRong={khoang !== '12' ? () => doiThamSo({ khoang: '12' }) : null}
-                                    />
-                                ) : traHang ? (
-                                    <BangTraHang ds={duLieu.items} onMo={(id) => navigate(duongDanBienBan(id))} />
+                                {traHang ? (
+                                    <BangTraHang ds={dongTrang} onMo={(id) => navigate(duongDanBienBan(id))} />
                                 ) : (
-                                    <BangBaoGia ds={duLieu.items} onMo={(id) => navigate(duongDanBaoGia(id))} />
+                                    <BangBaoGia ds={dongTrang} onMo={(id) => navigate(duongDanBaoGia(id))} />
                                 )}
-                                <ChanBang tong={duLieu.items.length} khoang={khoang} tenNcc={phien.nhaCungCap?.ten} />
+                                <div className="border-t border-bo-border px-4 py-3 md:px-6">
+                                    <TablePagination
+                                        page={trang}
+                                        size={soDong}
+                                        total={tong}
+                                        onPageChange={doiTrang}
+                                        onSizeChange={(so) => doiThamSo({ so: so === SO_DONG_MAC_DINH ? null : String(so) })}
+                                        canGiua
+                                    />
+                                </div>
                             </>
                         )}
                     </div>
-                </section>
+                </div>
             </main>
         </KhungCongNhaCungCap>
     );
 }
 
-function DaiSo({ traHang, tomTat }) {
-    const tt = tomTat ?? {};
-    const o = traHang
-        ? [
-              [t("Biên bản"), formatNumber(tt.bienBan)],
-              [t("Sản phẩm lỗi"), formatNumber(tt.sanPhamLoi)],
-              [t("Đã trừ tiền"), formatCurrency(tt.tienTru)],
-              [t("Chờ bạn chọn"), formatNumber(tt.choChon), Number(tt.choChon) > 0],
-          ]
-        : [
-              [t("Đã báo giá"), formatNumber(tt.daBaoGia)],
-              [t("Được chấp nhận"), formatNumber(tt.duocChapNhan)],
-              [t("Không chấp nhận"), formatNumber(tt.khongChapNhan)],
-              [t("Chờ báo giá"), formatNumber(tt.choBaoGia), Number(tt.choBaoGia) > 0],
-          ];
+/** Trống: chưa có gì (không lọc) · không có trong khoảng ngày · không khớp từ khóa. Nút gỡ đúng bộ lọc đang chặn. */
+function Rong({ dangTim, dangLocNgay, traHang, onBoTim, onXoaLocNgay }) {
+    const Icon = dangTim ? SearchX : dangLocNgay ? CalendarX : Inbox;
+    const tieuDe = dangTim
+        ? t("Không có kết quả khớp từ khóa")
+        : dangLocNgay
+          ? traHang
+              ? t("Không có biên bản hàng lỗi trong khoảng ngày đã chọn")
+              : t("Không có yêu cầu báo giá trong khoảng ngày đã chọn")
+          : traHang
+            ? t("Chưa có biên bản hàng lỗi nào")
+            : t("Chưa có yêu cầu báo giá nào");
+    const moTa = dangTim
+        ? dangLocNgay
+            ? t("Kiểm tra lại mã vừa gõ, hoặc xóa lọc ngày để tìm cả chứng từ cũ.")
+            : t("Kiểm tra lại mã vừa gõ.")
+        : dangLocNgay
+          ? t("Xóa lọc ngày để xem tất cả chứng từ.")
+          : traHang
+            ? t("Khi chúng tôi lập biên bản hàng lỗi, biên bản sẽ hiện ở đây.")
+            : t("Khi chúng tôi gửi yêu cầu báo giá, đơn sẽ hiện ở đây.");
     return (
-        <dl className="grid grid-cols-2 border-b border-bo-border md:grid-cols-4">
-            {o.map(([nhan, giaTri, nhanManh], i) => (
-                <div
-                    key={nhan}
-                    className={cn('min-w-0 border-bo-border px-4 py-3 md:px-5', i % 2 === 1 && 'border-l', i >= 2 && 'max-md:border-t md:border-l')}
-                >
-                    <dt className="text-xs text-bo-muted">{nhan}</dt>
-                    <dd className={cn('mt-0.5 truncate text-lg leading-6 font-bold tabular-nums', nhanManh ? 'text-bo-warning' : 'text-bo-heading')}>{giaTri}</dd>
-                </div>
-            ))}
-        </dl>
-    );
-}
-
-function Rong({ dangLoc, traHang, khoang, onBoLoc, onMoRong }) {
-    return (
-        <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
-            <span className="grid size-10 place-items-center rounded-full bg-bo-surface-subtle text-bo-muted">
-                {dangLoc ? <SearchX className="size-5" aria-hidden="true" /> : <Inbox className="size-5" aria-hidden="true" />}
+        <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+            <span className="grid size-11 place-items-center rounded-full bg-bo-surface-subtle text-bo-muted">
+                <Icon className="size-5" aria-hidden="true" />
             </span>
-            <p className="text-[15px] font-semibold text-bo-heading">
-                {dangLoc
-                    ? t("Không có kết quả khớp từ khóa")
-                    : traHang
-                      ? t("Chưa có biên bản hàng lỗi trong {{khoang}}", { khoang: tenKhoang(khoang).toLocaleLowerCase('vi') })
-                      : t("Chưa có yêu cầu báo giá trong {{khoang}}", { khoang: tenKhoang(khoang).toLocaleLowerCase('vi') })}
-            </p>
-            <p className="max-w-md text-sm leading-[22px] text-slate-600">
-                {dangLoc
-                    ? t("Kiểm tra lại mã vừa gõ, hoặc bỏ từ khóa để xem tất cả.")
-                    : t("Chọn khoảng thời gian dài hơn để xem các chứng từ cũ.")}
-            </p>
-            {dangLoc ? (
-                <Button type="button" variant="outline" onClick={onBoLoc} className="mt-1 h-10 border-bo-border bg-bo-surface px-4 text-bo-foreground hover:bg-bo-surface-subtle">
-                    {t("Bỏ từ khóa")}
-                </Button>
-            ) : onMoRong ? (
-                <Button type="button" variant="outline" onClick={onMoRong} className="mt-1 h-10 border-bo-border bg-bo-surface px-4 text-bo-foreground hover:bg-bo-surface-subtle">
-                    {t("Xem 12 tháng gần nhất")}
-                </Button>
+            <h2 className="text-base font-semibold text-bo-heading">{tieuDe}</h2>
+            <p className="max-w-md text-sm leading-[22px] text-slate-600">{moTa}</p>
+            {dangTim || dangLocNgay ? (
+                <div className="mt-1 flex flex-wrap justify-center gap-2">
+                    {dangTim ? (
+                        <Button type="button" variant="outline" onClick={onBoTim} className={NUT_PHU}>
+                            {t("Bỏ từ khóa")}
+                        </Button>
+                    ) : null}
+                    {dangLocNgay ? (
+                        <Button type="button" variant="outline" onClick={onXoaLocNgay} className={NUT_PHU}>
+                            {t("Xóa lọc ngày")}
+                        </Button>
+                    ) : null}
+                </div>
             ) : null}
         </div>
     );
@@ -287,19 +313,19 @@ function BangBaoGia({ ds, onMo }) {
                 <table className="w-full min-w-[760px] text-sm">
                     <thead>
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                            <th scope="col" className={TIEU_DE_COT}>{t("Đơn mua", { context: "nhan" })}</th>
+                            <th scope="col" className={cn(TIEU_DE_COT, COT_DAU)}>{t("Đơn mua", { context: "nhan" })}</th>
                             <th scope="col" className={TIEU_DE_COT}>{t("Ngày yêu cầu")}</th>
                             <th scope="col" className={TIEU_DE_COT}>{t("Ngày báo giá")}</th>
                             <th scope="col" className={cn(TIEU_DE_COT, 'text-right')}>{t("Mặt hàng")}</th>
                             <th scope="col" className={cn(TIEU_DE_COT, 'text-right')}>{t("Tổng báo giá")}</th>
                             <th scope="col" className={TIEU_DE_COT}>{t("Kết quả")}</th>
-                            <th scope="col" className="w-10"><span className="sr-only">{t("Mở")}</span></th>
+                            <th scope="col" className="w-12"><span className="sr-only">{t("Mở")}</span></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-bo-border">
                         {ds.map((d) => (
                             <tr key={d.id} onClick={moKhiBamDong(onMo, d.id)} className="cursor-pointer hover:bg-bo-surface-subtle/60">
-                                <td className="h-14 px-4">
+                                <td className={cn('h-14 px-4', COT_DAU)}>
                                     <Link to={duongDanBaoGia(d.id)} className={LIEN_KET_O}>{d.soDonMua}</Link>
                                 </td>
                                 <td className="px-4 tabular-nums text-slate-600">{formatDate(d.ngayYeuCau)}</td>
@@ -309,7 +335,7 @@ function BangBaoGia({ ds, onMo }) {
                                     {d.tongTien != null ? formatCurrency(d.tongTien) : <span className="font-normal text-bo-muted">—</span>}
                                 </td>
                                 <td className="px-4"><KetQua ketQua={d.ketQua} /></td>
-                                <td className="px-2 text-bo-muted"><ChevronRight className="size-4" aria-hidden="true" /></td>
+                                <td className="pr-4 pl-2 text-bo-muted md:pr-6"><ChevronRight className="ml-auto size-4" aria-hidden="true" /></td>
                             </tr>
                         ))}
                     </tbody>
@@ -406,19 +432,19 @@ function BangTraHang({ ds, onMo }) {
                 <table className="w-full min-w-[820px] text-sm">
                     <thead>
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
-                            <th scope="col" className={TIEU_DE_COT}>{t("Biên bản")}</th>
+                            <th scope="col" className={cn(TIEU_DE_COT, COT_DAU)}>{t("Biên bản")}</th>
                             <th scope="col" className={TIEU_DE_COT}>{t("Ngày lập")}</th>
                             <th scope="col" className={TIEU_DE_COT}>{t("Đơn mua", { context: "nhan" })}</th>
                             <th scope="col" className={cn(TIEU_DE_COT, 'text-right')}>{t("SP lỗi")}</th>
                             <th scope="col" className={TIEU_DE_COT}>{t("Cách xử lý")}</th>
                             <th scope="col" className={TIEU_DE_COT}>{t("Hàng lỗi")}</th>
-                            <th scope="col" className="w-10"><span className="sr-only">{t("Mở")}</span></th>
+                            <th scope="col" className="w-12"><span className="sr-only">{t("Mở")}</span></th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-bo-border">
                         {ds.map((b) => (
                             <tr key={b.id} onClick={moKhiBamDong(onMo, b.id)} className={cn('cursor-pointer hover:bg-bo-surface-subtle/60', b.daHuy && 'text-bo-muted')}>
-                                <td className="h-14 px-4">
+                                <td className={cn('h-14 px-4', COT_DAU)}>
                                     <Link to={duongDanBienBan(b.id)} className={LIEN_KET_O}>{b.soBienBan}</Link>
                                 </td>
                                 <td className="px-4 tabular-nums text-slate-600">{formatDate(b.ngayLap)}</td>
@@ -426,7 +452,7 @@ function BangTraHang({ ds, onMo }) {
                                 <td className="px-4 text-right font-semibold tabular-nums">{formatNumber(b.soLuongLoi)}</td>
                                 <td className="px-4 py-2"><CachXuLy dong={b} lienKet /></td>
                                 <td className="px-4"><HangLoi dong={b} /></td>
-                                <td className="px-2 text-bo-muted"><ChevronRight className="size-4" aria-hidden="true" /></td>
+                                <td className="pr-4 pl-2 text-bo-muted md:pr-6"><ChevronRight className="ml-auto size-4" aria-hidden="true" /></td>
                             </tr>
                         ))}
                     </tbody>
@@ -456,18 +482,5 @@ function BangTraHang({ ds, onMo }) {
                 ))}
             </ul>
         </>
-    );
-}
-
-function ChanBang({ tong, khoang, tenNcc }) {
-    return (
-        <div className="flex flex-col gap-1 border-t border-bo-border px-4 py-3 text-[13px] text-bo-muted sm:flex-row sm:items-center sm:justify-between md:px-5">
-            <span>{t("{{count}} kết quả trong {{khoang}}", { count: tong, khoang: tenKhoang(khoang).toLocaleLowerCase('vi') })}</span>
-            {tenNcc ? (
-                <span className="inline-flex items-center gap-1.5">
-                    <Inbox className="size-4 shrink-0" aria-hidden="true" /> {t("Chỉ hiện chứng từ của {{ten}}", { ten: tenNcc })}
-                </span>
-            ) : null}
-        </div>
     );
 }

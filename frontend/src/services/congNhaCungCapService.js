@@ -61,18 +61,19 @@ const congNhaCungCapService = {
     /** { phuongAn: "DOI_HANG" | "TRU_CONG_NO", nguoiXacNhan, ghiChu } → BienBanCong sau khi ghi nhận. */
     xacNhanBienBan: async (id, payload) => data(await apiCong.post(`/bien-ban/${encodeURIComponent(id)}/xac-nhan`, payload)),
 
-    /** { items, tomTat } */
-    lichSuBaoGia: async ({ tuNgay, tuKhoa }, signal) =>
-        data(await apiCong.get('/lich-su/bao-gia', { params: thamSoLichSu(tuNgay, tuKhoa), signal })),
+    /** { items, tomTat }. tuNgay / denNgay yyyy-mm-dd, bỏ trống = không giới hạn đầu đó (cả hai trống: mọi thời gian). */
+    lichSuBaoGia: async ({ tuNgay, denNgay, tuKhoa }, signal) =>
+        data(await apiCong.get('/lich-su/bao-gia', { params: thamSoLichSu(tuNgay, denNgay, tuKhoa), signal })),
 
-    /** { items, tomTat } */
-    lichSuTraHang: async ({ tuNgay, tuKhoa }, signal) =>
-        data(await apiCong.get('/lich-su/tra-hang', { params: thamSoLichSu(tuNgay, tuKhoa), signal })),
+    /** { items, tomTat }; tham số như lichSuBaoGia. */
+    lichSuTraHang: async ({ tuNgay, denNgay, tuKhoa }, signal) =>
+        data(await apiCong.get('/lich-su/tra-hang', { params: thamSoLichSu(tuNgay, denNgay, tuKhoa), signal })),
 };
 
-function thamSoLichSu(tuNgay, tuKhoa) {
+function thamSoLichSu(tuNgay, denNgay, tuKhoa) {
     const p = {};
     if (tuNgay) p.tuNgay = tuNgay;
+    if (denNgay) p.denNgay = denNgay;
     const k = String(tuKhoa ?? '').trim();
     if (k) p.tuKhoa = k;
     return p;

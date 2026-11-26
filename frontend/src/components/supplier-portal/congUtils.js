@@ -25,35 +25,11 @@ export const GHI_CHU_BIEN_BAN_TOI_DA = 255;
 /** Bộ đếm ký tự ghi chú chỉ hiện khi gần chạm giới hạn. */
 export const GHI_CHU_BIEN_BAN_HIEN_DEM = 200;
 
-/** Khoảng thời gian của trang Lịch sử (số tháng; 1 = 30 ngày). Mặc định 6 tháng như máy chủ. */
-export const KHOANG_LICH_SU = Object.freeze(["1", "6", "12"]);
-export const KHOANG_MAC_DINH = "6";
-export const chuanHoaKhoang = (k) => (KHOANG_LICH_SU.includes(String(k)) ? String(k) : KHOANG_MAC_DINH);
-
-/** Tên khoảng thời gian ("30 ngày gần nhất"…), dùng ở ô chọn và chân bảng. */
-export function tenKhoang(k) {
-  const khoang = chuanHoaKhoang(k);
-  if (khoang === "1") return t("30 ngày gần nhất");
-  return khoang === "12" ? t("12 tháng gần nhất") : t("6 tháng gần nhất");
-}
-
 const pad2 = (n) => String(n).padStart(2, "0");
 /** yyyy-MM-dd theo giờ Việt Nam. */
 export function ngayVietNam(d) {
   const vn = new Date(d.getTime() + 7 * 3600e3);
   return `${vn.getUTCFullYear()}-${pad2(vn.getUTCMonth() + 1)}-${pad2(vn.getUTCDate())}`;
-}
-
-/** `tuNgay` gửi máy chủ: 30 ngày trước / 6 tháng trước / 12 tháng trước (theo ngày Việt Nam). */
-export function tuNgayTheoKhoang(k, bayGio = new Date()) {
-  const khoang = chuanHoaKhoang(k);
-  if (khoang === "1") return ngayVietNam(new Date(bayGio.getTime() - 30 * 86400e3));
-  const [y, m, d] = ngayVietNam(bayGio).split("-").map(Number);
-  // Lùi số tháng, ngày vượt cuối tháng thì lấy ngày cuối tháng (31/08 lùi 6 tháng → 28 hoặc 29/02)
-  const thang = m - 1 - Number(khoang);
-  const cuoiThang = new Date(Date.UTC(y, thang + 1, 0)).getUTCDate();
-  const kq = new Date(Date.UTC(y, thang, Math.min(d, cuoiThang)));
-  return `${kq.getUTCFullYear()}-${pad2(kq.getUTCMonth() + 1)}-${pad2(kq.getUTCDate())}`;
 }
 
 /** Số việc trên tab "Cần xử lý": biên bản chờ chọn + đơn chờ báo giá. */
