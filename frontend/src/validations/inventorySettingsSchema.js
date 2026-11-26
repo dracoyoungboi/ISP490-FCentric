@@ -77,6 +77,8 @@ export const INVENTORY_SETTINGS = [
   { code: "TEM_IN_TEN_CUA_HANG", label: t("In tên cửa hàng"), unit: "", group: "label", type: "BOOLEAN" },
   { code: "TEM_IN_SKU", label: t("In SKU"), unit: "", group: "label", type: "BOOLEAN" },
   { code: "TEM_NGUONG_XAC_NHAN", label: t("Ngưỡng hỏi xác nhận"), unit: t("tem", { context: "don_vi" }), group: "label", min: 1, max: 9999 },
+  // Hạn báo giá nhà cung cấp = ngày gửi yêu cầu + số ngày này (HanBaoGia ở máy chủ); chốt cho từng đơn lúc gửi
+  { code: "RFQ_RESPONSE_DAYS", label: t("Số ngày chờ báo giá"), unit: t("ngày", { context: "don_vi" }), group: "purchasing", min: 1, max: 30 },
   {
     // Ký hiệu phiếu xuất kho kiêm vận chuyển nội bộ điền sẵn ở hộp Xác nhận xuất của phiếu chuyển kho; trống = chưa có
     code: "XKNB_KY_HIEU_MAC_DINH",
@@ -174,6 +176,9 @@ export function moTaTacDong(code, value) {
         : [t("Chưa đặt: "), t("người xuất tự gõ ký hiệu"), t(" ở hộp Xác nhận xuất, hệ thống điền số tiếp theo khi ký hiệu đủ 7 ký tự. Ví dụ 6K26NAB: 6 mẫu số, K không mã, 26 năm, N phiếu XKNB, AB công ty tự đặt.")];
     case "XKNB_CHE_DO":
       return [t("Phiếu XKNB lập ngoài F Centric (phần mềm hóa đơn điện tử của công ty); F Centric ghi lại ký hiệu và số. Đổi cách này thì áp dụng từ "), t("lần xác nhận xuất kế tiếp"), "."];
+    case "RFQ_RESPONSE_DAYS":
+      // Hạn chốt cho từng đơn lúc gửi (lịch sử thay đổi), nên đơn đã gửi không đổi theo
+      return [t("Nhà cung cấp báo giá được đến "), t("hết ngày thứ {{so}} sau ngày gửi yêu cầu", { so: soVi(value) }), t(". Đổi số ngày chỉ áp dụng cho yêu cầu gửi sau; yêu cầu đã gửi giữ hạn đã ghi trong email nhà cung cấp nhận.")];
     case "CHUYEN_KHO_QUYEN_XU_LY_LECH":
       // Máy chủ đọc cấu hình mỗi lần mở / bấm, nên phiếu đang chờ cũng theo cách mới
       return [t("Phiếu nhận thiếu, hỏng chờ những người này chọn Ghi giảm hao hụt hoặc Giao bù; Quản trị viên luôn được. Đổi cách này "), t("áp dụng ngay"), t(" cho cả phiếu đang chờ.")];

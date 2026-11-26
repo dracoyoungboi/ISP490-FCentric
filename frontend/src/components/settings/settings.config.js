@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Barcode, Boxes, Calculator, CreditCard, FileText, IdCard, PackageCheck, Percent, Printer, RefreshCcw, Store } from "lucide-react";
+import { ArrowLeftRight, Barcode, Boxes, Calculator, CreditCard, FileText, Hourglass, IdCard, PackageCheck, Percent, Printer, RefreshCcw, Store } from "lucide-react";
 import { t } from "@/i18n";
 
 /**
@@ -16,6 +16,7 @@ const QLK = "quan_ly_kho";
 
 export const SETTINGS_GROUPS = [
   { key: "cua-hang", label: t("Cửa hàng") },
+  { key: "mua-hang", label: t("Mua hàng") },
   { key: "kho", label: t("Kho") },
   { key: "ban-hang", label: t("Bán hàng") },
   { key: "ke-toan", label: t("Kế toán") },
@@ -26,6 +27,8 @@ export const SETTINGS_PAGES = [
   { key: "store", label: t("Thông tin cửa hàng"), to: "/settings/store", group: "cua-hang", icon: Store, roles: [QTV, QLK], editRoles: [QTV] },
   // CauHinhMauInController: GET cho QTV và QLK; sửa, kích hoạt, xóa mẫu chỉ QTV (quản lý kho chỉ xem)
   { key: "print", label: t("Mẫu in"), to: "/settings/print-templates", group: "cua-hang", icon: Printer, roles: [QTV, QLK], editRoles: [QTV] },
+  // Số ngày chờ báo giá (RFQ_RESPONSE_DAYS) qua /dieu-hanh-he-thong/cau-hinh: GET cho QTV và QLK; PUT chỉ QTV
+  { key: "purchasing", label: t("Báo giá nhà cung cấp"), to: "/settings/purchasing", group: "mua-hang", icon: Hourglass, roles: [QTV, QLK], editRoles: [QTV] },
   // Sản phẩm, Nhập kho, Tồn kho, Khách hàng, Đồng bộ kênh bán: GET /dieu-hanh-he-thong/cau-hinh cho QTV và QLK; PUT chỉ QTV
   { key: "product", label: t("Sản phẩm"), to: "/settings/product", group: "kho", icon: Barcode, roles: [QTV, QLK], editRoles: [QTV] },
   { key: "inbound", label: t("Nhập kho"), to: "/settings/inbound", group: "kho", icon: PackageCheck, roles: [QTV, QLK], editRoles: [QTV] },

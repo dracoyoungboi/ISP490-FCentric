@@ -477,6 +477,7 @@ const CAY_DUONG_DAN = (
           <Route path="inbound" element={<OperationsSettingsPage key="inbound" part="inbound" />} />
           <Route path="documents" element={<OperationsSettingsPage key="documents" part="documents" />} />
           <Route path="transfer" element={<OperationsSettingsPage key="transfer" part="transfer" />} />
+          <Route path="purchasing" element={<OperationsSettingsPage key="purchasing" part="purchasing" />} />
           <Route path="store" element={<StoreSettingsPage />} />
           <Route path="payment" element={<PaymentSettingsPage />} />
           <Route path="vat" element={<VatSettingsPage />} />

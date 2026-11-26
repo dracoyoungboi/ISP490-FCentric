@@ -102,6 +102,17 @@ const PARTS = {
       roles: ["quan_tri_vien", "quan_ly_kho", "nhan_vien_kho"],
     },
   },
+  // Hạn nhà cung cấp được báo giá (HanBaoGia ở máy chủ): hết hạn thì đơn tự sang Hết hạn
+  purchasing: {
+    cardTitle: t("Hạn báo giá nhà cung cấp"),
+    scope: t("yêu cầu báo giá gửi sau khi lưu"),
+    footer: {
+      to: "/purchase-requests",
+      icon: ClipboardList,
+      title: t("Yêu cầu nhập hàng"),
+      description: t("Gửi yêu cầu báo giá từ yêu cầu đã duyệt; hạn hiện ở màn gửi và trong email nhà cung cấp nhận"),
+    },
+  },
   // Giấy đi đường của phiếu chuyển kho (đặc tả BA, B.3)
   documents: {
     cardTitle: t("Phiếu xuất kho kiêm vận chuyển nội bộ (XKNB)"),
