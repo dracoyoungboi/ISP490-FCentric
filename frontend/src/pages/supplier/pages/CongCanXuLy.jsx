@@ -177,7 +177,9 @@ function DanhSachViec({ viec }) {
         <>
             <NhacQuaHan ds={ds} dangLocQuaHan={loc === 'qua-han'} onXemQuaHan={() => doiLoc('qua-han')} />
             <div ref={dauDanhSachRef} className="flex scroll-mt-4 flex-col gap-3 border-y border-bo-border px-4 py-2.5 md:flex-row md:items-center md:justify-between md:px-6">
-                <div role="group" aria-label={t("Lọc theo loại việc")} className="-mx-1 flex gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {/* Nút lọc kiểu viên có viền (chốt 26/11): đang chọn viền xanh + quầng xanh mờ, số trên ô xanh nhạt;
+                    Quá hạn giữ số đỏ ở cả hai trạng thái. py-1 để quầng không bị khung cuộn ngang cắt. */}
+                <div role="group" aria-label={t("Lọc theo loại việc")} className="-mx-1 -my-1 flex gap-2 overflow-x-auto px-1 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {LOC.filter(({ ma }) => ma !== 'qua-han' || dem['qua-han'] > 0).map(({ ma, ten }) => {
                         const bat = loc === ma;
                         return (
@@ -187,12 +189,21 @@ function DanhSachViec({ viec }) {
                                 aria-pressed={bat}
                                 onClick={() => doiLoc(ma)}
                                 className={cn(
-                                    'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30',
-                                    bat ? 'bg-bo-primary-soft text-bo-primary' : 'text-slate-600 hover:bg-slate-100 hover:text-bo-foreground',
+                                    'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border bg-bo-surface px-3 text-[13px] transition-[color,background-color,border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 motion-reduce:transition-none',
+                                    bat
+                                        ? 'border-bo-primary font-semibold text-bo-primary-strong shadow-[0_0_0_3px_rgba(13,97,228,0.12)]'
+                                        : 'border-bo-border font-medium text-slate-600 shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:border-bo-input-border hover:bg-bo-surface-subtle hover:text-bo-foreground',
                                 )}
                             >
                                 {ten()}
-                                <span className={cn('tabular-nums', !bat && (ma === 'qua-han' ? 'text-bo-danger' : 'text-bo-muted'))}>{dem[ma]}</span>
+                                <span
+                                    className={cn(
+                                        'inline-flex h-[18px] min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums',
+                                        ma === 'qua-han' ? 'bg-bo-danger-soft text-bo-danger' : bat ? 'bg-bo-primary-soft text-bo-primary-strong' : 'bg-slate-100 text-slate-600',
+                                    )}
+                                >
+                                    {dem[ma]}
+                                </span>
                             </button>
                         );
                     })}
