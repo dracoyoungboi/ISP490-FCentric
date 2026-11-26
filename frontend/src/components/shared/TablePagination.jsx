@@ -9,6 +9,7 @@ import {
 import CapNhatLuc from "@/components/shared/CapNhatLuc";
 import { LUA_CHON_SO_DONG } from "@/constants/phanTrang";
 import { formatNumber } from "@/utils/formatters";
+import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 
 /**
@@ -21,6 +22,9 @@ import { t } from "@/i18n";
  * `capNhat` (kết quả của useTaiLaiDanhSach): thêm "Cập nhật lúc HH:mm" + nút ⟳ cạnh dòng tổng số (PA1).
  * Khi có `capNhat`, trang truyền footer cả lúc danh sách trống: chân bảng chỉ còn phần cập nhật,
  * vì danh sách trống chính là lúc người dùng chờ dữ liệu mới.
+ *
+ * `canGiua`: ba cụm ô số dòng (trái) · dòng tổng số (giữa) · nút trang (phải); chỉ một trang thì ẩn nút trang.
+ * Điện thoại xếp dọc, căn giữa. Dùng ở Cổng nhà cung cấp; trang quản trị giữ bố cục cũ.
  */
 export default function TablePagination({
   page,
@@ -36,6 +40,7 @@ export default function TablePagination({
   sizeMenuNote,
   extra,
   capNhat,
+  canGiua = false,
 }) {
   if (capNhat && total === 0) {
     return (
@@ -52,8 +57,14 @@ export default function TablePagination({
   const pageNumbers = dayTrang(page, totalPages);
 
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-wrap items-center gap-3">
+    <div
+      className={
+        canGiua
+          ? "grid grid-cols-1 items-center justify-items-center gap-3 sm:grid-cols-[1fr_auto_1fr]"
+          : "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+      }
+    >
+      <div className={cn("flex flex-wrap items-center gap-3", canGiua && "sm:justify-self-start")}>
         {onSizeChange ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -93,7 +104,7 @@ export default function TablePagination({
         {extra}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-1", canGiua && "justify-center text-center")}>
         <p className="text-xs text-bo-muted tabular-nums">
           {t("Hiển thị")} <span className="font-semibold text-bo-foreground">{formatNumber(from)}</span>
           {" – "}
@@ -110,7 +121,10 @@ export default function TablePagination({
         ) : null}
       </div>
 
-      <nav aria-label={t("Phân trang")} className="flex items-center gap-1">
+      <nav
+        aria-label={t("Phân trang")}
+        className={cn("flex items-center gap-1", canGiua && "sm:justify-self-end", canGiua && totalPages <= 1 && "max-sm:hidden sm:invisible")}
+      >
         <Button
           variant="outline"
           size="icon-sm"
