@@ -22,6 +22,11 @@ public class DonHangXuatKhoEventListener {
      * Lắng nghe sự kiện xuất kho sau khi transaction của cơ sở dữ liệu đã COMMIT thành công 100%.
      * Chạy bất đồng bộ (@Async) để không bao giờ làm block hay chậm luồng xử lý tại quầy kho.
      */
+    /**
+     * Chạy bất đồng bộ SAU KHI giao dịch xuất kho DB đã commit thành công (AFTER_COMMIT)
+     * để đẩy trạng thái "đang giao / đã xuất" + mã vận đơn lên sàn TMĐT,
+     * tránh khóa transaction kho nếu API sàn phản hồi chậm.
+     */
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleDonHangXuatKho(DonHangXuatKhoEvent event) {

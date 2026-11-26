@@ -14,6 +14,12 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Set;
 
+/**
+ * Dịch vụ cổng nhận Webhook Shopify (chạy trước khi đưa việc cho Worker):
+ * 1. Kiểm tra tên miền shop (`X-Shopify-Shop-Domain`) và giải mã secret từ bảng `kenh_ban_hang`.
+ * 2. Xác thực chữ ký `X-Shopify-Hmac-Sha256` bằng `MessageDigest.isEqual` (chống timing attack) trên raw bytes <= 2MB.
+ * 3. Băm `SHA-256` tạo `event_key` duy nhất, ghi bền vào `shopify_webhook_inbox` trước khi đánh thức `worker.kick()`, đồng thời đo Telemetry.
+ */
 @Service
 public class ShopifyWebhookService {
     public static final String PATH = "/api/v1/shopify/webhook";
@@ -38,6 +44,7 @@ public class ShopifyWebhookService {
         int httpStatus = 200;
         String errCategory = "NONE";
         try {
+            // Bước 1: Kiểm tra tên miền cửa hàng & tồn tại secret ký webhook trong DB
             var channel = connection.current();
             if (domain == null || !domain.equals(connection.domain(channel))) {
                 httpStatus = 401; errCategory = "AUTH_EXPIRED";
@@ -48,6 +55,7 @@ public class ShopifyWebhookService {
                 httpStatus = 503; errCategory = "SERVER_5XX";
                 throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE);
             }
+            // Bước 2: Chặn payload > 2MB và xác thực chữ ký HMAC-SHA256
             if (raw == null || raw.length > 2_000_000 || !verify(raw, signature, secret)) {
                 httpStatus = 401; errCategory = "AUTH_EXPIRED";
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
@@ -58,6 +66,7 @@ public class ShopifyWebhookService {
             }
             if (!TOPICS.contains(topic == null ? "" : topic)) return;
             try {
+                // Bước 3: Bóc tách referenceId (Order / FulfillmentOrder / Return) & băm event_key chống nhận trùng
                 JsonNode body = mapper.readTree(raw);
                 String type = "Order";
                 String id = body.path("order_id").asText("");
@@ -69,7 +78,7 @@ public class ShopifyWebhookService {
                 MessageDigest hash = MessageDigest.getInstance("SHA-256");
                 hash.update((domain + "\n" + topic + "\n" + deliveryId + "\n").getBytes(StandardCharsets.UTF_8));
                 String key = HexFormat.of().formatHex(hash.digest(raw));
-                inbox.accept(key, domain, type, id); // Committed before acknowledgement; never acknowledge an in-memory-only task.
+                inbox.accept(key, domain, type, id); // Phải commit xuống DB trước khi báo 200 OK cho Shopify
             } catch (ResponseStatusException failure) {
                 httpStatus = failure.getStatusCode().value();
                 errCategory = httpStatus >= 500 ? "SERVER_5XX" : "CLIENT_4XX";
@@ -81,8 +90,10 @@ public class ShopifyWebhookService {
                 httpStatus = 400; errCategory = "CLIENT_4XX";
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
             }
+            // Bước 4: Đánh thức Worker chạy nền kéo snapshot đơn hàng mới từ Shopify
             worker.kick();
         } finally {
+            // Ghi Telemetry WEBHOOK_IN bất đồng bộ phục vụ Màn 2 (OmnichannelAnalyticsPage)
             if (telemetryRecorder != null) {
                 int latencyMs = (int) Math.max(0L, (System.nanoTime() - startNs) / 1_000_000L);
                 telemetryRecorder.recordAsync(

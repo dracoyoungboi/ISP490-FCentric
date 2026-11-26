@@ -12,7 +12,10 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 
-/** Durable identifiers only: webhook customer/payment payloads are never stored. */
+/**
+ * Kho lưu idempotent sự kiện Webhook Shopify trong MySQL (`shopify_webhook_inbox`).
+ * Chỉ giữ định danh sự kiện (`event_key`, `shop_domain`, `reference_id`), không lưu payload khách hàng/thanh toán thô.
+ */
 @Repository
 @Slf4j
 public class ShopifyWebhookInbox {
@@ -25,8 +28,7 @@ public class ShopifyWebhookInbox {
             new ResourceDatabasePopulator(new ClassPathResource("db/shopify_realtime.sql")).execute(
                     java.util.Objects.requireNonNull(jdbc.getDataSource()));
         } catch (org.springframework.dao.DataAccessException failure) {
-            // A missing CREATE permission for this optional integration must not stop other sales channels.
-            // Receipts still return 503 if INSERT cannot persist; deployment can apply the bundled SQL separately.
+            // Thiếu quyền CREATE cho tính năng bổ sung không được làm sập khởi động các kênh khác.
             log.warn("[SHOPIFY-WEBHOOK] Apply db/shopify_realtime.sql before enabling delivery ({})", failure.getClass().getSimpleName());
         }
     }
@@ -37,16 +39,18 @@ public class ShopifyWebhookInbox {
         jdbc.queryForList("SELECT id FROM shopify_webhook_inbox LIMIT 1");
     }
 
+    // Ghi mới sự kiện trong giao dịch riêng REQUIRES_NEW; nếu trùng event_key (DuplicateKey) thì bỏ qua an toàn
     @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void accept(String key, String shop, String type, String reference) {
         try {
             jdbc.update("INSERT INTO shopify_webhook_inbox(event_key,shop_domain,reference_type,reference_id) VALUES (?,?,?,?)",
                     key, shop, type, reference);
         } catch (DuplicateKeyException duplicate) {
-            // Already durably accepted. Pending/failed deliveries remain eligible for processing.
+            // Đã ghi nhận trước đó rồi -> bỏ qua không tạo đơn trùng
         }
     }
 
+    // Lấy tối đa 25 dòng chưa hoàn tất và chưa có luồng nào giữ lease (hoặc lease đã hết hạn)
     public List<Delivery> pending() {
         return jdbc.query("SELECT id,shop_domain,reference_type,reference_id,attempts FROM shopify_webhook_inbox "
                         + "WHERE completed_at IS NULL AND available_at<=CURRENT_TIMESTAMP "

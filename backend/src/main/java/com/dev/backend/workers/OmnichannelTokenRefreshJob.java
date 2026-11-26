@@ -39,6 +39,7 @@ public class OmnichannelTokenRefreshJob {
     @Autowired(required = false)
     ThongBaoHeThongService thongBaoHeThongService;
 
+    // Chạy mỗi 30 phút (1.800.000 ms), mở phiên JPA thủ công quét các kênh active sắp hết hạn token để gia hạn trước
     @Scheduled(fixedDelay = 1_800_000, initialDelay = 60_000)
     public void kiemTraVaLamMoiToken() {
         DongBoNgayService.chayTrongPhienJpa(entityManagerFactory, () -> {
@@ -46,6 +47,7 @@ public class OmnichannelTokenRefreshJob {
             Instant tiktokSapHetHan = now.plus(Duration.ofDays(2));
             Instant shopeeSapHetHan = now.plus(Duration.ofHours(1));
 
+            // Chỉ quét các gian hàng đang bật (trang_thai = 1) và có hạn dùng token_expires_at
             List<KenhBanHang> dsKenh = kenhBanHangRepository.findByTrangThai(1);
             for (KenhBanHang kenh : dsKenh) {
                 if (kenh.getTokenExpiresAt() == null) continue;

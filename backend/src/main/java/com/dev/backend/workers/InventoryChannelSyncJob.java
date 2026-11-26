@@ -55,6 +55,11 @@ public class InventoryChannelSyncJob {
     /**
      * Trigger 1: Batch Scheduled - Heartbeat mỗi 60 giây, kiểm tra theo chu kỳ cấu hình OMNI_SYNC_INTERVAL_MINS
      */
+    /**
+     * Job quét định kỳ mỗi 60 giây (bắt đầu sau 60 giây khi khởi động):
+     * gom các SKU có biến động tồn kho để đẩy tồn theo lô (Delta Sync) lên các sàn đang bật,
+     * tránh spam API sàn khi nhiều đơn phát sinh liên tiếp.
+     */
     @Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
     public void scheduledInventoryBatchSync() {
         int intervalMins = 10;
@@ -120,6 +125,10 @@ public class InventoryChannelSyncJob {
     /**
      * Trigger 2: Real-time Event-driven - Bắt sự kiện khi tồn kho thực tế < REALTIME_SYNC_THRESHOLD
      * hoặc <= ngưỡng riêng Threshold_RT,k của SKU liên kết sàn.
+     */
+    /**
+     * Lắng nghe sự kiện trừ tồn kho nội bộ (InventoryDeductedEvent) khi có đơn xuất/giữ chỗ
+     * để đánh dấu SKU cần đồng bộ ngay lên các kênh bán hàng.
      */
     @EventListener
     public void onInventoryDeducted(InventoryDeductedEvent event) {

@@ -44,22 +44,26 @@ public class ShopifyWebhookWorker {
         catch (RuntimeException rejected) { running.set(false); }
     }
 
+    // Quét tối đa 20 lô x 25 dòng từ shopify_webhook_inbox -> claim lease -> gọi Shopify lấy snapshot mới -> lưu đơn & bắn SSE
     void drain() {
         try {
             for (int batch = 0; batch < 20; batch++) {
                 var deliveries = inbox.pending();
                 if (deliveries.isEmpty()) break;
                 for (var item : deliveries) {
+                    // Chiếm khóa dòng theo UUID phiên xử lý (lease 120s) để không 2 luồng cùng xử lý 1 sự kiện
                     String owner = UUID.randomUUID().toString();
                     if (!inbox.claim(item.id(), owner)) continue;
                     try {
+                        // Bảo vệ: bỏ qua sự kiện thuộc cửa hàng cũ nếu shop đã đổi hoặc ngắt kết nối
                         var channel = connection.current();
                         if (channel == null || !item.shop().equals(connection.domain(channel))) {
-                            inbox.complete(item.id(), owner); // Old/disconnected shop must never use the new shop's credentials.
+                            inbox.complete(item.id(), owner);
                             continue;
                         }
                         String token = credentials.getDecryptedShopifyAccessToken();
                         if (token == null || token.isBlank()) throw new IllegalStateException("Shopify disconnected");
+                        // Nhánh OutboundProgress: đồng bộ lại trạng thái IN_PROGRESS (fulfillmentOrderReportProgress) nếu kho còn giữ đơn
                         if ("OutboundProgress".equals(item.type())) {
                             var local = localOrders.findByKenhBanHangIdAndMaDonHangKenh(channel.getId(), item.reference()).orElse(null);
                             if (local != null && WAITING_STATES.contains(local.getTrangThai() == null ? -1 : local.getTrangThai())
@@ -68,11 +72,13 @@ public class ShopifyWebhookWorker {
                             realtime.changed();
                             continue;
                         }
+                        // Nhánh đơn hàng từ Webhook: kéo snapshot đầy đủ từ Shopify API, lưu DB và bắn SSE làm mới UI
                         var snapshot = client.fetch(item.shop(), token, item.type(), item.reference());
                         orders.processShopifyWebhookOrder(snapshot.order(), channel, snapshot.inProgress());
                         inbox.complete(item.id(), owner);
                         realtime.changed();
                     } catch (Exception failure) {
+                        // Lỗi mạng/rate limit -> tăng số lần thử và hẹn lịch thử lại theo backoff hàm mũ
                         inbox.retry(item, owner);
                         log.warn("[SHOPIFY-WEBHOOK] Delivery {} pending retry ({})", item.id(), failure.getClass().getSimpleName());
                     }

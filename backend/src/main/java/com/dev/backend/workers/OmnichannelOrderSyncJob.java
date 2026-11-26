@@ -60,9 +60,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * JOB-01 (SRS 12.1): Sync Omnichannel Orders.
- * Quét đơn hàng mới từ các kênh bán hàng (Shopify, Shopee, Lazada)
- * và đưa vào hệ thống FCentric với tiền tố mã đơn chuẩn (SHP-, SHO-, LZD-) ở trạng thái "Chờ xử lý" (0).
- * Chu kỳ quét chạy ĐỘNG theo cấu hình OMNI_SYNC_INTERVAL_MINS (mặc định 10 phút).
+ * Quét đơn hàng mới và cập nhật vòng đời đơn từ 4 sàn (Shopify, TikTok Shop, Lazada, Shopee)
+ * đưa vào bảng don_ban_hang (tiền tố SHP-, TKT-, LZD-, SHO-) với cơ chế cô lập lỗi từng kênh
+ * và định tuyến kho xuất tự động. Chu kỳ chạy động theo OMNI_SYNC_INTERVAL_MINS (mặc định 10 phút).
  */
 @Component
 @Slf4j
@@ -369,6 +369,10 @@ public class OmnichannelOrderSyncJob {
         return syncShopifyOrders(kenh, Instant.now().minus(Duration.ofMinutes(bufferMinutes)), null);
     }
 
+    /**
+     * Gọi REST Admin API Shopify (/orders.json?status=any&limit=50) theo cửa sổ updated_at,
+     * đồng thời gọi GraphQL bổ sung trạng thái hoàn trả và cập nhật/tạo đơn nội bộ FCentric.
+     */
     public int syncShopifyOrders(KenhBanHang kenh, Instant tuNgay, Instant denNgay) {
         String token = kenhBanHangService.getDecryptedShopifyAccessToken();
         if (token == null || token.isBlank()) {
