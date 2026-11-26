@@ -5,10 +5,9 @@ import ThanhTabCong from './ThanhTabCong';
 import { t } from "@/i18n";
 
 /**
- * Khung trang của cổng nhà cung cấp sau khi xác nhận mã: thanh trên (chữ "Cổng nhà cung cấp", nhà cung cấp đang đăng
- * nhập, nút Thoát) và vùng nội dung nền bo-canvas. Thanh trên không có logo: FCentric chỉ là tên phần mềm, logo cửa hàng
- * chưa có trong đặc tả (đặc tả 6.2).
- * Dưới 768px: thanh trên thu gọn, nút Thoát chỉ còn biểu tượng (vùng bấm 44px).
+ * Khung trang của cổng nhà cung cấp sau khi xác nhận mã: thanh trên (logo FCentric | chữ "Cổng nhà cung cấp", nhà cung
+ * cấp đang đăng nhập, nút Thoát) và vùng nội dung nền bo-canvas.
+ * Dưới 768px: thanh trên thu gọn, logo chỉ còn chữ F, nút Thoát chỉ còn biểu tượng (vùng bấm 44px).
  *
  * Thanh tab "Cần xử lý" / "Lịch sử" (ThanhTabCong) nằm ngay dưới thanh trên ở mọi trang sau đăng nhập:
  * `tab` = tab đang mở (null ở trang biên bản / báo giá), `tuTaiSoViec`, `onRoiTrang` truyền thẳng cho ThanhTabCong.
@@ -29,6 +28,20 @@ export default function KhungCongNhaCungCap({
             <header className="shrink-0 border-b border-bo-border bg-bo-surface">
                 {/* Cùng bề rộng tối đa 1600px với nội dung trang để tên cổng và nút Thoát thẳng mép nội dung trên màn rộng */}
                 <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center gap-3 pr-1.5 pl-4 md:h-16 md:gap-3.5 md:px-6">
+                    {/* Logo bản chữ tối (nền trắng); dưới 768px chỉ còn chữ F để đủ chỗ cho tên cổng và nút Thoát */}
+                    <img
+                        src="/branding/f-centric-logo-light.svg"
+                        alt="FCentric"
+                        draggable={false}
+                        className="hidden h-7 w-auto shrink-0 md:block"
+                    />
+                    <img
+                        src="/branding/f-centric-icon.svg"
+                        alt="FCentric"
+                        draggable={false}
+                        className="h-7 w-auto shrink-0 md:hidden"
+                    />
+                    <span aria-hidden="true" className="h-5 w-px shrink-0 bg-bo-border md:h-6" />
                     <span className="whitespace-nowrap text-sm leading-5 font-semibold text-bo-heading md:text-base">{t("Cổng nhà cung cấp")}</span>
 
                     <div className="ml-auto flex min-w-0 items-center gap-4">
