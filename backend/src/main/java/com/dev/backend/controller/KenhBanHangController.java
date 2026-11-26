@@ -52,6 +52,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Controller trung tâm của Phân hệ Kênh bán hàng Đa sàn (Màn 3 -> Màn 9: Shopify, Lazada, TikTok Shop, Shopee).
+ * Nhóm API chính:
+ * 1. Kết nối / OAuth2 & Làm mới khóa (`/{maKenh}/ket-noi`, `/uy-quyen`, `/uy-quyen/hoan-tat`, `/refresh-token`, `DELETE /ket-noi`).
+ * 2. Cấu hình đồng bộ & Ánh xạ kho (`/{maKenh}/cau-hinh-dong-bo`, `/{maKenh}/kho-san`, `/{maKenh}/kho-mapping`).
+ * 3. Sản phẩm liên kết & Tồn kho (`/{maKenh}/tai-san-pham`, `/tu-dong-lien-ket`, `/lien-ket/theo-san-pham`, `/day-ton`, `/thu-lai`).
+ * 4. Đơn hàng sàn, Thống kê & Đồng bộ ngay chạy nền (`/{maKenh}/lay-don`, `/thong-ke-don`, `/dong-bo-ngay`).
+ */
 @RestController
 @RequestMapping("/api/v1/kenh-ban-hang")
 @RequiredArgsConstructor

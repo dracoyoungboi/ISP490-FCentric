@@ -13,6 +13,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Repository quản lý bảng trạng thái đồng bộ sản phẩm/SKU theo từng kênh bán:
+ * lưu productId/skuId trên sàn, số lượng đã đẩy (phục vụ Delta Sync), trạng thái
+ * thành công/thất bại và mốc thời gian lỗi gần nhất (phục vụ backoff 60 phút).
+ */
 @Repository
 public interface TrangThaiDongBoSanPhamRepository extends JpaRepository<TrangThaiDongBoSanPham, Integer>, JpaSpecificationExecutor<TrangThaiDongBoSanPham> {
 

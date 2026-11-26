@@ -9,12 +9,16 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
+/**
+ * Controller cấu hình Webhook Realtime cho Shopify (gọi từ nút "Bật nhận thay đổi" trên Màn 7 Cài đặt kênh).
+ */
 @RestController
 @Tag(name = "Shopify realtime setup")
 public class ShopifyRealtimeController {
     private final ShopifyRealtimeRegistration registration;
     public ShopifyRealtimeController(ShopifyRealtimeRegistration registration) { this.registration = registration; }
 
+    // Chỉ Quản trị viên: đăng ký subscription nhận webhook sự kiện đơn hàng từ Shopify về backend public
     @PostMapping("/api/v1/kenh-ban-hang/shopify/nhan-thay-doi")
     @RequireAuth(roles = IRoleType.quan_tri_vien)
     @Operation(summary = "Register signed Shopify event subscriptions against the deployed public backend")

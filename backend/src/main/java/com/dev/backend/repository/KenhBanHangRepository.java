@@ -12,10 +12,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Optional;
 
+/**
+ * Repository làm việc với bảng kenh_ban_hang (lưu thông tin kết nối từng sàn:
+ * mã kênh, trạng thái bật/tắt, token OAuth mã hóa, cấu hình kho và tham số đồng bộ).
+ */
 @Repository
 public interface KenhBanHangRepository
         extends JpaRepository<KenhBanHang, Integer>, JpaSpecificationExecutor<KenhBanHang> {
 
+    // Tra cứu bản ghi kênh theo mã kênh duy nhất (VD: SHOPIFY, TIKTOK_SHOP, LAZADA, SHOPEE).
     Optional<KenhBanHang> findByMaKenh(String maKenh);
 
     java.util.List<KenhBanHang> findByTrangThai(Integer trangThai);
