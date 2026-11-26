@@ -31,18 +31,27 @@ public final class CongNcc {
     public record HangLoiTomTat(String trangThai, String moTa) {
     }
 
-    /** hanTraLoi: hết hạn trả lời (null khi chưa gửi được email biên bản). */
+    /**
+     * hanTraLoi: hết hạn trả lời (null khi chưa gửi được email biên bản). nguoiPhuTrach: người tạo đơn mua của biên bản
+     * (null khi đơn không có người tạo).
+     */
     public record BienBanCho(Integer id, String soBienBan, String soDonMua, String soPhieuNhap, Instant ngayLap,
-                             Instant hanTraLoi, int tongSoLuong, BigDecimal tongGiaTri, HangLoiTomTat hangLoi) {
+                             Instant hanTraLoi, int tongSoLuong, BigDecimal tongGiaTri, HangLoiTomTat hangLoi,
+                             NguoiPhuTrach nguoiPhuTrach) {
     }
 
+    /** nguoiPhuTrach: người tạo đơn (null khi đơn không có người tạo). */
     public record DonChoBaoGia(Integer id, String soDonMua, int soMatHang, BigDecimal tongSoLuong, Instant ngayCanGiao,
-                               String tenKho, Instant ngayGuiYeuCau) {
+                               String tenKho, Instant ngayGuiYeuCau, NguoiPhuTrach nguoiPhuTrach) {
     }
 
     public record SoLieu30Ngay(int baoGiaDaGui, int duocChapNhan, int sanPhamLoi, BigDecimal tienTru) {
     }
 
+    /**
+     * nguoiPhuTrach: người tạo đơn gửi gần nhất — màn Cần xử lý mới ghi người phụ trách trên từng việc, trường này giữ
+     * cho bản giao diện cũ.
+     */
     public record ViecCanLam(NhaCungCap nhaCungCap, List<BienBanCho> bienBanCho, List<DonChoBaoGia> donChoBaoGia,
                              SoLieu30Ngay soLieu30Ngay, NguoiPhuTrach nguoiPhuTrach) {
     }

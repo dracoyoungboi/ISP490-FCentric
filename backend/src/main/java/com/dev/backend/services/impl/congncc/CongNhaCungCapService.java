@@ -251,20 +251,25 @@ public class CongNhaCungCapService {
         Instant now = dongHo.instant();
         Instant baMuoiNgay = now.minus(30, ChronoUnit.DAYS);
 
+        // Người phụ trách mỗi việc = người tạo đơn mua của việc đó; đơn của biên bản nằm sẵn trong danh sách đơn đã gửi
+        List<DonMuaHang> don = donMuaHangRepository.choCongNhaCungCap(p.ids());
+        Map<Integer, DonMuaHang> donTheoId = new HashMap<>();
+        don.forEach(d -> donTheoId.putIfAbsent(d.getId(), d));
+
         List<BienBanTraHangDto> bienBan = bienBanTraHangService.dsChoCong(p.ids());
         List<CongNcc.BienBanCho> bienBanCho = bienBan.stream()
                 .filter(CongNhaCungCapService::choNhaCungCapChon)
                 .sorted(Comparator.comparing(BienBanTraHangDto::getNgayLap, Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(b -> new CongNcc.BienBanCho(b.getId(), b.getSoBienBan(), b.getSoDonMua(), b.getSoPhieuNhap(),
                         b.getNgayLap(), b.getHanTraLoi(), b.getTongSoLuongLoi() == null ? 0 : b.getTongSoLuongLoi(), b.getGiaTriLoi(),
-                        hangLoiTomTat(b)))
+                        hangLoiTomTat(b), nguoiPhuTrachCua(donTheoId.get(b.getDonMuaHangId()))))
                 .toList();
 
-        List<DonMuaHang> don = donMuaHangRepository.choCongNhaCungCap(p.ids());
         List<CongNcc.DonChoBaoGia> donCho = don.stream()
                 .filter(d -> Objects.equals(d.getTrangThai(), DON_CHO_BAO_GIA) && d.getNgayBaoGia() == null)
                 .map(d -> new CongNcc.DonChoBaoGia(d.getId(), d.getSoDonMua(), soMatHang(d), tongSoLuong(d),
-                        d.getNgayGiaoDuKien(), d.getKhoNhap() == null ? null : d.getKhoNhap().getTenKho(), ngayYeuCau(d)))
+                        d.getNgayGiaoDuKien(), d.getKhoNhap() == null ? null : d.getKhoNhap().getTenKho(), ngayYeuCau(d),
+                        nguoiPhuTrachCua(d)))
                 .toList();
 
         int baoGiaDaGui = 0;
@@ -549,6 +554,10 @@ public class CongNhaCungCapService {
         if (ten.isEmpty()) return null;
         if (ten.size() <= 3) return String.join(", ", ten);
         return String.join(", ", ten.subList(0, 3)) + " +" + (ten.size() - 3);
+    }
+
+    private static CongNcc.NguoiPhuTrach nguoiPhuTrachCua(DonMuaHang don) {
+        return don == null ? null : nguoiPhuTrach(don.getNguoiTao());
     }
 
     private static CongNcc.NguoiPhuTrach nguoiPhuTrach(NguoiDung nd) {
