@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import StatusBadge from '@/components/shared/StatusBadge';
 import SurfaceCard from '@/components/shared/SurfaceCard';
 import KhungCongNhaCungCap from '@/components/supplier-portal/KhungCongNhaCungCap';
-import ThongTinDonMua, { CanGiaoTruoc, DongThongTinDon } from '@/components/supplier-portal/ThongTinDonMua';
+import ThongTinDonMua, { CanGiaoTruoc, DongThongTinDon, HanBaoGiaCong } from '@/components/supplier-portal/ThongTinDonMua';
 import BangBaoGia from '@/components/supplier-portal/BangBaoGia';
 import HopGuiBaoGia from '@/components/supplier-portal/HopGuiBaoGia';
 import HopHoiRoiTrang from '@/components/supplier-portal/HopHoiRoiTrang';
@@ -27,7 +27,7 @@ import { KhungKhongTimThay, KhungLoiTai, KhungXuongCong } from '@/components/sup
 import { taiLaiSoViec, useCongNcc, useTieuDeCong } from '@/components/supplier-portal/useCongNcc';
 import { nhomTheoSanPham } from '@/components/supplier-portal/nhomBaoGia';
 import { getDonMuaHangStatus } from '@/constants/donMuaHang';
-import { formatCurrency } from '@/utils/formatters';
+import { formatCurrency, formatDate } from '@/utils/formatters';
 import congNhaCungCapService from '@/services/congNhaCungCapService';
 import useTaiDuLieu from '@/hooks/useTaiDuLieu';
 import { cn } from '@/lib/utils';
@@ -38,6 +38,8 @@ const LOI_THIEU_NGAY_GIAO = t("Đơn mua hàng chưa có ngày cần giao nên c
 // Tên trạng thái hiển thị cho nhà cung cấp (phía nhà cung cấp, khác tên trạng thái đơn ở phần quản trị)
 // i18n-giu-nguyen: nhãn đưa vào StatusBadge (badge tự dịch và tra màu theo tên Việt)
 const NHAN_CHO_BAO_GIA = { label: 'Chờ báo giá' };
+// i18n-giu-nguyen: nhãn trạng thái Việt, StatusBadge dịch lúc vẽ
+const NHAN_HET_HAN = { label: 'Hết hạn' };
 // i18n-giu-nguyen: nhãn đưa vào StatusBadge (badge tự dịch và tra màu theo tên Việt)
 const NHAN_DA_GUI = { label: 'Đã gửi báo giá' };
 
@@ -146,7 +148,9 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
     }, [orderData.id]);
 
     const daGui = guiLuc || daGuiLuc;
-    const conNhan = laDonNhanBaoGia(orderData) && !khongConNhan;
+    // Qua hạn báo giá (máy chủ tính theo giờ): không nhận báo giá mới, không sửa báo giá đã gửi
+    const hetHan = Boolean(orderData.quaHanBaoGia);
+    const conNhan = laDonNhanBaoGia(orderData) && !khongConNhan && !hetHan;
     const chiXem = !conNhan || Boolean(daGui);
     const tong = useMemo(() => tinhTong(dong), [dong]);
     const daBaoGiaTruoc = !chiXem && daCoBaoGiaTruoc(orderData);
@@ -250,7 +254,9 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
         donConNhanBaoGia: laDonNhanBaoGia(orderData),
     });
     const nhan =
-        loaiNhan === 'da-gui'
+        hetHan && !daGui
+            ? NHAN_HET_HAN
+            : loaiNhan === 'da-gui'
             ? NHAN_DA_GUI
             : loaiNhan === 'cho-bao-gia'
               ? NHAN_CHO_BAO_GIA
@@ -377,6 +383,7 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
                         </h1>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                             {nhan && <StatusBadge quyTrinh={chiXem && !daGui ? 'donMua' : 'yeuCauBaoGia'} label={nhan.label} />}
+                            <HanBaoGiaCong orderData={orderData} className="text-[13px] leading-5 text-slate-600 md:hidden" />
                             <CanGiaoTruoc ngay={orderData.ngayGiaoDuKien} className="text-[13px] leading-5 text-slate-600 md:hidden" />
                         </div>
                     </div>
@@ -401,7 +408,11 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
                 ) : chiXem ? (
                     <div role="status" className="flex items-start gap-2 rounded-lg border border-bo-border bg-bo-surface px-3.5 py-3 text-sm leading-5 text-slate-700">
                         <Info className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
-                        <span>{t("Đơn này không còn nhận báo giá. Nếu cần trao đổi, vui lòng liên hệ người phụ trách đơn.")}</span>
+                        <span>
+                            {hetHan && orderData.hanBaoGia
+                                ? t("Yêu cầu báo giá đã hết hạn lúc 23:59 ngày {{ngay}}. FCentric không nhận báo giá cho đơn này nữa. Nếu cần trao đổi, vui lòng liên hệ người phụ trách đơn.", { ngay: formatDate(orderData.hanBaoGia) })
+                                : t("Đơn này không còn nhận báo giá. Nếu cần trao đổi, vui lòng liên hệ người phụ trách đơn.")}
+                        </span>
                     </div>
                 ) : nhapChuaGui ? (
                     // Bảng đang hiện số nhập trước khi phiên hết hạn, không phải đơn giá đã gửi: nói rõ là chưa gửi

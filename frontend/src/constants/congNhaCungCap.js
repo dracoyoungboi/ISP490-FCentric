@@ -9,6 +9,8 @@ export const NHAN_KET_QUA_BAO_GIA = Object.freeze({
   CHO_KET_QUA: "Chờ kết quả",
   DUOC_CHAP_NHAN: "Được chấp nhận",
   KHONG_CHAP_NHAN: "Không chấp nhận",
+  // Tới hạn báo giá mà chưa gửi báo giá
+  HET_HAN: "Hết hạn",
   DA_HUY: "Đã hủy",
 });
 

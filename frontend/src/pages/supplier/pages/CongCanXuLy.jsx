@@ -277,7 +277,8 @@ function DongViec({ v }) {
     const laBienBan = v.loai === 'bien-ban';
     const d = v.duLieu;
     const mucGap = chuMucGap(v);
-    const moc = laBienBan ? d.hanTraLoi : d.ngayCanGiao;
+    // Đơn chờ báo giá: mốc là hạn báo giá (đơn cũ không có hạn thì ngày cần giao)
+    const moc = laBienBan ? d.hanTraLoi : (d.hanBaoGia || d.ngayCanGiao);
     const phuTrach = String(d.nguoiPhuTrach?.hoTen ?? '').trim();
     return (
         <li>
@@ -322,7 +323,7 @@ function DongViec({ v }) {
                         {moc ? (
                             <>
                                 {v.mucGap !== 'xam' ? <Clock className={cn('mr-1 inline-block size-3.5 align-[-2px]', MAU_HAN[v.mucGap])} aria-hidden="true" /> : null}
-                                {laBienBan ? t("Trả lời trước hết ngày") : t("Cần giao trước")}{' '}
+                                {laBienBan || d.hanBaoGia ? (laBienBan ? t("Trả lời trước hết ngày") : t("Báo giá trước hết ngày")) : t("Cần giao trước")}{' '}
                                 <strong className={cn('font-semibold', MAU_HAN[v.mucGap])}>{formatDate(moc)}</strong>
                                 {mucGap ? <span className={cn(v.mucGap !== 'xam' && cn('font-medium', MAU_HAN[v.mucGap]))}> ({mucGap})</span> : null}
                             </>

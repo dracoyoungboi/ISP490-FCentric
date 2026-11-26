@@ -50,8 +50,9 @@ const THU_TU_MUC_GAP = { do: 0, cam: 1, xam: 2 };
 
 /**
  * Gom biên bản chờ trả lời và đơn chờ báo giá của /viec-can-lam thành một danh sách, gấp nhất trước.
- * Biên bản theo hạn trả lời (quá giờ hạn là quá hạn, kể cả trong ngày hạn; còn ≤ 2 ngày là cam); đơn theo ngày cần giao
- * (đã qua / hôm nay là đỏ, còn ≤ 3 ngày là cam). Cùng mức thì biên bản trước (quá hạn chưa chọn cách bù là bị trừ tiền),
+ * Biên bản theo hạn trả lời (quá giờ hạn là quá hạn, kể cả trong ngày hạn; còn ≤ 2 ngày là cam); đơn theo hạn báo giá
+ * `hanBaoGia` (gửi được tới hết ngày hạn: hôm nay là đỏ, còn 1 ngày là cam — cùng lúc email nhắc), đơn cũ không có hạn
+ * thì theo ngày cần giao (đã qua / hôm nay là đỏ, còn ≤ 3 ngày là cam). Cùng mức thì biên bản trước (quá hạn chưa chọn cách bù là bị trừ tiền),
  * rồi mốc sớm trước. Không có mốc thì xám và xếp cuối nhóm.
  * Mỗi phần tử: `{ loai: "bien-ban" | "bao-gia", id, so, soNgay, quaHan, mucGap, duLieu }`.
  */
@@ -63,8 +64,10 @@ export function xepViecCanLam(viec, bayGio = new Date()) {
     return { loai: "bien-ban", id: bb.id, so: bb.soBienBan, soNgay, quaHan, mucGap, duLieu: bb };
   });
   const baoGia = (viec?.donChoBaoGia ?? []).map((d) => {
-    const soNgay = soNgayToiMoc(d.ngayCanGiao, bayGio);
-    const mucGap = soNgay == null ? "xam" : soNgay <= 0 ? "do" : soNgay <= 3 ? "cam" : "xam";
+    const theoHan = Boolean(d.hanBaoGia);
+    const soNgay = soNgayToiMoc(theoHan ? d.hanBaoGia : d.ngayCanGiao, bayGio);
+    const nguongCam = theoHan ? 1 : 3;
+    const mucGap = soNgay == null ? "xam" : soNgay <= 0 ? "do" : soNgay <= nguongCam ? "cam" : "xam";
     return { loai: "bao-gia", id: d.id, so: d.soDonMua, soNgay, quaHan: soNgay != null && soNgay < 0, mucGap, duLieu: d };
   });
   const moc = (v) => (v.soNgay == null ? Number.POSITIVE_INFINITY : v.soNgay);

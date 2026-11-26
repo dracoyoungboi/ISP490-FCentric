@@ -27,11 +27,25 @@ export function CanGiaoTruoc({ ngay, className }) {
     );
 }
 
-/** Dòng thông tin đơn ngay dưới tiêu đề trang (từ 768px): ngày cần giao, kho nhận, người phụ trách, ngày đặt. */
+/**
+ * "Báo giá trước hết ngày 01/12/2026" — hạn báo giá (máy chủ trả `hanBaoGia`); không có hạn, đã qua hạn hoặc đơn đã có
+ * kết quả thì không hiện.
+ */
+export function HanBaoGiaCong({ orderData, className }) {
+    if (!orderData?.hanBaoGia || orderData?.quaHanBaoGia || Number(orderData?.trangThai) !== 2) return null;
+    return (
+        <span className={className}>
+            {t("Báo giá trước hết ngày")} <strong className="font-semibold text-bo-warning tabular-nums">{formatDate(orderData.hanBaoGia)}</strong>
+        </span>
+    );
+}
+
+/** Dòng thông tin đơn ngay dưới tiêu đề trang (từ 768px): hạn báo giá, ngày cần giao, kho nhận, người phụ trách, ngày đặt. */
 export function DongThongTinDon({ orderData }) {
     const tt = thongTin(orderData);
     return (
         <p className="m-0 hidden flex-wrap gap-x-[18px] gap-y-1 text-sm leading-6 text-slate-600 md:flex">
+            <HanBaoGiaCong orderData={orderData} />
             <CanGiaoTruoc ngay={orderData?.ngayGiaoDuKien} />
             <span>
                 {t("Kho nhận")} <strong className="font-semibold text-bo-foreground">{tt.tenKho}</strong>
