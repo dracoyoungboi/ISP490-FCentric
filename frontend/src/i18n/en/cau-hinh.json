@@ -821,5 +821,14 @@
   "{{count}} loại chứng từ và tem sản phẩm, mỗi loại một mẫu đang dùng. Chỉ quản trị viên sửa được mẫu in._one": "{{count}} document type and product labels, one active template each. Only administrators can edit print templates.",
   "{{count}} loại chứng từ và tem sản phẩm, mỗi loại một mẫu đang dùng. Chỉ quản trị viên sửa được mẫu in._other": "{{count}} document types and product labels, one active template each. Only administrators can edit print templates.",
   "Gồm 1–10 ký tự: chữ in hoa không dấu, số hoặc . _ -; không bắt đầu bằng KH-SHP-, KH-TTS-, KH-LZD-, KH-SP- (dành cho khách từ sàn)": "1–10 characters: unaccented capital letters, digits or . _ -; can't start with KH-SHP-, KH-TTS-, KH-LZD- or KH-SP- (reserved for marketplace customers)",
-  "Tên hoặc mã danh mục": "Category name or code"
+  "Tên hoặc mã danh mục": "Category name or code",
+  "Hạn báo giá nhà cung cấp": "Supplier quotation deadline",
+  "yêu cầu báo giá gửi sau khi lưu": "quotation requests sent after you save",
+  "Gửi yêu cầu báo giá từ yêu cầu đã duyệt; hạn hiện ở màn gửi và trong email nhà cung cấp nhận": "Send quotation requests from approved requests; the deadline shows on the send screen and in the supplier's email",
+  "Báo giá nhà cung cấp": "Supplier quotations",
+  "Số ngày chờ báo giá": "Quotation response time",
+  "ngày_don_vi": "days",
+  "Nhà cung cấp báo giá được đến ": "Suppliers can quote until ",
+  "hết ngày thứ {{so}} sau ngày gửi yêu cầu": "the end of day {{so}} after the request is sent",
+  ". Đổi số ngày chỉ áp dụng cho yêu cầu gửi sau; yêu cầu đã gửi giữ hạn đã ghi trong email nhà cung cấp nhận.": ". A new value applies only to requests sent afterwards; requests already sent keep the deadline in the supplier's email."
 }

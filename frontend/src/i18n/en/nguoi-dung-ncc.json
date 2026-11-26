@@ -1167,5 +1167,7 @@
   "Khi chúng tôi gửi yêu cầu báo giá, đơn sẽ hiện ở đây.": "When we send a quotation request, the order will appear here.",
   "Xóa lọc ngày": "Clear date filter",
   "Xem các việc này": "Show these items",
-  "Xem việc này": "Show this item"
+  "Xem việc này": "Show this item",
+  "Báo giá trước hết ngày": "Quote by the end of",
+  "Yêu cầu báo giá đã hết hạn lúc 23:59 ngày {{ngay}}. FCentric không nhận báo giá cho đơn này nữa. Nếu cần trao đổi, vui lòng liên hệ người phụ trách đơn.": "This quotation request closed at 23:59 on {{ngay}}. FCentric no longer accepts quotations for it. To discuss it, please contact the person in charge of the order."
 }
