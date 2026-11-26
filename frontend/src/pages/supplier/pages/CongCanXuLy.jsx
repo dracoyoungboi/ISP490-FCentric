@@ -63,8 +63,9 @@ export default function CongCanXuLy() {
 
     return (
         <KhungCongNhaCungCap tenNhaCungCap={tenNcc} email={emailNcc} onThoat={thoat} tab="can-xu-ly" tuTaiSoViec={false}>
-            <main className="mx-auto w-full max-w-[1600px] flex-1 p-4 md:p-6">
-                <div className="overflow-hidden rounded-xl border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+            {/* Khối trắng luôn kéo tới sát chân trang (chốt 26/11), cùng Lịch sử: mép dưới không nhảy khi đổi tab */}
+            <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col p-4 md:p-6">
+                <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
                     <div className="px-4 pt-5 pb-4 md:px-6 md:pt-6">
                         <h1 className={TIEU_DE_TRANG}>{t("Việc cần Quý công ty xử lý")}</h1>
                     </div>
@@ -191,13 +192,14 @@ function DanhSachViec({ viec }) {
                 <p className="px-6 py-12 text-center text-sm text-bo-muted">{t("Không có việc khớp với ô tìm.")}</p>
             ) : (
                 <>
-                    <ul className="divide-y divide-bo-border">
+                    {/* Kẻ đáy dòng cuối: khối kéo hết chiều cao nên dưới danh sách ngắn còn phần trắng */}
+                    <ul className="divide-y divide-bo-border border-b border-bo-border">
                         {dongTrang.map((v) => (
                             <DongViec key={`${v.loai}-${v.id}`} v={v} />
                         ))}
                     </ul>
                     {dsLoc.length > SO_DONG_MAC_DINH ? (
-                        <div className="border-t border-bo-border px-4 py-3 md:px-6">
+                        <div className="border-b border-bo-border px-4 py-3 md:px-6">
                             <TablePagination
                                 page={trang}
                                 size={soDong}

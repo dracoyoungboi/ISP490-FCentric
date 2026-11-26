@@ -132,8 +132,9 @@ export default function CongLichSu() {
 
     return (
         <KhungCongNhaCungCap tenNhaCungCap={phien.nhaCungCap?.ten} email={phien.nhaCungCap?.email} onThoat={thoat} tab="lich-su">
-            <main className="mx-auto w-full max-w-[1600px] flex-1 p-4 md:p-6">
-                <div className="overflow-hidden rounded-xl border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+            {/* Khối trắng luôn kéo tới sát chân trang (chốt 26/11), cùng Cần xử lý: mép dưới không nhảy khi đổi tab */}
+            <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col p-4 md:p-6">
+                <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
                     <div className="px-4 pt-5 pb-4 md:px-6 md:pt-6">
                         <h1 className={TIEU_DE_TRANG}>{t("Lịch sử báo giá và hàng lỗi")}</h1>
                     </div>
@@ -213,7 +214,7 @@ export default function CongLichSu() {
                         role="tabpanel"
                         aria-labelledby={`ls-the-${the}`}
                         aria-busy={loading || undefined}
-                        className={cn('scroll-mt-4 transition-opacity', loading && !dungKhoa && duLieu && 'opacity-60')}
+                        className={cn('flex flex-1 flex-col scroll-mt-4 transition-opacity', loading && !dungKhoa && duLieu && 'opacity-60')}
                     >
                         {/* Lỗi của lần tải theo bộ lọc đang chọn: báo lỗi, không để bảng của bộ lọc cũ như thể là kết quả */}
                         {loiTai && (!duLieu || !dungKhoa) ? (
@@ -240,7 +241,8 @@ export default function CongLichSu() {
                                 ) : (
                                     <BangBaoGia ds={dongTrang} onMo={(id) => navigate(duongDanBaoGia(id))} />
                                 )}
-                                <div className="border-t border-bo-border px-4 py-3 md:px-6">
+                                {/* Kẻ cả đáy: khối kéo hết chiều cao nên dưới chân phân trang có thể còn phần trắng */}
+                                <div className="border-y border-bo-border px-4 py-3 md:px-6">
                                     <TablePagination
                                         page={trang}
                                         size={soDong}
@@ -281,7 +283,8 @@ function Rong({ dangTim, dangLocNgay, traHang, onBoTim, onXoaLocNgay }) {
             ? t("Khi chúng tôi lập biên bản hàng lỗi, biên bản sẽ hiện ở đây.")
             : t("Khi chúng tôi gửi yêu cầu báo giá, đơn sẽ hiện ở đây.");
     return (
-        <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
+        // flex-1 + căn giữa: khối kéo hết chiều cao nên lời nhắn nằm giữa phần trống, như màn trống Cần xử lý
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-14 text-center">
             <span className="grid size-11 place-items-center rounded-full bg-bo-surface-subtle text-bo-muted">
                 <Icon className="size-5" aria-hidden="true" />
             </span>
