@@ -13,22 +13,35 @@ const LOP_NOI = "[role='menu'], [role='listbox'], [role='dialog'], [data-radix-p
  * - ô tìm kiếm chung, Đăng xuất…: qua lib/chanRoiTrang (datChanRoiTrang);
  * - Back / Forward của trình duyệt: chanQuayLaiTrinhDuyet (đăng ký theo location.key, đọc `dangChan` qua ref).
  *
- * `hoi(tiepTuc)`: mở hộp hỏi (ở lượt sau, để menu vừa bấm kịp đóng); người dùng đồng ý rời thì gọi `tiepTuc()`.
+ * `hoi(tiepTuc, lyDo)`: mở hộp hỏi (ở lượt sau, để menu vừa bấm kịp đóng); người dùng đồng ý rời thì gọi `tiepTuc()`.
+ * `lyDo`: lý do truyền kèm xinRoiTrang (LY_DO_ROI_TRANG: Thoát, đổi ngôn ngữ…), không có với link / Back.
+ * Đã đồng ý rời thì thôi hộp beforeunload của trình duyệt: đổi ngôn ngữ tải lại trang, không hỏi lần hai.
  */
 export default function useHoiKhiRoiTrang(dangChan, hoi) {
   const navigate = useNavigate();
   const { key, pathname, search } = useLocation();
   const hoiRef = useRef(hoi);
   const dangChanRef = useRef(dangChan);
+  const daDongYRef = useRef(false);
   useEffect(() => {
     hoiRef.current = hoi;
     dangChanRef.current = dangChan;
   });
-  const hoiSau = (tiepTuc) => setTimeout(() => hoiRef.current?.(tiepTuc), 0);
+  const hoiSau = (tiepTuc, lyDo) =>
+    setTimeout(
+      () =>
+        hoiRef.current?.(() => {
+          daDongYRef.current = true;
+          tiepTuc();
+        }, lyDo),
+      0,
+    );
 
   useEffect(() => {
     if (!dangChan) return undefined;
+    daDongYRef.current = false;
     const chan = (suKien) => {
+      if (daDongYRef.current) return;
       suKien.preventDefault();
       suKien.returnValue = "";
     };

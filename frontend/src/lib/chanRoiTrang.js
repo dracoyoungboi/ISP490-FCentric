@@ -11,8 +11,17 @@
  * Không có trang nào chặn -> `tiepTuc` chạy ngay. Có -> trang đó tự hỏi người dùng và gọi `tiepTuc`
  * khi người dùng đồng ý rời (hoặc lưu xong). Mỗi lúc chỉ một trang chặn (trang đăng ký sau thay trang trước).
  *
+ * `lyDo` (không bắt buộc, một giá trị của LY_DO_ROI_TRANG): chuyển nguyên cho hàm chặn để trang chọn câu hỏi đúng
+ * việc (vd. "Đổi ngôn ngữ?" thay vì "Rời trang?"). Không có lý do thì trang hỏi câu chung.
+ *
  * Back / Forward của trình duyệt: dùng `chanQuayLaiTrinhDuyet` (cuối file).
  */
+
+/** Lý do rời trang truyền kèm `xinRoiTrang`. */
+export const LY_DO_ROI_TRANG = Object.freeze({
+    thoat: "thoat",
+    doiNgonNgu: "doi-ngon-ngu",
+});
 
 let chanHienTai = null;
 
@@ -25,10 +34,10 @@ export function datChanRoiTrang(chan) {
 }
 
 /** Rời trang qua lớp chặn (nếu có). */
-export function xinRoiTrang(tiepTuc) {
+export function xinRoiTrang(tiepTuc, lyDo) {
     if (typeof tiepTuc !== "function") return;
     if (chanHienTai) {
-        chanHienTai(tiepTuc);
+        chanHienTai(tiepTuc, lyDo);
         return;
     }
     tiepTuc();

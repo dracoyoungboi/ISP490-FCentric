@@ -5,7 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { xinRoiTrang } from "@/lib/chanRoiTrang";
+import { LY_DO_ROI_TRANG, xinRoiTrang } from "@/lib/chanRoiTrang";
 import { cn } from "@/lib/utils";
 import { doiNgonNgu, NGON_NGU, ngonNguHienTai, t } from "@/i18n";
 
@@ -18,12 +18,12 @@ const CAC_NGON_NGU = [
 /** Đổi ngôn ngữ phải tải lại trang: đi qua lớp chặn rời trang để không mất dữ liệu đang nhập. */
 function chon(ma) {
   if (ma === ngonNguHienTai()) return;
-  xinRoiTrang(() => doiNgonNgu(ma));
+  xinRoiTrang(() => doiNgonNgu(ma), LY_DO_ROI_TRANG.doiNgonNgu);
 }
 
 /**
- * Trang quản trị (10/11) dùng nút cạnh chuông (NutChonNgonNguThanhTren); màn POS (12/11) dùng dải này ở đáy
- * menu tài khoản để thanh trên gọn.
+ * Trang quản trị (10/11) dùng nút cạnh chuông (NutChonNgonNguThanhTren); màn POS (12/11) và Cổng nhà cung cấp
+ * (26/11) dùng dải này ở đáy menu tài khoản để thanh trên gọn.
  *
  * Dải ngôn ngữ ở đáy menu tài khoản (thanh trên trang quản trị và POS), cùng ý với chân trang trang Đăng nhập:
  * "🌐 Tiếng Việt · English" chữ nhỏ xám, cùng một tông với menu (không tô nền); ngôn ngữ đang dùng đậm hơn,
