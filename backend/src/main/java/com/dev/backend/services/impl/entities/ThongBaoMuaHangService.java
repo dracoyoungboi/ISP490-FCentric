@@ -214,6 +214,50 @@ public class ThongBaoMuaHangService {
         });
     }
 
+    /**
+     * Đơn {@code don} hết hạn báo giá mà nhà cung cấp chưa báo giá → người gửi yêu cầu báo giá (người lập đơn mua) nếu
+     * mở được đơn mua của kho nhập, không thì nhân viên mua hàng của kho nhập (không có thì quản trị viên).
+     * {@code veDaDuyet}: không còn đơn nào chờ, yêu cầu vừa về Đã duyệt — thông báo dẫn tới yêu cầu để gửi nhà cung cấp
+     * khác; ngược lại dẫn tới màn báo giá của đơn.
+     */
+    public void hetHanBaoGia(DonMuaHang don, YeuCauMuaHang yc, java.time.LocalDate han, boolean veDaDuyet) {
+        dangKy("hết hạn báo giá", () -> {
+            Integer donId = don.getId();
+            String soDon = soDon(don);
+            String ten = don.getNhaCungCap() == null || don.getNhaCungCap().getTenNhaCungCap() == null
+                    || don.getNhaCungCap().getTenNhaCungCap().isBlank()
+                    ? null : don.getNhaCungCap().getTenNhaCungCap().trim();
+            Integer khoId = don.getKhoNhap() == null ? null : don.getKhoNhap().getId();
+            Integer nguoiGuiId = don.getNguoiTao() == null ? null : don.getNguoiTao().getId();
+            Integer ycId = yc == null ? null : yc.getId();
+            String soYc = yc == null ? null : so(yc);
+            String ngayHan = han == null ? "" : NGAY_HAN.format(han);
+            return new Lan("đơn mua " + soDon + " hết hạn báo giá", null, () -> {
+                List<Integer> nhan = new ArrayList<>();
+                String vt = vaiTro(nguoiGuiId);
+                if (nguoiGuiId != null && coVaiTro(VAI_TRO_XEM_BAO_GIA, vt) && xemDuocDonMua(nguoiGuiId, vt, khoId)) {
+                    nhan.add(nguoiGuiId);
+                } else {
+                    nhan.addAll(nguoiNhan.hoacQuanTri(nguoiNhan.theoKho(khoId, IRoleType.nhan_vien_mua_hang),
+                            "Hết hạn báo giá đơn " + soDon));
+                }
+                String tieuDe = ten == null ? cau("hetHanTieuDeMacDinh") : cau("hetHanTieuDe", ten);
+                boolean quaYeuCau = veDaDuyet && ycId != null && soYc != null;
+                String moTa = quaYeuCau ? cau("hetHanMoTaVeDaDuyet", soDon, ngayHan, soYc) : cau("hetHanMoTa", soDon, ngayHan);
+                NoiDung noiDung = quaYeuCau
+                        ? new NoiDung(ThongBaoService.LOAI_YEU_CAU_NHAP_HANG, ThongBaoService.TONE_WARNING, tieuDe, moTa,
+                                "/purchase-requests/" + ycId, ThongBaoService.LOAI_YEU_CAU_NHAP_HANG, ycId, khoId,
+                                "DMH:" + donId + ":HET_HAN")
+                        : new NoiDung(ThongBaoService.LOAI_DON_MUA_HANG, ThongBaoService.TONE_WARNING, tieuDe, moTa,
+                                "/quotation/" + donId, ThongBaoService.LOAI_DON_MUA_HANG, donId, khoId,
+                                "DMH:" + donId + ":HET_HAN");
+                return List.of(new GuiDi(nhan, null, noiDung));
+            });
+        });
+    }
+
+    private static final DateTimeFormatter NGAY_HAN = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
     /** Đã gửi yêu cầu báo giá cho yêu cầu {@code ycId}: lời nhắc "Gửi yêu cầu báo giá" (M2) coi như xong. */
     public void yeuCauDaGuiBaoGia(Integer ycId) {
         if (ycId == null) return;
