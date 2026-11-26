@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Camera, Copy, Lock, Pencil, ShieldCheck, Warehouse } from "lucide-react";
 
 import { nguoiDungService } from "@/services/nguoiDungService";
@@ -137,7 +137,17 @@ export default function UserDetail() {
   const [moSua, setMoSua] = useState(false);
   const [oDauTien, setODauTien] = useState("ho-ten");
   const [moAnh, setMoAnh] = useState(false);
-  const [moMatKhau, setMoMatKhau] = useState(false);
+  // ?doi-mat-khau=1 (từ khung cảnh báo đăng nhập sai ở Chi tiết người dùng): mở sẵn hộp Đổi mật khẩu
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [moMatKhau, setMoMatKhauState] = useState(() => searchParams.get("doi-mat-khau") === "1");
+  const setMoMatKhau = (mo) => {
+    setMoMatKhauState(mo);
+    if (!mo && searchParams.has("doi-mat-khau")) {
+      const p = new URLSearchParams(searchParams);
+      p.delete("doi-mat-khau");
+      setSearchParams(p, { replace: true });
+    }
+  };
   // Đổi mật khẩu thì máy chủ đăng xuất các thiết bị khác: tăng khóa để mục Thiết bị tải lại
   const [lanDoiMatKhau, setLanDoiMatKhau] = useState(0);
 
