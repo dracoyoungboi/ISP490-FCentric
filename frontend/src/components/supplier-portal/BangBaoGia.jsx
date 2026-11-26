@@ -137,8 +137,10 @@ function BoLoc({ dangLoc, tongDong, soThieu, onTatCa, onThieu, nutClassName }) {
  * - `nhom`: kết quả nhomTheoSanPham(dong), cố định suốt phiên (chỉ phụ thuộc sản phẩm, không phụ thuộc giá).
  * - `dongLoi`: vị trí các dòng bị báo thiếu giá sau khi bấm Gửi.
  * - `ref.denDongThieuGia(viTri)`: bỏ lọc, mở nhóm cần thiết rồi đặt con trỏ vào ô thiếu giá đầu tiên.
+ * - `ghiChu`, `chanThe` (từ 768px): khối ghi chú chung và chân thẻ (tổng + nút Gửi báo giá) do trang truyền vào, vẽ ở
+ *   cuối thẻ bảng thay hàng Tổng cộng. Chân thẻ dính đáy màn nên thẻ dùng overflow-clip (overflow-hidden làm hỏng sticky).
  */
-export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onCapNhatDong }) {
+export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onCapNhatDong, ghiChu, chanThe }) {
     const coNhieuDong = nhom.some((n) => n.viTri.length > 1);
     const [motGia, setMotGia] = useState(() => congTacBanDau(dong, nhom));
     // Nhóm đang mở các dòng con. Lúc đầu: nhóm đang tắt công tắc thì mở (để nhập từng dòng), bật thì thu gọn.
@@ -364,7 +366,7 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
     const soCot = 5 + (coCotMo ? 1 : 0) + (coCotCongTac ? 1 : 0);
 
     const bang = (
-        <section aria-labelledby="bg-bang-tieu-de" data-khung-gia onBlur={roiKhung} className="hidden overflow-hidden rounded-lg border border-bo-border bg-bo-surface shadow-sm md:block">
+        <section aria-labelledby="bg-bang-tieu-de" data-khung-gia onBlur={roiKhung} className="hidden overflow-clip rounded-lg border border-bo-border bg-bo-surface shadow-sm md:block">
             <h2 id="bg-bang-tieu-de" className="sr-only">{t("Bảng đơn giá")}</h2>
             <div className="flex flex-wrap items-center gap-3 border-b border-bo-border px-4 py-3">
                 <SearchInput
@@ -583,21 +585,10 @@ export default function BangBaoGia({ ref, dong, nhom, tong, chiXem, dongLoi, onC
                             </tr>
                         </tbody>
                     )}
-
-                    <tfoot>
-                        <tr className="bg-bo-surface-subtle">
-                            <td colSpan={coCotMo ? 3 : 2} className="h-10 border-t border-bo-border py-2 pr-2.5 pl-4 text-sm font-semibold">
-                                {t("Tổng cộng · {{count}} sản phẩm", { count: nhom.length })}
-                                {coNhieuDong ? t(", {{count}} phân loại", { count: tong.soSanPham }) : ''}
-                            </td>
-                            <td className="border-t border-bo-border px-2.5 text-right font-semibold tabular-nums">{tong.tongSoLuong.toLocaleString('vi-VN')}</td>
-                            {coCotCongTac && <td className="border-t border-bo-border" />}
-                            <td className="border-t border-bo-border" />
-                            <td className="border-t border-bo-border px-2.5 text-right text-sm font-bold tabular-nums">{tienHoacGach(tong.tongTien)}</td>
-                        </tr>
-                    </tfoot>
                 </table>
             </div>
+            {ghiChu}
+            {chanThe}
         </section>
     );
 

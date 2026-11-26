@@ -21,7 +21,7 @@ import { t } from "@/i18n";
  *
  * Thanh tab "Cần xử lý" / "Lịch sử" (ThanhTabCong) nằm ngay dưới thanh trên ở mọi trang sau đăng nhập:
  * `tab` = tab đang mở (null ở trang biên bản / báo giá), `tuTaiSoViec`, `onRoiTrang` truyền thẳng cho ThanhTabCong.
- * `chanTrang`: vẽ chân trang đơn vị vận hành ở cuối (trang báo giá tự đặt chân trang trước thanh Gửi báo giá).
+ * `chanTrang`: vẽ chân trang đơn vị vận hành ở cuối (trang báo giá tắt: chân thẻ bảng là phần cuối trang).
  */
 export default function KhungCongNhaCungCap({
     tenNhaCungCap,

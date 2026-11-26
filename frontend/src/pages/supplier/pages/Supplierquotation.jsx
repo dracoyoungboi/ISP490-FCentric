@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, Info, Plus, Send, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import ChanTrangVanHanh from '@/components/auth/ChanTrangVanHanh';
 import StatusBadge from '@/components/shared/StatusBadge';
 import SurfaceCard from '@/components/shared/SurfaceCard';
 import KhungCongNhaCungCap from '@/components/supplier-portal/KhungCongNhaCungCap';
@@ -26,11 +25,12 @@ import {
 import { xuLyLoiGuiBaoGia, xuLyLoiTai } from '@/components/supplier-portal/loiCong';
 import { KhungKhongTimThay, KhungLoiTai, KhungXuongCong } from '@/components/supplier-portal/TrangThaiTaiCong';
 import { taiLaiSoViec, useCongNcc, useTieuDeCong } from '@/components/supplier-portal/useCongNcc';
-import { NGU_CANH_LOAI, noiTenNhom, nhomTheoSanPham, tenNhomChua } from '@/components/supplier-portal/nhomBaoGia';
+import { nhomTheoSanPham } from '@/components/supplier-portal/nhomBaoGia';
 import { getDonMuaHangStatus } from '@/constants/donMuaHang';
 import { formatCurrency } from '@/utils/formatters';
 import congNhaCungCapService from '@/services/congNhaCungCapService';
 import useTaiDuLieu from '@/hooks/useTaiDuLieu';
+import { cn } from '@/lib/utils';
 import { t } from "@/i18n";
 
 // Trang cũ không cho gửi khi đơn chưa có ngày giao dự kiến (ô ngày chỉ đọc) — giữ nguyên điều kiện này
@@ -76,6 +76,11 @@ const CAU_ROI_BAO_GIA = {
     mat: t("Đơn giá bạn đã nhập chưa được gửi sẽ mất."),
 };
 
+/** Phần tử khớp bộ chọn đang hiện trên màn (bảng và thẻ điện thoại cùng có mặt, một bên bị ẩn theo bề rộng). */
+const phanTuDangHien = (chon) => [...document.querySelectorAll(chon)].find((el) => el.offsetParent !== null);
+
+const MO_TA_GHI_CHU = t("Không bắt buộc. Điều kiện giao hàng, thanh toán hoặc lưu ý khác.");
+
 const O_GHI_CHU_CHUNG =
     'block min-h-[84px] w-full resize-y rounded-md border border-bo-border bg-white px-3 py-2.5 text-base leading-[22px] text-bo-foreground placeholder:text-bo-muted/70 focus-visible:border-bo-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/15 md:text-sm';
 
@@ -107,8 +112,6 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
     const ghiChuKhoiTao = nhapChuaGui ? String(nhapChuaGui.ghiChu ?? '') : ghiChuBanDau;
     // Ghi chú chung: thu thành nút, bấm mới mở ô (đã có ghi chú từ lần báo giá trước thì mở sẵn)
     const [moGhiChuChung, setMoGhiChuChung] = useState(() => Boolean(ghiChuKhoiTao));
-    // Mở bằng nút thì đặt con trỏ vào ô; mở sẵn lúc vào trang thì không
-    const [vuaMoGhiChuChung, setVuaMoGhiChuChung] = useState(false);
     const [ghiChu, setGhiChu] = useState(ghiChuKhoiTao);
     const [dongLoi, setDongLoi] = useState([]);
     // null | 'xac-nhan' | 'dang-gui' | 'loi' | 'thanh-cong'
@@ -126,7 +129,6 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
     const [khongConNhan, setKhongConNhan] = useState(false);
     const loiChungRef = useRef(null);
     const bangRef = useRef(null);
-    const nutThemGhiChuRef = useRef(null);
     const conMoRef = useRef(true);
     // Chặn gửi trùng (bấm liên tiếp, hoặc bấm trúng nút trong lúc hộp đang đóng)
     const dangGuiRef = useRef(false);
@@ -153,11 +155,7 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
     const tenCuaHang = String(cuaHang?.ten ?? '').trim();
 
     const coBienThe = nhom.length < dong.length;
-    const donVi = coBienThe ? t("phân loại", NGU_CANH_LOAI) : t("sản phẩm", NGU_CANH_LOAI);
-    const viTriThieu = timDongThieuGia(dong);
-    // Chỉ nêu tên khi đã nhập được ít nhất một giá (đơn mới thì mọi sản phẩm đều thiếu, nêu tên không giúp gì)
-    const conThieu = tong.daNhapGia > 0 && viTriThieu.length ? noiTenNhom(tenNhomChua(nhom, viTriThieu)) : '';
-    const phanTram = tong.soSanPham ? Math.round((tong.daNhapGia / tong.soSanPham) * 100) : 0;
+    const thieuGia = tong.daNhapGia < tong.soSanPham;
 
     const bamGui = () => {
         if (!orderData.ngayGiaoDuKien) {
@@ -231,16 +229,16 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
     // đóng thẻ / tải lại trang hỏi bằng hộp của trình duyệt. Đang gửi thì thôi hỏi.
     const coThayDoi = !chiXem && hop !== 'dang-gui' && coThayDoiChuaGui(dongBanDau, dong, ghiChuBanDau, ghiChu);
     useHoiKhiRoiTrang(coThayDoi, (tiepTuc, lyDo) => setHoiRoi({ tiepTuc, lyDo }));
+    // Ô ghi chú có hai chỗ (trong thẻ bảng từ 768px, thẻ riêng dưới 768px): mở bằng nút thì đặt con trỏ vào ô đang hiện
     const moGhiChu = () => {
         setMoGhiChuChung(true);
-        setVuaMoGhiChuChung(true);
+        requestAnimationFrame(() => requestAnimationFrame(() => phanTuDangHien('[data-o-ghi-chu]')?.focus()));
     };
     /** Thu ô ghi chú chung về nút "+ Thêm ghi chú…" và xóa nội dung (ghi chú không bắt buộc). */
     const thuGhiChu = (traConTro) => {
         setGhiChu('');
         setMoGhiChuChung(false);
-        setVuaMoGhiChuChung(false);
-        if (traConTro) requestAnimationFrame(() => nutThemGhiChuRef.current?.focus());
+        if (traConTro) requestAnimationFrame(() => phanTuDangHien('[data-nut-them-ghi-chu]')?.focus());
     };
 
     // Đã gửi (trong phiên này hoặc trước đó) / chờ báo giá / tên trạng thái chung của đơn khi không còn nhận báo giá;
@@ -260,10 +258,118 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
                 ? getDonMuaHangStatus(orderData.trangThai)
                 : null;
     const tieuDeGhiChu = tenCuaHang ? t("Ghi chú cho {{tenCuaHang}}", { tenCuaHang }) : t("Ghi chú");
+    const nhanThemGhiChu = tenCuaHang ? t("Thêm ghi chú cho {{tenCuaHang}}", { tenCuaHang }) : t("Thêm ghi chú");
+
+    /** Ô nhập ghi chú chung + bộ đếm ký tự; `idDem`: mỗi chỗ đặt ô một id riêng. */
+    const oGhiChu = (idDem) => (
+        <>
+            <textarea
+                data-o-ghi-chu=""
+                aria-label={tieuDeGhiChu}
+                aria-describedby={idDem}
+                rows={3}
+                maxLength={GHI_CHU_TOI_DA}
+                placeholder={t("VD: Giá đã gồm vận chuyển đến kho; thanh toán 50% khi xác nhận đơn.")}
+                value={ghiChu}
+                onChange={(e) => setGhiChu(e.target.value.slice(0, GHI_CHU_TOI_DA))}
+                onBlur={(e) => {
+                    // Mở ra mà để trống rồi bấm chỗ khác thì tự thu lại (bấm "Bỏ ghi chú" thì để nút đó xử lý)
+                    const khoi = e.currentTarget.closest('[data-khoi-ghi-chu], section');
+                    if (!e.currentTarget.value.trim() && !khoi?.contains(e.relatedTarget)) thuGhiChu(false);
+                }}
+                className={O_GHI_CHU_CHUNG}
+            />
+            <p id={idDem} className="m-0 mt-1.5 text-right text-xs leading-4 text-bo-muted tabular-nums">
+                {ghiChu.length.toLocaleString('vi-VN')}/{GHI_CHU_TOI_DA.toLocaleString('vi-VN')}
+            </p>
+        </>
+    );
+    const nutBoGhiChu = (className) => (
+        <button
+            type="button"
+            onClick={() => thuGhiChu(true)}
+            className={cn(
+                'flex h-11 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 sm:h-9',
+                className,
+            )}
+        >
+            <X className="size-4" aria-hidden="true" />
+            {t("Bỏ ghi chú")}
+        </button>
+    );
+
+    // Từ 768px: ghi chú chung nằm trong thẻ bảng, ngay trên chân thẻ (đã gửi mà không có ghi chú thì không vẽ)
+    const khoiGhiChuBang = (chiXem ? Boolean(ghiChu) : moGhiChuChung) && (
+        <div data-khoi-ghi-chu="" className="border-t border-bo-border px-4 py-3.5">
+            <div className="mb-2 flex items-center justify-between gap-4">
+                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                    <h2 className="m-0 text-sm leading-5 font-semibold text-bo-foreground">{tieuDeGhiChu}</h2>
+                    {!chiXem && <span className="text-[13px] leading-5 text-bo-muted">{MO_TA_GHI_CHU}</span>}
+                </div>
+                {!chiXem && nutBoGhiChu('-my-1.5 -mr-2 h-9')}
+            </div>
+            {chiXem ? <p className="m-0 text-sm leading-[22px] whitespace-pre-line text-slate-700">{ghiChu}</p> : oGhiChu('bg-ghi-chu-dem')}
+        </div>
+    );
+
+    // Tổng SL | Đã có giá | Tổng tiền: chân thẻ bảng (từ 768px) và khối dính đáy (dưới 768px). Đã gửi thì bỏ "Đã có giá".
+    const soLieuTong = [
+        { nhan: t("Tổng SL"), giaTri: tong.tongSoLuong.toLocaleString('vi-VN') },
+        !chiXem && { nhan: t("Đã có giá"), giaTri: `${tong.daNhapGia}/${tong.soSanPham}`, mau: thieuGia ? 'text-bo-warning' : 'text-bo-success' },
+        { nhan: t("Tổng tiền"), giaTri: formatCurrency(tong.tongTien) },
+    ].filter(Boolean);
+
+    // Từ 768px: chân thẻ bảng thay hàng Tổng cộng và thanh Gửi báo giá cũ; dính đáy màn khi bảng dài, cuộn hết thì khép
+    // lại thành đáy thẻ
+    const chanTheBang = (
+        <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-bo-border bg-bo-surface-subtle py-2.5 pr-3 pl-4">
+            <div className="min-w-0">
+                {!chiXem && !moGhiChuChung ? (
+                    <button
+                        data-nut-them-ghi-chu=""
+                        type="button"
+                        onClick={moGhiChu}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-md text-sm font-medium text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+                    >
+                        <Plus className="size-4" aria-hidden="true" />
+                        {nhanThemGhiChu}
+                        <span className="font-normal text-bo-muted">{t("(không bắt buộc)")}</span>
+                    </button>
+                ) : (
+                    <span className="text-[13px] leading-5 font-semibold">
+                        {t("Tổng cộng · {{count}} sản phẩm", { count: nhom.length })}
+                        {coBienThe ? t(", {{count}} phân loại", { count: tong.soSanPham }) : ''}
+                    </span>
+                )}
+            </div>
+            <dl className="m-0 ml-auto flex items-center divide-x divide-bo-border">
+                {soLieuTong.map(({ nhan, giaTri, mau }, k) => (
+                    <div key={nhan} className="flex items-baseline gap-2 px-4 first:pl-0 last:pr-0">
+                        <dt className="text-[13px] leading-5 text-bo-muted">{nhan}</dt>
+                        <dd
+                            className={cn(
+                                'm-0 font-semibold whitespace-nowrap text-bo-heading tabular-nums',
+                                k === soLieuTong.length - 1 ? 'text-base leading-6 font-bold' : 'text-sm leading-5',
+                                mau,
+                            )}
+                        >
+                            {giaTri}
+                        </dd>
+                    </div>
+                ))}
+            </dl>
+            {!chiXem && (
+                <Button type="button" onClick={bamGui} className="h-9 gap-2 bg-bo-primary px-4 text-white hover:bg-bo-primary-hover">
+                    <Send aria-hidden="true" />
+                    {t("Gửi báo giá")}
+                </Button>
+            )}
+        </div>
+    );
 
     return (
         <KhungCongNhaCungCap tenNhaCungCap={tenNhaCungCap} email={email} onThoat={thoatCong} chanTrang={false}>
-            <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-4 p-4 md:gap-5 md:p-6">
+            <main className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 p-4 md:gap-5 md:p-6">
                 <div className="flex flex-col gap-1.5">
                     <div className="flex flex-col gap-1.5 md:flex-row md:flex-wrap md:items-center md:gap-3">
                         <h1 className="text-xl leading-7 font-bold tracking-tight break-words text-bo-heading md:text-2xl md:leading-8">
@@ -322,105 +428,66 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
                     chiXem={chiXem}
                     dongLoi={dongLoi}
                     onCapNhatDong={setDong}
+                    ghiChu={khoiGhiChuBang}
+                    chanThe={chanTheBang}
                 />
 
-                {!chiXem && !moGhiChuChung ? (
-                    <button
-                        ref={nutThemGhiChuRef}
-                        type="button"
-                        onClick={moGhiChu}
-                        className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-bo-surface px-3.5 text-sm font-medium text-bo-primary hover:border-bo-primary hover:bg-bo-primary-soft/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 md:h-10 md:w-auto md:self-start"
-                    >
-                        <Plus className="size-4" aria-hidden="true" />
-                        {tenCuaHang ? t("Thêm ghi chú cho {{tenCuaHang}}", { tenCuaHang }) : t("Thêm ghi chú")}
-                        <span className="font-normal text-bo-muted">{t("(không bắt buộc)")}</span>
-                    </button>
-                ) : (
-                    <SurfaceCard
-                        title={tieuDeGhiChu}
-                        description={chiXem ? undefined : t("Không bắt buộc. Điều kiện giao hàng, thanh toán hoặc lưu ý khác.")}
-                        action={
-                            !chiXem && (
-                                <button
-                                    type="button"
-                                    onClick={() => thuGhiChu(true)}
-                                    className="-my-1 -mr-2 flex h-11 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-bo-muted hover:bg-bo-surface-subtle hover:text-bo-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 sm:h-9"
-                                >
-                                    <X className="size-4" aria-hidden="true" />
-                                    {t("Bỏ ghi chú")}
-                                </button>
-                            )
-                        }
-                    >
-                        {chiXem ? (
-                            <p className={`m-0 text-sm leading-[22px] whitespace-pre-line ${ghiChu ? 'text-slate-700' : 'text-bo-muted'}`}>
-                                {ghiChu || t("Không có ghi chú.")}
-                            </p>
-                        ) : (
-                            <>
-                                <textarea
-                                    aria-label={tieuDeGhiChu}
-                                    aria-describedby="bg-ghi-chu-dem"
-                                    rows={3}
-                                    autoFocus={vuaMoGhiChuChung}
-                                    maxLength={GHI_CHU_TOI_DA}
-                                    placeholder={t("VD: Giá đã gồm vận chuyển đến kho; thanh toán 50% khi xác nhận đơn.")}
-                                    value={ghiChu}
-                                    onChange={(e) => setGhiChu(e.target.value.slice(0, GHI_CHU_TOI_DA))}
-                                    onBlur={(e) => {
-                                        // Mở ra mà để trống rồi bấm chỗ khác thì tự thu lại (bấm "Bỏ ghi chú" thì để nút đó xử lý)
-                                        const theGhiChu = e.currentTarget.closest('section');
-                                        if (!e.currentTarget.value.trim() && !theGhiChu?.contains(e.relatedTarget)) thuGhiChu(false);
-                                    }}
-                                    className={O_GHI_CHU_CHUNG}
-                                />
-                                <p id="bg-ghi-chu-dem" className="m-0 mt-1.5 text-right text-xs leading-4 text-bo-muted tabular-nums">
-                                    {ghiChu.length.toLocaleString('vi-VN')}/{GHI_CHU_TOI_DA.toLocaleString('vi-VN')}
+                {/* Dưới 768px: ghi chú là nút / thẻ riêng sau các thẻ sản phẩm (từ 768px nằm trong thẻ bảng) */}
+                <div className="flex flex-col md:hidden">
+                    {!chiXem && !moGhiChuChung ? (
+                        <button
+                            data-nut-them-ghi-chu=""
+                            type="button"
+                            onClick={moGhiChu}
+                            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-bo-surface px-3.5 text-sm font-medium text-bo-primary hover:border-bo-primary hover:bg-bo-primary-soft/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30"
+                        >
+                            <Plus className="size-4" aria-hidden="true" />
+                            {nhanThemGhiChu}
+                            <span className="font-normal text-bo-muted">{t("(không bắt buộc)")}</span>
+                        </button>
+                    ) : (
+                        <SurfaceCard
+                            title={tieuDeGhiChu}
+                            description={chiXem ? undefined : MO_TA_GHI_CHU}
+                            action={!chiXem && nutBoGhiChu('-my-1 -mr-2')}
+                        >
+                            {chiXem ? (
+                                <p className={`m-0 text-sm leading-[22px] whitespace-pre-line ${ghiChu ? 'text-slate-700' : 'text-bo-muted'}`}>
+                                    {ghiChu || t("Không có ghi chú.")}
                                 </p>
-                            </>
-                        )}
-                    </SurfaceCard>
-                )}
-            </main>
+                            ) : (
+                                oGhiChu('bg-ghi-chu-dem-the')
+                            )}
+                        </SurfaceCard>
+                    )}
+                </div>
 
-            {/* Trước thanh Gửi báo giá: thanh vẫn sát đáy khi cuộn hết trang. Nền xám bo-canvas nên chữ đậm hơn một bậc
-                để đủ tương phản 4.5:1 */}
-            <ChanTrangVanHanh className="pt-0 text-slate-600" />
-
-            {!chiXem && dong.length > 0 && (
-                <div className="sticky bottom-0 z-10 border-t border-bo-border bg-bo-surface shadow-[0_-1px_3px_0_rgba(0,0,0,0.06)]">
-                    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-2.5 px-4 pt-3 pb-4 md:flex-row md:flex-wrap md:items-center md:justify-between md:gap-4 md:px-6 md:py-3">
-                        <div className="flex min-w-0 flex-col gap-2.5 md:flex-row md:flex-wrap md:items-center md:gap-x-6 md:gap-y-1">
-                            <div className="flex items-baseline justify-between gap-2 md:justify-start md:gap-3">
-                                <span className="text-[13px] leading-5 text-bo-muted md:hidden">
-                                    {t("Tổng tiền · đã có giá {{daNhapGia}}/{{tong}}", { daNhapGia: tong.daNhapGia, tong: tong.soSanPham })}
-                                </span>
-                                <span className="hidden text-sm leading-5 text-bo-muted md:inline">{t("Tổng tiền báo giá")}</span>
-                                <span className="text-lg leading-[26px] font-bold tracking-tight text-bo-heading tabular-nums md:text-xl md:leading-7">
-                                    {formatCurrency(tong.tongTien)}
-                                </span>
-                            </div>
-                            <div className="hidden min-w-0 items-center gap-2.5 md:flex">
-                                <div aria-hidden="true" className="h-1.5 w-[120px] shrink-0 overflow-hidden rounded-full bg-bo-border">
-                                    <div className="h-full rounded-full bg-bo-primary transition-[width]" style={{ width: `${phanTram}%` }} />
-                                </div>
-                                <span className="min-w-0 truncate text-sm leading-5 text-bo-muted">
-                                    {t("Đã có giá {{daNhapGia}}/{{tong}} {{donVi}}", { daNhapGia: tong.daNhapGia, tong: tong.soSanPham, donVi })}
-                                    {conThieu && t(" · còn thiếu {{conThieu}}", { conThieu })}
-                                </span>
+                {/* Dưới 768px: khối dính đáy (mỗi sản phẩm là một thẻ riêng nên không gộp được vào chân thẻ bảng) */}
+                {!chiXem && dong.length > 0 && (
+                    <div className="sticky bottom-0 z-10 -mx-4 -mb-4 bg-bo-canvas px-4 pt-1 pb-4 md:hidden">
+                        <div className="rounded-lg border border-bo-border bg-bo-surface shadow-[0_2px_8px_rgba(15,23,42,0.08)]">
+                            <dl className="m-0 grid grid-cols-[minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,1.3fr)] divide-x divide-bo-border border-b border-bo-border text-center">
+                                {soLieuTong.map(({ nhan, giaTri, mau }) => (
+                                    <div key={nhan} className="flex min-w-0 flex-col gap-0.5 px-2 py-2">
+                                        <dt className="text-xs leading-4 text-bo-muted">{nhan}</dt>
+                                        <dd className={cn('m-0 text-sm leading-5 font-semibold break-words text-bo-heading tabular-nums', mau)}>{giaTri}</dd>
+                                    </div>
+                                ))}
+                            </dl>
+                            <div className="p-3">
+                                <Button
+                                    type="button"
+                                    onClick={bamGui}
+                                    className="h-11 w-full gap-2 bg-bo-primary px-5 text-[15px] text-white hover:bg-bo-primary-hover"
+                                >
+                                    <Send aria-hidden="true" />
+                                    {t("Gửi báo giá")}
+                                </Button>
                             </div>
                         </div>
-                        <Button
-                            type="button"
-                            onClick={bamGui}
-                            className="h-11 w-full gap-2 bg-bo-primary px-5 text-[15px] text-white hover:bg-bo-primary-hover md:h-10 md:w-auto md:text-sm"
-                        >
-                            <Send aria-hidden="true" />
-                            {t("Gửi báo giá")}
-                        </Button>
                     </div>
-                </div>
-            )}
+                )}
+            </main>
 
             <HopGuiBaoGia
                 trangThai={hop}
@@ -491,7 +558,7 @@ export default function SupplierQuotation() {
 
     return (
         <KhungCongNhaCungCap tenNhaCungCap={phien.nhaCungCap?.ten} email={phien.nhaCungCap?.email} onThoat={thoat}>
-            <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-4 p-4 md:gap-5 md:p-6">
+            <main className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 p-4 md:gap-5 md:p-6">
                 {tai.trangThai === 'dang-tai' ? (
                     <KhungXuongCong />
                 ) : tai.trangThai === 'khong-tim-thay' ? (
