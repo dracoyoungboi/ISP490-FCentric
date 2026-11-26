@@ -1170,5 +1170,16 @@
   "hàng lỗi đã giao trả và tiêu hủy": "defective goods returned and destroyed",
   "hàng lỗi đang ở {{kho}}": "defective goods at {{kho}}",
   "hàng lỗi đang ở kho của chúng tôi": "defective goods at our warehouse",
-  "Trả lời trước hết ngày": "Reply by end of"
+  "Trả lời trước hết ngày": "Reply by end of",
+  "Lịch sử báo giá và hàng lỗi": "Quotation and defect history",
+  "Không có biên bản hàng lỗi trong khoảng ngày đã chọn": "No defect reports in the selected date range",
+  "Không có yêu cầu báo giá trong khoảng ngày đã chọn": "No quotation requests in the selected date range",
+  "Chưa có biên bản hàng lỗi nào": "No defect reports yet",
+  "Chưa có yêu cầu báo giá nào": "No quotation requests yet",
+  "Kiểm tra lại mã vừa gõ, hoặc xóa lọc ngày để tìm cả chứng từ cũ.": "Check the code you entered, or clear the date filter to search older documents too.",
+  "Kiểm tra lại mã vừa gõ.": "Check the code you entered.",
+  "Xóa lọc ngày để xem tất cả chứng từ.": "Clear the date filter to see all documents.",
+  "Khi chúng tôi lập biên bản hàng lỗi, biên bản sẽ hiện ở đây.": "When we file a defect report, it will appear here.",
+  "Khi chúng tôi gửi yêu cầu báo giá, đơn sẽ hiện ở đây.": "When we send a quotation request, the order will appear here.",
+  "Xóa lọc ngày": "Clear date filter"
 }
