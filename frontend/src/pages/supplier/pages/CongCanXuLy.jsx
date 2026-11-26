@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowRight, Check, ChevronRight, Clock, Info, Mail, Phone, Search } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Check, ChevronRight, Clock, Info, Mail, MessageSquareReply, Phone, ReceiptText, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import StatusBadge from '@/components/shared/StatusBadge';
+import TablePagination from '@/components/shared/TablePagination';
+import { LUA_CHON_SO_DONG } from '@/constants/phanTrang';
 import KhungCongNhaCungCap from '@/components/supplier-portal/KhungCongNhaCungCap';
 import { KhungLoiTai, KhungXuongCong } from '@/components/supplier-portal/TrangThaiTaiCong';
 import { demViec, xepViecCanLam } from '@/components/supplier-portal/congUtils';
@@ -19,6 +21,18 @@ const TIEU_DE_TRANG = 'text-xl leading-7 font-bold tracking-tight text-bo-headin
 const LIEN_KET_FOCUS = 'rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40';
 /** Màu chữ ngày hạn theo mức gấp (xepViecCanLam). */
 const MAU_HAN = { do: 'text-bo-danger', cam: 'text-bo-warning', xam: 'text-bo-foreground' };
+/** 10 việc mỗi trang như Lịch sử; danh sách không quá số này thì không có chân phân trang. */
+const SO_DONG_MAC_DINH = 10;
+
+/** Đổi vài tham số trên địa chỉ (null / rỗng: bỏ tham số), giữ các tham số khác. */
+function datThamSo(thamSo, moi) {
+    const ts = new URLSearchParams(thamSo);
+    for (const [k, v] of Object.entries(moi)) {
+        if (v === null || v === '' || v === undefined) ts.delete(k);
+        else ts.set(k, v);
+    }
+    return ts;
+}
 
 /**
  * Cổng nhà cung cấp · Cần xử lý (/supplier/portal): cả trang trong MỘT khối trắng — tiêu đề + người phụ trách mua hàng,
@@ -105,14 +119,20 @@ const LOC = [
     { ma: 'tat-ca', ten: () => t("Tất cả") },
     { ma: 'bien-ban', ten: () => t("Biên bản hàng lỗi") },
     { ma: 'bao-gia', ten: () => t("Chờ báo giá") },
+    { ma: 'qua-han', ten: () => t("Quá hạn") },
 ];
+const MA_LOC = new Set(LOC.map((l) => l.ma));
 
-/** Phần dưới đầu khối khi đã tải: nhắc quá hạn, thanh lọc + tìm, danh sách việc (hoặc màn không có việc). */
+/**
+ * Phần dưới đầu khối khi đã tải: nhắc quá hạn, thanh lọc + tìm, danh sách việc (hoặc màn không có việc), chân phân
+ * trang khi quá 10 việc. Lọc, từ khóa, trang, số dòng nằm trên địa chỉ (?loc=&q=&trang=&so=) để F5 / Quay lại giữ chỗ.
+ * Lọc "Quá hạn" chỉ hiện khi có việc quá hạn (biên bản quá hạn trả lời, đơn đã qua ngày cần giao).
+ */
 function DanhSachViec({ viec }) {
     // Mốc so hạn: lấy một lần khi dựng (không gọi đồng hồ mỗi lần vẽ)
     const [bayGio] = useState(() => new Date());
-    const [loc, setLoc] = useState('tat-ca');
-    const [tim, setTim] = useState('');
+    const [thamSo, setThamSo] = useSearchParams();
+    const dauDanhSachRef = useRef(null);
     const ds = useMemo(() => xepViecCanLam(viec, bayGio), [viec, bayGio]);
 
     if (ds.length === 0) return <KhongCoViec />;
@@ -121,34 +141,58 @@ function DanhSachViec({ viec }) {
         'tat-ca': ds.length,
         'bien-ban': ds.filter((v) => v.loai === 'bien-ban').length,
         'bao-gia': ds.filter((v) => v.loai === 'bao-gia').length,
+        'qua-han': ds.filter((v) => v.quaHan).length,
     };
+    const locDiaChi = thamSo.get('loc');
+    // ?loc=qua-han mà không còn việc quá hạn (vừa báo giá xong rồi Quay lại) thì về Tất cả
+    const loc = MA_LOC.has(locDiaChi) && (locDiaChi !== 'qua-han' || dem['qua-han'] > 0) ? locDiaChi : 'tat-ca';
+    const tim = thamSo.get('q') ?? '';
+    const soDongDiaChi = Number(thamSo.get('so'));
+    const soDong = LUA_CHON_SO_DONG.includes(soDongDiaChi) ? soDongDiaChi : SO_DONG_MAC_DINH;
+
     const tuKhoa = tim.trim().toLowerCase();
     const dsLoc = ds.filter(
         (v) =>
-            (loc === 'tat-ca' || v.loai === loc) &&
+            (loc === 'tat-ca' || (loc === 'qua-han' ? v.quaHan : v.loai === loc)) &&
             (!tuKhoa || [v.so, v.duLieu.soDonMua].some((s) => String(s ?? '').toLowerCase().includes(tuKhoa))),
     );
+    const soTrang = Math.max(1, Math.ceil(dsLoc.length / soDong));
+    const trang = Math.min(Math.max(0, (Number.parseInt(thamSo.get('trang'), 10) || 1) - 1), soTrang - 1);
+    const dongTrang = dsLoc.slice(trang * soDong, (trang + 1) * soDong);
+
+    // Đổi lọc / từ khóa / số dòng thì về trang 1; chỉ đổi trang thì giữ bộ lọc
+    const doiThamSo = (moi) => setThamSo(datThamSo(thamSo, { trang: null, ...moi }), { replace: true });
+    const doiLoc = (ma) => doiThamSo({ loc: ma === 'tat-ca' ? null : ma });
+    const doiTrang = (so) => {
+        setThamSo(datThamSo(thamSo, { trang: so > 0 ? String(so + 1) : null }), { replace: true });
+        // Đang cuộn quá đầu danh sách thì đưa đầu danh sách lên; danh sách còn trong màn thì không nhảy
+        const dau = dauDanhSachRef.current;
+        if (dau && dau.getBoundingClientRect().top < 0) {
+            const giam = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+            dau.scrollIntoView({ block: 'start', behavior: giam ? 'auto' : 'smooth' });
+        }
+    };
 
     return (
         <>
-            <NhacQuaHan ds={ds} />
-            <div className="flex flex-col gap-3 border-y border-bo-border px-4 py-2.5 md:flex-row md:items-center md:justify-between md:px-6">
+            <NhacQuaHan ds={ds} dangLocQuaHan={loc === 'qua-han'} onXemQuaHan={() => doiLoc('qua-han')} />
+            <div ref={dauDanhSachRef} className="flex scroll-mt-4 flex-col gap-3 border-y border-bo-border px-4 py-2.5 md:flex-row md:items-center md:justify-between md:px-6">
                 <div role="group" aria-label={t("Lọc theo loại việc")} className="-mx-1 flex gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    {LOC.map(({ ma, ten }) => {
+                    {LOC.filter(({ ma }) => ma !== 'qua-han' || dem['qua-han'] > 0).map(({ ma, ten }) => {
                         const bat = loc === ma;
                         return (
                             <button
                                 key={ma}
                                 type="button"
                                 aria-pressed={bat}
-                                onClick={() => setLoc(ma)}
+                                onClick={() => doiLoc(ma)}
                                 className={cn(
                                     'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30',
                                     bat ? 'bg-bo-primary-soft text-bo-primary' : 'text-slate-600 hover:bg-slate-100 hover:text-bo-foreground',
                                 )}
                             >
                                 {ten()}
-                                <span className={cn('tabular-nums', !bat && 'text-bo-muted')}>{dem[ma]}</span>
+                                <span className={cn('tabular-nums', !bat && (ma === 'qua-han' ? 'text-bo-danger' : 'text-bo-muted'))}>{dem[ma]}</span>
                             </button>
                         );
                     })}
@@ -159,7 +203,7 @@ function DanhSachViec({ viec }) {
                     <input
                         type="search"
                         value={tim}
-                        onChange={(e) => setTim(e.target.value)}
+                        onChange={(e) => doiThamSo({ q: e.target.value })}
                         placeholder={t("Tìm số đơn, số biên bản")}
                         className="h-9 w-full rounded-md border border-bo-input-border bg-bo-surface pr-3 pl-8 text-sm placeholder:text-slate-400 focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/20"
                     />
@@ -168,18 +212,32 @@ function DanhSachViec({ viec }) {
             {dsLoc.length === 0 ? (
                 <p className="px-6 py-12 text-center text-sm text-bo-muted">{t("Không có việc khớp với ô tìm.")}</p>
             ) : (
-                <ul className="divide-y divide-bo-border">
-                    {dsLoc.map((v) => (
-                        <DongViec key={`${v.loai}-${v.id}`} v={v} />
-                    ))}
-                </ul>
+                <>
+                    <ul className="divide-y divide-bo-border">
+                        {dongTrang.map((v) => (
+                            <DongViec key={`${v.loai}-${v.id}`} v={v} />
+                        ))}
+                    </ul>
+                    {dsLoc.length > SO_DONG_MAC_DINH ? (
+                        <div className="border-t border-bo-border px-4 py-3 md:px-6">
+                            <TablePagination
+                                page={trang}
+                                size={soDong}
+                                total={dsLoc.length}
+                                onPageChange={doiTrang}
+                                onSizeChange={(so) => doiThamSo({ so: so === SO_DONG_MAC_DINH ? null : String(so) })}
+                                canGiua
+                            />
+                        </div>
+                    ) : null}
+                </>
             )}
         </>
     );
 }
 
 /** Dải cam nhắc việc quá hạn: biên bản quá hạn trả lời (sẽ bị trừ tiền), đơn đã qua ngày cần giao (vẫn báo giá được). */
-function NhacQuaHan({ ds }) {
+function NhacQuaHan({ ds, dangLocQuaHan, onXemQuaHan }) {
     const soBienBan = ds.filter((v) => v.loai === 'bien-ban' && v.quaHan).length;
     const soDon = ds.filter((v) => v.loai === 'bao-gia' && v.quaHan).length;
     if (!soBienBan && !soDon) return null;
@@ -190,6 +248,18 @@ function NhacQuaHan({ ds }) {
                 {soBienBan ? t("{{count}} biên bản đã quá hạn trả lời: chưa chọn cách bù thì chúng tôi trừ tiền hàng.", { count: soBienBan }) : null}
                 {soBienBan && soDon ? ' ' : null}
                 {soDon ? t("{{count}} đơn đã qua ngày cần giao, vẫn báo giá được; ngày giao mới xin thống nhất với người phụ trách.", { count: soDon }) : null}
+                {dangLocQuaHan ? null : (
+                    <>
+                        {' '}
+                        <button
+                            type="button"
+                            onClick={onXemQuaHan}
+                            className="rounded-sm font-semibold whitespace-nowrap text-orange-800 underline underline-offset-2 hover:text-orange-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40"
+                        >
+                            {soBienBan + soDon > 1 ? t("Xem các việc này") : t("Xem việc này")}
+                        </button>
+                    </>
+                )}
             </span>
         </p>
     );
@@ -282,15 +352,16 @@ function DongViec({ v }) {
                         ) : null}
                     </p>
                 </div>
-                {laBienBan ? (
-                    <span className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md bg-bo-primary px-4 text-sm font-medium whitespace-nowrap text-white transition-colors group-hover:bg-bo-primary-hover max-md:w-full">
-                        {t("Trả lời")} <ArrowRight className="size-4" aria-hidden="true" />
-                    </span>
-                ) : (
-                    <span className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-bo-border bg-bo-surface px-4 text-sm font-medium whitespace-nowrap text-bo-foreground transition-colors group-hover:bg-bo-surface-subtle max-md:w-full">
-                        {t("Báo giá", { context: "nut" })} <ArrowRight className="size-4" aria-hidden="true" />
-                    </span>
-                )}
+                {/* Nút chỉ là phần nhìn (cả dòng là liên kết): cùng một kiểu viền, cùng bề rộng, biểu tượng theo loại;
+                    rê hoặc chọn dòng thì nút đổ xanh. Mức gấp đã tô ở dòng ngày nên nút không đổi màu theo loại. */}
+                <span className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-bo-border bg-bo-surface px-4 text-sm font-medium whitespace-nowrap text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.06)] transition-colors group-hover:border-bo-primary group-hover:bg-bo-primary group-hover:text-white group-focus-visible:border-bo-primary group-focus-visible:bg-bo-primary group-focus-visible:text-white max-md:w-full md:w-[132px]">
+                    {laBienBan ? (
+                        <MessageSquareReply className="size-4 text-bo-muted transition-colors group-hover:text-white group-focus-visible:text-white" aria-hidden="true" />
+                    ) : (
+                        <ReceiptText className="size-4 text-bo-muted transition-colors group-hover:text-white group-focus-visible:text-white" aria-hidden="true" />
+                    )}
+                    {laBienBan ? t("Trả lời") : t("Báo giá", { context: "nut" })}
+                </span>
             </Link>
         </li>
     );
