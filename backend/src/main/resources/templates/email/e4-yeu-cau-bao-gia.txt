@@ -1,13 +1,15 @@
-[# th:insert="~{khung-dau.txt}" /]Yêu cầu báo giá đơn [(${e.maDon})]
+[# th:insert="~{khung-dau.txt}" /][# th:if="${e.nhacHan}"]Nhắc hạn báo giá đơn [(${e.maDon})][/][# th:unless="${e.nhacHan}"]Yêu cầu báo giá đơn [(${e.maDon})][/]
 
 Kính gửi [(${e.tenNhaCungCap})],
 
-Chúng tôi đề nghị Quý công ty báo giá [(${e.soMatHang})] mặt hàng dưới đây.
+[# th:if="${e.nhacHan}"]Yêu cầu báo giá đơn [(${e.maDon})] hết hạn cuối ngày [(${e.hanBaoGia})] mà chúng tôi chưa nhận được báo giá của Quý công ty. Nếu Quý công ty muốn báo giá, vui lòng gửi trước hạn.[/][# th:unless="${e.nhacHan}"]Chúng tôi đề nghị Quý công ty báo giá [(${e.soMatHang})] mặt hàng dưới đây.[/]
 
 Giao tại: [(${e.tenKho})][# th:if="${e.diaChiKho != null}"], [(${e.diaChiKho})][/]
 [# th:if="${e.ngayCanGiao != null}"]Ngày cần giao: [(${e.ngayCanGiao})]
 [/]
-Gửi báo giá: [(${e.duongDanCong})]
+[# th:if="${e.hanBaoGia != null}"]Hạn gửi báo giá: hết ngày [(${e.hanBaoGia})] (giờ Việt Nam). Sau hạn này Cổng nhà cung cấp không nhận báo giá cho đơn này nữa.
+
+[/]Gửi báo giá: [(${e.duongDanCong})]
 Bấm vào liên kết, nhận mã xác nhận 6 số qua email này, rồi nhập đơn giá cho từng sản phẩm. Hoặc mở [(${e.duongDanCongGoc})] và đăng nhập bằng email nhận thư này.
 
 Sản phẩm cần báo giá

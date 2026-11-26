@@ -26,6 +26,13 @@ public interface DonMuaHangEmailRepository extends Repository<DonMuaHang, Intege
             nativeQuery = true)
     int ghiNgayGuiYeuCau(@Param("id") Integer id, @Param("luc") Instant luc);
 
+    /** Như {@link #ghiNgayGuiYeuCau} nhưng chỉ khi chưa có (thư nhắc hạn gửi được: giữ lúc gửi được lần đầu). */
+    @Modifying
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Query(value = "UPDATE don_mua_hang SET ngay_gui_yeu_cau = :luc, ngay_cap_nhat = ngay_cap_nhat"
+            + " WHERE id = :id AND ngay_gui_yeu_cau IS NULL", nativeQuery = true)
+    int ghiNgayGuiYeuCauNeuTrong(@Param("id") Integer id, @Param("luc") Instant luc);
+
     /** Trạng thái hiện tại (kiểm trước mỗi lần gửi / thử lại: đơn đã đổi trạng thái thì không gửi thư cũ). */
     @Transactional(readOnly = true)
     @Query("select d.trangThai from DonMuaHang d where d.id = :id")

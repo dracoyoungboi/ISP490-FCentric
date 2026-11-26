@@ -1,8 +1,8 @@
-[# th:insert="~{khung-dau.txt}" /][# th:if="${e.daBaoGia}"]Kết quả báo giá đơn [(${e.maDon})][/][# th:unless="${e.daBaoGia}"]Yêu cầu báo giá đơn [(${e.maDon})] đã kết thúc[/]
+[# th:insert="~{khung-dau.txt}" /][# th:if="${e.hetHan}"]Yêu cầu báo giá đơn [(${e.maDon})] đã hết hạn[/][# th:if="${e.daBaoGia}"]Kết quả báo giá đơn [(${e.maDon})][/][# th:if="${!e.daBaoGia and !e.hetHan}"]Yêu cầu báo giá đơn [(${e.maDon})] đã kết thúc[/]
 
 Kính gửi [(${e.tenNhaCungCap})],
 
-[# th:if="${e.daBaoGia}"]Cảm ơn Quý công ty đã gửi báo giá ngày [(${e.ngayThamChieu})]. Sau khi xem xét, lần này chúng tôi chưa chọn báo giá của Quý công ty.[/][# th:unless="${e.daBaoGia}"]Chúng tôi đã chọn được nhà cung cấp cho yêu cầu gửi ngày [(${e.ngayThamChieu})]. Quý công ty không cần gửi báo giá cho đơn này nữa.[/]
+[# th:if="${e.daBaoGia}"]Cảm ơn Quý công ty đã gửi báo giá ngày [(${e.ngayThamChieu})]. Sau khi xem xét, lần này chúng tôi chưa chọn báo giá của Quý công ty.[/][# th:if="${e.hetHan}"]Yêu cầu báo giá gửi ngày [(${e.ngayThamChieu})] đã hết hạn cuối ngày [(${e.hanBaoGia})] mà chúng tôi chưa nhận được báo giá của Quý công ty. Yêu cầu này đã kết thúc, Quý công ty không cần gửi báo giá cho đơn này nữa.[/][# th:if="${!e.daBaoGia and !e.hetHan}"]Chúng tôi đã chọn được nhà cung cấp cho yêu cầu gửi ngày [(${e.ngayThamChieu})]. Quý công ty không cần gửi báo giá cho đơn này nữa.[/]
 [# th:if="${e.daBaoGia and e.lyDo != null}"]
 Lý do: [(${e.lyDo})]
 [/]

@@ -42,7 +42,27 @@ public interface EmailNghiepVuService {
      * E4 · Yêu cầu báo giá, một email cho một đơn (một nhà cung cấp). Gọi sau khi đơn và các dòng đã lưu
      * (đã có id). Gửi được thì ghi {@code don_mua_hang.ngay_gui_yeu_cau} (transaction riêng, giữ ngay_cap_nhat).
      */
-    void guiYeuCauBaoGia(DonMuaHang don);
+    default void guiYeuCauBaoGia(DonMuaHang don) {
+        guiYeuCauBaoGia(don, null);
+    }
+
+    /**
+     * E4 kèm hạn báo giá (in trong thư: nhà cung cấp gửi được đến hết ngày này). {@code hanBaoGia} null: đơn gửi trước
+     * khi có hạn, thư không có dòng hạn.
+     */
+    void guiYeuCauBaoGia(DonMuaHang don, java.time.LocalDate hanBaoGia);
+
+    /**
+     * E4 bản nhắc hạn: còn một ngày tới hạn mà nhà cung cấp chưa báo giá. Cùng nội dung E4, tiêu đề và câu mở đầu nhắc
+     * hạn. Chỉ gửi khi đơn còn chờ báo giá; gửi được mà lần đầu chưa gửi được thì cũng ghi ngay_gui_yeu_cau.
+     */
+    void guiNhacHanBaoGia(DonMuaHang don, java.time.LocalDate hanBaoGia);
+
+    /**
+     * M2 bản hết hạn: đơn đã sang Hết hạn (8) mà nhà cung cấp chưa báo giá; yêu cầu đã đóng, không cần gửi nữa. Chỉ gửi
+     * khi đơn vẫn ở 8.
+     */
+    void guiHetHanBaoGia(DonMuaHang don, java.time.LocalDate hanBaoGia);
 
     /**
      * E5 · Mã đăng nhập Cổng nhà cung cấp. Đăng nhập theo email (mọi nhà cung cấp có email đó, kể cả đã ngừng hợp tác

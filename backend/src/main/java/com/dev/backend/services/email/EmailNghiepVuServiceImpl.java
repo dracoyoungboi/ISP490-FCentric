@@ -21,6 +21,7 @@ import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.BooleanSupplier;
@@ -63,6 +64,7 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
     static final int DON_CHO_BAO_GIA = 2;
     static final int DON_DA_CHAP_NHAN = 3;
     static final int DON_KHONG_CHAP_NHAN = 4;
+    static final int DON_HET_HAN = 8;
 
     // Trạng thái, phương án của biên bản trả hàng (cột trang_thai, phuong_an_xu_ly) và nguồn câu trả lời: tên ngắn cho
     // hằng số của entity / nhật ký
@@ -232,12 +234,26 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
 
     /** E4. Gửi được thì ghi ngay_gui_yeu_cau (transaction riêng, giữ ngay_cap_nhat). */
     @Override
-    public void guiYeuCauBaoGia(DonMuaHang don) {
+    public void guiYeuCauBaoGia(DonMuaHang don, LocalDate hanBaoGia) {
+        guiE4(don, hanBaoGia, false);
+    }
+
+    /**
+     * E4 bản nhắc hạn. Không gửi khi đơn đã có báo giá hay đã đổi trạng thái lúc tới lượt gửi; gửi được mà lần đầu chưa
+     * gửi được thì ghi ngay_gui_yeu_cau (nhà cung cấp đã nhận được yêu cầu).
+     */
+    @Override
+    public void guiNhacHanBaoGia(DonMuaHang don, LocalDate hanBaoGia) {
+        guiE4(don, hanBaoGia, true);
+    }
+
+    private void guiE4(DonMuaHang don, LocalDate hanBaoGia, boolean nhacHan) {
         String maDon = maDon(don);
         try {
             kiem(don.getId() != null, "đơn chưa lưu");
             kiem(Integer.valueOf(DON_CHO_BAO_GIA).equals(don.getTrangThai()), "đơn không ở trạng thái chờ báo giá");
             kiem(don.getNgayBaoGia() == null, "nhà cung cấp đã báo giá");
+            kiem(!nhacHan || hanBaoGia != null, "thư nhắc thiếu hạn báo giá");
             String den = emailNhaCungCap(don);
             List<ChiTietDonMuaHang> chiTiet = chiTiet(don);
             Kho kho = don.getKhoNhap();
@@ -246,21 +262,29 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
             YeuCauBaoGiaEmail duLieu = new YeuCauBaoGiaEmail(tenNhaCungCap(don), maDon, kho.getTenKho(),
                     sach(kho.getDiaChi()), DinhDangEmail.ngay(don.getNgayGiaoDuKien()), dong.size(), dong,
                     tongSoLuong(chiTiet), duongDan.congNhaCungCap(don.getId(), den), duongDan.congNhaCungCapGoc(),
-                    duongDan.nhanCongNhaCungCap());
+                    duongDan.nhanCongNhaCungCap(), hanBaoGia == null ? null : NGAY_HAN.format(hanBaoGia), nhacHan);
             Integer id = don.getId();
             dispatcher.guiSauCommit(EmailGui.builder()
                     .loai(LoaiEmail.E4).den(den).maDon(maDon)
-                    .tieuDe(c -> "Yêu cầu báo giá " + maDon + duoiCuaHang(c))
+                    .tieuDe(c -> nhacHan
+                            ? "Nhắc hạn báo giá " + maDon + ": hết ngày " + NGAY_HAN.format(hanBaoGia)
+                            : "Yêu cầu báo giá " + maDon + duoiCuaHang(c))
                     .duLieu(duLieu).nguoiPhuTrach(nguoiPhuTrach(don))
                     .conHieuLuc(() -> trangThaiLa(id, DON_CHO_BAO_GIA)
                             && donMuaHangEmailRepository.ngayBaoGia(id).isEmpty())
-                    .khiGuiDuoc(() -> donMuaHangEmailRepository.ghiNgayGuiYeuCau(id,
-                            clock.instant().truncatedTo(ChronoUnit.SECONDS)))
+                    .khiGuiDuoc(() -> {
+                        Instant luc = clock.instant().truncatedTo(ChronoUnit.SECONDS);
+                        if (nhacHan) donMuaHangEmailRepository.ghiNgayGuiYeuCauNeuTrong(id, luc);
+                        else donMuaHangEmailRepository.ghiNgayGuiYeuCau(id, luc);
+                    })
                     .build());
         } catch (Exception e) {
             loiDung(LoaiEmail.E4, maDon, e);
         }
     }
+
+    /** Ngày hạn báo giá in trong thư (đã là ngày giờ Việt Nam, không đổi múi giờ). */
+    private static final java.time.format.DateTimeFormatter NGAY_HAN = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     /**
      * E5. Mã đăng nhập Cổng nhà cung cấp, gửi ngay trong request; không gửi được (kể cả dữ liệu sai) thì ném
@@ -372,6 +396,31 @@ public class EmailNghiepVuServiceImpl implements EmailNghiepVuService {
                             : "Yêu cầu báo giá đơn " + maDon + " đã kết thúc")
                     .duLieu(duLieu).nguoiPhuTrach(nguoiPhuTrach(don))
                     .conHieuLuc(() -> trangThaiLa(id, DON_KHONG_CHAP_NHAN))
+                    .build());
+        } catch (Exception e) {
+            loiDung(LoaiEmail.M2, maDon, e);
+        }
+    }
+
+    /** M2 bản hết hạn: chỉ gửi khi đơn đang ở Hết hạn (8) và chưa có báo giá; lúc gửi kiểm lại đơn vẫn ở 8. */
+    @Override
+    public void guiHetHanBaoGia(DonMuaHang don, LocalDate hanBaoGia) {
+        String maDon = maDon(don);
+        try {
+            kiem(don.getId() != null, "đơn chưa lưu");
+            kiem(Integer.valueOf(DON_HET_HAN).equals(don.getTrangThai()), "đơn không ở trạng thái hết hạn");
+            kiem(don.getNgayBaoGia() == null, "nhà cung cấp đã báo giá");
+            kiem(hanBaoGia != null, "thiếu hạn báo giá");
+            String den = emailNhaCungCap(don);
+            Instant ngayGui = don.getNgayGuiYeuCau() != null ? don.getNgayGuiYeuCau() : don.getNgayDatHang();
+            KetQuaBaoGiaEmail duLieu = new KetQuaBaoGiaEmail(tenNhaCungCap(don), maDon, false,
+                    DinhDangEmail.ngay(ngayGui), null, true, NGAY_HAN.format(hanBaoGia));
+            Integer id = don.getId();
+            dispatcher.guiSauCommit(EmailGui.builder()
+                    .loai(LoaiEmail.M2).den(den).maDon(maDon)
+                    .tieuDe(c -> "Yêu cầu báo giá đơn " + maDon + " đã hết hạn")
+                    .duLieu(duLieu).nguoiPhuTrach(nguoiPhuTrach(don))
+                    .conHieuLuc(() -> trangThaiLa(id, DON_HET_HAN))
                     .build());
         } catch (Exception e) {
             loiDung(LoaiEmail.M2, maDon, e);

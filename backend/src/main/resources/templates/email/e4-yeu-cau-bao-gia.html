@@ -6,17 +6,23 @@
 <html xmlns:th="http://www.thymeleaf.org"
       th:replace="~{khung :: thu(xemTruoc=~{::xem-truoc}, noiDung=~{::noi-dung}, chan=~{khung :: chan-nha-cung-cap(false, true)}, nhom=null)}">
 <body>
-<th:block th:fragment="xem-truoc"><th:block th:text="${e.soMatHang}">0</th:block> mặt hàng, giao tại <th:block th:text="${e.tenKho}">kho</th:block><th:block th:if="${e.ngayCanGiao != null}"> ngày <th:block th:text="${e.ngayCanGiao}">ngày</th:block></th:block>. Gửi báo giá trên Cổng nhà cung cấp.</th:block>
+<th:block th:fragment="xem-truoc"><th:block th:if="${e.nhacHan}" th:text="|Còn một ngày để gửi báo giá đơn ${e.maDon}: hạn hết ngày ${e.hanBaoGia}.|">Còn một ngày để gửi báo giá.</th:block><th:block th:unless="${e.nhacHan}"><th:block th:text="${e.soMatHang}">0</th:block> mặt hàng, giao tại <th:block th:text="${e.tenKho}">kho</th:block><th:block th:if="${e.ngayCanGiao != null}"> ngày <th:block th:text="${e.ngayCanGiao}">ngày</th:block></th:block>. Gửi báo giá trên Cổng nhà cung cấp<th:block th:if="${e.hanBaoGia != null}"> trước hết ngày <th:block th:text="${e.hanBaoGia}">hạn</th:block></th:block>.</th:block></th:block>
 <th:block th:fragment="noi-dung">
-<tr th:replace="~{khung :: tieu-de(|Yêu cầu báo giá đơn ${e.maDon}|)}"></tr>
+<tr th:replace="~{khung :: tieu-de(${e.nhacHan} ? |Nhắc hạn báo giá đơn ${e.maDon}| : |Yêu cầu báo giá đơn ${e.maDon}|)}"></tr>
 <tr><td style="padding:0 0 14px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Kính gửi ${e.tenNhaCungCap},|">Kính gửi,</p></td></tr>
-<tr><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Chúng tôi đề nghị Quý công ty báo giá ${e.soMatHang} mặt hàng dưới đây.|">Chúng tôi đề nghị Quý công ty báo giá các sản phẩm dưới đây.</p></td></tr>
+<tr th:unless="${e.nhacHan}"><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Chúng tôi đề nghị Quý công ty báo giá ${e.soMatHang} mặt hàng dưới đây.|">Chúng tôi đề nghị Quý công ty báo giá các sản phẩm dưới đây.</p></td></tr>
+<tr th:if="${e.nhacHan}"><td style="padding:0 0 22px;"><p class="chu" style="margin:0;font-size:15px;line-height:24px;color:#172233;" th:text="|Yêu cầu báo giá đơn ${e.maDon} hết hạn cuối ngày ${e.hanBaoGia} mà chúng tôi chưa nhận được báo giá của Quý công ty. Nếu Quý công ty muốn báo giá, vui lòng gửi trước hạn.|">Yêu cầu báo giá sắp hết hạn.</p></td></tr>
 <tr><td style="padding:0 0 22px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="luoi nen-nhat vien" style="width:100%;background-color:#f7f9fb;border:1px solid #e3e8ef;border-radius:8px;border-collapse:separate;border-spacing:0;">
 <tr>
 <td th:attr="colspan=${e.ngayCanGiao == null} ? 2 : 1,width=${e.ngayCanGiao == null} ? null : '50%'" valign="top" class="o-luoi vien" style="padding:12px 16px;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;">Giao tại</p><p class="chu" style="margin:3px 0 0;font-size:15px;line-height:22px;font-weight:600;color:#172233;" th:text="${e.tenKho}">Kho</p><p th:if="${e.diaChiKho != null}" class="chu-mo" style="margin:1px 0 0;font-size:13px;line-height:19px;color:#5b6b80;" th:text="${e.diaChiKho}">Địa chỉ kho</p></td>
 <td th:if="${e.ngayCanGiao != null}" width="50%" valign="top" class="o-luoi o-luoi-2 vien" style="width:50%;padding:12px 16px;border-left:1px solid #e3e8ef;vertical-align:top;"><p class="chu-mo" style="margin:0;font-size:12px;line-height:17px;color:#5b6b80;">Ngày cần giao</p><p class="chu" style="margin:3px 0 0;font-size:15px;line-height:22px;font-weight:600;color:#172233;" th:text="${e.ngayCanGiao}">Ngày cần giao</p></td>
 </tr>
+</table>
+</td></tr>
+<tr th:if="${e.hanBaoGia != null}"><td style="padding:0 0 22px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="nen-nhat vien" style="width:100%;background-color:#fff7ed;border:1px solid #fed7aa;border-radius:8px;border-collapse:separate;">
+<tr><td class="chu" style="padding:12px 16px;font-size:14px;line-height:22px;color:#172233;"><strong>Hạn gửi báo giá: hết ngày <th:block th:text="${e.hanBaoGia}">hạn</th:block></strong> (giờ Việt Nam). Sau hạn này Cổng nhà cung cấp không nhận báo giá cho đơn này nữa.</td></tr>
 </table>
 </td></tr>
 <tr><td style="padding:0 0 22px;">
