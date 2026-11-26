@@ -8,7 +8,6 @@ import {
   cachXuLyLichSu,
   choTraLoi,
   coTheChon,
-  chuanHoaKhoang,
   demViec,
   loiNguoiXacNhan,
   nhanHangLoi,
@@ -16,7 +15,6 @@ import {
   thuocTinhDong,
   tiLePhanTram,
   tienTruDaChot,
-  tuNgayTheoKhoang,
   apDungNhanh,
   canChon,
   chuKyLuaChon,
@@ -53,21 +51,6 @@ test("mọi nhãn của cổng có nhóm màu và biểu tượng trong constant
   assert.equal(nhomCuaNhan(NHAN_TRANG_THAI_BIEN_BAN.CHO_XAC_NHAN), "canChuY");
   assert.equal(nhomCuaNhan(NHAN_HANG_LOI.CHO_CHON), "canChuY");
   assert.equal(nhomCuaNhan(NHAN_HANG_LOI.NHAN_LAI), "canChuY");
-});
-
-test("tuNgayTheoKhoang: theo ngày Việt Nam, lùi tháng kẹp cuối tháng", () => {
-  // 23/11/2026 08:00 giờ VN (01:00 UTC)
-  const luc = new Date("2026-11-23T01:00:00Z");
-  assert.equal(tuNgayTheoKhoang("1", luc), "2026-10-24");
-  assert.equal(tuNgayTheoKhoang("6", luc), "2026-05-23");
-  assert.equal(tuNgayTheoKhoang("12", luc), "2025-11-23");
-  // 31/08 lùi 6 tháng → 28/02
-  assert.equal(tuNgayTheoKhoang("6", new Date("2026-08-31T05:00:00Z")), "2026-02-28");
-  // 23:30 ngày 31/12 giờ UTC đã là 01/01 giờ VN
-  assert.equal(tuNgayTheoKhoang("12", new Date("2026-12-31T18:30:00Z")), "2026-01-01");
-  // Khoảng lạ → mặc định 6 tháng
-  assert.equal(chuanHoaKhoang("99"), "6");
-  assert.equal(tuNgayTheoKhoang("x", luc), "2026-05-23");
 });
 
 test("demViec, tiLePhanTram", () => {

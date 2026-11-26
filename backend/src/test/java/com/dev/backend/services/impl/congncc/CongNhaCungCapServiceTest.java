@@ -1109,7 +1109,7 @@ class CongNhaCungCapServiceTest {
                     don(6, nccA, 4, t, t),
                     don(7, nccA, 7, t, t)));
 
-            CongNcc.LichSuBaoGia kq = service.lichSuBaoGia(phien, null, null);
+            CongNcc.LichSuBaoGia kq = service.lichSuBaoGia(phien, null, null, null);
 
             assertEquals(List.of("CHO_BAO_GIA", "CHO_KET_QUA", "DUOC_CHAP_NHAN", "DUOC_CHAP_NHAN", "DUOC_CHAP_NHAN",
                     "KHONG_CHAP_NHAN", "DA_HUY"), kq.items().stream().map(CongNcc.DongBaoGia::ketQua).toList());
@@ -1123,41 +1123,40 @@ class CongNhaCungCapServiceTest {
         }
 
         @Test
-        void tuNgayMacDinh6Thang_tinhTheoNgayVietNam() {
-            // 01:00 ngày 23/11 giờ Việt Nam (còn là 22/11 theo UTC): mốc mặc định 00:00 ngày 23/05 giờ Việt Nam
-            dongHo.dat(Instant.parse("2026-11-22T18:00:00Z"));
-            Instant moc = Instant.parse("2026-05-22T17:00:00Z");
+        void khongChonNgay_layMoiThoiGian_keCaDonKhongCoNgay() {
             when(donMuaHangRepository.choCongNhaCungCap(anyCollection())).thenReturn(List.of(
-                    don(1, nccA, 2, moc, null),
-                    don(2, nccA, 2, moc.minusSeconds(1), null),
+                    don(1, nccA, 2, Instant.parse("2023-03-01T03:00:00Z"), null),   // hơn 3 năm trước
+                    don(2, nccA, 2, BAY_GIO, null),
                     don(3, nccA, 2, null, null)));
 
-            assertEquals(List.of(1, 3), service.lichSuBaoGia(phien, null, null).items().stream()
-                    .map(CongNcc.DongBaoGia::id).toList(), "đơn không có ngày yêu cầu vẫn hiện");
+            assertEquals(List.of(1, 2, 3), ids(service.lichSuBaoGia(phien, null, null, null)),
+                    "không giới hạn 12 tháng; đơn không có ngày yêu cầu vẫn hiện");
         }
 
         @Test
-        void tuNgayChon_toiDa12Thang() {
+        void tuNgayDenNgay_theoNgayVietNam_baoGomCaHaiDau() {
             when(donMuaHangRepository.choCongNhaCungCap(anyCollection())).thenReturn(List.of(
-                    don(1, nccA, 4, Instant.parse("2026-01-10T03:00:00Z"), null),   // 10 tháng trước
-                    don(2, nccA, 4, Instant.parse("2025-11-23T00:00:00Z"), null),   // 07:00 23/11/2025 VN: đúng mốc 12 tháng
-                    don(3, nccA, 4, Instant.parse("2025-11-22T16:00:00Z"), null),   // 23:00 22/11/2025 VN: quá 12 tháng
-                    don(4, nccA, 4, Instant.parse("2026-11-01T03:00:00Z"), null)));
+                    don(1, nccA, 4, Instant.parse("2026-10-31T17:00:00Z"), null),   // 00:00 01/11 VN: đầu khoảng
+                    don(2, nccA, 4, Instant.parse("2026-10-31T16:59:59Z"), null),   // 23:59:59 31/10 VN: trước khoảng
+                    don(3, nccA, 4, Instant.parse("2026-11-10T16:59:59Z"), null),   // 23:59:59 10/11 VN: cuối khoảng
+                    don(4, nccA, 4, Instant.parse("2026-11-10T17:00:00Z"), null),   // 00:00 11/11 VN: sau khoảng
+                    don(5, nccA, 4, null, null)));
 
-            assertEquals(List.of(1, 2, 4), ids(service.lichSuBaoGia(phien, LocalDate.of(2024, 1, 1), null)),
-                    "chọn quá 12 tháng: chỉ lấy 12 tháng");
-            assertEquals(List.of(4), ids(service.lichSuBaoGia(phien, LocalDate.of(2026, 11, 1), null)));
-            assertEquals(List.of(), ids(service.lichSuBaoGia(phien, LocalDate.of(2026, 11, 2), null)));
+            LocalDate tu = LocalDate.of(2026, 11, 1), den = LocalDate.of(2026, 11, 10);
+            assertEquals(List.of(1, 3), ids(service.lichSuBaoGia(phien, tu, den, null)), "đang lọc: bỏ đơn không có ngày");
+            assertEquals(List.of(1, 3, 4), ids(service.lichSuBaoGia(phien, tu, null, null)), "chỉ từ ngày");
+            assertEquals(List.of(1, 2, 3), ids(service.lichSuBaoGia(phien, null, den, null)), "chỉ đến ngày");
+            assertEquals(List.of(), ids(service.lichSuBaoGia(phien, den, tu, null)), "từ sau đến: không có gì");
         }
 
         @Test
         void tuKhoa_khongPhanBietHoaThuong_boKhoangTrang() {
             when(donMuaHangRepository.choCongNhaCungCap(anyCollection())).thenReturn(List.of(
                     don(41, nccA, 3, BAY_GIO, BAY_GIO), don(52, nccA, 2, BAY_GIO, null)));
-            CongNcc.LichSuBaoGia kq = service.lichSuBaoGia(phien, null, "  po2026112341 ");
+            CongNcc.LichSuBaoGia kq = service.lichSuBaoGia(phien, null, null, "  po2026112341 ");
             assertEquals(List.of(41), kq.items().stream().map(CongNcc.DongBaoGia::id).toList());
             assertEquals(new CongNcc.TomTatBaoGia(1, 1, 0, 0), kq.tomTat(), "tóm tắt theo danh sách đã lọc");
-            assertEquals(2, service.lichSuBaoGia(phien, null, "   ").items().size());
+            assertEquals(2, service.lichSuBaoGia(phien, null, null, "   ").items().size());
         }
 
         private List<Integer> ids(CongNcc.LichSuBaoGia ls) {
@@ -1199,7 +1198,7 @@ class CongNhaCungCapServiceTest {
                     bb(7, BienBanTraHangNcc.PA_TRU_CONG_NO, t, 2).tienTruTien(BigDecimal.ZERO)
                             .choNccChonHangLoi(true).build()));
 
-            CongNcc.LichSuTraHang kq = service.lichSuTraHang(phien, null, null);
+            CongNcc.LichSuTraHang kq = service.lichSuTraHang(phien, null, null, null);
 
             assertEquals(7, kq.items().size(), "biên bản hủy vẫn hiện trong danh sách");
             assertTrue(kq.items().get(4).daHuy());
@@ -1224,7 +1223,7 @@ class CongNhaCungCapServiceTest {
             when(bienBanTraHangService.dsChoCong(Set.of(5, 6))).thenReturn(List.of(
                     bb(9, BienBanTraHangNcc.PA_CHO_CHOT, t, 1).trangThai(BienBanTraHangNcc.DA_HUY).build(),
                     bb(10, BienBanTraHangNcc.PA_DOI_HANG, t, 1).hangLoiNcc(BienBanTraHangNcc.HL_TIEU_HUY).build()));
-            kq = service.lichSuTraHang(phien, null, null);
+            kq = service.lichSuTraHang(phien, null, null, null);
             assertFalse(kq.items().get(0).choTraLoi());
             assertEquals("TIEU_HUY", kq.items().get(1).hangLoiNcc());
             assertEquals(0, kq.tomTat().choChon());
@@ -1239,13 +1238,14 @@ class CongNhaCungCapServiceTest {
                     bb(3, BienBanTraHangNcc.PA_CHO_CHOT, BAY_GIO.minus(2, ChronoUnit.DAYS), 1).soBienBan("RTV-C").soDonMua("PO-Y")
                             .soPhieuNhap("PN-2").build()));
 
-            assertEquals(List.of(1, 3), ids(service.lichSuTraHang(phien, null, null)), "mặc định 6 tháng");
-            assertEquals(List.of(1, 2, 3), ids(service.lichSuTraHang(phien, LocalDate.of(2026, 1, 1), null)));
-            assertEquals(List.of(3), ids(service.lichSuTraHang(phien, null, "rtv-c")));
-            assertEquals(List.of(1), ids(service.lichSuTraHang(phien, null, "po-x")));
-            assertEquals(List.of(3), ids(service.lichSuTraHang(phien, null, " PN-2 ")));
+            assertEquals(List.of(1, 2, 3), ids(service.lichSuTraHang(phien, null, null, null)), "mặc định mọi thời gian");
+            assertEquals(List.of(1, 3), ids(service.lichSuTraHang(phien, LocalDate.of(2026, 9, 1), null, null)));
+            assertEquals(List.of(2), ids(service.lichSuTraHang(phien, null, LocalDate.of(2026, 6, 1), null)));
+            assertEquals(List.of(3), ids(service.lichSuTraHang(phien, null, null, "rtv-c")));
+            assertEquals(List.of(1), ids(service.lichSuTraHang(phien, null, null, "po-x")));
+            assertEquals(List.of(3), ids(service.lichSuTraHang(phien, null, null, " PN-2 ")));
             assertEquals(new CongNcc.TomTatTraHang(1, 1, BigDecimal.ZERO, 1),
-                    service.lichSuTraHang(phien, null, "PN-2").tomTat());
+                    service.lichSuTraHang(phien, null, null, "PN-2").tomTat());
         }
 
         private List<Integer> ids(CongNcc.LichSuTraHang ls) {
