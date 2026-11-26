@@ -28,9 +28,11 @@ function ceilNonNegative(v) {
 }
 
 /**
- * Mô phỏng tức thời SS, ROP, Q, ExcessStock khi người dùng chỉnh tham số trước khi bấm Lưu & Tính lại.
+ * Mô phỏng tức thời SS, ROP, Q, ExcessStock trên RAM trình duyệt (0 API)
+ * khi người dùng kéo chỉnh tham số ở DssParameterPanel hoặc đổi Preset trước khi bấm Lưu & Tính lại.
  */
 export function simulateDssItem(item, config) {
+  // Đọc các biến số đầu vào đã được Backend trích xuất sẵn từ MySQL
   const dAvg = Number(item.avgDailyDemand || 0);
   const dMax = Number(item.maxDailyDemand || 0);
   const sigmaD = Number(item.demandStdDev || 0);
@@ -48,10 +50,12 @@ export function simulateDssItem(item, config) {
   let excessStock = 0;
 
   if (isPhaseOut) {
+    // Kịch bản 4 (Xả hàng/Ngừng nhập): khóa tạo yêu cầu nhập, tính hàng dư = FTU - nhu cầu còn lại
     const tRemain = Math.max(1, Number(config?.phaseOutRemainingDays ?? 15));
     const minNeeded = ceilNonNegative(dAvg * tRemain);
     excessStock = Math.max(0, ftu - minNeeded);
   } else if (appliedPreset === DSS_PRESETS.PRESET_02_PEAK) {
+    // Kịch bản 2 (Cao điểm / Hạng A): nhân tốc độ bán với tăng trưởng g%, SS theo mức biến động đỉnh
     const g = Number(config?.peakGrowthPercentG ?? 30);
     const tCampaign = Math.max(1, Number(config?.peakCampaignDays ?? 14));
     const dTarget = dAvg * Math.max(0, 1 + g / 100);
@@ -59,12 +63,14 @@ export function simulateDssItem(item, config) {
     reorderPoint = ceilNonNegative(dTarget * lMax + safetyStock);
     suggestedOrderQty = ceilNonNegative(dTarget * tCampaign + safetyStock - (ftu + incoming));
   } else if (appliedPreset === DSS_PRESETS.PRESET_03_LEAN) {
+    // Kịch bản 3 (Tinh gọn / Hạng C): đệm SS bằng đúng B ngày bán để giảm tồn đọng vốn
     const bDays = Math.max(1, Number(config?.leanBufferDaysB ?? 3));
     const tCycle = Math.max(1, Number(config?.cycleDaysT ?? 14));
     safetyStock = ceilNonNegative(dAvg * bDays);
     reorderPoint = ceilNonNegative(dAvg * lAvg + safetyStock);
     suggestedOrderQty = ceilNonNegative(dAvg * tCycle + safetyStock - (ftu + incoming));
   } else {
+    // Kịch bản 1 (Chuẩn / Hạng B): SS = Z * sigma_D * sqrt(L_avg), Q bù thiếu so với (FTU + hàng đang về)
     const z = Math.max(0, Number(config?.serviceLevelZ ?? 1.65));
     const tCycle = Math.max(1, Number(config?.cycleDaysT ?? 14));
     safetyStock = ceilNonNegative(z * sigmaD * Math.sqrt(lAvg));

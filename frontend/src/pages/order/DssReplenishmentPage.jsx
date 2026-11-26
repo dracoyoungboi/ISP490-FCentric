@@ -66,11 +66,17 @@ function summarizeItems(items) {
   };
 }
 
+/**
+ * Màn 1 (DSS Gợi ý nhập hàng — Route /purchase-requests/dss).
+ * - Gọi 2 GET lúc mở trang (`getWarehouses`, `getRecommendations`); What-If 0 API qua `simulateDssItem`.
+ * - 3 nút hành động: "Lưu & Tính lại ROP" (`PUT /config`), "Tính lại ngay" (`POST /recalculate`), "Tạo yêu cầu nhập" (`DssCreatePrModal`).
+ */
 export default function DssReplenishmentPage() {
   const userRole = localStorage.getItem("role") || "";
   const canEditConfig = hasAnyRole([userRole], VAI_TRO_SUA_CAU_HINH_DSS);
   const canCreatePr = hasAnyRole([userRole], VAI_TRO_TAO_YEU_CAU_NHAP);
 
+  // 10 state của màn hình: dữ liệu kho, kết quả gợi ý từ BE, bản nháp tham số What-If, bộ lọc và map số lượng sửa tay
   const [warehouses, setWarehouses] = useState([]);
   const [data, setData] = useState(null);
   const [draftConfig, setDraftConfig] = useState(null);
@@ -83,6 +89,7 @@ export default function DssReplenishmentPage() {
   const [customQtyMap, setCustomQtyMap] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
 
+  // Mở trang: gọi song song 2 API GET lấy danh sách kho & bảng gợi ý tính sẵn từ Backend
   const loadRecommendations = useCallback(async () => {
     setLoading(true);
     try {
@@ -96,7 +103,7 @@ export default function DssReplenishmentPage() {
       if (payload) {
         setData(payload);
         setDraftConfig(payload.config);
-        // Mặc định chọn các mã cần nhập (chưa bị khóa phase-out)
+        // Mặc định tick sẵn các mã cần nhập (chưa bị khóa xả hàng phase-out)
         const autoSelected = new Set();
         for (const it of payload.items || []) {
           if (it.needsReorder && !it.prCreationLocked) {
@@ -122,7 +129,7 @@ export default function DssReplenishmentPage() {
     return JSON.stringify(data.config) !== JSON.stringify(draftConfig);
   }, [data, draftConfig]);
 
-  // Tính toán xem trước tức thời khi người dùng đang chỉnh tham số hoặc đổi kịch bản
+  // Kéo chỉnh 6 ô tham số What-If: mô phỏng lại SS/ROP/Q ngay trên RAM trình duyệt (0 API)
   const displayItems = useMemo(() => {
     const raw = data?.items ?? [];
     if (!hasConfigChanges || !draftConfig) return raw;
@@ -170,6 +177,7 @@ export default function DssReplenishmentPage() {
     });
   }, [displayItems, tab, search]);
 
+  // Nút "Lưu & Tính lại ROP": gửi draftConfig -> BE lưu `cau_hinh_he_thong`, cập nhật `canh_bao` & trả bảng mới
   async function handleSaveAndRecalc() {
     if (!draftConfig) return;
     setSaving(true);
@@ -200,6 +208,7 @@ export default function DssReplenishmentPage() {
     }
   }
 
+  // Nút "Tính lại ngay": giữ nguyên tham số hiện có, ép BE đọc lại SQL tồn/bán mới nhất và cập nhật `canh_bao`
   async function handleRecalculateOnly() {
     setSaving(true);
     try {

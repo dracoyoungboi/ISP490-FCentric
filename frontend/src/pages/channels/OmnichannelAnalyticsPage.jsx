@@ -68,12 +68,19 @@ function GiaiThichBaoCao() {
   );
 }
 
+/**
+ * Màn 2 (DSS Báo cáo Đồng bộ Kênh — Route /channels/analytics).
+ * - Khi mở trang / đổi kỳ / đổi kênh: gọi song song 2 GET (`getOverview`, `getSyncRecommendations`).
+ * - Sửa ô Buffer% & Ngưỡng tức thời: tính xem trước `computePreviewPublished` ngay trên FE (0 API).
+ * - Chỉ Quản trị viên (`isAdmin`) bấm "Áp dụng đề xuất" mới gọi POST lưu xuống DB.
+ */
 export default function OmnichannelAnalyticsPage() {
   const userRole = localStorage.getItem("role") || "";
   const isAdmin = hasAnyRole([userRole], [ROLES.QUAN_TRI_VIEN]);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const channel = layKenhTuSearchParams(searchParams);
+  // reqIdRef chống race condition khi user đổi bộ lọc liên tiếp khiến response cũ về đè response mới
   const reqIdRef = useRef(0);
 
   const [range, setRange] = useState("24h");
@@ -107,6 +114,7 @@ export default function OmnichannelAnalyticsPage() {
     [setSearchParams],
   );
 
+  // Mở trang hoặc đổi range/days/channel -> gọi song song 2 API Overview + Sync Recommendations
   const loadData = useCallback(async () => {
     const reqId = ++reqIdRef.current;
     setLoading(true);
@@ -121,6 +129,7 @@ export default function OmnichannelAnalyticsPage() {
       setOverview(ov);
       setRecData(rc);
 
+      // Nạp sẵn giá trị đề xuất vào editMap và tự tick các SKU có sai khác so với cấu hình đang lưu
       const initialEdits = {};
       const autoChecked = new Set();
       for (const it of rc?.items ?? []) {
@@ -153,6 +162,7 @@ export default function OmnichannelAnalyticsPage() {
 
   const recommendations = useMemo(() => recData?.items ?? [], [recData]);
 
+  // Nút "Áp dụng đề xuất": gom các dòng đã chọn trong editMap gửi POST xuống DB rồi tải lại số liệu mới
   async function handleApplySelected() {
     const itemsToApply = [];
     for (const id of selectedIds) {
@@ -181,6 +191,7 @@ export default function OmnichannelAnalyticsPage() {
     }
   }
 
+  // Xem trước số tồn đẩy lên sàn ngay trên trình duyệt (0 API): nếu FTU <= ngưỡng thì đẩy nguyên FTU
   function computePreviewPublished(ftu, buf, rt) {
     const numFtu = Math.max(0, Number(ftu || 0));
     const numRt = Math.max(0, Number(rt || 0));

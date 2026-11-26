@@ -17,6 +17,10 @@ function defaultDeliveryDateStr(items) {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Modal xác nhận tạo Yêu cầu mua hàng (PR) từ các SKU đang tick chọn ở Màn 1 DSS.
+ * Nhận 3 trường nhập (ngayGiao, selectedKhoId, ghiChu), gửi POST tạo PR về Kho tổng rồi chuyển sang trang chi tiết PR.
+ */
 export default function DssCreatePrModal({
   open,
   onOpenChange,
@@ -35,6 +39,7 @@ export default function DssCreatePrModal({
   const khoList = dsKhoTong.length > 0 ? dsKhoTong : khoTong ? [khoTong] : [];
   const activeKho = khoList.find((k) => k.id === selectedKhoId) || khoTong || khoList[0] || null;
 
+  // Mỗi lần mở modal: tự tính ngày giao gợi ý theo Lead Time lớn nhất và chọn sẵn Kho tổng đầu tiên
   useEffect(() => {
     if (open) {
       setNgayGiao(defaultDeliveryDateStr(selectedItems));
@@ -43,6 +48,7 @@ export default function DssCreatePrModal({
     }
   }, [open, selectedItems, khoTong?.id, dsKhoTong]);
 
+  // Loại bỏ các mã đang bị khóa xả hàng (prCreationLocked) hoặc số lượng đặt <= 0
   const validLines = selectedItems
     .filter((it) => !it.prCreationLocked && Number(qtyMap[it.bienTheSanPhamId] ?? it.suggestedOrderQty) > 0)
     .map((it) => ({
@@ -56,6 +62,7 @@ export default function DssCreatePrModal({
     0,
   );
 
+  // Submit form -> gọi purchaseRequestService.create ghi bảng `yeu_cau_mua_hang` & `chi_tiet_yeu_cau_mua_hang`
   async function handleSubmit(e) {
     e.preventDefault();
     if (!activeKho?.id) {

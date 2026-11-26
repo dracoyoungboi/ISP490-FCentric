@@ -11,6 +11,10 @@ const LUA_CHON_Z = [
   { value: 2.33, label: "99% (Z = 2.33)" },
 ];
 
+/**
+ * Bảng 6 ô chỉnh tham số mô hình DSS trên Màn 1 (N, Z, T, g%, B, ngày xả).
+ * Kéo/nhập chỉ sửa draftConfig trên trình duyệt (What-If 0 API); bấm "Lưu & Tính lại ROP" mới gọi PUT /config.
+ */
 export default function DssParameterPanel({
   draftConfig,
   onChange,
@@ -22,6 +26,7 @@ export default function DssParameterPanel({
 }) {
   if (!draftConfig) return null;
 
+  // Kẹp giá trị nhập trong biên [min, max] trước khi cập nhật draftConfig
   const setNum = (field, min, max, isFloat = false) => (e) => {
     const raw = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
     if (Number.isNaN(raw)) return;
