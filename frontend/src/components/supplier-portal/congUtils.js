@@ -61,6 +61,45 @@ export function demViec(viec) {
   return (viec?.bienBanCho?.length ?? 0) + (viec?.donChoBaoGia?.length ?? 0);
 }
 
+/** Số ngày lịch (giờ Việt Nam) từ hôm nay tới mốc: âm = đã qua, 0 = hôm nay; không có mốc thì null. */
+export function soNgayToiMoc(moc, bayGio = new Date()) {
+  if (!moc) return null;
+  const d = new Date(moc);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.round((Date.parse(ngayVietNam(d)) - Date.parse(ngayVietNam(bayGio))) / 86400e3);
+}
+
+/** Thứ tự mức gấp trên trang Cần xử lý: đỏ (quá hạn / hôm nay), cam (sắp đến hạn), xám (còn thời gian). */
+const THU_TU_MUC_GAP = { do: 0, cam: 1, xam: 2 };
+
+/**
+ * Gom biên bản chờ trả lời và đơn chờ báo giá của /viec-can-lam thành một danh sách, gấp nhất trước.
+ * Biên bản theo hạn trả lời (quá giờ hạn là quá hạn, kể cả trong ngày hạn; còn ≤ 2 ngày là cam); đơn theo ngày cần giao
+ * (đã qua / hôm nay là đỏ, còn ≤ 3 ngày là cam). Cùng mức thì biên bản trước (quá hạn chưa chọn cách bù là bị trừ tiền),
+ * rồi mốc sớm trước. Không có mốc thì xám và xếp cuối nhóm.
+ * Mỗi phần tử: `{ loai: "bien-ban" | "bao-gia", id, so, soNgay, quaHan, mucGap, duLieu }`.
+ */
+export function xepViecCanLam(viec, bayGio = new Date()) {
+  const bienBan = (viec?.bienBanCho ?? []).map((bb) => {
+    const soNgay = soNgayToiMoc(bb.hanTraLoi, bayGio);
+    const quaHan = bb.hanTraLoi ? new Date(bb.hanTraLoi).getTime() < bayGio.getTime() : false;
+    const mucGap = soNgay == null ? "xam" : quaHan || soNgay <= 0 ? "do" : soNgay <= 2 ? "cam" : "xam";
+    return { loai: "bien-ban", id: bb.id, so: bb.soBienBan, soNgay, quaHan, mucGap, duLieu: bb };
+  });
+  const baoGia = (viec?.donChoBaoGia ?? []).map((d) => {
+    const soNgay = soNgayToiMoc(d.ngayCanGiao, bayGio);
+    const mucGap = soNgay == null ? "xam" : soNgay <= 0 ? "do" : soNgay <= 3 ? "cam" : "xam";
+    return { loai: "bao-gia", id: d.id, so: d.soDonMua, soNgay, quaHan: soNgay != null && soNgay < 0, mucGap, duLieu: d };
+  });
+  const moc = (v) => (v.soNgay == null ? Number.POSITIVE_INFINITY : v.soNgay);
+  return [...bienBan, ...baoGia].sort(
+    (a, b) =>
+      THU_TU_MUC_GAP[a.mucGap] - THU_TU_MUC_GAP[b.mucGap] ||
+      (a.loai === b.loai ? 0 : a.loai === "bien-ban" ? -1 : 1) ||
+      moc(a) - moc(b),
+  );
+}
+
 /** "67%" — tỉ lệ được chấp nhận; chưa gửi báo giá nào thì null. */
 export function tiLePhanTram(tu, mau) {
   const a = Number(tu);
