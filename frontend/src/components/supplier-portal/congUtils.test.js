@@ -20,6 +20,7 @@ import {
   chuKyLuaChon,
   coDongDoi,
   dongConThieu,
+  soDongCanChon,
   giaTriChung,
   khoiTaoLuaChon,
   luaChonHieuLuc,
@@ -179,6 +180,17 @@ test("lần đầu: mọi dòng thiếu đủ hai câu, chọn từng dòng thì
   assert.equal(trangThaiTheDong(bb.dong[0], chon[1]), "da-chon");
   assert.deepEqual(dongConThieu(bb, chon), [3]);
   assert.equal(coDongDoi(bb, chon), true);
+});
+
+test("số dòng cần chọn: bỏ dòng thiếu id và dòng đã chốt cả hai câu", () => {
+  const bb = bbMoi();
+  assert.equal(soDongCanChon(bb), 3);
+  bb.dong.push({ ...dongMoi(null, 1, 0) });
+  bb.dong.push(dongMoi(5, 1, 0, { cachBu: "TRU_CONG_NO", hangLoi: "NHAN_LAI", cachBuMo: [], hangLoiMo: [] }));
+  // Đã chọn cách bù, hàng lỗi còn mở nhưng đã có lựa chọn: không còn câu bắt buộc
+  bb.dong.push(dongMoi(6, 1, 0, { cachBu: "DOI_HANG", hangLoi: "TIEU_HUY" }));
+  assert.equal(soDongCanChon(bb), 3);
+  assert.equal(soDongCanChon(null), 0);
 });
 
 test("tóm tắt cộng dồn theo sản phẩm (cái), tiền trừ theo giá trị từng dòng", () => {
