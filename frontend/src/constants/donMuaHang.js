@@ -22,6 +22,8 @@ export const DON_MUA_HANG_STATUS = {
     5: { label: "Đã nhận đủ" },
     6: { label: "Đã đóng (nhận thiếu)" },
     7: { label: "Đã hủy" },
+    // Tới hạn báo giá mà nhà cung cấp chưa báo giá (HanBaoGia ở máy chủ); chỉ là báo giá, không lên trang Đơn mua hàng
+    8: { label: "Hết hạn" },
 };
 
 /**
@@ -58,6 +60,7 @@ export const BAO_GIA_NCC_STATUS = {
     5: { label: DON_MUA_HANG_STATUS[5].label },
     6: { label: DON_MUA_HANG_STATUS[6].label },
     7: { label: DON_MUA_HANG_STATUS[7].label },
+    8: { label: DON_MUA_HANG_STATUS[8].label },
 };
 
 export function getBaoGiaNccStatus(trangThai) {

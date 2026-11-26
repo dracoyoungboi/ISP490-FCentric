@@ -14,6 +14,7 @@ import {
   daCoBaoGia,
   laConChoGia,
   laDaChot,
+  laHetHan,
   ngayGuiYeuCau,
   tongTienBaoGia,
   TRANG_THAI_BAO_GIA,
@@ -137,7 +138,8 @@ const tenNccCua = (don) => don?.nhaCungCap?.tenNhaCungCap || don?.nhaCungCap?.ma
  * @returns `{ daGui, daBaoGia, daChot, khongChapNhan, conCho, tongDaChot, nccChot, ngayGui }`
  *   - `daGui`: số nhà cung cấp được gửi yêu cầu · `daBaoGia`: đã gửi báo giá (`ngayBaoGia`) · `daChot`: đã chấp nhận (3, 5, 6, 7)
  *   - `khongChapNhan`: đã không chấp nhận (4, kể cả báo giá tự chuyển 4 khi chấp nhận báo giá khác — K1)
- *   - `conCho`: còn chờ giá / chờ chốt (1, 2 — còn chấp nhận được)
+ *   - `hetHan`: tới hạn mà nhà cung cấp chưa báo giá (8, hoặc 2 có cờ quaHanBaoGia — tinhBaoGia.laHetHan)
+ *   - `conCho`: còn chờ giá / chờ chốt (1, 2 còn hạn — còn chấp nhận được)
  *   - `tongDaChot`: cộng tổng tiền các báo giá đã chấp nhận (tinhBaoGia.tongTienBaoGia) · `nccChot`: tên nhà cung cấp của chúng
  *   - `ngayGui`: lúc gửi yêu cầu sớm nhất (ngayGuiBaoGia), chưa gửi thì null
  */
@@ -149,7 +151,8 @@ export function tomTatBaoGia(yc) {
     daBaoGia: ds.filter(daCoBaoGia).length,
     daChot: chot.length,
     khongChapNhan: ds.filter((don) => docSo(don.trangThai) === TRANG_THAI_BAO_GIA.TU_CHOI).length,
-    conCho: ds.filter((don) => laConChoGia(don.trangThai)).length,
+    hetHan: ds.filter(laHetHan).length,
+    conCho: ds.filter((don) => laConChoGia(don.trangThai) && !laHetHan(don)).length,
     tongDaChot: chot.reduce((tong, don) => tong + tongTienBaoGia(don), 0),
     nccChot: chot.map(tenNccCua).filter(Boolean),
     ngayGui: ngayGuiBaoGia(yc),
@@ -162,7 +165,15 @@ export function tomTatBaoGia(yc) {
  */
 export function daKhongChapNhanHet(tomTat) {
   const daGui = docSo(tomTat?.daGui);
-  return daGui > 0 && docSo(tomTat?.khongChapNhan) >= daGui;
+  return daGui > 0 && docSo(tomTat?.khongChapNhan) + docSo(tomTat?.hetHan) >= daGui;
+}
+
+/**
+ * Yêu cầu đã về Đã duyệt sau một vòng hỏi giá không chọn được nhà cung cấp (mọi báo giá không chấp nhận / hết hạn, máy
+ * chủ tự đưa về): có báo giá cũ mà yêu cầu đang ở Đã duyệt. Màn hiện dòng giải thích và tiến trình chờ gửi lại.
+ */
+export function daVeDaDuyetSauHoiGia(yc) {
+  return docSo(yc?.trangThai) === TRANG_THAI_YEU_CAU.DA_DUYET && baoGiaHieuLuc(yc).length > 0;
 }
 
 /**
@@ -185,10 +196,11 @@ export function chuDemBaoGia(tomTat) {
     daBaoGia ? t("{{daBaoGia}} đã báo giá", { daBaoGia: soVN(daBaoGia) }) : het ? null : t("chưa có báo giá"),
     daChot ? t("{{daChot}} đã chốt", { daChot: soVN(daChot) }) : null,
     khongChapNhan
-      ? het && khongChapNhan > 1
+      ? het && khongChapNhan > 1 && !docSo(tomTat?.hetHan)
         ? t("không chấp nhận cả {{khongChapNhan}}", { khongChapNhan: soVN(khongChapNhan) })
         : t("không chấp nhận {{khongChapNhan}}", { khongChapNhan: soVN(khongChapNhan) })
       : null,
+    docSo(tomTat?.hetHan) ? t("hết hạn {{hetHan}}", { hetHan: soVN(docSo(tomTat.hetHan)) }) : null,
   ].filter(Boolean);
 }
 
@@ -232,18 +244,28 @@ export function tinhBuocYeuCau(yc) {
   }
 
   let gui;
-  if (tt === TRANG_THAI_YEU_CAU.DA_DUYET) gui = { trangThai: "dangLam", phu: t("Chờ nhân viên mua hàng gửi") };
+  if (tt === TRANG_THAI_YEU_CAU.DA_DUYET) {
+    // Đã hỏi giá một vòng mà không chọn được ai (máy chủ đưa yêu cầu về Đã duyệt): chờ gửi nhà cung cấp khác
+    gui = { trangThai: "dangLam", phu: soNcc ? t("Chờ gửi lại cho nhà cung cấp khác") : t("Chờ nhân viên mua hàng gửi") };
+  }
   else if (daGui) {
     gui = { trangThai: "xong", phu: soNcc ? t("{{soNcc}} nhà cung cấp", { count: soNcc, soNcc: soVN(soNcc) }) : "", ngay: ngayGuiBaoGia(yc), coGio: true };
   } else gui = { trangThai: "chua" };
 
   const chuNhan = soNcc ? t("{{soDaGuiGia}}/{{soNcc}} nhà cung cấp đã gửi giá", { count: soNcc, soDaGuiGia: soVN(soDaGuiGia), soNcc: soVN(soNcc) }) : "";
   // Mọi báo giá đã không chấp nhận: không còn chờ nhận giá nữa nên bước dừng, không "đang làm" mãi
-  const khongChapNhanHet = daKhongChapNhanHet(tomTatBaoGia(yc));
+  const tomTat = tomTatBaoGia(yc);
+  const khongChapNhanHet = daKhongChapNhanHet(tomTat);
   let nhanGia;
   if (daChuyen) nhanGia = { trangThai: "xong", phu: chuNhan };
   else if (tt === TRANG_THAI_YEU_CAU.DA_GUI_BAO_GIA && khongChapNhanHet) {
-    nhanGia = { trangThai: "dung", phu: soNcc > 1 ? t("Không chấp nhận cả {{soNcc}} báo giá", { soNcc: soVN(soNcc) }) : t("Không chấp nhận báo giá") };
+    // Có báo giá hết hạn (nhà cung cấp không trả lời): nói chung là không chọn được, không gọi là "không chấp nhận"
+    nhanGia = {
+      trangThai: "dung",
+      phu: docSo(tomTat.hetHan) > 0
+        ? t("Không có báo giá nào được chọn")
+        : soNcc > 1 ? t("Không chấp nhận cả {{soNcc}} báo giá", { soNcc: soVN(soNcc) }) : t("Không chấp nhận báo giá"),
+    };
   } else if (tt === TRANG_THAI_YEU_CAU.DA_GUI_BAO_GIA) nhanGia = { trangThai: "dangLam", phu: chuNhan };
   else nhanGia = { trangThai: "chua" };
 

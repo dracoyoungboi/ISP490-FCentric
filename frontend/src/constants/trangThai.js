@@ -463,7 +463,7 @@ export const QUY_TRINH = {
       "Đã gửi báo giá": 2, "Đã chuyển thành đơn mua hàng": 3, "Đã nhận đủ": 3,
     },
     // Đơn mua của báo giá đã kết thúc sớm (đóng nhận thiếu / hủy): kết thúc không trọn
-    huy: ["Từ chối báo giá", "Không chấp nhận báo giá", "Đã xóa", "Đã đóng (nhận thiếu)", "Đã hủy"],
+    huy: ["Từ chối báo giá", "Không chấp nhận báo giá", "Hết hạn", "Đã xóa", "Đã đóng (nhận thiếu)", "Đã hủy"],
   },
   traHangNcc: {
     ten: "Biên bản trả hàng nhà cung cấp",
@@ -475,7 +475,7 @@ export const QUY_TRINH = {
     ten: "Đơn mua hàng",
     tong: 4,
     buoc: { "Đã gửi": 1, "Đã báo giá": 2, "Đang vận chuyển": 3, "Đã nhận đủ": 4, "Đã thanh toán": 4 },
-    huy: ["Đã xóa", "Không chấp nhận báo giá", "Đã đóng (nhận thiếu)", "Đã hủy"],
+    huy: ["Đã xóa", "Không chấp nhận báo giá", "Hết hạn", "Đã đóng (nhận thiếu)", "Đã hủy"],
   },
 };
 

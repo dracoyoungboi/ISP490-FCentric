@@ -7,7 +7,7 @@ import CotThuocTinh, {
 } from "@/components/chung-tu/CotThuocTinh";
 import { NhomKhoNhan } from "@/components/order/chi-tiet-yeu-cau/ThuocTinhYeuCau";
 import { formatDate } from "@/utils/formatters";
-import { nguoiChotBaoGia } from "./tinhBaoGia";
+import { laHetHan, ngayHan, nguoiChotBaoGia } from "./tinhBaoGia";
 import { t } from "@/i18n";
 import { hasAnyRole } from "@/utils/roles";
 import { VAI_TRO_NHA_CUNG_CAP } from "@/constants/vaiTroTheoNghiepVu";
@@ -21,6 +21,7 @@ import { VAI_TRO_NHA_CUNG_CAP } from "@/constants/vaiTroTheoNghiepVu";
 export default function ThuocTinhBaoGia({ don, lienQuan }) {
   const ncc = don?.nhaCungCap;
   const nguoiChot = nguoiChotBaoGia(don);
+  const han = ngayHan(don?.hanBaoGia);
 
   return (
     <CotThuocTinh nhan={t("Thông tin báo giá")}>
@@ -57,6 +58,16 @@ export default function ThuocTinhBaoGia({ don, lienQuan }) {
           rongNhan={124}
           muc={[
             { ma: "giao", nhan: t("Giao dự kiến"), giaTri: don?.ngayGiaoDuKien ? <span className="whitespace-nowrap tabular-nums">{formatDate(don.ngayGiaoDuKien)}</span> : null },
+            {
+              ma: "han",
+              nhan: t("Hạn báo giá"),
+              an: !han,
+              giaTri: (
+                <span className={laHetHan(don) ? "whitespace-nowrap tabular-nums text-bo-muted line-through" : "whitespace-nowrap tabular-nums"}>
+                  {t("Hết ngày {{ngay}}", { ngay: han })}
+                </span>
+              ),
+            },
             { ma: "nguoiTao", nhan: t("Người gửi yêu cầu"), giaTri: don?.nguoiTao?.hoTen },
             {
               ma: "nguoiChot",

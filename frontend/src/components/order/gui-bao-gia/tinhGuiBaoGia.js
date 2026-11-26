@@ -9,7 +9,8 @@
  */
 import { docSo, khopTuKhoa, soVN, tachTuKhoa } from "../../chung-tu/bangChungTu.js";
 import { coTheGuiYeuCauBaoGia } from "../../supplier/quyTacNhaCungCap.js";
-import { TRANG_THAI_YEU_CAU, baoGiaDaChot, ngayGuiBaoGia } from "../chi-tiet-yeu-cau/tinhYeuCau.js";
+import { TRANG_THAI_YEU_CAU, baoGiaDaChot, baoGiaHieuLuc, ngayGuiBaoGia } from "../chi-tiet-yeu-cau/tinhYeuCau.js";
+import { TRANG_THAI_BAO_GIA, laHetHan, ngayGuiYeuCau, ngayHan } from "../chi-tiet-bao-gia/tinhBaoGia.js";
 import { t } from "../../../i18n/t.js";
 import { cauGocMayChu } from "../../../i18n/cauGoc.js";
 
@@ -81,6 +82,66 @@ export function chanGuiBaoGia(yc, { xemDonMua = true } = {}) {
     };
   }
   return null;
+}
+
+// ── Hạn báo giá ──────────────────────────────────────────────────────────────
+
+const NGAY_ISO_VN = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit" });
+
+/** Ngày "YYYY-MM-DD" của một thời điểm theo giờ Việt Nam; không đọc được thì "". */
+export function ngayIsoVn(moc) {
+  const d = moc instanceof Date ? moc : moc ? new Date(moc) : null;
+  return d && !Number.isNaN(d.getTime()) ? NGAY_ISO_VN.format(d) : "";
+}
+
+/** "2026-12-01" lùi một ngày → "2026-11-30". */
+function ngayTruoc(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
+}
+
+/**
+ * Hạn báo giá nếu gửi ngay (máy chủ tính theo số ngày đang cấu hình, trả trong `yc.hanBaoGiaNeuGui`), để màn gửi hiện
+ * trước cho người mua. null khi máy chủ chưa trả hạn (bản cũ).
+ * @returns `{ han, soNgay, nhac, canhBao }`
+ *   - `han`: "01/12/2026" · `soNgay`: số ngày đang cấu hình (có thể null)
+ *   - `nhac`: "30/11" khi còn kịp nhắc (8:00 ngày trước hạn, giờ Việt Nam, sau lúc gửi); "" khi hạn quá gần, không nhắc
+ *   - `canhBao`: "" | câu cảnh báo khi hạn rơi sau ngày cần hàng (không chặn gửi)
+ */
+export function hanKhiGui(yc, bayGio = new Date()) {
+  const iso = String(yc?.hanBaoGiaNeuGui ?? "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const truoc = ngayTruoc(iso);
+  const nhacLuc = new Date(`${truoc}T08:00:00+07:00`);
+  const nhac = bayGio.getTime() < nhacLuc.getTime() ? ngayHan(truoc).slice(0, 5) : "";
+  const canIso = ngayIsoVn(yc?.ngayGiaoDuKien);
+  let canhBao = "";
+  if (canIso && canIso < ngayIsoVn(bayGio)) {
+    canhBao = t("Đã quá ngày cần hàng {{ngay}}. Kiểm lại với kho trước khi gửi.", { ngay: ngayHan(canIso) });
+  } else if (canIso && iso > canIso) {
+    canhBao = t("Hạn báo giá sau ngày cần hàng {{ngay}}, hàng có thể về trễ.", { ngay: ngayHan(canIso) });
+  }
+  const soNgay = yc?.soNgayBaoGia != null ? docSo(yc.soNgayBaoGia) : null;
+  return { han: ngayHan(iso), soNgay, nhac, canhBao };
+}
+
+/**
+ * Lần hỏi giá trước của từng nhà cung cấp cho cùng yêu cầu (yêu cầu đã về Đã duyệt sau một vòng không chọn được ai):
+ * `Map<nccId, { nhan, ngayGui }>` — nhan "Không chấp nhận báo giá" / "Hết hạn" (tên trạng thái Việt, màn dịch lúc hiện),
+ * ngayGui lúc gửi yêu cầu lần đó. Lấy lần gửi mới nhất của mỗi nhà cung cấp; yêu cầu không ở Đã duyệt thì Map rỗng.
+ */
+export function vongTruocTheoNcc(yc) {
+  const kq = new Map();
+  if (docSo(yc?.trangThai) !== TRANG_THAI_YEU_CAU.DA_DUYET) return kq;
+  const ds = [...baoGiaHieuLuc(yc)].sort((a, b) => docSo(b?.id) - docSo(a?.id));
+  for (const don of ds) {
+    const id = don?.nhaCungCap?.id;
+    if (id == null || kq.has(id)) continue;
+    // i18n-giu-nguyen: tên trạng thái Việt, màn dịch lúc hiện (StatusBadge)
+    const nhan = laHetHan(don) ? "Hết hạn" : docSo(don.trangThai) === TRANG_THAI_BAO_GIA.TU_CHOI ? "Không chấp nhận báo giá" : "";
+    if (nhan) kq.set(id, { nhan, ngayGui: ngayGuiYeuCau(don) });
+  }
+  return kq;
 }
 
 /** Tổng số lượng đặt của yêu cầu (`soLuongDat` từng dòng). */

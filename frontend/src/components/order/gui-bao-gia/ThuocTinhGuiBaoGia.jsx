@@ -16,8 +16,9 @@ import { t } from "@/i18n";
  * "và n nhà cung cấp khác") · "Yêu cầu nhập hàng" (mã + trạng thái, kho nhận, cần hàng trước, người tạo, ghi chú) ·
  * "Sản phẩm cần báo giá" (SO_DONG_YEU_CAU_HIEN dòng đầu, đủ danh sách ở chi tiết yêu cầu).
  * - `daChon`: dòng nhà cung cấp đã chọn (tinhGuiBaoGia.dongNhaCungCap); `onBo(id)`.
+ * - `han`: tinhGuiBaoGia.hanKhiGui — nhóm "Hạn báo giá" (chỉ xem: số ngày đặt ở Cấu hình vận hành); null thì ẩn nhóm.
  */
-export default function ThuocTinhGuiBaoGia({ yc, id, daChon, onBo }) {
+export default function ThuocTinhGuiBaoGia({ yc, id, daChon, onBo, han }) {
   const [moHet, setMoHet] = useState(false);
   const ma = maYeuCau(yc, id);
   const dsHien = moHet || daChon.length <= SO_NCC_GUI_HIEN ? daChon : daChon.slice(0, SO_NCC_GUI_HIEN);
@@ -57,6 +58,21 @@ export default function ThuocTinhGuiBaoGia({ yc, id, daChon, onBo }) {
           <p className="m-0 mt-1 text-[13px] leading-5 text-bo-muted">{t("Chưa chọn nhà cung cấp nào. Chọn ở danh sách nhà cung cấp.")}</p>
         )}
       </NhomThuocTinh>
+
+      {han ? (
+        <NhomThuocTinh nhan={t("Hạn báo giá")}>
+          <p className="m-0 mt-1 text-[13px] leading-5">
+            <b className="font-semibold tabular-nums text-bo-foreground">{t("Hết ngày {{ngay}}", { ngay: han.han })}</b>
+            {han.soNgay ? <span className="text-bo-muted">{` · ${t("{{soNgay}} ngày theo cấu hình", { count: han.soNgay, soNgay: soVN(han.soNgay) })}`}</span> : null}
+          </p>
+          <p className="m-0 mt-1 text-xs leading-4 text-bo-muted">
+            {han.nhac
+              ? t("Nhà cung cấp báo giá đến hết ngày này. Nhắc một lần lúc 8:00 ngày {{ngay}}.", { ngay: han.nhac })
+              : t("Nhà cung cấp báo giá đến hết ngày này. Hạn quá gần nên không có email nhắc.")}
+          </p>
+          {han.canhBao ? <p className="m-0 mt-1 text-xs leading-4 text-bo-warning">{han.canhBao}</p> : null}
+        </NhomThuocTinh>
+      ) : null}
 
       <NhomThuocTinh nhan={t("Yêu cầu nhập hàng")}>
         <div className="mb-2.5 flex flex-wrap items-center gap-2">

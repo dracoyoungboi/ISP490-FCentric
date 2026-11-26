@@ -32,6 +32,7 @@ import {
     ghiChuNhaCungCap,
     laConChoGia,
     laDaChot,
+    laHetHan,
     lyDoKhoaChapNhan,
     nhanTrangThaiBaoGia,
     taoBodyXetBaoGia,
@@ -378,7 +379,7 @@ function ChiTietBaoGia({ id }) {
                 }
                 tienTrinh={<TienTrinhChungTu buoc={buoc} nhan={t("Tiến trình báo giá")} />}
                 thongBao={thongBao.length ? thongBao : null}
-                chinh={<BangBaoGia bang={bang} choGia={laConChoGia(tt)} />}
+                chinh={<BangBaoGia bang={bang} choGia={laConChoGia(tt) && !laHetHan(don)} />}
                 cotPhai={<ThuocTinhBaoGia don={don} lienQuan={lienQuan} />}
             />
 
@@ -430,6 +431,14 @@ function ChiTietBaoGia({ id }) {
                         <span>{lyDo.length}/{LY_DO_KHONG_CHAP_NHAN_TOI_DA}</span>
                     </p>
                 </div>
+                {/* Báo giá cuối cùng còn chờ của yêu cầu: máy chủ đưa yêu cầu về Đã duyệt để gửi nhà cung cấp khác */}
+                {yeuCau?.soBaoGiaDangCho === 0 ? (
+                    <p className={GHI_CHU_HOP}>
+                        {yeuCau?.soYeuCauMuaHang
+                            ? t("Đây là báo giá cuối cùng còn chờ xét. Không chấp nhận thì yêu cầu {{maYeuCau}} về {{trangThai}} để gửi cho nhà cung cấp khác.", { maYeuCau: yeuCau.soYeuCauMuaHang, trangThai: t(YEU_CAU_NHAP_HANG_STATUS[2].label) })
+                            : t("Đây là báo giá cuối cùng còn chờ xét. Không chấp nhận thì yêu cầu gốc về {{trangThai}} để gửi cho nhà cung cấp khác.", { trangThai: t(YEU_CAU_NHAP_HANG_STATUS[2].label) })}
+                    </p>
+                ) : null}
             </HopXacNhanChungTu>
         </PageContainer>
     );

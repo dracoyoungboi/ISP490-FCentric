@@ -20,7 +20,9 @@ import {
   O_TIEU_DE,
 } from "@/components/chung-tu/kieuBang";
 import { CO_TRANG_DONG, NGUONG_CONG_CU } from "@/config/bangChungTu";
+import StatusBadge from "@/components/shared/StatusBadge";
 import { cn } from "@/lib/utils";
+import { formatDate } from "@/utils/formatters";
 import { cauKhopNgoaiLoc, chuChonTatCa, chuVietTat, locNhaCungCap } from "./tinhGuiBaoGia";
 import { t } from "@/i18n";
 
@@ -75,6 +77,8 @@ function TrangThaiNcc({ d, suaDuoc, onSuaEmail }) {
  * - `loi`: câu lỗi tải danh sách LẦN ĐẦU (chưa có dữ liệu → chỉ hiện dòng lỗi + "Thử lại"; lỗi khi tải lại thì màn giữ
  *   bảng và báo ở dòng thông báo); `dangTai`: đang tải lần đầu.
  * - Màn giữ trạng thái tìm / lọc / trang (đổi khi thêm nhà cung cấp mới).
+ * - `vongTruoc`: tinhGuiBaoGia.vongTruocTheoNcc — nhà cung cấp đã được hỏi giá ở vòng trước của cùng yêu cầu có thêm
+ *   dòng "Vòng trước: Hết hạn · gửi 26/11" dưới tên (vẫn chọn lại được).
  */
 export default function BangNhaCungCap({
   dong,
@@ -94,6 +98,7 @@ export default function BangNhaCungCap({
   loi,
   dangTai = false,
   onThuLai,
+  vongTruoc,
 }) {
   const idBang = useId();
   const soGuiDuoc = dong.filter((d) => d.guiDuoc).length;
@@ -241,6 +246,15 @@ export default function BangNhaCungCap({
                                 {d.ten}
                               </span>
                               <span className="block break-all font-mono text-xs text-bo-muted">{d.ma || "—"}</span>
+                              {vongTruoc?.get(d.id) ? (
+                                <span className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs leading-4 text-bo-muted">
+                                  <span>{t("Vòng trước:")}</span>
+                                  <StatusBadge label={vongTruoc.get(d.id).nhan} />
+                                  {vongTruoc.get(d.id).ngayGui ? (
+                                    <span className="tabular-nums">{`· ${t("gửi {{ngay}}", { ngay: formatDate(vongTruoc.get(d.id).ngayGui) })}`}</span>
+                                  ) : null}
+                                </span>
+                              ) : null}
                               <span className={cn("mt-1 block", CHI_DIEN_THOAI)}>
                                 <span className="block break-all text-xs text-bo-muted">{d.email || d.nguoiLienHe || ""}</span>
                                 <TrangThaiNcc d={d} suaDuoc={suaDuoc} onSuaEmail={onSuaEmail} />

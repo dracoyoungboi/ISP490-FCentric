@@ -27,6 +27,7 @@ import {
     VAI_TRO_XEM_DON_MUA,
     baoGiaDaChot,
     baoGiaHieuLuc,
+    daVeDaDuyetSauHoiGia,
     dongYeuCau,
     locCauMayChuMuaHang,
     quyenDuyetYeuCau,
@@ -262,6 +263,12 @@ function ChiTietYeuCauNhapHang({ id }) {
             <DongThongBao key="ly-do" tone="bad">
                 <b className="font-semibold">{t("Lý do từ chối:")}</b>{" "}
                 <span className="whitespace-pre-wrap">{yc.lyDoTuChoi}</span>
+            </DongThongBao>
+        ) : null,
+        // Vòng hỏi giá trước không chọn được nhà cung cấp (không chấp nhận / hết hạn): máy chủ đưa yêu cầu về Đã duyệt
+        daVeDaDuyetSauHoiGia(yc) ? (
+            <DongThongBao key="vong-truoc" tone="info">
+                {t("Các báo giá đã gửi không được chấp nhận hoặc đã hết hạn. Yêu cầu đã về Đã duyệt để gửi cho nhà cung cấp khác hoặc gửi lại nhà cung cấp cũ.")}
             </DongThongBao>
         ) : null,
         choDuyet && quyen.khacKho ? (

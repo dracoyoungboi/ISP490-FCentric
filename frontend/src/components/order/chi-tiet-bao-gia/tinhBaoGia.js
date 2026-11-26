@@ -12,7 +12,9 @@
  *   `ghiChuNhaCungCap`: ghi chú nhà cung cấp gửi kèm báo giá; `lyDoTuChoi`: lý do không chấp nhận (có thể trống).
  * - 3: chấp nhận (thành đơn mua hàng cùng mã) · 4: không chấp nhận (kể cả K1: chấp nhận báo giá khác cùng yêu cầu thì
  *   báo giá còn chờ tự chuyển 4, không có người duyệt; giữ nhãn "Không chấp nhận báo giá", đặc tả K1) · 5: đã nhận đủ
- *   hàng · 6 / 7: đơn mua của báo giá đã đóng (nhận thiếu) / đã hủy · 0: đã xóa · 1: chỉ đơn tạo tay (đã gửi, chờ giá).
+ *   hàng · 6 / 7: đơn mua của báo giá đã đóng (nhận thiếu) / đã hủy · 0: đã xóa · 1: chỉ đơn tạo tay (đã gửi, chờ giá) ·
+ *   8: hết hạn (tới hạn báo giá `hanBaoGia` mà nhà cung cấp chưa báo giá). Từ 0:00 ngày sau hạn tới lúc máy chủ ghi 8
+ *   (8:00), đơn còn ở 2 kèm cờ `quaHanBaoGia`: màn hiện Hết hạn theo cờ, không đợi.
  * - Xét (PUT duyet-don/{id}/3 hoặc /4, body `{ lyDo, ngayBaoGiaDaXem }`): chỉ báo giá đang 2, đã có `ngayBaoGia`, yêu cầu
  *   ở 3; `ngayBaoGiaDaXem` khác máy chủ (nhà cung cấp vừa gửi lại) thì 409. Máy chủ ghi người bấm vào `nguoiDuyet`.
  */
@@ -28,6 +30,7 @@ export const TRANG_THAI_BAO_GIA = Object.freeze({
   DA_NHAN_DU: 5,
   DA_DONG: 6,
   DA_HUY: 7,
+  HET_HAN: 8,
 });
 
 /** Trạng thái yêu cầu mua hàng cho phép xét báo giá: "Đã gửi yêu cầu báo giá" (YeuCauMuaHangService, mã 3). */
@@ -36,6 +39,25 @@ export const TRANG_THAI_YEU_CAU_DANG_NHAN_BAO_GIA = 3;
 /** Nhãn suy ra ở giao diện cho báo giá trạng thái 2 mà nhà cung cấp chưa gửi báo giá (có trong constants/trangThai.js). */
 // i18n-giu-nguyen: nhãn trạng thái truyền vào StatusBadge (badge tự dịch, tra màu theo tên Việt)
 export const NHAN_CHO_BAO_GIA = "Chờ báo giá";
+
+/** Nhãn báo giá hết hạn (có trong constants/trangThai.js, nhóm Đã đóng). */
+// i18n-giu-nguyen: nhãn trạng thái truyền vào StatusBadge (badge tự dịch, tra màu theo tên Việt)
+export const NHAN_HET_HAN = "Hết hạn";
+
+/**
+ * Báo giá hết hạn: máy chủ đã ghi 8, hoặc còn ở 2 chưa báo giá mà đã qua hạn (cờ `quaHanBaoGia`, lượt 8:00 chưa chạy).
+ */
+export function laHetHan(don) {
+  const tt = docSo(don?.trangThai);
+  if (tt === TRANG_THAI_BAO_GIA.HET_HAN) return true;
+  return tt === TRANG_THAI_BAO_GIA.CHO_CHOT && !don?.ngayBaoGia && Boolean(don?.quaHanBaoGia);
+}
+
+/** "2026-12-01" (ngày hạn máy chủ trả, đã là ngày giờ Việt Nam) → "01/12/2026"; không có thì "". */
+export function ngayHan(hanBaoGia) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(hanBaoGia ?? ""));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+}
 
 /** Số ký tự tối đa của lý do không chấp nhận, khớp máy chủ (HOP-DONG 2.3, cột ly_do_tu_choi VARCHAR(500)). */
 export const LY_DO_KHONG_CHAP_NHAN_TOI_DA = 500;
@@ -140,9 +162,9 @@ export function nguoiChotBaoGia(don, { coYeuCauGoc = don?.yeuCauMuaHang != null 
 /** Nhà cung cấp đã gửi báo giá: máy chủ ghi `ngayBaoGia` mỗi lần nhận báo giá qua cổng. */
 export const daCoBaoGia = (don) => Boolean(don?.ngayBaoGia);
 
-/** Báo giá trạng thái 2 mà nhà cung cấp chưa gửi báo giá → hiện "Chờ báo giá" thay cho "Đã nhận báo giá". */
+/** Báo giá trạng thái 2 mà nhà cung cấp chưa gửi báo giá (còn hạn) → hiện "Chờ báo giá" thay cho "Đã nhận báo giá". */
 export function laChoBaoGia(don) {
-  return docSo(don?.trangThai) === TRANG_THAI_BAO_GIA.CHO_CHOT && !daCoBaoGia(don);
+  return docSo(don?.trangThai) === TRANG_THAI_BAO_GIA.CHO_CHOT && !daCoBaoGia(don) && !laHetHan(don);
 }
 
 /**
@@ -150,6 +172,7 @@ export function laChoBaoGia(don) {
  * riêng trạng thái 2 chưa báo giá thì "Chờ báo giá".
  */
 export function nhanTrangThaiBaoGia(don, nhanGoc) {
+  if (laHetHan(don)) return NHAN_HET_HAN;
   return laChoBaoGia(don) ? NHAN_CHO_BAO_GIA : nhanGoc;
 }
 
@@ -214,7 +237,8 @@ export function trangThaiGuiLaiYeuCau(don, { duocGui = false, daGuiLai = false }
     Boolean(don?.chuaGuiDuocYeuCau) &&
     docSo(don?.trangThai) === TRANG_THAI_BAO_GIA.CHO_CHOT &&
     !daCoBaoGia(don) &&
-    !don?.ngayGuiYeuCau;
+    !don?.ngayGuiYeuCau &&
+    !laHetHan(don);
   if (!canGuiLai || daGuiLai) return null;
   return { coNut: Boolean(duocGui) };
 }
@@ -257,10 +281,14 @@ export function tinhBuocBaoGia(don, tomTat = congGia(don?.chiTietDonMuaHangs), {
   const daBaoGia = daCoBaoGia(don);
   const dongCoGia = t("{{soCoGia}}/{{soDong}} dòng có giá", { count: Number(tomTat.soDong) || 0, soCoGia: soVN(tomTat.soCoGia), soDong: soVN(tomTat.soDong) });
 
-  const chuaGuiEmail = tt === TRANG_THAI_BAO_GIA.CHO_CHOT && !daBaoGia && !don?.ngayGuiYeuCau;
+  const hetHan = laHetHan(don);
+  const chuaGuiEmail = tt === TRANG_THAI_BAO_GIA.CHO_CHOT && !daBaoGia && !don?.ngayGuiYeuCau && !hetHan;
 
   let guiGia;
-  if (chuaGuiEmail) {
+  if (hetHan) {
+    const ngay = ngayHan(don?.hanBaoGia);
+    guiGia = { trangThai: "dung", phu: ngay ? t("Hết hạn ngày {{ngay}}", { ngay }) : t(NHAN_HET_HAN) };
+  } else if (chuaGuiEmail) {
     guiGia = { trangThai: "chua", phu: t("Chưa gửi giá") };
   } else if (daBaoGia) {
     guiGia = { trangThai: "xong", phu: dongCoGia, ngay: don.ngayBaoGia, coGio: true };

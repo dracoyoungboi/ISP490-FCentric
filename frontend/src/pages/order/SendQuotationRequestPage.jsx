@@ -14,9 +14,11 @@ import ThuocTinhGuiBaoGia from "@/components/order/gui-bao-gia/ThuocTinhGuiBaoGi
 import {
   chanGuiBaoGia,
   dongNhaCungCap,
+  hanKhiGui,
   maYeuCau,
   phanLoaiLoiGui,
   tongSoLuongDat,
+  vongTruocTheoNcc,
 } from "@/components/order/gui-bao-gia/tinhGuiBaoGia";
 import { VAI_TRO_XEM_DON_MUA, locCauMayChuMuaHang } from "@/components/order/chi-tiet-yeu-cau/tinhYeuCau";
 import EmptyState from "@/components/shared/EmptyState";
@@ -86,6 +88,9 @@ function ManGuiBaoGia({ id }) {
   const yc = qYc.data ?? null;
   const chan = chanGuiBaoGia(yc, { xemDonMua });
   const dong = useMemo(() => dongNhaCungCap(qNcc.data), [qNcc.data]);
+  // Hạn báo giá nếu gửi ngay (số ngày đặt ở Cấu hình vận hành) và kết quả vòng hỏi giá trước của từng nhà cung cấp
+  const han = hanKhiGui(yc);
+  const vongTruoc = useMemo(() => vongTruocTheoNcc(yc), [yc]);
   const coDanhSach = qNcc.data !== undefined;
 
   // ── Thông tin cửa hàng: email gửi nhà cung cấp phải có tên đăng ký kinh doanh và địa chỉ đăng ký ──────
@@ -429,12 +434,14 @@ function ManGuiBaoGia({ id }) {
             loi={qNcc.error && !qNcc.loading && !coDanhSach ? getApiErrorMessage(qNcc.error, t("lỗi kết nối")) : null}
             dangTai={qNcc.loading && qNcc.data === undefined}
             onThuLai={qNcc.reload}
+            vongTruoc={vongTruoc}
           />
         }
         cotPhai={
           <ThuocTinhGuiBaoGia
             yc={yc}
             id={id}
+            han={han}
             daChon={daChon}
             onBo={(ma) =>
               setChon((cu) => {
@@ -451,7 +458,10 @@ function ManGuiBaoGia({ id }) {
         mo={hop}
         onDoiMo={(mo) => !mo && setHop(false)}
         tieuDe={t("Gửi yêu cầu báo giá đến {{soDaChon}} nhà cung cấp?", { count: daChon.length, soDaChon: soVN(daChon.length) })}
-        moTa={t("Mỗi nhà cung cấp nhận một yêu cầu báo giá cho {{soBienThe}} biến thể của {{ma}}. Sau khi gửi không thêm hay bỏ nhà cung cấp được nữa.", { count: soBienThe, soBienThe: soVN(soBienThe), ma })}
+        moTa={[
+          t("Mỗi nhà cung cấp nhận một yêu cầu báo giá cho {{soBienThe}} biến thể của {{ma}}. Sau khi gửi không thêm hay bỏ nhà cung cấp được nữa.", { count: soBienThe, soBienThe: soVN(soBienThe), ma }),
+          han ? t("Hạn báo giá hết ngày {{ngay}}, không đổi được sau khi gửi.", { ngay: han.han }) : "",
+        ].filter(Boolean).join(" ")}
         nhanXacNhan={t("Gửi yêu cầu")}
         iconXacNhan={Send}
         rong
