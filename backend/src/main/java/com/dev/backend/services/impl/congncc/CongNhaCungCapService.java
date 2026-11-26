@@ -26,6 +26,7 @@ import com.dev.backend.services.CalcService;
 import com.dev.backend.services.email.EmailNghiepVuService;
 import com.dev.backend.services.impl.entities.NhatKyTraHangNcc;
 import com.dev.backend.services.impl.entities.DonMuaHangService;
+import com.dev.backend.services.impl.entities.HanBaoGia;
 import com.dev.backend.services.impl.entities.ThongTinCuaHangMuaHang;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -78,6 +79,9 @@ public class CongNhaCungCapService {
     private final ThongTinCuaHangMuaHang thongTinCuaHangMuaHang;
     private final NhatKyTraHangNcc nhatKyTraHangNcc;
     private Clock dongHo = Clock.systemUTC();
+    /** Hạn báo giá; null khi unit test dựng tay (không lọc theo hạn). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private HanBaoGia hanBaoGia;
 
     public CongNhaCungCapService(NhaCungCapRepository nhaCungCapRepository, DonMuaHangRepository donMuaHangRepository,
                                  DonMuaHangService donMuaHangService, BienBanTraHangService bienBanTraHangService,
@@ -265,11 +269,16 @@ public class CongNhaCungCapService {
                         hangLoiTomTat(b), nguoiPhuTrachCua(donTheoId.get(b.getDonMuaHangId()))))
                 .toList();
 
-        List<CongNcc.DonChoBaoGia> donCho = don.stream()
+        // Đơn chờ báo giá còn hạn (qua hạn thì không còn là việc cần làm, nằm ở Lịch sử với kết quả Hết hạn)
+        List<DonMuaHang> choBaoGia = don.stream()
                 .filter(d -> Objects.equals(d.getTrangThai(), DON_CHO_BAO_GIA) && d.getNgayBaoGia() == null)
+                .toList();
+        Map<Integer, HanBaoGia.Han> han = hanBaoGia == null ? Map.of() : hanBaoGia.hanCua(choBaoGia);
+        List<CongNcc.DonChoBaoGia> donCho = choBaoGia.stream()
+                .filter(d -> han.get(d.getId()) == null || !HanBaoGia.daQuaHan(han.get(d.getId()).ngay(), now))
                 .map(d -> new CongNcc.DonChoBaoGia(d.getId(), d.getSoDonMua(), soMatHang(d), tongSoLuong(d),
                         d.getNgayGiaoDuKien(), d.getKhoNhap() == null ? null : d.getKhoNhap().getTenKho(), ngayYeuCau(d),
-                        nguoiPhuTrachCua(d)))
+                        nguoiPhuTrachCua(d), han.get(d.getId()) == null ? null : han.get(d.getId()).ngay()))
                 .toList();
 
         int baoGiaDaGui = 0;
@@ -406,11 +415,15 @@ public class CongNhaCungCapService {
         String tk = chuanTuKhoa(tuKhoa);
         List<CongNcc.DongBaoGia> items = new ArrayList<>();
         int daBaoGia = 0, chapNhan = 0, khongChapNhan = 0, choBaoGia = 0;
-        for (DonMuaHang d : donMuaHangRepository.choCongNhaCungCap(p.ids())) {
+        List<DonMuaHang> dsDon = donMuaHangRepository.choCongNhaCungCap(p.ids());
+        Map<Integer, HanBaoGia.Han> han = hanBaoGia == null ? Map.of() : hanBaoGia.hanCua(dsDon);
+        Instant now = dongHo.instant();
+        for (DonMuaHang d : dsDon) {
             Instant ngayYeuCau = ngayYeuCau(d);
             if (!khoang.chua(ngayYeuCau)) continue;
             if (!tk.isEmpty() && (d.getSoDonMua() == null || !d.getSoDonMua().toLowerCase(Locale.ROOT).contains(tk))) continue;
-            String ketQua = ketQuaBaoGia(d);
+            HanBaoGia.Han h = han.get(d.getId());
+            String ketQua = ketQuaBaoGia(d, h != null && HanBaoGia.daQuaHan(h.ngay(), now));
             switch (ketQua) {
                 case "DUOC_CHAP_NHAN" -> chapNhan++;
                 case "KHONG_CHAP_NHAN" -> khongChapNhan++;
@@ -420,7 +433,7 @@ public class CongNhaCungCapService {
             }
             if (d.getNgayBaoGia() != null) daBaoGia++;
             items.add(new CongNcc.DongBaoGia(d.getId(), d.getSoDonMua(), ngayYeuCau, d.getNgayBaoGia(), soMatHang(d),
-                    d.getNgayBaoGia() == null ? null : d.getTongTien(), ketQua));
+                    d.getNgayBaoGia() == null ? null : d.getTongTien(), ketQua, h == null ? null : h.ngay()));
         }
         return new CongNcc.LichSuBaoGia(items, new CongNcc.TomTatBaoGia(daBaoGia, chapNhan, khongChapNhan, choBaoGia));
     }
@@ -491,8 +504,20 @@ public class CongNhaCungCapService {
 
     /** Kết quả báo giá phía nhà cung cấp. */
     static String ketQuaBaoGia(DonMuaHang d) {
+        return ketQuaBaoGia(d, false);
+    }
+
+    /**
+     * Kết quả báo giá; {@code quaHan}: đã qua hạn báo giá theo giờ — đơn còn ở 2, chưa báo giá thì đã là Hết hạn dù lượt
+     * xét hạn (8:00) chưa ghi trạng thái 8.
+     */
+    static String ketQuaBaoGia(DonMuaHang d, boolean quaHan) {
         Integer tt = d.getTrangThai();
-        if (Objects.equals(tt, DON_CHO_BAO_GIA)) return d.getNgayBaoGia() == null ? "CHO_BAO_GIA" : "CHO_KET_QUA";
+        if (Objects.equals(tt, DON_CHO_BAO_GIA)) {
+            if (d.getNgayBaoGia() != null) return "CHO_KET_QUA";
+            return quaHan ? "HET_HAN" : "CHO_BAO_GIA";
+        }
+        if (Objects.equals(tt, DonMuaHangService.TRANG_THAI_HET_HAN)) return "HET_HAN";
         if (DON_DUOC_CHAP_NHAN.contains(tt)) return "DUOC_CHAP_NHAN";
         if (Objects.equals(tt, DonMuaHangService.TRANG_THAI_KHONG_CHAP_NHAN)) return "KHONG_CHAP_NHAN";
         return "DA_HUY";

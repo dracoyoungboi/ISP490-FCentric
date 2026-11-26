@@ -41,8 +41,10 @@ public final class CongNcc {
     }
 
     /** nguoiPhuTrach: người tạo đơn (null khi đơn không có người tạo). */
+    /** hanBaoGia: gửi được tới hết ngày này (giờ Việt Nam). */
     public record DonChoBaoGia(Integer id, String soDonMua, int soMatHang, BigDecimal tongSoLuong, Instant ngayCanGiao,
-                               String tenKho, Instant ngayGuiYeuCau, NguoiPhuTrach nguoiPhuTrach) {
+                               String tenKho, Instant ngayGuiYeuCau, NguoiPhuTrach nguoiPhuTrach,
+                               java.time.LocalDate hanBaoGia) {
     }
 
     public record SoLieu30Ngay(int baoGiaDaGui, int duocChapNhan, int sanPhamLoi, BigDecimal tienTru) {
@@ -98,9 +100,9 @@ public final class CongNcc {
 
     // ── Lịch sử ──
 
-    /** ketQua: CHO_BAO_GIA | CHO_KET_QUA | DUOC_CHAP_NHAN | KHONG_CHAP_NHAN | DA_HUY. */
+    /** ketQua: CHO_BAO_GIA | CHO_KET_QUA | DUOC_CHAP_NHAN | KHONG_CHAP_NHAN | HET_HAN | DA_HUY. */
     public record DongBaoGia(Integer id, String soDonMua, Instant ngayYeuCau, Instant ngayBaoGia, int soMatHang,
-                             BigDecimal tongTien, String ketQua) {
+                             BigDecimal tongTien, String ketQua, java.time.LocalDate hanBaoGia) {
     }
 
     public record TomTatBaoGia(int daBaoGia, int duocChapNhan, int khongChapNhan, int choBaoGia) {

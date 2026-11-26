@@ -40,6 +40,10 @@ public class DonMuaHangCongNccDto implements Serializable {
     /** Người gửi yêu cầu (dòng "Phụ trách" trên cổng): chỉ tên, điện thoại, email công việc. */
     NguoiPhuTrach nguoiTao;
     List<Dong> chiTietDonMuaHangs;
+    /** Hạn báo giá (gửi được tới hết ngày này, giờ Việt Nam); null nếu không có. */
+    java.time.LocalDate hanBaoGia;
+    /** Đã qua hạn mà chưa có kết quả: cổng khóa nút gửi và sửa báo giá. */
+    Boolean quaHanBaoGia;
 
     @AllArgsConstructor
     @NoArgsConstructor

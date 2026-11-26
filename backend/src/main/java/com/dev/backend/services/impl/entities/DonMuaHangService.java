@@ -437,7 +437,15 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
                 || don.getTrangThai() == null || don.getTrangThai() < TRANG_THAI_CHO_BAO_GIA) {
             throw khongTimThayDon();
         }
-        return DonMuaHangCongNccMapper.toDto(don);
+        DonMuaHangCongNccDto dto = DonMuaHangCongNccMapper.toDto(don);
+        HanBaoGia.Han han = hanBaoGia == null ? null : hanBaoGia.hanCua(don);
+        if (han != null) {
+            dto.setHanBaoGia(han.ngay());
+            dto.setQuaHanBaoGia(Objects.equals(don.getTrangThai(), TRANG_THAI_HET_HAN)
+                    || (Objects.equals(don.getTrangThai(), TRANG_THAI_CHO_BAO_GIA)
+                    && HanBaoGia.daQuaHan(han.ngay(), dongHo.instant())));
+        }
+        return dto;
     }
 
 
