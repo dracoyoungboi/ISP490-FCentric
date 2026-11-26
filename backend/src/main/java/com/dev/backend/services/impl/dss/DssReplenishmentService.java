@@ -27,6 +27,11 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Service điều phối Phân hệ 1 (DSS Gợi ý nhập hàng).
+ * Chuỗi xử lý: Đọc 12 tham số ở `cau_hinh_he_thong` -> gọi `DssReplenishmentRepository` gom dữ liệu tồn/bán/mua toàn kho
+ * -> đưa sang `DssPolicyEngine` tính ABC/SS/ROP/Q -> ghi ngưỡng cảnh báo vào `canh_bao` và Audit Log.
+ */
 @Service
 @Slf4j
 public class DssReplenishmentService {
@@ -47,11 +52,13 @@ public class DssReplenishmentService {
         this.nguoiDungRepository = nguoiDungRepository;
     }
 
+    // Đọc danh sách kho đang hoạt động (trừ KHO_TRANSIT) để hiển thị phạm vi tổng hợp trên UI
     @Transactional(readOnly = true)
     public List<KhoInfo> listWarehouses() {
         return repo.listActiveWarehouses();
     }
 
+    // Đọc 12 tham số cấu hình DSS từ bảng `cau_hinh_he_thong` (chế độ ABC/Global, Z, T, N, g%, B, Lead Time...)
     public DssConfigDto readConfig() {
         double serviceLevelZ = 1.65d;
         String zStr = dieuHanhHeThongService.getCauHinhString(DieuHanhHeThongServiceImpl.CAU_HINH_DSS_SERVICE_LEVEL_Z, "1.65");
@@ -90,11 +97,13 @@ public class DssReplenishmentService {
                 .build();
     }
 
+    // Luồng GET lúc mở trang: tính gợi ý chỉ đọc (persistAlerts = false), không ghi DB
     @Transactional(readOnly = true)
     public DssReplenishmentResponse getRecommendations(Integer khoId) {
         return evaluateAllWarehouses(khoId, false);
     }
 
+    // Luồng bấm nút "Tính lại ngay": tính lại toàn hệ thống, đồng bộ bảng `canh_bao` và ghi Audit Log
     @Transactional(rollbackFor = Exception.class)
     public DssReplenishmentResponse recalculateAndSyncAlerts(Integer khoId) {
         DssReplenishmentResponse response = evaluateAllWarehouses(khoId, true);
@@ -124,6 +133,10 @@ public class DssReplenishmentService {
         return warehouses.size();
     }
 
+    /**
+     * Luồng bấm nút "Lưu & Tính lại ROP": ghi 12 tham số xuống bảng `cau_hinh_he_thong`,
+     * sau đó chạy lại DSS toàn hệ thống để làm mới `canh_bao` (trừ khi caller yêu cầu chỉ đọc).
+     */
     @Transactional(rollbackFor = Exception.class)
     public DssReplenishmentResponse updateConfig(DssConfigUpdateRequest req) {
         if (req == null) {
@@ -155,19 +168,24 @@ public class DssReplenishmentService {
         return recalculateAndSyncAlerts(req.getKhoId());
     }
 
+    // Lõi điều phối dùng chung cho cả GET (xem trước) và POST/PUT (lưu ngưỡng canh_bao vào Kho tổng)
     private DssReplenishmentResponse evaluateAllWarehouses(Integer requestedKhoId, boolean persistAlerts) {
+        // Bước 1: Lấy mọi kho active (bỏ KHO_TRANSIT) và chọn Kho tổng làm neo lưu cảnh báo toàn chuỗi
         List<KhoInfo> activeWarehouses = repo.listActiveWarehouses();
         if (activeWarehouses == null || activeWarehouses.isEmpty()) {
             throw new CommonException(ThongDiep.of("dss.chuaCoKhoTong"));
         }
         KhoInfo anchorKho = resolveAnchorCentralWarehouse(activeWarehouses, requestedKhoId);
 
+        // Bước 2: Đọc cấu hình hiện hành, lấy ngày hôm nay theo UTC+7 và gom SkuRawInput qua 6 câu SQL
         DssConfigDto config = readConfig();
         LocalDate todayVn = LocalDate.now(DssReplenishmentRepository.VN_ZONE);
         List<SkuRawInput> rawInputs = repo.loadRawInputsAllWarehouses(
                 config.getObservationDaysN(), config.getLeadTimeSampleM(), todayVn);
+        // Bước 3: Giao cho bộ máy toán học thuần DssPolicyEngine xếp hạng ABC và tính SS/ROP/Q/DOI
         CalculationOutput output = DssPolicyEngine.calculate(rawInputs, config, todayVn);
 
+        // Bước 4: Nếu bấm Lưu/Tính lại (persistAlerts = true) thì cập nhật bảng `canh_bao`, ngược lại chỉ đếm trên RAM
         int alertedCount;
         if (persistAlerts) {
             alertedCount = repo.syncLowStockAlerts(anchorKho.id(), output.items());

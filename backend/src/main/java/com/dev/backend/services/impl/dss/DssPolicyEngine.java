@@ -72,12 +72,13 @@ public final class DssPolicyEngine {
         int n = Math.max(1, config.getObservationDaysN());
         LocalDate refDate = today != null ? today : LocalDate.now();
 
+        // Bước 1: Cộng tổng doanh thu N ngày của toàn bộ SKU làm mẫu số chia tỷ trọng Pareto ABC
         long totalRevenue = 0L;
         for (SkuRawInput in : inputs) {
             totalRevenue += Math.max(0L, in.revenueN());
         }
 
-        // Sắp xếp giảm dần theo doanh thu trong N ngày để phân loại Pareto 70% / 20% / 10%
+        // Bước 2: Sắp xếp giảm dần theo doanh thu trong N ngày để phân loại Pareto 70% / 20% / 10%
         List<SkuRawInput> ordered = new ArrayList<>(inputs);
         ordered.sort((a, b) -> {
             int revCmp = Long.compare(Math.max(0L, b.revenueN()), Math.max(0L, a.revenueN()));
@@ -104,6 +105,7 @@ public final class DssPolicyEngine {
 
         for (SkuRawInput in : ordered) {
             long rev = Math.max(0L, in.revenueN());
+            // So sánh tỷ lệ lũy kế TRƯỚC khi cộng SKU hiện tại để gán hạng Pareto: <70% = A, <90% = B, còn lại = C
             double cumBeforeRatio = totalRevenue > 0 ? (double) cumRevenue / totalRevenue : 1.0;
             cumRevenue += rev;
             double sharePct = totalRevenue > 0 ? round2((double) rev * 100.0 / totalRevenue) : 0.0;
@@ -126,7 +128,7 @@ public final class DssPolicyEngine {
                 default -> classCCount++;
             }
 
-            // Trích xuất dAvg, dMax, sigmaD trên cửa sổ N ngày
+            // Bước 3: Trích xuất dAvg (bán TB/ngày), dMax (đỉnh ngày) và sigmaD (độ lệch chuẩn) trên cửa sổ N ngày
             double[] series = normalizedSeries(in.dailySoldN(), n);
             long totalSoldN = 0L;
             double dMax = 0.0;
@@ -147,7 +149,7 @@ public final class DssPolicyEngine {
             }
             double sigmaD = Math.sqrt(varianceSum / n);
 
-            // Trích xuất Lead Time (L_avg, L_max) từ M phiếu nhập hoàn tất gần nhất hoặc fallback mặc định
+            // Bước 4: Trích xuất Lead Time giao hàng (L_avg, L_max) từ M phiếu nhập hoàn tất gần nhất hoặc fallback mặc định
             List<Double> ltSamples = in.leadTimeSamples() != null ? in.leadTimeSamples() : List.of();
             double lAvg;
             double lMax;
@@ -167,6 +169,7 @@ public final class DssPolicyEngine {
                 lMax = Math.max(lAvg, config.getDefaultLeadTimeMax());
             }
 
+            // Bước 5: Chọn 1 trong 4 kịch bản tính (theo ABC mặc định hoặc Global Preset) và tính SS, ROP, Q gợi ý
             String appliedPreset = resolvePreset(config, abcClass);
             boolean isPhaseOut = PRESET_PHASE_OUT.equals(appliedPreset);
 
@@ -178,12 +181,14 @@ public final class DssPolicyEngine {
             long excessStock = 0L;
 
             if (isPhaseOut) {
+                // Xả hàng / ngừng nhập: SS=0, ROP=0, Q=0 (khóa tạo PR), tính hàng dư cần xả
                 safetyStock = 0L;
                 reorderPoint = 0L;
                 suggestedOrderQty = 0L;
                 long minNeededRemaining = ceilLong(dAvg * Math.max(1, config.getPhaseOutRemainingDays()));
                 excessStock = Math.max(0L, ftu - minNeededRemaining);
             } else if (PRESET_PEAK.equals(appliedPreset)) {
+                // Cao điểm (Hạng A): nâng tốc độ bán mục tiêu thêm g%, tính SS theo biến động đỉnh (D_max * L_max - D_avg * L_avg)
                 double growthFactor = Math.max(0.0, 1.0 + config.getPeakGrowthPercentG() / 100.0);
                 double dTarget = dAvg * growthFactor;
                 safetyStock = Math.max(0L, ceilLong(dMax * lMax - dAvg * lAvg));
@@ -191,18 +196,20 @@ public final class DssPolicyEngine {
                 long targetQty = ceilLong(dTarget * Math.max(1, config.getPeakCampaignDays()) + safetyStock - (ftu + incoming));
                 suggestedOrderQty = Math.max(0L, targetQty);
             } else if (PRESET_LEAN.equals(appliedPreset)) {
+                // Tinh gọn (Hạng C): tồn an toàn chỉ đệm vừa đủ B ngày bán (giảm đọng vốn)
                 safetyStock = Math.max(0L, ceilLong(dAvg * Math.max(1, config.getLeanBufferDaysB())));
                 reorderPoint = ceilLong(dAvg * lAvg + safetyStock);
                 long targetQty = ceilLong(dAvg * Math.max(1, config.getCycleDaysT()) + safetyStock - (ftu + incoming));
                 suggestedOrderQty = Math.max(0L, targetQty);
             } else {
-                // PRESET_01_STANDARD
+                // Chuẩn (Hạng B / PRESET_01_STANDARD): SS = ceil(Z * sigma_D * sqrt(L_avg))
                 safetyStock = Math.max(0L, ceilLong(Math.max(0.0, config.getServiceLevelZ()) * sigmaD * Math.sqrt(lAvg)));
                 reorderPoint = ceilLong(dAvg * lAvg + safetyStock);
                 long targetQty = ceilLong(dAvg * Math.max(1, config.getCycleDaysT()) + safetyStock - (ftu + incoming));
                 suggestedOrderQty = Math.max(0L, targetQty);
             }
 
+            // Bước 6: Tính DOI (số ngày còn đủ bán), ngày dự kiến hết hàng, ngày đặt trễ nhất & mức khẩn cấp
             Double doi = null;
             String stockoutDate = null;
             String latestOrderDate = null;
@@ -217,6 +224,7 @@ public final class DssPolicyEngine {
                 }
             }
 
+            // Hàng ế (deadStock): còn tồn nhưng 30 ngày không bán được hoặc DOI > 60 ngày
             boolean deadStock = ftu > 0L && (in.totalSold30Days() <= 0L || (doi != null && doi > 60.0d));
             boolean needsReorder = !isPhaseOut && ftu <= reorderPoint && suggestedOrderQty > 0;
             boolean flashSale = (isPhaseOut && (excessStock > 0 || (doi != null && doi > 60.0))) || deadStock;
