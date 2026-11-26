@@ -57,9 +57,10 @@ const MAX_LENGTH = { name: TEN_TOI_DA, legalName: TEN_TOI_DA, email: EMAIL_TOI_D
 // Một hàng của thẻ Pháp lý, dùng chung lúc xem và lúc sửa để bấm Sửa cột nhãn không xê dịch ngang
 const HANG_PHAP_LY =
   "grid grid-cols-1 gap-1 border-t border-[#eef1f5] px-5 py-2.5 first:border-t-0 sm:grid-cols-[196px_minmax(0,1fr)] sm:gap-4";
-// Lúc xem trên màn rộng: các hàng chia đều phần cao thẻ đã giãn theo menu, chữ giữa hàng, thấp nhất 44px.
-// Nền 44px thay cho min-h để hàng nhiều dòng (địa chỉ dài, dòng cảnh báo) vẫn cao theo nội dung, không bị ép đè đường kẻ
-const HANG_PHAP_LY_XEM = cn(HANG_PHAP_LY, "lg:flex-[1_1_2.75rem] lg:content-center");
+// Lúc xem trên màn rộng: hàng gọn (đệm 8px) rồi chia đều phần cao thẻ đã giãn theo menu, chữ giữa hàng — đáy thẻ bằng
+// đáy menu Cấu hình (menu bỏ tên nhóm nên ngắn hơn, hàng 44px cũ làm thẻ dài quá menu). Nền theo nội dung thay cho min-h
+// để hàng nhiều dòng (địa chỉ dài, dòng cảnh báo) vẫn cao theo nội dung, không bị ép đè đường kẻ
+const HANG_PHAP_LY_XEM = cn(HANG_PHAP_LY, "lg:flex-[1_1_auto] lg:content-center lg:py-2");
 
 // Màu gợi ý dưới ô (khớp demo: xám #64748b, xanh #15803d, cam #b45309)
 const TONE_GOI_Y = { muted: "text-bo-muted", ok: "text-bo-success", warn: "text-bo-warning" };
