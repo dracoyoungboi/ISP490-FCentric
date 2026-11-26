@@ -8,7 +8,9 @@ import SurfaceCard from '@/components/shared/SurfaceCard';
 import KhungCongNhaCungCap from '@/components/supplier-portal/KhungCongNhaCungCap';
 import ThongTinDonMua, { CanGiaoTruoc, DongThongTinDon } from '@/components/supplier-portal/ThongTinDonMua';
 import BangBaoGia from '@/components/supplier-portal/BangBaoGia';
-import HopGuiBaoGia, { HopXacNhanThoat } from '@/components/supplier-portal/HopGuiBaoGia';
+import HopGuiBaoGia from '@/components/supplier-portal/HopGuiBaoGia';
+import HopHoiRoiTrang from '@/components/supplier-portal/HopHoiRoiTrang';
+import useHoiKhiRoiTrang from '@/hooks/useHoiKhiRoiTrang';
 import {
     GHI_CHU_TOI_DA,
     coThayDoiChuaGui,
@@ -69,6 +71,11 @@ function xoaNhapChuaGui(donId) {
     }
 }
 
+const CAU_ROI_BAO_GIA = {
+    roi: t("Rời trang báo giá?"),
+    mat: t("Đơn giá bạn đã nhập chưa được gửi sẽ mất."),
+};
+
 const O_GHI_CHU_CHUNG =
     'block min-h-[84px] w-full resize-y rounded-md border border-bo-border bg-white px-3 py-2.5 text-base leading-[22px] text-bo-foreground placeholder:text-bo-muted/70 focus-visible:border-bo-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/15 md:text-sm';
 
@@ -109,8 +116,8 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
     const [loiGui, setLoiGui] = useState('');
     // Đơn chưa có ngày cần giao thì báo ngay khi mở trang (không đợi tới lúc bấm Gửi mới biết)
     const [loiChung, setLoiChung] = useState(() => (orderData.ngayGiaoDuKien ? '' : LOI_THIEU_NGAY_GIAO));
-    // null | { dich: null } (bấm Thoát) | { dich: "/supplier/portal…" } (bấm tab khi còn đơn giá chưa gửi)
-    const [hoiThoat, setHoiThoat] = useState(null);
+    // Hỏi lại trước khi rời trang khi còn đơn giá chưa gửi: null | { lyDo, tiepTuc } (xem HopHoiRoiTrang)
+    const [hoiRoi, setHoiRoi] = useState(null);
     // Giờ máy chủ nhận báo giá của lần gửi trong phiên này (dùng ngay cho hộp thành công, không chờ router cập nhật state)
     const [guiLuc, setGuiLuc] = useState(null);
     // Địa chỉ máy chủ xếp gửi email Đã nhận báo giá (null: không nói gì về email)
@@ -220,7 +227,10 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
         if (hop !== 'dang-gui') setHop(null);
     };
 
-    const coThayDoi = () => !chiXem && coThayDoiChuaGui(dongBanDau, dong, ghiChuBanDau, ghiChu);
+    // Còn đơn giá / ghi chú chưa gửi: Thoát, đổi ngôn ngữ (menu tài khoản), tab, link, nút Back hỏi lại bằng HopHoiRoiTrang;
+    // đóng thẻ / tải lại trang hỏi bằng hộp của trình duyệt. Đang gửi thì thôi hỏi.
+    const coThayDoi = !chiXem && hop !== 'dang-gui' && coThayDoiChuaGui(dongBanDau, dong, ghiChuBanDau, ghiChu);
+    useHoiKhiRoiTrang(coThayDoi, (tiepTuc, lyDo) => setHoiRoi({ tiepTuc, lyDo }));
     const moGhiChu = () => {
         setMoGhiChuChung(true);
         setVuaMoGhiChuChung(true);
@@ -231,23 +241,6 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
         setMoGhiChuChung(false);
         setVuaMoGhiChuChung(false);
         if (traConTro) requestAnimationFrame(() => nutThemGhiChuRef.current?.focus());
-    };
-
-    const bamThoat = () => {
-        if (coThayDoi()) setHoiThoat({ dich: null });
-        else thoatCong();
-    };
-    /** Bấm tab Cần xử lý / Lịch sử khi còn đơn giá chưa gửi: hỏi lại trước khi rời trang. */
-    const roiTrang = (dich) => {
-        if (!coThayDoi()) return false;
-        setHoiThoat({ dich });
-        return true;
-    };
-    const dongYRoi = () => {
-        const dich = hoiThoat?.dich;
-        setHoiThoat(null);
-        if (dich) navigate(dich);
-        else thoatCong();
     };
 
     // Đã gửi (trong phiên này hoặc trước đó) / chờ báo giá / tên trạng thái chung của đơn khi không còn nhận báo giá;
@@ -269,7 +262,7 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
     const tieuDeGhiChu = tenCuaHang ? t("Ghi chú cho {{tenCuaHang}}", { tenCuaHang }) : t("Ghi chú");
 
     return (
-        <KhungCongNhaCungCap tenNhaCungCap={tenNhaCungCap} email={email} onThoat={bamThoat} onRoiTrang={roiTrang} chanTrang={false}>
+        <KhungCongNhaCungCap tenNhaCungCap={tenNhaCungCap} email={email} onThoat={thoatCong} chanTrang={false}>
             <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-4 p-4 md:gap-5 md:p-6">
                 <div className="flex flex-col gap-1.5">
                     <div className="flex flex-col gap-1.5 md:flex-row md:flex-wrap md:items-center md:gap-3">
@@ -446,7 +439,7 @@ function TrangBaoGia({ orderData, daGuiLuc, cuaHang, nhaCungCap, hetPhien, thoat
                 onGui={guiBaoGia}
                 onDong={dongHop}
             />
-            <HopXacNhanThoat mo={Boolean(hoiThoat)} onO={() => setHoiThoat(null)} onThoat={dongYRoi} />
+            <HopHoiRoiTrang hoi={hoiRoi} cau={CAU_ROI_BAO_GIA} onO={() => setHoiRoi(null)} />
         </KhungCongNhaCungCap>
     );
 }

@@ -817,8 +817,6 @@
   "Ngày cần giao": "Required delivery date",
   "Cần sửa đơn giá: gửi lại trên Cổng nhà cung cấp trước khi có kết quả. Báo giá gửi sau sẽ thay báo giá này.": "To change unit prices, resubmit on the Supplier portal before a decision is made. A later quotation replaces this one.",
   "Gửi lại": "Resend",
-  "Thoát khỏi trang báo giá?": "Leave the quotation page?",
-  "Đơn giá bạn đã nhập chưa được gửi và sẽ mất khi thoát.": "The unit prices you entered haven't been sent and will be lost if you leave.",
   "Thoát khỏi Cổng nhà cung cấp?": "Sign out of the Supplier portal?",
   "Rời trang báo giá?": "Leave the quotation page?",
   "Đơn giá bạn đã nhập chưa được gửi sẽ mất.": "The unit prices you entered haven't been sent and will be lost.",

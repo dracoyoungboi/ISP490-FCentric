@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import StatusBadge from '@/components/shared/StatusBadge';
 import KhungCongNhaCungCap from '@/components/supplier-portal/KhungCongNhaCungCap';
+import HopHoiRoiTrang from '@/components/supplier-portal/HopHoiRoiTrang';
+import useHoiKhiRoiTrang from '@/hooks/useHoiKhiRoiTrang';
 import TheNguoiPhuTrach from '@/components/supplier-portal/TheNguoiPhuTrach';
 import { KhungKhongTimThay, KhungLoiTai, KhungXuongCong } from '@/components/supplier-portal/TrangThaiTaiCong';
 import { gioVaNgay } from '@/components/supplier-portal/baoGiaUtils';
@@ -801,6 +803,11 @@ function TomTatPhuongAn({ bb, chon }) {
     );
 }
 
+const CAU_ROI_BIEN_BAN = {
+    roi: t("Rời trang biên bản?"),
+    mat: t("Các lựa chọn chưa được xác nhận sẽ mất."),
+};
+
 /**
  * Trả lời theo từng dòng: giữ lựa chọn của mọi thẻ (cột trái) và khung trả lời (cột phải). Lần đầu phải chọn đủ mọi câu
  * còn mở của mọi dòng; `dangDoi`: mở lại để đổi (điền sẵn lựa chọn đang áp dụng, phải đổi ít nhất một câu mới gửi được).
@@ -827,6 +834,11 @@ function TraLoiTheoDong({ bb, nhaCungCap, dangDoi, onHuyDoi, onXong, onKhongConN
     const coDoi = coDongDoi(bb, chon);
     const coNguoi = Boolean(chuanHoaHoTen(nguoi));
     const guiDuoc = thieu.length === 0 && coDoi && coNguoi;
+
+    // Đã chọn mà chưa xác nhận: Thoát, đổi ngôn ngữ (menu tài khoản), tab, link, nút Back hỏi lại bằng HopHoiRoiTrang;
+    // đóng thẻ / tải lại trang hỏi bằng hộp của trình duyệt
+    const [hoiRoi, setHoiRoi] = useState(null);
+    useHoiKhiRoiTrang(coDoi || ghiChu.trim() !== '', (tiepTuc, lyDo) => setHoiRoi({ tiepTuc, lyDo }));
 
     const chonDong = (dongId, loai, ma) => {
         setChon((cu) => ({ ...cu, [dongId]: { ...(cu[dongId] ?? {}), [loai]: ma } }));
@@ -1065,6 +1077,7 @@ function TraLoiTheoDong({ bb, nhaCungCap, dangDoi, onHuyDoi, onXong, onKhongConN
                     }
                 }}
             />
+            <HopHoiRoiTrang hoi={hoiRoi} cau={CAU_ROI_BIEN_BAN} onO={() => setHoiRoi(null)} />
         </>
     );
 }

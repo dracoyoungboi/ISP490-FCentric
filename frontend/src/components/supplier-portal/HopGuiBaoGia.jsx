@@ -146,27 +146,3 @@ export default function HopGuiBaoGia({ trangThai, tomTat, guiLuc, loiGui, tenCua
         </Dialog>
     );
 }
-
-/** Hỏi lại khi bấm Thoát lúc còn đơn giá/ghi chú chưa gửi. */
-export function HopXacNhanThoat({ mo, onO, onThoat }) {
-    return (
-        <Dialog open={mo} onOpenChange={(m) => { if (!m) onO(); }}>
-            <DialogContent showCloseButton={false} className={KHUNG_HOP}>
-                <div className="flex flex-col gap-1">
-                    <DialogTitle className="text-lg leading-7 font-semibold text-bo-heading">{t("Thoát khỏi trang báo giá?")}</DialogTitle>
-                    <DialogDescription className="text-sm leading-[22px] text-bo-muted">
-                        {t("Đơn giá bạn đã nhập chưa được gửi và sẽ mất khi thoát.")}
-                    </DialogDescription>
-                </div>
-                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                    <Button type="button" variant="outline" onClick={onO} className={`h-11 sm:h-9 ${NUT_PHU}`}>
-                        {t("Ở lại")}
-                    </Button>
-                    <Button type="button" onClick={onThoat} className="h-11 bg-bo-danger text-white hover:bg-red-700 sm:h-9">
-                        {t("Thoát")}
-                    </Button>
-                </div>
-            </DialogContent>
-        </Dialog>
-    );
-}
