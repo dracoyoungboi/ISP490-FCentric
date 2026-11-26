@@ -62,8 +62,6 @@ public class CongNhaCungCapService {
     private static final long MA_DO_DAI = 6L;
     public static final int PHIEN_PHUT = 60;
     private static final int PHIEN_SO_BYTE = 32;
-    /** Lịch sử mặc định 6 tháng; cần giao trên cổng xem tối đa 12 tháng. */
-    private static final int LICH_SU_THANG_MAC_DINH = 6;
     private static final ZoneId MUI_GIO_VN = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private static final int DON_CHO_BAO_GIA = DonMuaHangService.TRANG_THAI_CHO_BAO_GIA;
@@ -397,15 +395,15 @@ public class CongNhaCungCapService {
     // ─────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public CongNcc.LichSuBaoGia lichSuBaoGia(String maPhien, LocalDate tuNgay, String tuKhoa) {
+    public CongNcc.LichSuBaoGia lichSuBaoGia(String maPhien, LocalDate tuNgay, LocalDate denNgay, String tuKhoa) {
         Phien p = layPhien(maPhien);
-        Instant tu = tuNgay(tuNgay);
+        KhoangNgay khoang = KhoangNgay.of(tuNgay, denNgay);
         String tk = chuanTuKhoa(tuKhoa);
         List<CongNcc.DongBaoGia> items = new ArrayList<>();
         int daBaoGia = 0, chapNhan = 0, khongChapNhan = 0, choBaoGia = 0;
         for (DonMuaHang d : donMuaHangRepository.choCongNhaCungCap(p.ids())) {
             Instant ngayYeuCau = ngayYeuCau(d);
-            if (ngayYeuCau != null && ngayYeuCau.isBefore(tu)) continue;
+            if (!khoang.chua(ngayYeuCau)) continue;
             if (!tk.isEmpty() && (d.getSoDonMua() == null || !d.getSoDonMua().toLowerCase(Locale.ROOT).contains(tk))) continue;
             String ketQua = ketQuaBaoGia(d);
             switch (ketQua) {
@@ -423,15 +421,15 @@ public class CongNhaCungCapService {
     }
 
     @Transactional(readOnly = true)
-    public CongNcc.LichSuTraHang lichSuTraHang(String maPhien, LocalDate tuNgay, String tuKhoa) {
+    public CongNcc.LichSuTraHang lichSuTraHang(String maPhien, LocalDate tuNgay, LocalDate denNgay, String tuKhoa) {
         Phien p = layPhien(maPhien);
-        Instant tu = tuNgay(tuNgay);
+        KhoangNgay khoang = KhoangNgay.of(tuNgay, denNgay);
         String tk = chuanTuKhoa(tuKhoa);
         List<CongNcc.DongTraHang> items = new ArrayList<>();
         int bienBan = 0, sanPhamLoi = 0, choChon = 0;
         BigDecimal tienTru = BigDecimal.ZERO;
         for (BienBanTraHangDto b : bienBanTraHangService.dsChoCong(p.ids())) {
-            if (b.getNgayLap() != null && b.getNgayLap().isBefore(tu)) continue;
+            if (!khoang.chua(b.getNgayLap())) continue;
             if (!tk.isEmpty() && !chua(b.getSoBienBan(), tk) && !chua(b.getSoDonMua(), tk) && !chua(b.getSoPhieuNhap(), tk)) continue;
             boolean daHuy = BienBanTraHangNcc.DA_HUY.equals(b.getTrangThai());
             int sl = b.getTongSoLuongLoi() == null ? 0 : b.getTongSoLuongLoi();
@@ -499,12 +497,22 @@ public class CongNhaCungCapService {
     // TIỆN ÍCH
     // ─────────────────────────────────────────────────────────────
 
-    private Instant tuNgay(LocalDate tuNgay) {
-        LocalDate homNay = LocalDate.now(dongHo.withZone(MUI_GIO_VN));
-        LocalDate tu = tuNgay == null ? homNay.minusMonths(LICH_SU_THANG_MAC_DINH) : tuNgay;
-        // Không cho xem quá 12 tháng một lần (danh sách không phân trang)
-        if (tu.isBefore(homNay.minusMonths(12))) tu = homNay.minusMonths(12);
-        return tu.atStartOfDay(MUI_GIO_VN).toInstant();
+    /**
+     * Khoảng ngày lọc lịch sử theo giờ Việt Nam: [00:00 ngày tuNgay, 00:00 ngày sau denNgay). Đầu nào null là không giới
+     * hạn đầu đó; cả hai null là mọi thời gian (cổng tự chia trang nên không cắt số tháng). Đang lọc thì chứng từ không có
+     * ngày bị loại, không lọc thì vẫn hiện.
+     */
+    private record KhoangNgay(Instant tu, Instant den) {
+        static KhoangNgay of(LocalDate tuNgay, LocalDate denNgay) {
+            return new KhoangNgay(tuNgay == null ? null : tuNgay.atStartOfDay(MUI_GIO_VN).toInstant(),
+                    denNgay == null ? null : denNgay.plusDays(1).atStartOfDay(MUI_GIO_VN).toInstant());
+        }
+
+        boolean chua(Instant ngay) {
+            if (tu == null && den == null) return true;
+            if (ngay == null) return false;
+            return (tu == null || !ngay.isBefore(tu)) && (den == null || ngay.isBefore(den));
+        }
     }
 
     private static String chuanTuKhoa(String tuKhoa) {

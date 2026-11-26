@@ -90,16 +90,18 @@ public class CongNhaCungCapController {
     public ResponseEntity<ResponseData<CongNcc.LichSuBaoGia>> lichSuBaoGia(
             @RequestHeader(value = HEADER_PHIEN, required = false) String phien,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate tuNgay,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate denNgay,
             @RequestParam(required = false) String tuKhoa) {
-        return ok(congNhaCungCapService.lichSuBaoGia(phien, tuNgay, tuKhoa), null);
+        return ok(congNhaCungCapService.lichSuBaoGia(phien, tuNgay, denNgay, tuKhoa), null);
     }
 
     @GetMapping("/lich-su/tra-hang")
     public ResponseEntity<ResponseData<CongNcc.LichSuTraHang>> lichSuTraHang(
             @RequestHeader(value = HEADER_PHIEN, required = false) String phien,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate tuNgay,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate denNgay,
             @RequestParam(required = false) String tuKhoa) {
-        return ok(congNhaCungCapService.lichSuTraHang(phien, tuNgay, tuKhoa), null);
+        return ok(congNhaCungCapService.lichSuTraHang(phien, tuNgay, denNgay, tuKhoa), null);
     }
 
     private static <T> ResponseEntity<ResponseData<T>> ok(T data, String message) {
