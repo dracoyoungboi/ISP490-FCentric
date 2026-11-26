@@ -8,6 +8,7 @@ import { PageTitleContext } from "./pageTitle";
 import { duongDanMenuCuaVaiTro } from "./sidebar.config";
 import { taiDanLucRanh } from "@/lib/taiTrang";
 import { SETTINGS_PAGES } from "@/components/settings/settings.config";
+import { ghiTrangTruocCauHinh } from "@/components/settings/trangTruocCauHinh";
 import { taiLaiKenhDaKetNoi } from "@/components/channel/kenhDaKetNoi";
 import { taiLaiSoChuyenKhoanCanXuLy } from "@/components/pos/payosCanXuLy";
 import { VAI_TRO_XEP_KE, taiLaiSoHangChuaCoKe } from "@/components/kiem-ke/soHangChuaCoKe";
@@ -29,7 +30,12 @@ const DEFAULT_DOCUMENT_TITLE =
  *   Có giá trị thì dùng luôn, không dò PAGE_META_CONFIG theo đường dẫn.
  */
 export default function BackofficeLayout({ metaCoDinh = null }) {
-    const { pathname } = useLocation();
+    const { pathname, search } = useLocation();
+
+    // Nhớ trang ngoài Cấu hình vừa xem để nút X của Cấu hình về đúng trang đó, kể cả sau F5
+    useEffect(() => {
+        ghiTrangTruocCauHinh(pathname, search);
+    }, [pathname, search]);
 
     const PAGE_META_CONFIG = [
         {

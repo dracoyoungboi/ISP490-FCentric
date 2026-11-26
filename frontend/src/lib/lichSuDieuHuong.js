@@ -14,3 +14,20 @@
 export function coTrangTruocTrongUngDung(state) {
   return Number.isInteger(state?.idx) && state.idx > 0;
 }
+
+/** Đường dẫn thuộc trung tâm Cấu hình (kể cả trình sửa mẫu in /settings/print-templates/:loai nằm ngoài khung Cấu hình). */
+export function laDuongDanCauHinh(pathname) {
+  return pathname === "/settings" || (typeof pathname === "string" && pathname.startsWith("/settings/"));
+}
+
+/**
+ * Nút X của Cấu hình lùi bao nhiêu bước để về trang đứng trước khi vào Cấu hình.
+ * `daLuu`: { idx, path } của trang ngoài Cấu hình xem gần nhất trong thẻ này (ghi ở sessionStorage nên còn sau F5,
+ * sau khi ra vào trình sửa mẫu in); `state`: `window.history.state` của mục đang xem.
+ * Trả số âm (đưa cho navigate) khi trang đó nằm phía trước trong lịch sử; null thì mở thẳng `daLuu.path`
+ * (hoặc Tổng quan) — vd. vừa quay lại Cấu hình bằng Back sau khi sang trang khác, hay không đọc được `idx`.
+ */
+export function buocVeTruocCauHinh(daLuu, state) {
+  if (!Number.isInteger(daLuu?.idx) || daLuu.idx < 0 || !Number.isInteger(state?.idx)) return null;
+  return daLuu.idx < state.idx ? daLuu.idx - state.idx : null;
+}

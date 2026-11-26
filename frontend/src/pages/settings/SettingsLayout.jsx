@@ -6,6 +6,8 @@ import VungTaiTrang from "@/components/shared/VungTaiTrang";
 import ConfirmModal from "@/components/ui/confirm-modal";
 import { useClaimPageTitle } from "@/components/backoffice/pageTitle";
 import { tinhCoMan } from "@/hooks/useCoMan";
+import useHoiKhiRoiTrang from "@/hooks/useHoiKhiRoiTrang";
+import { buocVeTruocCauHinh } from "@/lib/lichSuDieuHuong";
 import { cn } from "@/lib/utils";
 import {
   SETTINGS_GROUPS,
@@ -13,6 +15,7 @@ import {
   findSettingsPage,
   settingsPagesFor,
 } from "@/components/settings/settings.config";
+import { docTrangTruocCauHinh } from "@/components/settings/trangTruocCauHinh";
 import { t } from "@/i18n";
 
 /**
@@ -20,7 +23,8 @@ import { t } from "@/i18n";
  * - trái: menu các mục xếp theo nhóm Cửa hàng / Mua hàng / Kho / Bán hàng / Kế toán nhưng không hiện tên nhóm (chỉ mục
  *   vai trò được mở);
  * - phải: tiêu đề mục, nhãn "Chỉ xem" khi vai trò không được sửa, nút X quay về trang trước khi vào Cấu hình.
- * Trang con báo thay đổi chưa lưu qua useUnsavedChanges: chuyển mục / bấm X / đóng tab khi đó sẽ hỏi lại.
+ * Trang con báo thay đổi chưa lưu qua useUnsavedChanges: khi đó mọi cách rời mục (chuyển mục, bấm X / ←, Back của
+ * trình duyệt, link ở thanh bên, ô tìm kiếm, Đăng xuất, đóng tab) đều hỏi lại trước khi bỏ thay đổi.
  * Điện thoại (< 768px) và máy tính bảng dọc cảm ứng (768–1023px): kiểu trang Cài đặt của iPhone / Android — /settings là
  * danh sách các mục theo nhóm (nút X đóng Cấu hình), chạm một mục mở trang của mục đó với nút ← về danh sách. Máy tính bảng
  * ngang cảm ứng và máy tính dùng chuột giữ menu trái. Trang một mục ở hai cách bày dùng chung một cây phần tử (menu trái
@@ -44,38 +48,58 @@ export default function SettingsLayout() {
   const allowed = Boolean(current) && pages.includes(current);
   const canEdit = canEditSettingsPage(current, role);
 
-  // Vị trí lịch sử lúc vào Cấu hình (React Router ghi `idx` vào history.state). Khung giữ nguyên khi chuyển mục,
-  // nên nút X lùi đúng về trang trước khi vào Cấu hình thay vì về mục cấu hình vừa xem.
-  const [entryIdx] = useState(() => window.history.state?.idx);
   const [dirty, setDirty] = useState(false);
-  // Đích đang chờ xác nhận bỏ thay đổi: { to } khi chuyển mục, { to: null } khi bấm X
+  // Đang chờ xác nhận bỏ thay đổi: { to, lui } khi bấm X (to null) / ←; { tiepTuc } khi rời bằng link, Back của
+  // trình duyệt, ô tìm kiếm, Đăng xuất (useHoiKhiRoiTrang: đồng ý thì gọi tiepTuc)
   const [pendingLeave, setPendingLeave] = useState(null);
+  useHoiKhiRoiTrang(dirty, (tiepTuc) => setPendingLeave({ tiepTuc }));
 
-  useEffect(() => {
-    if (!dirty) return undefined;
-    const warn = (event) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
-
+  // Nút X về trang ngoài Cấu hình xem gần nhất trong thẻ (BackofficeLayout ghi lại, còn sau F5 và sau khi ra vào trình
+  // sửa mẫu in): trang đó nằm phía trước trong lịch sử thì lùi về đúng mục đó (giữ tab, bộ lọc của trang), không thì mở
+  // thẳng đường dẫn; chưa có trang nào (mở thẳng Cấu hình ở thẻ mới) thì về Tổng quan.
+  const veTrangRef = useRef(null);
   const close = useCallback(() => {
-    const currentIdx = window.history.state?.idx;
-    if (Number.isInteger(entryIdx) && entryIdx > 0 && Number.isInteger(currentIdx)) {
-      navigate(entryIdx - 1 - currentIdx);
+    const daLuu = docTrangTruocCauHinh();
+    const buoc = buocVeTruocCauHinh(daLuu, window.history.state);
+    if (buoc) {
+      veTrangRef.current = daLuu.path;
+      navigate(buoc);
     } else {
-      navigate("/dashboard");
+      navigate(daLuu?.path ?? "/dashboard");
     }
-  }, [entryIdx, navigate]);
+  }, [navigate]);
+  // Lùi xong mà vẫn ở Cấu hình (vị trí lịch sử của lần tải trang trước, vd. gõ lại địa chỉ): mở thẳng trang đã lưu
+  useEffect(() => {
+    const dich = veTrangRef.current;
+    if (!dich) return;
+    veTrangRef.current = null;
+    navigate(dich, { replace: true });
+  }, [pathname, navigate]);
 
   // `lui`: về danh sách bằng nút lùi của lịch sử (vừa mở mục từ danh sách) thay vì thêm một mục lịch sử mới
+  const diNgay = useCallback(
+    ({ to, lui }) => {
+      if (lui) navigate(-1);
+      else if (to) navigate(to);
+      else close();
+    },
+    [navigate, close],
+  );
+  // Đồng ý bỏ thay đổi: tắt lớp chặn trước rồi mới đi (lùi lịch sử là Back — lớp chặn còn bật sẽ hỏi lại lần nữa)
+  const diSauRef = useRef(null);
+  useEffect(() => {
+    const dich = diSauRef.current;
+    if (dirty || !dich) return;
+    diSauRef.current = null;
+    diNgay(dich);
+  }, [dirty, diNgay]);
   const leave = (to, lui = false) => {
+    if (!dirty) {
+      diNgay({ to, lui });
+      return;
+    }
+    diSauRef.current = { to, lui };
     setDirty(false);
-    if (lui) navigate(-1);
-    else if (to) navigate(to);
-    else close();
   };
 
   const requestLeave = (to, lui = false) => {
@@ -106,12 +130,6 @@ export default function SettingsLayout() {
     return pages.length ? <Navigate to={pages[0].to} replace /> : null;
   }
 
-  const chanMuc = (page) => (event) => {
-    if (!dirty || page === current) return;
-    event.preventDefault();
-    setPendingLeave({ to: page.to });
-  };
-
   return (
     // Cột phải cao ít nhất bằng menu: trang ngắn cho thẻ cuối giãn (flex-1) để đáy hai khối thẳng hàng
     <div
@@ -139,7 +157,6 @@ export default function SettingsLayout() {
                   key={page.key}
                   to={page.to}
                   aria-current={active ? "page" : undefined}
-                  onClick={chanMuc(page)}
                   className={cn(
                     "relative mx-2 my-0.5 flex h-9 items-center gap-3 rounded-md px-2.5 text-sm font-medium text-bo-foreground",
                     "hover:bg-bo-canvas focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-bo-primary",
@@ -211,7 +228,8 @@ export default function SettingsLayout() {
         onConfirm={() => {
           const target = pendingLeave;
           setPendingLeave(null);
-          leave(target?.to ?? null, target?.lui);
+          if (target?.tiepTuc) target.tiepTuc();
+          else leave(target?.to ?? null, target?.lui);
         }}
         variant="warning"
         title={t("Bỏ thay đổi chưa lưu?")}
