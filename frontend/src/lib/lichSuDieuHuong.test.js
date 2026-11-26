@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { UNSAFE_createBrowserHistory as createBrowserHistory } from "react-router-dom";
-import { coTrangTruocTrongUngDung } from "./lichSuDieuHuong.js";
+import { buocVeTruocCauHinh, coTrangTruocTrongUngDung, laDuongDanCauHinh } from "./lichSuDieuHuong.js";
 
 // Cửa sổ giả tối thiểu cho lịch sử trình duyệt của React Router: một ngăn xếp mục {state, url} và con trỏ.
 function taoCuaSoGia(urlBanDau) {
@@ -90,4 +90,30 @@ test("Mục lịch sử không do React Router tạo (link #neo, state null) th�
   lichSu.push("/supplier/5");
   cuaSo.history.pushState(null, "", "/supplier/5#backoffice-main-content");
   assert.equal(coTrangTruocTrongUngDung(cuaSo.history.state), false);
+});
+
+test("laDuongDanCauHinh: /settings và trang con, không nhầm đường dẫn cùng tiền tố", () => {
+  for (const p of ["/settings", "/settings/store", "/settings/print-templates/hoa-don"]) assert.equal(laDuongDanCauHinh(p), true, p);
+  for (const p of ["/dashboard", "/settingsx", "/channels/SHOPEE/settings", "", undefined]) assert.equal(laDuongDanCauHinh(p), false, String(p));
+});
+
+test("buocVeTruocCauHinh: vào từ Tổng quan, xem ba mục rồi F5 vẫn lùi đúng ba bước", () => {
+  const cuaSo = taoCuaSoGia("/dashboard");
+  const lichSu = createBrowserHistory({ window: cuaSo });
+  const daLuu = { idx: cuaSo.history.state?.idx ?? 0, path: "/dashboard" };
+  lichSu.push("/settings/store");
+  lichSu.push("/settings/print-templates");
+  lichSu.push("/settings/payment");
+  assert.equal(buocVeTruocCauHinh(daLuu, cuaSo.history.state), -3);
+  createBrowserHistory({ window: cuaSo }); // F5: giữ history.state
+  assert.equal(buocVeTruocCauHinh(daLuu, cuaSo.history.state), -3);
+});
+
+test("buocVeTruocCauHinh: trang đã lưu không nằm phía trước hoặc thiếu idx thì mở thẳng đường dẫn", () => {
+  assert.equal(buocVeTruocCauHinh({ idx: 4, path: "/products" }, { idx: 3 }), null); // sang trang khác rồi Back về Cấu hình
+  assert.equal(buocVeTruocCauHinh({ idx: 2, path: "/products" }, { idx: 2 }), null);
+  assert.equal(buocVeTruocCauHinh(null, { idx: 3 }), null);
+  assert.equal(buocVeTruocCauHinh({ path: "/products" }, { idx: 3 }), null);
+  assert.equal(buocVeTruocCauHinh({ idx: 0, path: "/dashboard" }, null), null);
+  assert.equal(buocVeTruocCauHinh({ idx: -1, path: "/dashboard" }, { idx: 3 }), null);
 });
