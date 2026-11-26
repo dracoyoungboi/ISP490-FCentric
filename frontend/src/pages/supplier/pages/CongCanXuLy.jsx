@@ -69,26 +69,14 @@ export default function CongCanXuLy() {
     );
 }
 
-/** "AM" từ "Anh Min": chữ đầu của từ đầu và từ cuối. */
-function chuCaiDau(hoTen) {
-    const tu = String(hoTen ?? '').trim().split(/\s+/).filter(Boolean);
-    if (tu.length === 0) return '';
-    return (tu.length === 1 ? tu[0].slice(0, 2) : tu[0][0] + tu[tu.length - 1][0]).toUpperCase();
-}
 const soGoi = (sdt) => String(sdt ?? '').replace(/[^\d+]/g, '');
 
-/** Người phụ trách mua hàng gọn trong một ô ở đầu khối: chữ cái đầu, tên, số điện thoại, email (bấm gọi / gửi thư). */
+/** Người phụ trách mua hàng gọn trong một ô ở đầu khối: tên, số điện thoại, email (bấm gọi / gửi thư). */
 function NguoiPhuTrachGon({ nguoi }) {
     const sdt = String(nguoi?.soDienThoai ?? '').trim();
     const email = String(nguoi?.email ?? '').trim();
-    const viet = chuCaiDau(nguoi?.hoTen);
     return (
-        <section aria-label={t("Người phụ trách mua hàng")} className="flex min-w-0 items-center gap-3 rounded-lg bg-bo-surface-subtle px-3 py-2.5 md:max-w-[460px]">
-            {viet ? (
-                <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-bo-primary-soft text-[13px] font-semibold text-bo-primary">
-                    {viet}
-                </span>
-            ) : null}
+        <section aria-label={t("Người phụ trách mua hàng")} className="min-w-0 rounded-lg bg-bo-surface-subtle px-4 py-2.5 md:max-w-[460px]">
             <div className="min-w-0 text-sm">
                 <p className="truncate">
                     <span className="text-bo-muted">{t("Phụ trách mua hàng:")}</span>{' '}
