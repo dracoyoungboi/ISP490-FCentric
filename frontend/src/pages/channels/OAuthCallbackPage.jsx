@@ -73,6 +73,7 @@ function TrangQuayVe({ san }) {
     }
     const defaultState = isShopeeAny ? "shopee_oauth" : "lazada_oauth";
     const shopId = searchParams.get("shop_id");
+    // Gửi POST /{maKenh}/uy-quyen/hoan-tat đúng 1 lần (guiRef chống gọi 2 lần do StrictMode) để đổi code lấy token AES-GCM
     if (!guiRef.current) guiRef.current = kenhBanHangService.hoanTatUyQuyen(san.maKenh, { code, state: maPhien ?? defaultState, shopId });
     let conGan = true;
     const xong = (dto, giaHan) => {

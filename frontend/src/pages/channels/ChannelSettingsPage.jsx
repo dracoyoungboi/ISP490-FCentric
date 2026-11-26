@@ -246,6 +246,7 @@ function SettingsForm({ config, cauHinh, khoSan, dsKhoSan, khoMapping, hoTroMapp
     }
   };
 
+  // Lưu cấu hình toàn trang theo thứ tự: (1) công thức tồn + tự động, (2) ánh xạ kho & kho mặc định, (3) bật/tắt trạng thái gian hàng
   const luu = () =>
     chay("luu", async () => {
       const loi = kiemTraCauHinh(values);

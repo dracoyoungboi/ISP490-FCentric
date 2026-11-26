@@ -221,7 +221,8 @@ export default function ChannelOrdersPage() {
   const dsKho = useTaiDuLieu(() => getKhoList().catch(() => []), "kho-xuat");
   const loc = { kenh, tuKhoa, khoId, soNgay, yeuCauHuy: locYeuCauHuy };
   const khoaLoc = `${khoaKenh}|${tuKhoa}|${khoId}|${soNgay}|${locYeuCauHuy ? "yeu-cau-huy" : ""}`;
-  // Chỉ tải đơn khi gian hàng đã kết nối (kể cả ủy quyền hết hạn: đơn đã về vẫn xem được); chưa kết nối thì trang chuyển đi
+  // Chỉ tải đơn khi gian hàng đã kết nối (kể cả ủy quyền hết hạn: đơn đã về vẫn xem được); chưa kết nối thì trang chuyển đi.
+  // Gồm 3 nhóm gọi API khi mở/lọc màn Đơn hàng sàn: (1) danh sách đơn trang hiện tại, (2) đếm số lượng từng tab trạng thái, (3) đếm riêng đơn khách yêu cầu hủy (TikTok).
   const ds = useTaiDuLieu(
     () =>
       donBanHangKenhService.filterDonBan({

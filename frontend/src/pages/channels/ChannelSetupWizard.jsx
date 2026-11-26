@@ -96,6 +96,7 @@ export default function ChannelSetupWizard() {
   const TIEU_DE = t("Thiết lập gian hàng {{ten}}", { ten: SAN.ten });
   const uyQuyen = SAN.kieuKetNoi === "uy_quyen";
 
+  // Đọc trạng thái kết nối hiện tại (GET /{maKenh}/ket-noi) để tự khôi phục đúng bước đang làm dở
   const cfg = useTaiDuLieu(() => kenhBanHangService.getKetNoi(SAN.maKenh), `ket-noi|${SAN.maKenh}`);
   const config = cfg.data;
   const ketNoi = daKetNoi(config);

@@ -58,6 +58,7 @@ export default function ChannelOrderPanel({ donBanHang, onChanged }) {
   const [flagError, setFlagError] = useState("");
   const busyRef = useRef(false);
 
+  // Tải thông tin đặc thù sàn của đơn (GET /api/v1/don-ban-hang/{id}/kenh): mã đơn sàn, trạng thái sàn, cờ cần xử lý và danh sách giữ chỗ theo lô
   const fetchInfo = useCallback(async () => {
     if (!id) return;
     setLoading(true);

@@ -206,7 +206,7 @@ const realApi = {
           });
       }),
 
-  // ── Sản phẩm ──
+  // ── Sản phẩm (Màn 7 - Liên kết & đưa sản phẩm lên sàn) ──
   taiSanPham: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/tai-san-pham`).then(data),
   dayVaLienKetSanPham: (maKenh) => apiClient.post(`${BASE}/${ma(maKenh)}/tu-dong-lien-ket`).then(data),
   /**
@@ -230,7 +230,7 @@ const realApi = {
   timBienThe: (q = "", limit = 20) =>
     apiClient.get(`${BASE}/bien-the/tim-kiem`, { params: { q, limit } }).then(data),
 
-  // ── Tồn kho và đơn hàng ──
+  // ── Tồn kho và đơn hàng (Đẩy tồn Delta Sync & Kéo đơn thủ công) ──
   dayTon: (maKenh, payload = {}) => apiClient.post(`${BASE}/${ma(maKenh)}/day-ton`, payload).then(data),
   layDon: (maKenh, { tu, den } = {}) => apiClient.post(`${BASE}/${ma(maKenh)}/lay-don`, { tu, den }).then(data),
 

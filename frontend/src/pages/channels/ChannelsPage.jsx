@@ -97,6 +97,7 @@ export default function ChannelsPage() {
  */
 function DongSan({ san }) {
   const navigate = useNavigate();
+  // Tải 3 API song song theo trạng thái kết nối: kiểm tra token -> cấu hình tự động -> số SKU/mốc đồng bộ gần nhất
   const kn = useTaiDuLieu(() => kenhBanHangService.getKetNoi(san.maKenh), `ket-noi|${san.maKenh}`);
   const ketNoi = daKetNoi(kn.data);
   const ch = useTaiDuLieu(() => kenhBanHangService.getCauHinhDongBo(san.maKenh), `cau-hinh-dong-bo|${san.maKenh}`, { enabled: ketNoi });

@@ -205,6 +205,7 @@ export default function ChannelMappingsPage() {
   const [tuKhoa, setTuKhoa] = useState("");
   const [trang, setTrang] = useState(() => ({ page: 0, size: soDongDaNho(SAN.maKenh) }));
 
+  // 4 GET khi mở Màn Liên kết sản phẩm & Tồn kho: kiểm tra kết nối -> quy tắc tồn -> số liệu tổng quan -> danh sách sản phẩm phân nhóm kèm SKU
   const cfg = useTaiDuLieu(() => kenhBanHangService.getKetNoi(SAN.maKenh), `ket-noi|${SAN.maKenh}`);
   const ketNoi = daKetNoi(cfg.data);
   const hetHanUyQuyen = !coDuaLen && trangThaiKetNoi(cfg.data) === "het_han";

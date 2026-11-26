@@ -93,6 +93,7 @@ function TongQuanGianHang() {
   const SAN = useSanHienTai();
   const TIEU_DE = t("Tổng quan {{ten}}", { ten: SAN.ten });
   const uyQuyen = SAN.kieuKetNoi === "uy_quyen";
+  // 4 GET khi mở Màn Tổng quan kênh: trạng thái kết nối -> cấu hình đồng bộ -> tổng quan SKU -> thống kê biểu đồ đơn
   const cfg = useTaiDuLieu(() => kenhBanHangService.getKetNoi(SAN.maKenh), `ket-noi|${SAN.maKenh}`);
   const config = cfg.data;
   const ketNoi = daKetNoi(config);
