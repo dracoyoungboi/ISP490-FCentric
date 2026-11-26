@@ -1038,4 +1038,38 @@ class MauEmailTest {
             }
         }
     }
+
+    @Test
+    void hanBaoGia_e4CoHan_thuNhac_m2HetHan() {
+        java.time.LocalDate han = java.time.LocalDate.of(2026, 12, 1);
+        BanThu e4 = f.dung(s -> s.guiYeuCauBaoGia(MauEmailFixture.don(false), han), MauEmailFixture.cuaHang());
+        for (String ban : List.of(chuHien(e4.html()), e4.text())) {
+            assertTrue(ban.contains("Hạn gửi báo giá: hết ngày 01/12/2026"), ban);
+            assertTrue(ban.contains("Sau hạn này Cổng nhà cung cấp không nhận báo giá cho đơn này nữa."));
+        }
+        int hop = e4.html().indexOf("Hạn gửi báo giá");
+        assertTrue(hop > 0 && hop < e4.html().indexOf("Gửi báo giá</a>"), "dòng hạn đứng trước nút");
+
+        // Không có hạn (đơn gửi trước khi có hạn): thư như cũ
+        BanThu khongHan = f.dung(s -> s.guiYeuCauBaoGia(MauEmailFixture.don(false)), MauEmailFixture.cuaHang());
+        assertFalse(chuHien(khongHan.html()).contains("Hạn gửi báo giá"));
+        assertFalse(khongHan.text().contains("Hạn gửi báo giá"));
+
+        BanThu nhac = f.dung(s -> s.guiNhacHanBaoGia(MauEmailFixture.don(false), han), MauEmailFixture.cuaHang());
+        for (String ban : List.of(chuHien(nhac.html()), nhac.text())) {
+            assertTrue(ban.contains("Nhắc hạn báo giá đơn " + MauEmailFixture.MA_DON), ban);
+            assertTrue(ban.contains("hết hạn cuối ngày 01/12/2026 mà chúng tôi chưa nhận được báo giá"));
+            assertFalse(ban.contains("Chúng tôi đề nghị Quý công ty báo giá"));
+        }
+
+        DonMuaHang hetHan = MauEmailFixture.don(false);
+        hetHan.setTrangThai(8);
+        BanThu m2 = f.dung(s -> s.guiHetHanBaoGia(hetHan, han), MauEmailFixture.cuaHang());
+        for (String ban : List.of(chuHien(m2.html()), m2.text())) {
+            assertTrue(ban.contains("Yêu cầu báo giá đơn " + MauEmailFixture.MA_DON + " đã hết hạn"), ban);
+            assertTrue(ban.contains("đã hết hạn cuối ngày 01/12/2026 mà chúng tôi chưa nhận được báo giá"));
+            assertFalse(ban.contains("Chúng tôi đã chọn được nhà cung cấp"));
+            assertFalse(ban.contains("Cảm ơn Quý công ty đã gửi báo giá"));
+        }
+    }
 }

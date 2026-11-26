@@ -17,6 +17,7 @@ import com.dev.backend.services.email.EmailNghiepVuService;
 import com.dev.backend.services.impl.congncc.CongNhaCungCapService;
 import com.dev.backend.services.impl.entities.ChiTietDonMuaHangService;
 import com.dev.backend.services.impl.entities.DonMuaHangService;
+import com.dev.backend.services.impl.entities.LichSuThayDoiService;
 import com.dev.backend.services.impl.entities.NguoiDungService;
 import com.dev.backend.services.impl.entities.NhatKyTraHangNcc;
 import com.dev.backend.dto.response.inbound.BienBanTraHangDto;
@@ -114,6 +115,7 @@ class CongNhaCungCapFlowTest {
         ReflectionTestUtils.setField(service, "nguoiDungService", nguoiDungService);
         ReflectionTestUtils.setField(service, "yeuCauMuaHangService", yeuCauMuaHangService);
         ReflectionTestUtils.setField(service, "thongBaoMuaHangService", mock(ThongBaoMuaHangService.class));
+        ReflectionTestUtils.setField(service, "lichSuThayDoiService", mock(LichSuThayDoiService.class));
 
         CongNhaCungCapService cong = new CongNhaCungCapService(nhaCungCapRepository, repository, service,
                 bienBanTraHangService, email, calcService, thongTinCuaHang, nhatKy);
@@ -460,6 +462,8 @@ class CongNhaCungCapFlowTest {
         assertEquals(4, don.getTrangThai());
         assertEquals("Giá cao", don.getLyDoTuChoi());
         verify(email).guiKetQuaBaoGia(don);
+        // Báo giá duy nhất của yêu cầu bị từ chối: yêu cầu về Đã duyệt để gửi nhà cung cấp khác
+        assertEquals(YeuCauMuaHangService.TRANG_THAI_DA_DUYET, yc.getTrangThai());
         kiemCauLoi("101");
     }
 
@@ -477,7 +481,7 @@ class CongNhaCungCapFlowTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.daDuaVaoHangDoi").value(true));
         ArgumentCaptor<DonMuaHang> gui = ArgumentCaptor.forClass(DonMuaHang.class);
-        verify(email).guiYeuCauBaoGia(gui.capture());
+        verify(email).guiYeuCauBaoGia(gui.capture(), isNull());
         assertSame(don, gui.getValue());
         kiemCauLoi("101");
     }

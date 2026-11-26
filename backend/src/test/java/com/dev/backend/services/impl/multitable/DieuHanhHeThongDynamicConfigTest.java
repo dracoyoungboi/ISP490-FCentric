@@ -59,8 +59,10 @@ class DieuHanhHeThongDynamicConfigTest {
         service.initDefaultConfigurations();
 
         // 6 khóa vận hành + 5 khóa mã vạch / tem sản phẩm + 1 khóa VAT + 2 khóa giấy đi đường XKNB
-        // + 1 khóa ai được xử lý chênh lệch chuyển kho + 12 khóa DSS
-        verify(cauHinhRepository, times(27)).save(any(CauHinhHeThong.class));
+        // + 1 khóa ai được xử lý chênh lệch chuyển kho + 12 khóa DSS + 1 khóa số ngày chờ báo giá
+        verify(cauHinhRepository, times(28)).save(any(CauHinhHeThong.class));
+        verify(cauHinhRepository).save(argThat(c -> "RFQ_RESPONSE_DAYS".equals(c.getMaCauHinh()) && "5".equals(c.getGiaTri())
+                && c.getKieuDuLieu() == KieuDuLieuCauHinh.INT));
         // Mặc định đúng mockup B.5: Quản trị viên hoặc Quản lý Kho tổng
         verify(cauHinhRepository).save(argThat(c -> "CHUYEN_KHO_QUYEN_XU_LY_LECH".equals(c.getMaCauHinh())
                 && "QL_KHO_TONG".equals(c.getGiaTri()) && c.getKieuDuLieu() == KieuDuLieuCauHinh.STRING));

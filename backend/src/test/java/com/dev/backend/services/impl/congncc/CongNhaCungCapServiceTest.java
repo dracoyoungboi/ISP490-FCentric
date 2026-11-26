@@ -1121,6 +1121,11 @@ class CongNhaCungCapServiceTest {
             }
             assertEquals("KHONG_CHAP_NHAN", CongNhaCungCapService.ketQuaBaoGia(don(1, nccA, 4, BAY_GIO, BAY_GIO)));
             assertEquals("DA_HUY", CongNhaCungCapService.ketQuaBaoGia(don(1, nccA, 7, BAY_GIO, BAY_GIO)));
+            // Hết hạn: đơn đã ghi 8, hoặc còn ở 2 chưa báo giá mà đã qua hạn theo giờ (lượt 8:00 chưa chạy)
+            assertEquals("HET_HAN", CongNhaCungCapService.ketQuaBaoGia(don(1, nccA, 8, BAY_GIO, null)));
+            assertEquals("HET_HAN", CongNhaCungCapService.ketQuaBaoGia(don(1, nccA, 2, BAY_GIO, null), true));
+            assertEquals("CHO_KET_QUA", CongNhaCungCapService.ketQuaBaoGia(don(1, nccA, 2, BAY_GIO, BAY_GIO), true),
+                    "đã báo giá thì qua hạn vẫn chờ kết quả");
         }
 
         @Test
