@@ -34,6 +34,12 @@ public class OmnichannelRateLimitState {
     private final Map<String, BucketSnapshot> buckets = new ConcurrentHashMap<>();
     private final Map<String, Deque<Instant>> rollingWindowCalls = new ConcurrentHashMap<>();
 
+    /**
+     * Cập nhật phần trăm sử dụng hạn mức API của một sàn sau mỗi response HTTP:
+     * - Gặp 429: đánh dấu bucket 100% ngay để kích hoạt cơ chế giãn nhịp.
+     * - Shopify có header {@code X-Shopify-Shop-Api-Call-Limit} (dạng {@code 32/40}) -> parse trực tiếp.
+     * - Sàn khác (Shopee/Lazada/TikTok) -> đếm số request trong cửa sổ trượt 60s gần nhất chia cho trần 120 RPM.
+     */
     public void updateFromHeader(String channelCode, String callLimitHeader, int httpStatus) {
         if (channelCode == null || channelCode.isBlank()) return;
         String key = normalizeChannel(channelCode);

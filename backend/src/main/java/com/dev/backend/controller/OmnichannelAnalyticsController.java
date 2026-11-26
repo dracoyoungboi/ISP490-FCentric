@@ -14,6 +14,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Controller Màn 2 (DSS Báo cáo Đồng bộ Kênh — URL FE: /channels/analytics).
+ * Cung cấp 3 REST API: xem sức khỏe API/Oversell 4 sàn, tính đề xuất Buffer% & Threshold_RT và lưu cấu hình áp dụng.
+ */
 @RestController
 @RequestMapping("/api/v1/omnichannel/analytics")
 @Tag(name = "Phân tích đồng bộ đa kênh", description = "Telemetry hiệu năng API sàn TMĐT, Leaky Bucket, khuyến nghị Buffer% và Threshold_RT")
@@ -25,6 +29,7 @@ public class OmnichannelAnalyticsController {
         this.analyticsService = analyticsService;
     }
 
+    // API 1 (Tab Overview): Đọc log telemetry `lich_su_dong_bo_metric`, rate limit RAM & thống kê đơn hủy thiếu hàng (Oversell)
     @GetMapping("/overview")
     @Operation(summary = "Tổng quan chỉ số hiệu năng tích hợp sàn TMĐT (METRIC_01..06)")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
@@ -38,6 +43,7 @@ public class OmnichannelAnalyticsController {
                 .build());
     }
 
+    // API 2 (Tab Đề xuất): Tính tỷ trọng bán tại quầy r_POS theo từng SKU và gợi ý Buffer% + ngưỡng đẩy khẩn cấp
     @GetMapping("/sync-recommendations")
     @Operation(summary = "Tính toán tỷ trọng bán tại quầy r_POS,k và khuyến nghị Buffer% / Threshold_RT theo SKU")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
@@ -51,6 +57,7 @@ public class OmnichannelAnalyticsController {
                 .build());
     }
 
+    // API 3 (Nút "Áp dụng đề xuất" — chỉ Quản trị viên): Ghi Buffer% & Threshold_RT xuống bảng `trang_thai_dong_bo_san_pham`
     @PostMapping("/apply-recommendations")
     @Operation(summary = "Áp dụng Buffer% và Threshold_RT khuyến nghị vào cấu hình đẩy tồn của các SKU liên kết sàn")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})

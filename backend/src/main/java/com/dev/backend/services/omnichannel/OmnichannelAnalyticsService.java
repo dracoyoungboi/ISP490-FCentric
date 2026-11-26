@@ -34,6 +34,11 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+/**
+ * Service Màn 2 (DSS Báo cáo Đồng bộ Kênh):
+ * 1. Tổng hợp KPI độ trễ (Avg/P95/P99), tỷ lệ thành công, trạng thái Leaky Bucket & sự cố bán âm (Oversell).
+ * 2. Tính tỷ trọng bán tại quầy (r_POS) vs Online để khuyến nghị Buffer% (chừa tồn cho shop) & Threshold_RT (đẩy gấp).
+ */
 @Service
 @Slf4j
 public class OmnichannelAnalyticsService {
@@ -71,6 +76,10 @@ public class OmnichannelAnalyticsService {
         this.nguoiDungRepository = nguoiDungRepository;
     }
 
+    /**
+     * API Tab 1 (Overview): Tổng hợp độ trễ, tỷ lệ thành công, rate limit bucket và thống kê Oversell.
+     * Dữ liệu lấy từ bảng `lich_su_dong_bo_metric` (trong khoảng 1h / 24h / 7d), Snapshot RAM và `don_ban_hang`/`ton_kho_theo_lo`.
+     */
     @Transactional(readOnly = true)
     public OmnichannelAnalyticsOverviewDto getOverview(String rangeParam, String channelParam) {
         String range = normalizeRange(rangeParam);
@@ -264,6 +273,11 @@ public class OmnichannelAnalyticsService {
                 .build();
     }
 
+    /**
+     * API Tab 2 (Đề xuất Buffer% & Threshold_RT):
+     * Đọc danh sách liên kết đang mở + tồn FTU + tách sản lượng POS vs Online trong N ngày
+     * để tính r_POS (tỷ trọng bán quầy) -> gợi ý giữ đệm Buffer% cho quầy và ngưỡng đẩy gấp.
+     */
     @Transactional(readOnly = true)
     public OmnichannelSyncRecommendationDto getSyncRecommendations(Integer daysParam, String channelParam) {
         int days = daysParam != null && daysParam >= 1 && daysParam <= 90 ? daysParam : 14;
@@ -493,6 +507,10 @@ public class OmnichannelAnalyticsService {
                 .build();
     }
 
+    /**
+     * API Tab 2 (Nút "Áp dụng đề xuất"): Lưu giá trị Buffer% (giới hạn 0..50%) và Threshold_RT (0..1000)
+     * xuống bảng `trang_thai_dong_bo_san_pham` để lần đẩy tồn tiếp theo áp dụng tự động, đồng thời ghi Audit Log.
+     */
     @Transactional(rollbackFor = Exception.class)
     public int applyRecommendations(ApplySyncRecommendationsRequest request) {
         if (request == null || request.getItems() == null || request.getItems().isEmpty()) {

@@ -54,6 +54,7 @@ public final class OmnichannelTelemetryInterceptor implements ClientHttpRequestI
             HttpRequest request,
             byte[] body,
             ClientHttpRequestExecution execution) throws IOException {
+        // Bước 1: Đọc ngữ cảnh nguồn gọi từ ThreadLocal (Batch cronjob / Real-time / Manual UI)
         OmnichannelTelemetryContext.Frame ctx = OmnichannelTelemetryContext.current();
         String channel = ctx != null && ctx.channelCode() != null && !ctx.channelCode().isBlank()
                 ? normalizeChannel(ctx.channelCode())
@@ -63,11 +64,13 @@ public final class OmnichannelTelemetryInterceptor implements ClientHttpRequestI
                 : OmnichannelTelemetryContext.JOB_MANUAL;
         String syncDirection = inferDirection(request.getMethod(), request.getURI());
 
+        // Bước 2: Throttling Guard — nếu kênh >= 85% rate limit và đang là SCHEDULED_BATCH thì tạm nghỉ +500ms
         OmnichannelRateLimitState rateState = rateLimitBridge;
         if (rateState != null) {
             rateState.throttleBatchIfNeeded(channel, jobType);
         }
 
+        // Bước 3: Thực thi HTTP thật tới API sàn, đo latency (ms) và cập nhật tỷ lệ dùng bucket
         long startNs = System.nanoTime();
         Integer httpStatus = null;
         String errorCategory = "NONE";
@@ -92,6 +95,7 @@ public final class OmnichannelTelemetryInterceptor implements ClientHttpRequestI
             errorCategory = "CLIENT_RUNTIME_ERROR";
             throw rtEx;
         } finally {
+            // Bước 4: Đẩy bất đồng bộ kết quả metric xuống `lich_su_dong_bo_metric` (không làm chậm luồng gọi sàn)
             int latencyMs = (int) Math.max(0L, (System.nanoTime() - startNs) / 1_000_000L);
             OmnichannelTelemetryRecorder rec = recorderBridge;
             if (rec != null) {
