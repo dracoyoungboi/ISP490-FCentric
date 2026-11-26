@@ -679,6 +679,32 @@ class CongNhaCungCapServiceTest {
         }
 
         @Test
+        void nguoiPhuTrach_theoTungViec_laNguoiTaoDonMuaCuaViecDo() {
+            DonMuaHang choHa = don(31, nccA, 2, BAY_GIO.minus(1, ChronoUnit.DAYS), null, dong(1, "1"));
+            choHa.setNguoiTao(NguoiDung.builder().id(4).hoTen("Phạm Thu Hà").soDienThoai("0987654321").email("ha@cuahang.vn").build());
+            DonMuaHang choMin = don(32, nccA, 2, BAY_GIO.minus(3, ChronoUnit.DAYS), null, dong(2, "1"));
+            DonMuaHang khongNguoiTao = don(33, nccB, 2, BAY_GIO.minus(4, ChronoUnit.DAYS), null, dong(3, "1"));
+            khongNguoiTao.setNguoiTao(null);
+            // đơn của biên bản đã nhận hàng (không còn chờ báo giá) vẫn có trong danh sách đơn đã gửi
+            DonMuaHang donBienBan = don(1001, nccA, 5, BAY_GIO.minus(20, ChronoUnit.DAYS), BAY_GIO.minus(19, ChronoUnit.DAYS), dong(4, "1"));
+            donBienBan.setNguoiTao(choHa.getNguoiTao());
+            when(donMuaHangRepository.choCongNhaCungCap(anyCollection())).thenReturn(List.of(choHa, choMin, khongNguoiTao, donBienBan));
+            BienBanTraHangDto coDon = bb(1, BienBanTraHangNcc.PA_CHO_CHOT, BAY_GIO.minus(2, ChronoUnit.DAYS), 1).build();
+            BienBanTraHangDto donKhongCo = bb(2, BienBanTraHangNcc.PA_CHO_CHOT, BAY_GIO.minus(1, ChronoUnit.DAYS), 1).build();
+            when(bienBanTraHangService.dsChoCong(anyCollection())).thenReturn(List.of(coDon, donKhongCo));
+
+            CongNcc.ViecCanLam kq = service.viecCanLam(phien);
+
+            CongNcc.NguoiPhuTrach ha = new CongNcc.NguoiPhuTrach("Phạm Thu Hà", "0987654321", "ha@cuahang.vn");
+            CongNcc.NguoiPhuTrach min = new CongNcc.NguoiPhuTrach("Trần Mua", "0912345678", "mua@cuahang.vn");
+            assertEquals(java.util.Arrays.asList(ha, min, null),
+                    kq.donChoBaoGia().stream().map(CongNcc.DonChoBaoGia::nguoiPhuTrach).toList());
+            assertEquals(ha, kq.bienBanCho().get(0).nguoiPhuTrach(), "biên bản: người tạo đơn mua của biên bản");
+            assertNull(kq.bienBanCho().get(1).nguoiPhuTrach(), "không tìm thấy đơn của biên bản: bỏ trống");
+            assertEquals(ha, kq.nguoiPhuTrach(), "trường chung giữ cách cũ (đơn gửi gần nhất) cho giao diện cũ");
+        }
+
+        @Test
         void soLieu30Ngay_baoGiaTrong30Ngay_hangLoiKhongTinhBienBanHuy() {
             Instant trong = BAY_GIO.minus(29, ChronoUnit.DAYS);
             Instant ngoai = BAY_GIO.minus(31, ChronoUnit.DAYS);
