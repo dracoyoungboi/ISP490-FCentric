@@ -382,6 +382,14 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
     public static final int TEM_NGUONG_XAC_NHAN_TOI_DA = 9999;
     /** In thuế GTGT trên hóa đơn bán hàng (giá bán đã gồm thuế; thuế suất lấy từ bảng thue_suat_gtgt, xem ThueGtgtService). */
     public static final String CAU_HINH_VAT_BAT = "VAT_BAT";
+    /**
+     * Số ngày nhà cung cấp được báo giá, tính từ ngày gửi yêu cầu báo giá (hạn là hết ngày thứ N, giờ Việt Nam). Hạn chốt
+     * cho từng đơn lúc gửi: đổi số này chỉ áp dụng cho yêu cầu gửi sau. Xem HanBaoGia.
+     */
+    public static final String CAU_HINH_HAN_BAO_GIA_NGAY = "RFQ_RESPONSE_DAYS";
+    public static final int HAN_BAO_GIA_NGAY_MAC_DINH = 5;
+    public static final int HAN_BAO_GIA_NGAY_TOI_THIEU = 1;
+    public static final int HAN_BAO_GIA_NGAY_TOI_DA = 30;
 
     /** Cấu hình chiến lược nhập hàng động DSS (FE-04.4). */
     public static final String CAU_HINH_DSS_MODE = "DSS_REPLENISHMENT_MODE";
@@ -418,6 +426,8 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         seedIfMissing(CAU_HINH_TEM_NGUONG_XAC_NHAN, String.valueOf(TEM_NGUONG_XAC_NHAN_MAC_DINH), KieuDuLieuCauHinh.INT,
                 "Số tem tối đa in không cần xác nhận");
         seedIfMissing(CAU_HINH_VAT_BAT, "false", KieuDuLieuCauHinh.BOOLEAN, "In thuế GTGT trên hóa đơn bán hàng");
+        seedIfMissing(CAU_HINH_HAN_BAO_GIA_NGAY, String.valueOf(HAN_BAO_GIA_NGAY_MAC_DINH), KieuDuLieuCauHinh.INT,
+                "Số ngày nhà cung cấp được báo giá, tính từ ngày gửi yêu cầu");
         seedIfMissing(CAU_HINH_XKNB_KY_HIEU, "", KieuDuLieuCauHinh.STRING, "Ký hiệu phiếu XKNB điền sẵn khi xác nhận xuất chuyển kho");
         seedIfMissing(CAU_HINH_XKNB_CHE_DO, IChuyenKho.XKNB_CHI_CANH_BAO, KieuDuLieuCauHinh.STRING, "Khi xác nhận xuất chuyển kho mà chưa có số phiếu XKNB");
         seedIfMissing(CAU_HINH_CHUYEN_KHO_QUYEN_XU_LY_LECH, IChuyenKho.XU_LY_LECH_QL_KHO_TONG, KieuDuLieuCauHinh.STRING,
@@ -638,6 +648,12 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
             int val = Integer.parseInt(giaTri);
             if (val < 1 || val > TEM_NGUONG_XAC_NHAN_TOI_DA) {
                 throw new CommonException(ThongDiep.of("khoVanHanh.nguongXacNhanInTemKhongHopLe"));
+            }
+        } else if (CAU_HINH_HAN_BAO_GIA_NGAY.equals(maCauHinh)) {
+            int val = Integer.parseInt(giaTri);
+            if (val < HAN_BAO_GIA_NGAY_TOI_THIEU || val > HAN_BAO_GIA_NGAY_TOI_DA) {
+                throw new CommonException(ThongDiep.of("khoVanHanh.soNgayBaoGiaKhongHopLe",
+                        HAN_BAO_GIA_NGAY_TOI_THIEU, HAN_BAO_GIA_NGAY_TOI_DA));
             }
         } else if (CAU_HINH_XKNB_KY_HIEU.equals(maCauHinh)) {
             if (giaTri != null && !giaTri.isEmpty() && !XKNB_KY_HIEU_PATTERN.matcher(giaTri).matches()) {
