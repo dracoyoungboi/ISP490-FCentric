@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
-    AlertCircle, ArrowLeft, ArrowRight, Ban, Banknote, CalendarClock, Check, CheckCircle2, Info, Loader2, Lock, PackageX,
+    AlertCircle, ArrowLeft, ArrowRight, Ban, Banknote, CalendarClock, Check, CheckCircle2, Info, Loader2, Lock, MapPin, PackageX,
     Plus, Scale, ShieldCheck, Trash2, TriangleAlert, Truck, Undo2, Warehouse,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,7 +35,8 @@ import {
     moHangLoi,
     nhanTrangThaiBienBan,
     soDongMo,
-    soSanPhamConThieu,
+    soDongCanChon,
+    soNgayToiMoc,
     soTieuHuyMoi,
     taoPayloadTheoDong,
     thuocTinhDong,
@@ -62,31 +63,25 @@ const TIEU_DE_PHAN = 'text-[13px] font-semibold tracking-wide text-bo-muted uppe
 
 const tenKho = (bb) => (bb.tenKho ? tDuLieu(bb.tenKho) : t("kho của chúng tôi"));
 
-/** Hai cách bù của một dòng (thứ tự như bản demo đã duyệt: Trừ tiền trước). Mô tả theo số lượng, giá trị của dòng. */
+/**
+ * Hai cách bù của một dòng (thứ tự như bản demo đã duyệt: Trừ tiền trước). `ten`: tên đầy đủ (tóm tắt, hộp xác nhận);
+ * `ngan`: chữ trên nút đôi; `phu`: số tiền / số lượng dưới chữ nút.
+ */
 const CACH_BU = [
     {
         ma: PHUONG_AN.TRU_TIEN,
         icon: Banknote,
         ten: () => t("Trừ tiền hàng"),
+        ngan: () => t("Trừ tiền"),
         phu: (d) =>
             Number(d.giaTri) > 0 ? `−${formatCurrency(Number(d.giaTri))}` : t("{{count}} sản phẩm", { count: Number(d.soLuong) || 0 }),
-        moTa: (d, bb) =>
-            t("Không giao lại. Đơn {{soDon}} giảm {{count}} sản phẩm, trừ {{tien}} khi thanh toán.", {
-                soDon: bb.soDonMua,
-                count: Number(d.soLuong) || 0,
-                tien: formatCurrency(Number(d.giaTri) || 0),
-            }),
     },
     {
         ma: PHUONG_AN.GIAO_BU,
         icon: Truck,
         ten: () => t("Giao bù hàng"),
+        ngan: () => t("Giao bù"),
         phu: (d) => t("{{count}} sản phẩm", { count: Number(d.soLuong) || 0 }),
-        moTa: (d, bb) =>
-            t("Giao lại {{count}} sản phẩm đạt chất lượng. Đơn {{soDon}} vẫn chờ nhận số này.", {
-                soDon: bb.soDonMua,
-                count: Number(d.soLuong) || 0,
-            }),
     },
 ];
 
@@ -96,18 +91,15 @@ const CACH_HANG_LOI = [
         ma: HANG_LOI.NHAN_LAI,
         icon: Undo2,
         ten: () => t("Nhận lại"),
+        ngan: () => t("Nhận lại"),
         phu: (d, bb) => t("tại {{kho}}", { kho: tenKho(bb) }),
-        moTa: (d, bb) =>
-            bb.tenKho
-                ? t("Quý công ty đến lấy tại {{kho}} hoặc nhờ chúng tôi gửi đơn vị vận chuyển.", { kho: tDuLieu(bb.tenKho) })
-                : t("Quý công ty đến lấy hoặc nhờ chúng tôi gửi đơn vị vận chuyển."),
     },
     {
         ma: HANG_LOI.TIEU_HUY,
         icon: Trash2,
         ten: () => t("Đồng ý tiêu hủy"),
+        ngan: () => t("Tiêu hủy"),
         phu: () => t("không cần lấy về"),
-        moTa: () => t("Chúng tôi tiêu hủy hàng lỗi, Quý công ty không cần lấy về."),
     },
 ];
 const theoMa = (ds, ma) => ds.find((c) => c.ma === ma) ?? null;
@@ -202,7 +194,7 @@ function NoiDungBienBan({ bb, nhaCungCap, baoKhongConNhan, onCapNhat, onKhongCon
             <DauBienBan bb={bb} />
             <TienTrinh bb={bb} />
             {baoKhongConNhan ? (
-                <div role="alert" className={cn(LE, 'flex items-start gap-2 border-b border-orange-200 bg-bo-tt-chu-y py-3 text-sm leading-5 text-bo-tt-chu-y-chu')}>
+                <div role="alert" className={cn(LE, 'flex items-start gap-2 border-t border-orange-200 bg-bo-tt-chu-y py-3 text-sm leading-5 text-bo-tt-chu-y-chu')}>
                     <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                     <span>{baoKhongConNhan}</span>
                 </div>
@@ -236,7 +228,8 @@ function NoiDungBienBan({ bb, nhaCungCap, baoKhongConNhan, onCapNhat, onKhongCon
                     trai={
                         <>
                             <KhoiHangLoi bb={bb} />
-                            <DanhSachDong bb={bb} />
+                            {/* Biên bản đã hủy / đơn đã kết thúc: không có khung tóm tắt nên tổng giá trị nằm cuối danh sách */}
+                            <DanhSachDong bb={bb} hienTong={daHuy || (cho && !mo)} />
                         </>
                     }
                     phai={
@@ -254,11 +247,16 @@ function NoiDungBienBan({ bb, nhaCungCap, baoKhongConNhan, onCapNhat, onKhongCon
     );
 }
 
-/** Hai cột của khối: trái là hàng lỗi + danh sách sản phẩm, phải là khung trả lời (dính khi cuộn trên máy tính). */
-function BoCuc({ trai, phai }) {
+/**
+ * Hai cột của khối: trái là hàng lỗi + danh sách sản phẩm, phải là khung trả lời (dính khi cuộn trên máy tính).
+ * `giua`: thanh dính đáy màn hình trên điện thoại / máy tính bảng (cột trả lời nằm dưới danh sách); cuộn tới cột trả lời
+ * thì thanh nằm yên ngay trên nó.
+ */
+function BoCuc({ trai, giua, phai }) {
     return (
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_400px] 2xl:grid-cols-[minmax(0,1fr)_440px]">
+        <div className="grid border-t border-bo-border lg:grid-cols-[minmax(0,1fr)_400px] 2xl:grid-cols-[minmax(0,1fr)_440px]">
             <div className="min-w-0 pb-6 lg:pb-8">{trai}</div>
+            {giua ? <div className="sticky bottom-0 z-10 lg:hidden">{giua}</div> : null}
             <aside className="border-t border-bo-border bg-bo-surface-subtle lg:border-t-0 lg:border-l">
                 <div className="flex flex-col gap-4 px-5 py-6 md:px-8 lg:sticky lg:top-6 lg:px-6">{phai}</div>
             </aside>
@@ -266,9 +264,20 @@ function BoCuc({ trai, phai }) {
     );
 }
 
+/** Phần sau hạn trả lời: "còn N ngày" / "hôm nay" / "đã quá hạn" (quá giờ hạn là quá hạn, kể cả trong ngày hạn). */
+function conLaiDenHan(han) {
+    if (new Date(han).getTime() < Date.now()) return t("đã quá hạn");
+    const soNgay = soNgayToiMoc(han);
+    if (soNgay == null) return null;
+    return soNgay <= 0 ? t("hôm nay") : t("còn {{count}} ngày", { count: soNgay });
+}
+
 function DauBienBan({ bb }) {
+    const hienHan = choTraLoi(bb) && coTheChon(bb) && bb.hanTraLoi;
+    const conLai = hienHan ? conLaiDenHan(bb.hanTraLoi) : null;
     return (
-        <header className={cn(LE, 'flex flex-col gap-1.5 pt-6 pb-5')}>
+        <header className={cn(LE, 'flex flex-col gap-3 pt-6 pb-5 md:flex-row md:items-start md:justify-between md:gap-6')}>
+            <div className="flex min-w-0 flex-col gap-1.5">
             <div className="flex flex-col gap-1.5 md:flex-row md:flex-wrap md:items-center md:gap-3">
                 <h1 id="bb-tieu-de" className="text-xl leading-7 font-bold tracking-tight break-words text-bo-heading md:text-2xl md:leading-8">
                     {t("Biên bản trả hàng {{so}}", { so: bb.soBienBan })}
@@ -295,6 +304,16 @@ function DauBienBan({ bb }) {
                 ) : null}
                 {bb.ngayLap ? <span>{t("Lập ngày {{ngay}}", { ngay: formatDate(bb.ngayLap) })}</span> : null}
             </p>
+            </div>
+            {hienHan ? (
+                <p className="inline-flex shrink-0 items-start gap-1.5 text-sm font-medium text-bo-warning md:mt-1.5">
+                    <CalendarClock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    <span>
+                        {t("Trả lời trước hết ngày {{ngay}}", { ngay: formatDate(bb.hanTraLoi) })}
+                        {conLai ? <span className="font-normal text-bo-muted"> · {conLai}</span> : null}
+                    </span>
+                </p>
+            ) : null}
         </header>
     );
 }
@@ -325,7 +344,7 @@ function TienTrinh({ bb }) {
         [t("Hoàn tất"), ''],
     ];
     return (
-        <ol aria-label={t("Tiến trình biên bản")} className={cn(LE, 'flex border-y border-bo-border bg-bo-surface-subtle py-4')}>
+        <ol aria-label={t("Tiến trình biên bản")} className={cn(LE, 'flex border-t border-bo-border py-4')}>
             {ds.map(([ten, phu], i) => {
                 const xong = i < hienTai;
                 const dang = i === hienTai;
@@ -429,24 +448,20 @@ function KhoiHangLoi({ bb }) {
  * Danh sách sản phẩm không đạt: mỗi dòng một thẻ. `chon` / `onChon`: đang trả lời (thẻ có nút chọn); thiếu thì thẻ chỉ
  * hiện lựa chọn đang áp dụng. `dauDanhSach`: thanh Áp dụng nhanh (khi đang trả lời). `dongLoi`: id dòng đang báo thiếu.
  */
-function DanhSachDong({ bb, chon, onChon, dangGui, dongLoi, dauDanhSach, theRef }) {
+function DanhSachDong({ bb, chon, onChon, dangGui, dongLoi, dauDanhSach, theRef, dauKhoi = false, hienTong = false }) {
     const dong = bb.dong ?? [];
     const tongSl = Number(bb.tongSoLuong) || dong.reduce((s, d) => s + (Number(d.soLuong) || 0), 0);
     const tongTien = Number(bb.tongGiaTri) || dong.reduce((s, d) => s + (Number(d.giaTri) || 0), 0);
     return (
         <section aria-labelledby="bb-san-pham">
-            <div className={cn(LE, 'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 pt-2 pb-3')}>
+            <div className={cn(LE, 'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 pb-3', dauKhoi ? 'pt-5' : 'pt-2')}>
                 <h2 id="bb-san-pham" className={TIEU_DE_PHAN}>
                     {t("Sản phẩm không đạt")} · <span className="tabular-nums">{tongSl}</span>
                 </h2>
-                <span className="text-xs text-bo-muted">
-                    {onChon
-                        ? t("{{count}} dòng · mỗi sản phẩm chọn riêng", { count: dong.length })
-                        : t("{{count}} dòng", { count: dong.length })}
-                </span>
+                <span className="text-xs text-bo-muted">{t("{{count}} dòng", { count: dong.length })}</span>
             </div>
             {dauDanhSach}
-            <ul className={cn(LE, 'flex flex-col gap-3')}>
+            <ul className={cn(LE, 'flex flex-col gap-2.5')}>
                 {dong.map((d) => (
                     <TheDong
                         key={d.id ?? `${d.sku}-${d.maLo}-${d.lyDo}`}
@@ -460,28 +475,48 @@ function DanhSachDong({ bb, chon, onChon, dangGui, dongLoi, dauDanhSach, theRef 
                     />
                 ))}
             </ul>
-            <div className={cn(LE, 'mt-3 flex items-center justify-between border-t border-bo-border pt-3.5')}>
-                <span className="text-sm font-semibold">{t("Tổng giá trị hàng lỗi")}</span>
-                <span className="text-base font-bold text-bo-heading tabular-nums">{formatCurrency(tongTien)}</span>
-            </div>
+            {hienTong ? (
+                <div className={cn(LE, 'mt-3 flex items-center justify-between border-t border-bo-border pt-3.5')}>
+                    <span className="text-sm font-semibold">{t("Tổng giá trị hàng lỗi")}</span>
+                    <span className="text-base font-bold text-bo-heading tabular-nums">{formatCurrency(tongTien)}</span>
+                </div>
+            ) : null}
         </section>
     );
 }
 
-/** Nhãn nhỏ ở góc thẻ dòng. */
-function NhanThe({ trangThai }) {
-    const KIEU = {
-        'chua-chon': ['bg-bo-tt-chu-y text-bo-tt-chu-y-chu', null, t("Chưa chọn")],
-        'thieu-mot': ['bg-bo-tt-chu-y text-bo-tt-chu-y-chu', null, t("Còn 1 mục")],
-        'chon-lai': ['bg-bo-tt-chu-y text-bo-tt-chu-y-chu', null, t("Cần chọn lại")],
-        'da-chon': ['bg-bo-success-soft text-bo-success', Check, t("Đã chọn")],
-        'da-chot': ['bg-bo-surface-subtle text-bo-muted', Lock, t("Đã chốt")],
+/**
+ * Vòng trạng thái đầu thẻ dòng (thay nhãn chữ ở góc): rỗng = chưa chọn, nửa = còn một mục, ✓ xanh = đã chọn đủ,
+ * ổ khóa = đã chốt. `baoLoi`: đang báo thiếu (vòng cam). Chữ đầy đủ đọc cho trình đọc màn hình.
+ */
+function VongTrangThai({ trangThai, baoLoi }) {
+    const CHU = {
+        'chua-chon': t("Chưa chọn"),
+        'thieu-mot': t("Còn 1 mục"),
+        'chon-lai': t("Cần chọn lại"),
+        'da-chon': t("Đã chọn"),
+        'da-chot': t("Đã chốt"),
     };
-    const [lop, Icon, chu] = KIEU[trangThai] ?? KIEU['chua-chon'];
+    const chu = CHU[trangThai] ?? CHU['chua-chon'];
+    if (trangThai === 'da-chon' || trangThai === 'da-chot') {
+        const Icon = trangThai === 'da-chon' ? Check : Lock;
+        return (
+            <span
+                title={chu}
+                className={cn('grid size-5 shrink-0 place-items-center rounded-full', trangThai === 'da-chon' ? 'bg-bo-tt-xong-hinh text-white' : 'bg-slate-200 text-slate-600')}
+            >
+                <Icon className="size-3" aria-hidden="true" />
+                <span className="sr-only">{chu}</span>
+            </span>
+        );
+    }
+    const cam = baoLoi || trangThai === 'chon-lai';
     return (
-        <span className={cn('inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-semibold whitespace-nowrap', lop)}>
-            {Icon ? <Icon className="size-3.5" aria-hidden="true" /> : null}
-            {chu}
+        <span title={chu} className={cn('relative block size-5 shrink-0 rounded-full border-2', cam ? 'border-orange-400' : 'border-slate-300')}>
+            {trangThai === 'thieu-mot' ? (
+                <span aria-hidden="true" className={cn('absolute inset-0.5 rounded-full [clip-path:inset(0_50%_0_0)]', cam ? 'bg-orange-400' : 'bg-slate-300')} />
+            ) : null}
+            <span className="sr-only">{chu}</span>
         </span>
     );
 }
@@ -551,7 +586,10 @@ function TheDong({ d, bb, chon, onChon: onChonDong, dangGui, baoLoi, theRef }) {
                     baoLoi ? 'border-orange-300 ring-2 ring-orange-100' : 'border-bo-border',
                 )}
             >
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 px-4 py-3.5">
+                <div className="grid grid-cols-[20px_minmax(0,1fr)_auto] gap-x-3 px-4 pt-3.5 pb-3">
+                    <span className="mt-0.5">
+                        <VongTrangThai trangThai={trangThai} baoLoi={baoLoi} />
+                    </span>
                     <div className="min-w-0">
                         <h3 id={tenId} className="font-semibold break-words text-bo-foreground">
                             {d.tenSanPham}
@@ -563,8 +601,7 @@ function TheDong({ d, bb, chon, onChon: onChonDong, dangGui, baoLoi, theRef }) {
                             {d.maLo ? <span className="font-mono break-all">{t("Lô {{ma}}", { ma: d.maLo })}</span> : null}
                         </p>
                     </div>
-                    <div className="flex flex-col items-end gap-1 text-right">
-                        <NhanThe trangThai={trangThai} />
+                    <div className="text-right">
                         <p className="font-semibold text-bo-foreground tabular-nums">{formatCurrency(Number(d.giaTri) || 0)}</p>
                         <p className="text-xs whitespace-nowrap text-bo-muted tabular-nums">
                             {d.soLuong} × {formatCurrency(Number(d.donGia) || 0)}
@@ -577,7 +614,8 @@ function TheDong({ d, bb, chon, onChon: onChonDong, dangGui, baoLoi, theRef }) {
                         {t("Lúc nhập kho chúng tôi chưa trừ tiền được cho sản phẩm này vì đơn không còn chờ đủ số này. Vui lòng chọn lại cách bù.")}
                     </p>
                 ) : null}
-                <div className="grid gap-4 border-t border-bo-border bg-bo-surface-subtle/60 px-4 py-3.5 md:grid-cols-2">
+                {/* Hai câu cạnh nhau; cột trái hẹp (máy tính 1024–1279px) thì xếp dọc để chữ trong nút không bị cắt */}
+                <div className="grid gap-3 border-t border-bo-border px-4 py-3 sm:grid-cols-2 sm:gap-4 sm:pl-12 lg:grid-cols-1 xl:grid-cols-2">
                     <CauDong
                         ten={t("Bù hàng lỗi")}
                         ds={CACH_BU}
@@ -613,7 +651,7 @@ function TheDong({ d, bb, chon, onChon: onChonDong, dangGui, baoLoi, theRef }) {
                         />
                     ) : (
                         <div className="flex min-w-0 flex-col gap-1.5">
-                            <p className="text-sm font-semibold text-bo-foreground">{t("Hàng lỗi")}</p>
+                            <p className="text-xs font-medium text-bo-muted">{t("Hàng lỗi")}</p>
                             <p className="flex items-start gap-2 text-sm text-bo-foreground">
                                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-bo-success" aria-hidden="true" />
                                 <span className="min-w-0 break-words">{hangLoiDaRoi(d, bb)}</span>
@@ -627,14 +665,15 @@ function TheDong({ d, bb, chon, onChon: onChonDong, dangGui, baoLoi, theRef }) {
 }
 
 /**
- * Một câu của một dòng. Đang trả lời và câu còn mở: hai ô chọn cạnh nhau (biểu tượng + tên ngắn + số tiền / số lượng),
- * mô tả đầy đủ chỉ hiện cho ô đang chọn. Không thì một dòng lựa chọn đang áp dụng (khóa: "đã chốt").
+ * Một câu của một dòng. Đang trả lời và câu còn mở: nút đôi (tên ngắn + số tiền / số lượng); hệ quả đầy đủ của từng cách
+ * nằm ở khung tóm tắt và hộp xác nhận, nên chọn xong thẻ không đổi chiều cao. Không thì một dòng lựa chọn đang áp dụng
+ * (khóa: "đã chốt").
  */
 function CauDong({ ten, ds, d, bb, name, giaTri, hienTai, mo, tenDaChon, phuDaChon, thieu, khoa, dangGui, onChon }) {
     if (!mo.length) {
         return (
             <div className="flex min-w-0 flex-col gap-1.5">
-                <p className="text-sm font-semibold text-bo-foreground">{ten}</p>
+                <p className="text-xs font-medium text-bo-muted">{ten}</p>
                 {tenDaChon ? (
                     <p className="flex items-start gap-2 text-sm">
                         {khoa ? <Lock className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" /> : <Check className="mt-0.5 size-4 shrink-0 text-bo-success" aria-hidden="true" />}
@@ -650,15 +689,19 @@ function CauDong({ ten, ds, d, bb, name, giaTri, hienTai, mo, tenDaChon, phuDaCh
             </div>
         );
     }
-    const chon = theoMa(ds, giaTri);
     const idLoi = `${name}-loi`;
     return (
-        <fieldset className="flex min-w-0 flex-col gap-2" disabled={dangGui} aria-describedby={thieu ? idLoi : undefined}>
-            <legend className="mb-2 text-sm font-semibold text-bo-foreground">
+        <fieldset className="flex min-w-0 flex-col" disabled={dangGui} aria-describedby={thieu ? idLoi : undefined}>
+            <legend className="mb-1.5 text-xs font-medium text-bo-muted">
                 {ten} <span className="text-bo-danger" aria-hidden="true">*</span>
                 {d.tenSanPham ? <span className="sr-only"> · {d.tenSanPham}{thuocTinhDong(d) ? ` · ${thuocTinhDong(d)}` : ''}</span> : null}
             </legend>
-            <div className="grid grid-cols-2 gap-2">
+            <div
+                className={cn(
+                    'grid grid-cols-2 gap-1 rounded-lg border bg-bo-surface p-1',
+                    thieu ? 'border-orange-300 ring-2 ring-orange-100' : 'border-bo-input-border',
+                )}
+            >
                 {ds.map((c) => {
                     const bat = giaTri === c.ma;
                     const khoaO = c.ma !== hienTai && !mo.includes(c.ma);
@@ -667,11 +710,10 @@ function CauDong({ ten, ds, d, bb, name, giaTri, hienTai, mo, tenDaChon, phuDaCh
                         <label
                             key={c.ma}
                             className={cn(
-                                // Điện thoại: hai ô một hàng nên bỏ ô biểu tượng, chữ được hết bề rộng (số tiền không bị cắt)
-                                'relative grid min-h-14 grid-cols-1 items-center gap-x-2.5 rounded-lg border bg-bo-surface p-2.5 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-bo-primary/30 sm:grid-cols-[32px_minmax(0,1fr)]',
+                                'flex min-h-11 min-w-0 items-center gap-2 rounded-md px-2.5 py-1.5 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-bo-primary/30',
                                 khoaO ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
-                                bat ? 'border-bo-primary bg-bo-primary-soft/50 shadow-[inset_0_0_0_1px_var(--color-bo-primary)]' : thieu ? 'border-orange-300' : 'border-bo-border',
-                                !bat && !khoaO && 'hover:border-slate-400',
+                                bat ? 'bg-bo-primary-soft text-bo-primary shadow-[inset_0_0_0_1px_var(--color-bo-primary)]' : 'text-bo-foreground',
+                                !bat && !khoaO && 'hover:bg-bo-surface-subtle',
                             )}
                         >
                             <input
@@ -683,38 +725,35 @@ function CauDong({ ten, ds, d, bb, name, giaTri, hienTai, mo, tenDaChon, phuDaCh
                                 onChange={() => onChon?.(c.ma)}
                                 className="sr-only"
                             />
-                            <span aria-hidden="true" className={cn('hidden size-8 place-items-center rounded-md sm:grid', bat ? 'bg-bo-primary text-white' : 'bg-slate-100 text-slate-600')}>
-                                <Icon className="size-4" />
-                            </span>
+                            {/* Điện thoại: bỏ biểu tượng để chữ và số tiền được hết bề rộng */}
+                            <Icon aria-hidden="true" className={cn('hidden size-4 shrink-0 sm:block', bat ? 'text-bo-primary' : 'text-slate-500')} />
                             <span className="min-w-0">
-                                <span className="block text-sm leading-5 font-semibold text-bo-foreground">{c.ten()}</span>
-                                <span className="block text-xs break-words text-bo-muted tabular-nums">{c.phu(d, bb)}</span>
+                                <span className="block text-sm leading-5 font-semibold">{c.ngan()}</span>
+                                <span className={cn('block text-xs leading-4 break-words tabular-nums', bat ? 'text-bo-primary/80' : 'text-bo-muted')}>{c.phu(d, bb)}</span>
                             </span>
                         </label>
                     );
                 })}
             </div>
+            {/* Thẻ và nút đôi đã viền cam; câu lỗi đọc cho trình đọc màn hình, không đẩy thẻ cao lên */}
             {thieu ? (
-                <p id={idLoi} className="flex items-center gap-1.5 text-[13px] leading-5 text-bo-tt-chu-y-chu">
-                    <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
+                <span id={idLoi} className="sr-only">
                     {t("Chọn một cách cho sản phẩm này")}
-                </p>
-            ) : chon ? (
-                <p className="text-[13px] leading-5 text-slate-600">{chon.moTa(d, bb)}</p>
+                </span>
             ) : null}
         </fieldset>
     );
 }
 
-/** Thanh "Áp dụng nhanh cho tất cả": chọn một lần cho mọi sản phẩm còn chọn được, vẫn sửa riêng từng thẻ bên dưới. */
+/** Hàng "Chọn nhanh cho cả N dòng" (dải liền mép khối): chọn một lần cho mọi dòng còn chọn được, vẫn sửa riêng từng thẻ. */
 function ThanhApDungNhanh({ bb, chon, dangGui, onApDung, boQua }) {
-    const nhom = (loai, ten, ds) => {
+    const nhom = (loai, ten, nhanDayDu, ds) => {
         if (soDongMo(bb, loai) < 2) return null;
         const chung = giaTriChung(bb, chon, loai);
         return (
-            <div role="group" aria-label={ten} className="flex min-w-0 flex-wrap items-center gap-2">
+            <div role="group" aria-label={nhanDayDu} className="flex min-w-0 flex-wrap items-center gap-2">
                 <span className="text-[13px] text-bo-muted">{ten}</span>
-                <div className="grid grid-cols-2 rounded-lg border border-bo-border bg-bo-surface p-0.5">
+                <div className="grid grid-cols-2 gap-0.5 rounded-md border border-bo-input-border bg-bo-surface p-0.5">
                     {ds.map((c) => (
                         <button
                             key={c.ma}
@@ -723,29 +762,30 @@ function ThanhApDungNhanh({ bb, chon, dangGui, onApDung, boQua }) {
                             aria-pressed={chung === c.ma}
                             onClick={() => onApDung(loai, c.ma)}
                             className={cn(
-                                'min-h-8 rounded-md px-3 py-1 text-[13px] leading-4 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:opacity-50',
+                                'min-h-7 rounded px-2.5 py-1 text-[13px] leading-4 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30 disabled:opacity-50',
                                 chung === c.ma ? 'bg-bo-primary text-white' : 'text-bo-foreground hover:bg-bo-surface-subtle',
                             )}
                         >
-                            {c.ten()}
+                            {c.ngan()}
                         </button>
                     ))}
                 </div>
             </div>
         );
     };
-    const cachBu = nhom('cachBu', t("Bù hàng lỗi"), CACH_BU);
-    const hangLoi = nhom('hangLoi', t("Hàng lỗi"), CACH_HANG_LOI);
+    const cachBu = nhom('cachBu', t("Bù"), t("Bù hàng lỗi cho tất cả"), CACH_BU);
+    const hangLoi = nhom('hangLoi', t("Hàng lỗi"), t("Hàng lỗi cho tất cả"), CACH_HANG_LOI);
     if (!cachBu && !hangLoi) return null;
+    const soDong = Math.max(soDongMo(bb, 'cachBu'), soDongMo(bb, 'hangLoi'));
     return (
-        <div className={cn(LE, 'pb-3')}>
-            <div className="flex flex-col gap-x-6 gap-y-2.5 rounded-lg border border-dashed border-slate-300 bg-bo-surface-subtle px-4 py-3 lg:flex-row lg:flex-wrap lg:items-center">
-                <span className="text-sm font-semibold text-bo-foreground">{t("Áp dụng nhanh cho tất cả")}</span>
+        <div className="mb-3 border-y border-bo-border bg-bo-surface-subtle">
+            <div className={cn(LE, 'flex flex-col gap-2 py-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6')}>
+                <span className="text-[13px] font-semibold text-bo-foreground">{t("Chọn nhanh cho cả {{count}} dòng", { count: soDong })}</span>
                 {cachBu}
                 {hangLoi}
             </div>
             {/* Vùng báo luôn có sẵn để trình đọc màn hình đọc câu mới khi bấm áp dụng */}
-            <p role="status" className={cn('text-xs text-bo-muted', boQua > 0 && 'mt-1.5')}>
+            <p role="status" className={cn(LE, 'text-xs text-bo-muted', boQua > 0 && 'pb-2.5')}>
                 {boQua > 0 ? t("{{count}} sản phẩm đã chốt nên giữ lựa chọn cũ.", { count: boQua }) : null}
             </p>
         </div>
@@ -755,50 +795,115 @@ function ThanhApDungNhanh({ bb, chon, dangGui, onApDung, boQua }) {
 /** Hàng lỗi đã rời kho: trả ngay cho người giao hàng lúc giao, hoặc kho đã giao trả / tiêu hủy. */
 const tenDaRoiKho = (bb) => (bb.hangLoi?.cachXuLy === 'TRA_NGAY' ? t("Đã trả lúc giao") : t("Đã giao trả hoặc tiêu hủy"));
 
-/** Khung "Tóm tắt phương án xử lý": cộng dồn từ lựa chọn có hiệu lực của các dòng (đơn vị: sản phẩm). */
-function TomTatPhuongAn({ bb, chon }) {
-    const tt = tomTatLuaChon(bb, chon);
-    const dong = [];
-    if (tt.truTien.soLuong) {
-        dong.push([
-            bb.phieuDaNhap ? t("Trừ tiền hàng") : t("Trừ tiền hàng (dự kiến)"),
-            tt.truTien.tien > 0 ? (
-                <>
-                    <span className="text-bo-muted">{t("{{count}} sản phẩm", { count: tt.truTien.soLuong })} · </span>
-                    <span className="font-semibold">−{formatCurrency(tt.truTien.tien)}</span>
-                </>
-            ) : (
-                t("{{count}} sản phẩm", { count: tt.truTien.soLuong })
-            ),
-        ]);
+/**
+ * "Đã chọn x/N dòng" + thanh tiến độ (xanh lá khi đủ). `onDenThieu`: nút đến dòng chưa chọn. `gon`: bản trên thanh đáy.
+ */
+function TienDoChon({ xong, tong, onDenThieu, gon = false }) {
+    const du = xong >= tong;
+    const thanh = (
+        <div className={cn('h-1.5 overflow-hidden rounded-full bg-slate-100', gon ? 'mt-1.5 max-w-[200px]' : 'mt-2')}>
+            <div className={cn('h-full rounded-full transition-[width] motion-reduce:transition-none', du ? 'bg-bo-tt-xong-hinh' : 'bg-bo-primary')} style={{ width: `${Math.round((xong / tong) * 100)}%` }} />
+        </div>
+    );
+    const chu = <span className="font-medium text-bo-foreground">{t("Đã chọn {{xong}}/{{tong}} dòng", { xong, tong })}</span>;
+    if (gon) {
+        return (
+            <div className="text-sm">
+                {chu}
+                {thanh}
+            </div>
+        );
     }
-    if (tt.giaoBu) dong.push([t("Giao bù hàng"), t("{{count}} sản phẩm", { count: tt.giaoBu })]);
-    if (tt.coiNhuDaBu) dong.push([t("Coi như đã giao bù"), t("{{count}} sản phẩm", { count: tt.coiNhuDaBu })]);
-    if (tt.nhanLai) dong.push([t("Nhận lại"), t("{{count}} sản phẩm", { count: tt.nhanLai })]);
-    if (tt.tieuHuy) dong.push([t("Đồng ý tiêu hủy"), t("{{count}} sản phẩm", { count: tt.tieuHuy })]);
-    if (tt.daRoiKho) dong.push([tenDaRoiKho(bb), t("{{count}} sản phẩm", { count: tt.daRoiKho })]);
-    const chuaChon = tt.chuaChon;
     return (
-        <section aria-labelledby="bb-tom-tat" className="rounded-lg border border-bo-border bg-bo-surface">
-            <h3 id="bb-tom-tat" className="border-b border-bo-border px-3.5 py-2.5 text-[13px] font-semibold text-bo-heading">
+        <div className="border-b border-bo-border px-4 py-3">
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+                {chu}
+                {du ? (
+                    <span className="inline-flex items-center gap-1 text-[13px] font-medium text-bo-success">
+                        <Check className="size-3.5" aria-hidden="true" /> {t("Đủ")}
+                    </span>
+                ) : onDenThieu ? (
+                    <button
+                        type="button"
+                        onClick={onDenThieu}
+                        className="rounded-sm text-[13px] font-medium text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40"
+                    >
+                        {t("Đến dòng chưa chọn")}
+                    </button>
+                ) : null}
+            </div>
+            {thanh}
+        </div>
+    );
+}
+
+/**
+ * Khung "Tóm tắt phương án xử lý": cộng dồn từ lựa chọn có hiệu lực của các dòng (đơn vị: sản phẩm). Các dòng chính luôn
+ * có mặt ("—" khi chưa có) để khung không xô lệch mỗi lần chọn; cuối khung là giá trị hàng lỗi. `dau`: phần đầu khung
+ * (thanh "Đã chọn x/N dòng" khi đang trả lời; không có thì hiện tiêu đề). `chan`: các dòng nhắc ở đáy khung.
+ */
+function TomTatPhuongAn({ bb, chon, dau, chan }) {
+    const tt = tomTatLuaChon(bb, chon);
+    const dong = bb.dong ?? [];
+    const tongSl = Number(bb.tongSoLuong) || dong.reduce((s, d) => s + (Number(d.soLuong) || 0), 0);
+    const tongTien = Number(bb.tongGiaTri) || dong.reduce((s, d) => s + (Number(d.giaTri) || 0), 0);
+    const coOKho = dong.some(dongOKho);
+    const sp = (n) =>
+        n ? <span className="tabular-nums">{t("{{count}} sản phẩm", { count: n })}</span> : <span className="text-slate-300">—</span>;
+    const hang = (k, v) => (
+        <div key={k} className="flex items-baseline justify-between gap-3">
+            <dt className="min-w-0 text-bo-muted">{k}</dt>
+            <dd className="shrink-0 text-right whitespace-nowrap">{v}</dd>
+        </div>
+    );
+    const nhom = (ten, hangs) => (
+        <div className="flex flex-col gap-2">
+            <p className="text-xs font-medium text-bo-muted">{ten}</p>
+            <dl className="flex flex-col gap-2">{hangs}</dl>
+        </div>
+    );
+    return (
+        <section aria-labelledby="bb-tom-tat" className="overflow-hidden rounded-lg border border-bo-border bg-bo-surface">
+            <h3 id="bb-tom-tat" className={dau ? 'sr-only' : 'border-b border-bo-border px-4 py-2.5 text-[13px] font-semibold text-bo-heading'}>
                 {t("Tóm tắt phương án xử lý")}
             </h3>
-            {dong.length || chuaChon ? (
-                <dl className="flex flex-col gap-1.5 px-3.5 py-3 text-sm">
-                    {dong.map(([k, v]) => (
-                        <div key={k} className="flex items-baseline justify-between gap-3">
-                            <dt className="min-w-0 text-bo-muted">{k}</dt>
-                            <dd className="shrink-0 text-right whitespace-nowrap tabular-nums">{v}</dd>
-                        </div>
-                    ))}
-                    {chuaChon ? (
-                        <div className="flex items-baseline justify-between gap-3 text-bo-tt-chu-y-chu">
-                            <dt>{t("Chưa chọn đủ")}</dt>
-                            <dd className="text-right font-semibold tabular-nums">{t("{{count}} sản phẩm", { count: chuaChon })}</dd>
-                        </div>
-                    ) : null}
+            {dau}
+            <div className="flex flex-col gap-3.5 px-4 py-3.5 text-sm">
+                {nhom(t("Bù hàng lỗi"), [
+                hang(
+                    bb.phieuDaNhap ? t("Trừ tiền hàng") : t("Trừ tiền hàng (dự kiến)"),
+                    tt.truTien.soLuong && tt.truTien.tien > 0 ? (
+                        <>
+                            <span className="text-bo-muted tabular-nums">{t("{{count}} sản phẩm", { count: tt.truTien.soLuong })} · </span>
+                            <span className="font-semibold tabular-nums">−{formatCurrency(tt.truTien.tien)}</span>
+                        </>
+                    ) : (
+                        sp(tt.truTien.soLuong)
+                    ),
+                ),
+                hang(t("Giao bù hàng"), sp(tt.giaoBu)),
+                tt.coiNhuDaBu ? hang(t("Coi như đã giao bù"), sp(tt.coiNhuDaBu)) : null,
+                ])}
+                {nhom(coOKho ? t("Hàng lỗi đang ở {{kho}}", { kho: tenKho(bb) }) : t("Hàng lỗi"), [
+                    coOKho ? hang(t("Nhận lại"), sp(tt.nhanLai)) : null,
+                    coOKho ? hang(t("Đồng ý tiêu hủy"), sp(tt.tieuHuy)) : null,
+                    tt.daRoiKho ? hang(tenDaRoiKho(bb), sp(tt.daRoiKho)) : null,
+                ])}
+                {!chon && tt.chuaChon ? (
+                    <dl className="flex items-baseline justify-between gap-3 text-bo-tt-chu-y-chu">
+                        <dt>{t("Chưa chọn đủ")}</dt>
+                        <dd className="text-right font-semibold tabular-nums">{t("{{count}} sản phẩm", { count: tt.chuaChon })}</dd>
+                    </dl>
+                ) : null}
+                <dl className="flex items-baseline justify-between gap-3 border-t border-bo-border pt-3">
+                    <dt className="font-medium text-bo-foreground">{t("Giá trị hàng lỗi")}</dt>
+                    <dd className="text-right whitespace-nowrap">
+                        <span className="text-bo-muted tabular-nums">{t("{{count}} sản phẩm", { count: tongSl })} · </span>
+                        <span className="font-bold text-bo-heading tabular-nums">{formatCurrency(tongTien)}</span>
+                    </dd>
                 </dl>
-            ) : null}
+            </div>
+            {chan}
         </section>
     );
 }
@@ -822,7 +927,7 @@ function TraLoiTheoDong({ bb, nhaCungCap, dangDoi, onHuyDoi, onXong, onKhongConN
     const [ghiChu, setGhiChu] = useState('');
     const [moGhiChu, setMoGhiChu] = useState(false);
     const [loiNguoi, setLoiNguoi] = useState('');
-    // Dòng máy chủ báo thiếu / sai, hoặc người dùng bấm "Đến sản phẩm chưa chọn"
+    // Dòng máy chủ báo thiếu / sai, hoặc người dùng bấm "Đến dòng chưa chọn"
     const [dongLoi, setDongLoi] = useState([]);
     const [hopMo, setHopMo] = useState(false);
     const [loiGui, setLoiGui] = useState('');
@@ -830,10 +935,7 @@ function TraLoiTheoDong({ bb, nhaCungCap, dangDoi, onHuyDoi, onXong, onKhongConN
     const theRef = useRef({});
 
     const thieu = dongConThieu(bb, chon);
-    const soThieu = soSanPhamConThieu(bb, chon);
     const coDoi = coDongDoi(bb, chon);
-    const coNguoi = Boolean(chuanHoaHoTen(nguoi));
-    const guiDuoc = thieu.length === 0 && coDoi && coNguoi;
 
     // Đã chọn mà chưa xác nhận: Thoát, đổi ngôn ngữ (menu tài khoản), tab, link, nút Back hỏi lại bằng HopHoiRoiTrang;
     // đóng thẻ / tải lại trang hỏi bằng hộp của trình duyệt
@@ -870,7 +972,11 @@ function TraLoiTheoDong({ bb, nhaCungCap, dangDoi, onHuyDoi, onXong, onKhongConN
             denDongThieu();
             return;
         }
-        if (!guiDuoc) return;
+        if (!coDoi) {
+            // Đang đổi mà chưa chọn khác: nói rõ thay vì khóa nút
+            setLoiGui(t("Chưa đổi lựa chọn nào. Chọn khác ở danh sách rồi xác nhận lại."));
+            return;
+        }
         const loi = loiNguoiXacNhan(nguoi);
         if (loi) {
             setLoiNguoi(loi);
@@ -902,10 +1008,9 @@ function TraLoiTheoDong({ bb, nhaCungCap, dangDoi, onHuyDoi, onXong, onKhongConN
         } else setLoiGui(kq.cau || t("Chưa gửi được lựa chọn. Kiểm tra kết nối mạng rồi thử lại."));
     };
 
-    let nhanNut = t("Xem lại và xác nhận");
-    if (thieu.length) nhanNut = t("Chọn đủ các mục ở trên");
-    else if (!coDoi) nhanNut = t("Chọn khác để đổi");
-    else if (!coNguoi) nhanNut = t("Nhập tên người xác nhận");
+    const tongDong = soDongCanChon(bb);
+    const soDongXong = tongDong - thieu.length;
+    const tt = tomTatLuaChon(bb, chon);
 
     const conLaiKyTu = GHI_CHU_BIEN_BAN_TOI_DA - ghiChu.length;
     const dong = bb.dong ?? [];
@@ -915,8 +1020,9 @@ function TraLoiTheoDong({ bb, nhaCungCap, dangDoi, onHuyDoi, onXong, onKhongConN
             <BoCuc
                 trai={
                     <>
-                        <KhoiHangLoi bb={bb} />
+                        {/* Hàng lỗi đang ở kho: nói ở nhóm "Hàng lỗi đang ở …" của khung tóm tắt, không thêm dải đầu danh sách */}
                         <DanhSachDong
+                            dauKhoi
                             bb={bb}
                             chon={chon}
                             onChon={chonDong}
@@ -927,20 +1033,22 @@ function TraLoiTheoDong({ bb, nhaCungCap, dangDoi, onHuyDoi, onXong, onKhongConN
                         />
                     </>
                 }
+                giua={
+                    <div className="flex items-center gap-3 border-t border-bo-border bg-bo-surface/95 px-5 py-3 backdrop-blur md:px-8" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+                        <div className="min-w-0 flex-1">
+                            {tongDong > 0 && !dangDoi ? <TienDoChon xong={soDongXong} tong={tongDong} gon /> : null}
+                        </div>
+                        <Button type="submit" form="bb-form-tra-loi" disabled={hopMo} className="h-11 shrink-0 gap-2 bg-bo-primary px-4 text-white hover:bg-bo-primary-hover">
+                            {t("Xem lại và xác nhận")}
+                        </Button>
+                    </div>
+                }
                 phai={
-                    <form onSubmit={moHopXacNhan} noValidate className="flex flex-col gap-4">
+                    <form id="bb-form-tra-loi" onSubmit={moHopXacNhan} noValidate className="flex flex-col gap-4">
                         <div className="flex flex-col gap-1">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                <h2 id="bb-khung-tieu-de" className="text-base font-semibold text-bo-heading">
-                                    {dangDoi ? t("Đổi lựa chọn") : t("Trả lời biên bản")}
-                                </h2>
-                                {!dangDoi && bb.hanTraLoi ? (
-                                    <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-bo-warning">
-                                        <CalendarClock className="size-4 shrink-0" aria-hidden="true" />
-                                        {t("Trả lời trước hết ngày {{ngay}}", { ngay: formatDate(bb.hanTraLoi) })}
-                                    </span>
-                                ) : null}
-                            </div>
+                            <h2 id="bb-khung-tieu-de" className="text-base font-semibold text-bo-heading">
+                                {dangDoi ? t("Đổi lựa chọn") : t("Trả lời biên bản")}
+                            </h2>
                             <p className="text-[13px] leading-5 text-bo-muted">
                                 {dong.length > 1
                                     ? t("Chọn cách xử lý riêng cho từng sản phẩm không đạt. Hàng lỗi chỉ tiêu hủy khi Quý công ty đồng ý.")
@@ -948,19 +1056,40 @@ function TraLoiTheoDong({ bb, nhaCungCap, dangDoi, onHuyDoi, onXong, onKhongConN
                             </p>
                         </div>
 
-                        <TomTatPhuongAn bb={bb} chon={chon} />
+                        <TomTatPhuongAn
+                            bb={bb}
+                            chon={chon}
+                            dau={
+                                tongDong > 0 && !dangDoi ? (
+                                    <TienDoChon xong={soDongXong} tong={tongDong} onDenThieu={thieu.length ? () => denDongThieu() : null} />
+                                ) : null
+                            }
+                            chan={
+                                <>
+                                    {tt.tieuHuy > 0 ? (
+                                        <p className="flex items-start gap-2 border-t border-amber-200 bg-amber-50 px-4 py-2.5 text-[13px] leading-5 text-amber-900">
+                                            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden="true" />
+                                            <span>{t("Hàng đã tiêu hủy không khôi phục được.")}</span>
+                                        </p>
+                                    ) : null}
+                                    {tt.nhanLai > 0 ? (
+                                        <p className="flex items-start gap-2 border-t border-bo-border px-4 py-2.5 text-[13px] leading-5 text-slate-600">
+                                            <MapPin className="mt-0.5 size-4 shrink-0 text-bo-muted" aria-hidden="true" />
+                                            <span>
+                                                {bb.diaChiKho
+                                                    ? t("Lấy hàng lỗi tại {{diaChi}}. Báo trước cho người phụ trách để chúng tôi chuẩn bị hàng và biên bản bàn giao.", { diaChi: bb.diaChiKho })
+                                                    : t("Báo trước cho người phụ trách để chúng tôi chuẩn bị hàng và biên bản bàn giao.")}
+                                            </span>
+                                        </p>
+                                    ) : null}
+                                </>
+                            }
+                        />
 
-                        {thieu.length ? (
-                            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] leading-5 text-bo-tt-chu-y-chu">
-                                <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
-                                <span>{t("Còn {{count}} sản phẩm chưa chọn đủ.", { count: soThieu })}</span>
-                                <button
-                                    type="button"
-                                    onClick={() => denDongThieu()}
-                                    className="rounded-sm font-semibold underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/40"
-                                >
-                                    {t("Đến sản phẩm chưa chọn")}
-                                </button>
+                        {dongLoiConThieu.length ? (
+                            <p role="alert" className="flex items-start gap-2 rounded-md bg-bo-tt-chu-y px-3 py-2 text-[13px] leading-5 text-bo-tt-chu-y-chu">
+                                <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                                <span>{t("Còn {{count}} dòng chưa chọn đủ, đã đánh dấu cam ở danh sách.", { count: dongLoiConThieu.length })}</span>
                             </p>
                         ) : null}
 
@@ -1036,12 +1165,13 @@ function TraLoiTheoDong({ bb, nhaCungCap, dangDoi, onHuyDoi, onXong, onKhongConN
                         ) : null}
 
                         <div className="flex flex-col gap-2 border-t border-bo-border pt-4">
+                            {/* Luôn bấm được: còn thiếu thì đánh dấu dòng thiếu và cuộn tới, thay vì khóa nút không rõ lý do */}
                             <Button
                                 type="submit"
-                                disabled={!guiDuoc}
+                                disabled={hopMo}
                                 className="h-11 w-full gap-2 bg-bo-primary text-[15px] text-white hover:bg-bo-primary-hover disabled:opacity-50"
                             >
-                                <ShieldCheck className="size-4" aria-hidden="true" /> {nhanNut}
+                                <ShieldCheck className="size-4" aria-hidden="true" /> {t("Xem lại và xác nhận")}
                             </Button>
                             {dangDoi ? (
                                 <Button type="button" variant="outline" onClick={onHuyDoi} className={cn('h-10 w-full', NUT_PHU)}>

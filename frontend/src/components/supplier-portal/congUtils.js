@@ -265,6 +265,14 @@ export function dongConThieu(bb, chonTheoDong) {
   return dsDongChon(bb).filter((d) => soCauThieu(d, chonTheoDong?.[d.id]) > 0).map((d) => d.id);
 }
 
+/** Số dòng có câu bắt buộc (mẫu số của thanh "Đã chọn x/N dòng"). */
+export function soDongCanChon(bb) {
+  return dsDongChon(bb).filter((d) => {
+    const can = canChon(d);
+    return can.cachBu || can.hangLoi;
+  }).length;
+}
+
 /** Số sản phẩm của các dòng còn thiếu lựa chọn bắt buộc (bộ đếm "Còn … sản phẩm chưa chọn đủ"). */
 export function soSanPhamConThieu(bb, chonTheoDong) {
   return dsDongChon(bb)
