@@ -77,6 +77,9 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
     private LichSuThayDoiRepository lichSuThayDoiRepository;
     @Autowired(required = false)
     private ThongBaoMuaHangService thongBaoMuaHangService;
+    /** Hạn báo giá của các đơn kèm yêu cầu; null khi unit test dựng tay (không điền hạn). */
+    @Autowired(required = false)
+    private HanBaoGia hanBaoGia;
 
     public YeuCauMuaHangService(YeuCauMuaHangRepository repository) {
         super(repository);
@@ -366,6 +369,23 @@ public class YeuCauMuaHangService extends BaseServiceImpl<YeuCauMuaHang, Integer
                         dto.setLyDoTuChoi(lichSu.getGhiChu());
                     }
                 });
+        return dto;
+    }
+
+    /**
+     * API chi tiết: hạn báo giá của các đơn kèm yêu cầu (đơn đã lọc theo phạm vi nằm trong dto), số ngày chờ báo giá
+     * đang cấu hình và hạn nếu gửi ngay lúc này (màn Gửi yêu cầu báo giá).
+     */
+    @Transactional(readOnly = true)
+    public YeuCauMuaHangDto boSungHanBaoGia(YeuCauMuaHangDto dto, YeuCauMuaHang yeuCau) {
+        if (dto == null || hanBaoGia == null) return dto;
+        Instant now = Instant.now();
+        int soNgay = hanBaoGia.soNgay();
+        dto.setSoNgayBaoGia(soNgay);
+        dto.setHanBaoGiaNeuGui(HanBaoGia.hanKhiGui(now, soNgay));
+        if (yeuCau != null && yeuCau.getDonMuaHangs() != null && dto.getDonMuaHangs() != null) {
+            hanBaoGia.boSung(dto.getDonMuaHangs(), yeuCau.getDonMuaHangs(), now);
+        }
         return dto;
     }
 }

@@ -49,6 +49,16 @@ public class DonMuaHangDto implements Serializable {
      */
     Boolean chuaGuiDuocYeuCau;
     /**
+     * Máy chủ tính (HanBaoGia.boSung): hạn nhà cung cấp được báo giá, tính đến hết ngày (giờ Việt Nam). Chỉ có ở đơn đã
+     * gửi yêu cầu báo giá và chỉ điền ở các API danh sách / chi tiết đơn mua và chi tiết yêu cầu nhập hàng.
+     */
+    java.time.LocalDate hanBaoGia;
+    /**
+     * Đơn còn ở 2, chưa báo giá mà đã qua hạn: màn hiện Hết hạn ngay, không đợi lượt xét hạn (8:00) đổi trạng thái sang
+     * 8. Đơn đã ở 8 thì cờ này false (đọc trạng thái).
+     */
+    Boolean quaHanBaoGia;
+    /**
      * Đơn đã đóng (6) / đã hủy (7): lý do, lúc và họ tên người thao tác lần gần nhất, lấy từ lich_su_thay_doi
      * (DonMuaHangService.boSungKetThuc). Chỉ điền ở API chi tiết; đơn khác để null.
      */

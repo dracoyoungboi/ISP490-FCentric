@@ -42,6 +42,15 @@ public interface IHanhDong {
             // ghi_chu = lý do bắt buộc): đóng khi nhà cung cấp giao thiếu (6), hủy khi chưa nhận gì (7)
             dong_don_mua_hang = "dong_don_mua_hang",
             huy_don_mua_hang = "huy_don_mua_hang",
+            // Hạn báo giá của đơn mua (loai_tham_chieu = don_mua_hang). BA chốt không thêm cột nên hạn chỉ lưu ở đây, xem
+            // HanBaoGia: dat_han_bao_gia lúc gửi yêu cầu (gia_tri_moi = ngày hạn yyyy-MM-dd); nhac_han_bao_gia lúc gửi
+            // email nhắc; het_han_bao_gia khi đơn sang Hết hạn (gia_tri_cu / gia_tri_moi = trạng thái, ghi_chu = lý do)
+            dat_han_bao_gia = "dat_han_bao_gia",
+            nhac_han_bao_gia = "nhac_han_bao_gia",
+            het_han_bao_gia = "het_han_bao_gia",
+            // Yêu cầu nhập hàng về Đã duyệt vì mọi đơn báo giá đã kết thúc mà chưa chọn nhà cung cấp (loai_tham_chieu =
+            // yeu_cau_mua_hang, gia_tri_cu / gia_tri_moi = trạng thái, ghi_chu = lý do)
+            mo_lai_yeu_cau_mua_hang = "mo_lai_yeu_cau_mua_hang",
             cap_nhat_kenh_ban = "cap_nhat_kenh_ban",
             dong_bo_san_pham = "dong_bo_san_pham",
             dong_bo_ton_kho = "dong_bo_ton_kho",

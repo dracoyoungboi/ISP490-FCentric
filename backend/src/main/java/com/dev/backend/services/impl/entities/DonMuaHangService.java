@@ -6,6 +6,7 @@ import com.dev.backend.constant.enums.FilterOperation;
 import org.springframework.data.domain.Page;
 import com.dev.backend.constant.enums.TrangThaiPhieuNhap;
 import com.dev.backend.constant.variables.IHanhDong;
+import com.dev.backend.constant.variables.INguonNhatKy;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.constant.variables.ITable;
 import com.dev.backend.dto.ApplicationRequestObj;
@@ -74,6 +75,11 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     public static final int TRANG_THAI_DA_DONG = 6;
     /** Đã hủy: đơn đang vận chuyển chưa nhận đợt nào, nhà cung cấp không giao. Không còn tính là "đang về". */
     public static final int TRANG_THAI_DA_HUY = 7;
+    /**
+     * Hết hạn: tới hạn báo giá (HanBaoGia) mà nhà cung cấp chưa báo giá. Lượt xét hạn mỗi giờ ghi trạng thái này; từ 0:00
+     * ngày sau hạn tới lúc đó các màn đã hiện Hết hạn theo cờ quaHanBaoGia, cổng đã chặn gửi.
+     */
+    public static final int TRANG_THAI_HET_HAN = 8;
     /** Lý do đóng / hủy đơn (bắt buộc), nối vào ghi chú đơn. FE chi tiết đơn mua giữ cùng giá trị. */
     public static final int LY_DO_KET_THUC_TOI_DA = 255;
 
@@ -144,6 +150,9 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
     private LichSuThayDoiService lichSuThayDoiService;
     @Autowired
     private LichSuThayDoiRepository lichSuThayDoiRepository;
+    /** Hạn báo giá; null khi unit test dựng tay (không chốt hạn, không chặn theo hạn). */
+    @Autowired(required = false)
+    private HanBaoGia hanBaoGia;
 
     /**
      * Phạm vi xem đơn mua: quản trị viên và nhân viên mua hàng xem mọi đơn (mua hàng là việc chung của công ty); quản lý
@@ -484,6 +493,9 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
             // Email nhà cung cấp của đơn vừa đổi: phiên mở bằng email cũ không còn dùng được
             throw phienHetHan();
         }
+        // Qua hạn báo giá (từ 0:00 ngày sau hạn) thì không nhận báo giá mới, kể cả sửa báo giá đã gửi: mọi nhà cung cấp
+        // cạnh tranh cùng một mốc. Lượt xét hạn 8:00 mới đổi trạng thái, nên kiểm theo giờ ở đây.
+        kiemConHanBaoGia(don, now);
 
         String ghiChu = baoGia.getGhiChu() == null || baoGia.getGhiChu().isBlank() ? null : baoGia.getGhiChu().trim();
         if (ghiChu != null && ghiChu.length() > GHI_CHU_NCC_TOI_DA) {
@@ -583,6 +595,18 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
                 .emailXacNhan(emailXacNhan)
                 .build();
     }
+
+    /** 409 DON_KHONG_CON_NHAN kèm câu "đã hết hạn lúc 23:59 ngày …" khi đơn đã qua hạn báo giá. */
+    private void kiemConHanBaoGia(DonMuaHang don, Instant now) {
+        if (hanBaoGia == null) return;
+        HanBaoGia.Han han = hanBaoGia.hanCua(don);
+        if (han != null && HanBaoGia.daQuaHan(han.ngay(), now)) {
+            throw new LoiCoMaException(HttpStatus.CONFLICT, MaLoi.DON_KHONG_CON_NHAN,
+                    ThongDiep.of("sanPhamMuaHang.baoGiaDaHetHan", don.getSoDonMua(), NGAY_VN.format(han.ngay())));
+        }
+    }
+
+    private static final java.time.format.DateTimeFormatter NGAY_VN = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     /**
      * ngayBaoGia của lần gửi này: giờ hiện tại cắt về giây, nhưng luôn lớn hơn lần báo giá trước ít nhất 1 giây. Gửi
@@ -760,7 +784,144 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
             donMuaHangRepository.save(don);
             emailNghiepVuService.guiKetQuaBaoGia(don);
             if (thongBaoMuaHangService != null) thongBaoMuaHangService.daXetBaoGia(don, List.of(), false, nguoiChot);
+            // Báo giá cuối cùng còn chờ: yêu cầu về Đã duyệt để gửi nhà cung cấp khác
+            moLaiYeuCauNeuHetDonCho(yeuCau, cacDon, nguoiChot, dongHo.instant(), LY_DO_MO_LAI_KHONG_CHAP_NHAN);
         }
+    }
+
+    // =====================================================================================================
+    // Hạn báo giá: nhắc trước hạn, hết hạn, yêu cầu về Đã duyệt khi mọi đơn đã kết thúc
+    // =====================================================================================================
+
+    /** Lý do ghi lịch sử khi yêu cầu về Đã duyệt (dữ liệu, giữ tiếng Việt). */
+    // i18n-giu-nguyen: ghi vào lich_su_thay_doi, không hiện nguyên văn ra giao diện
+    static final String LY_DO_MO_LAI_KHONG_CHAP_NHAN = "Không còn báo giá nào chờ xét, chưa chọn nhà cung cấp";
+    // i18n-giu-nguyen: ghi vào lich_su_thay_doi
+    static final String LY_DO_MO_LAI_HET_HAN = "Các yêu cầu báo giá còn lại đã hết hạn, chưa chọn nhà cung cấp";
+    // i18n-giu-nguyen: ghi vào lich_su_thay_doi (lý do đơn hết hạn)
+    static final String LY_DO_HET_HAN_CHUA_GUI_EMAIL = "Email yêu cầu báo giá chưa tới nhà cung cấp";
+    // i18n-giu-nguyen: ghi vào lich_su_thay_doi (đơn gửi trước khi có hạn, hết hạn không gửi email)
+    static final String LY_DO_HET_HAN_DON_CU = "Đơn gửi trước khi có hạn báo giá";
+
+    /** Kết quả xét hạn một đơn (lượt chạy mỗi giờ ghi log, test kiểm). */
+    public enum KetQuaXetHan { KHONG_DOI, DA_NHAC, HET_HAN }
+
+    /**
+     * Yêu cầu về Đã duyệt khi không còn đơn nào chờ báo giá hay chờ xét (không đơn nào ở 2) và chưa chọn nhà cung cấp
+     * (không đơn nào đã chốt). Yêu cầu và các đơn phải đang được khóa bởi nơi gọi. Ghi lịch sử của yêu cầu. Trả true nếu
+     * đã đổi.
+     */
+    boolean moLaiYeuCauNeuHetDonCho(YeuCauMuaHang yeuCau, List<DonMuaHang> cacDon, NguoiDung nguoi, Instant luc,
+                                    String lyDo) {
+        if (yeuCau == null || !Objects.equals(yeuCau.getTrangThai(), YeuCauMuaHangService.TRANG_THAI_DA_GUI_BAO_GIA)) {
+            return false;
+        }
+        boolean conCho = cacDon.stream().anyMatch(d -> Objects.equals(d.getTrangThai(), TRANG_THAI_CHO_BAO_GIA));
+        boolean daChon = cacDon.stream().anyMatch(d -> daChot(d.getTrangThai()));
+        if (conCho || daChon || cacDon.isEmpty()) return false;
+        yeuCau.setTrangThai(YeuCauMuaHangService.TRANG_THAI_DA_DUYET);
+        yeuCauMuaHangService.create(yeuCau);
+        lichSuThayDoiService.create(LichSuThayDoi.builder()
+                .loaiThamChieu(YeuCauMuaHangService.LOAI_THAM_CHIEU)
+                .idThamChieu(yeuCau.getId())
+                .maDoiTuong(yeuCau.getSoYeuCauMuaHang())
+                .kho(yeuCau.getKhoNhap())
+                .hanhDong(IHanhDong.mo_lai_yeu_cau_mua_hang)
+                .giaTriCu(String.valueOf(YeuCauMuaHangService.TRANG_THAI_DA_GUI_BAO_GIA))
+                .giaTriMoi(String.valueOf(YeuCauMuaHangService.TRANG_THAI_DA_DUYET))
+                .nguoiThucHien(nguoi)
+                .nguon(nguoi == null ? INguonNhatKy.he_thong : INguonNhatKy.nguoi_dung)
+                .ngayThucHien(luc)
+                .ghiChu(lyDo)
+                .build());
+        return true;
+    }
+
+    /**
+     * Xét hạn một đơn còn chờ báo giá (lượt chạy mỗi giờ, mỗi đơn một giao dịch). Khóa yêu cầu rồi các đơn (cùng thứ tự
+     * với xét báo giá, nhà cung cấp gửi báo giá), kiểm lại đơn vẫn ở 2, chưa báo giá, yêu cầu còn mở.
+     * - Chưa tới hạn: tới mốc nhắc (8:00 ngày trước hạn), chưa nhắc và lúc gửi trước mốc nhắc thì gửi email nhắc, ghi
+     *   đã nhắc (đơn gửi trước khi có hạn cũng được nhắc: thư nhắc là lần đầu nhà cung cấp biết hạn).
+     * - Qua hạn: đơn sang Hết hạn (8), ghi lịch sử (lý do: email chưa tới / đơn cũ). Nhà cung cấp đã biết hạn (hạn đã chốt
+     *   trong E4, hoặc đã nhận thư nhắc) thì gửi email hết hạn và thông báo người gửi yêu cầu; đơn cũ chưa từng được báo
+     *   hạn (quá hạn ngay lúc triển khai) thì im lặng. Không còn đơn chờ thì yêu cầu về Đã duyệt.
+     */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public KetQuaXetHan xetHanBaoGia(Integer donId, Instant now) {
+        if (donId == null || hanBaoGia == null) return KetQuaXetHan.KHONG_DOI;
+        int yeuCauId = donMuaHangRepository.layIdYeuCau(donId).orElse(0);
+        if (yeuCauId == 0) return KetQuaXetHan.KHONG_DOI;
+        YeuCauMuaHang yeuCau = khoaYeuCau(yeuCauId);
+        if (yeuCau == null) return KetQuaXetHan.KHONG_DOI;
+        List<DonMuaHang> cacDon = khoaCacDonCuaYeuCau(yeuCauId);
+        DonMuaHang don = cacDon.stream().filter(d -> donId.equals(d.getId())).findFirst().orElse(null);
+        if (don == null || !Objects.equals(don.getTrangThai(), TRANG_THAI_CHO_BAO_GIA) || don.getNgayBaoGia() != null
+                || !yeuCauConMo(yeuCau, cacDon)) {
+            return KetQuaXetHan.KHONG_DOI;
+        }
+        HanBaoGia.Han han = hanBaoGia.hanCua(don);
+        if (han == null) return KetQuaXetHan.KHONG_DOI;
+
+        if (!HanBaoGia.daQuaHan(han.ngay(), now)) {
+            Instant nhacLuc = HanBaoGia.nhacLuc(han.ngay());
+            Instant guiLuc = HanBaoGia.guiLuc(don);
+            if (!now.isBefore(nhacLuc) && guiLuc != null && guiLuc.isBefore(nhacLuc)
+                    && !hanBaoGia.daNhac(don.getId())) {
+                emailNghiepVuService.guiNhacHanBaoGia(don, han.ngay());
+                hanBaoGia.ghiDaNhac(don, han.ngay(), now);
+                return KetQuaXetHan.DA_NHAC;
+            }
+            return KetQuaXetHan.KHONG_DOI;
+        }
+
+        boolean emailDaToi = don.getNgayGuiYeuCau() != null;
+        // Nhà cung cấp đã biết hạn: hạn in trong E4 (đã chốt) hoặc đã nhận thư nhắc
+        boolean daBietHan = han.daChot() || hanBaoGia.daNhac(don.getId());
+        don.setTrangThai(TRANG_THAI_HET_HAN);
+        donMuaHangRepository.save(don);
+        lichSuThayDoiService.create(LichSuThayDoi.builder()
+                .loaiThamChieu(ITable.don_mua_hang)
+                .idThamChieu(don.getId())
+                .maDoiTuong(don.getSoDonMua())
+                .kho(don.getKhoNhap())
+                .hanhDong(IHanhDong.het_han_bao_gia)
+                .giaTriCu(String.valueOf(TRANG_THAI_CHO_BAO_GIA))
+                .giaTriMoi(String.valueOf(TRANG_THAI_HET_HAN))
+                .nguon(INguonNhatKy.he_thong)
+                .ngayThucHien(now)
+                .ghiChu(!daBietHan ? LY_DO_HET_HAN_DON_CU : emailDaToi ? null : LY_DO_HET_HAN_CHUA_GUI_EMAIL)
+                .build());
+        // Đơn cũ chưa từng được báo hạn hết hạn im lặng; email chưa từng tới nhà cung cấp thì báo hết hạn cũng vô ích
+        if (daBietHan && emailDaToi) {
+            emailNghiepVuService.guiHetHanBaoGia(don, han.ngay());
+        }
+        boolean veDaDuyet = moLaiYeuCauNeuHetDonCho(yeuCau, cacDon, null, now, LY_DO_MO_LAI_HET_HAN);
+        if (thongBaoMuaHangService != null && daBietHan) {
+            thongBaoMuaHangService.hetHanBaoGia(don, yeuCau, han.ngay(), veDaDuyet);
+        }
+        return KetQuaXetHan.HET_HAN;
+    }
+
+    /** Danh sách đơn còn chờ nhà cung cấp báo giá (lượt xét hạn duyệt lần lượt, mỗi đơn một giao dịch). */
+    @Transactional(readOnly = true)
+    public List<Integer> idDonChoBaoGia() {
+        return donMuaHangRepository.idChoBaoGia();
+    }
+
+    /** Điền hạn báo giá vào DTO chi tiết đơn mua. */
+    @Transactional(readOnly = true)
+    public DonMuaHangDto boSungHanBaoGia(DonMuaHangDto dto) {
+        if (dto == null || dto.getId() == null || hanBaoGia == null) return dto;
+        donMuaHangRepository.findById(dto.getId())
+                .ifPresent(don -> hanBaoGia.boSung(List.of(dto), List.of(don), dongHo.instant()));
+        return dto;
+    }
+
+    /** Điền hạn báo giá cho một trang danh sách đơn mua (DTO và entity cùng trang). */
+    @Transactional(readOnly = true)
+    public void boSungHanBaoGia(Collection<DonMuaHangDto> dtos, Collection<DonMuaHang> dons) {
+        if (hanBaoGia == null) return;
+        hanBaoGia.boSung(dtos, dons, dongHo.instant());
     }
 
     // =====================================================================================================
@@ -1062,6 +1223,8 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
 
         // Cùng đồng hồ với cờ chuaGuiDuocYeuCau / gửi lại (mốc 5 phút tính từ ngày đặt khi chưa có ngay_tao)
         Instant now = dongHo.instant();
+        // Hạn báo giá chốt cho cả lần gửi (mọi nhà cung cấp cùng một mốc), ghi vào lịch sử của từng đơn
+        java.time.LocalDate han = hanBaoGia == null ? null : HanBaoGia.hanKhiGui(now, hanBaoGia.soNgay());
         //duyệt qua danh sách nhà cung cấp đã kiểm tra
         for (NhaCungCap nhaCungCap : danhSachNhaCungCap) {
             //tạo đơn báo giá cho từng nhà cung cấp
@@ -1094,9 +1257,10 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
 
             //truyền chi tiết danh sách đơn mua hàng vào đơn mua hàng
             donMuaHang.setChiTietDonMuaHangs(chiTietDonMuaHangs);
+            if (han != null) hanBaoGia.chot(donMuaHang, han, nguoiDung, now);
             // E4: dựng dữ liệu ngay (đơn và dòng đã có id), gửi sau commit; gửi được thì ghi ngay_gui_yeu_cau.
             // Nhà cung cấp này lỗi không ảnh hưởng nhà cung cấp khác; rollback thì không ai nhận email.
-            emailNghiepVuService.guiYeuCauBaoGia(donMuaHang);
+            emailNghiepVuService.guiYeuCauBaoGia(donMuaHang, han);
         }
         // Giữ NGUYÊN mã yêu cầu (PR...) — không ghi đè bằng mã RFQ ngẫu nhiên
         // nữa; yêu cầu cũ chưa có mã thì bổ sung mã PR. Cập nhật trạng thái
@@ -1190,6 +1354,11 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
         if (don.getNhaCungCap() == null || blankToNull(don.getNhaCungCap().getEmail()) == null) {
             throw khongGuiLaiDuoc(ThongDiep.of("sanPhamMuaHang.guiLaiNccChuaCoEmail"));
         }
+        // Qua hạn báo giá: nhà cung cấp không gửi được báo giá nữa nên gửi lại thư cũng vô ích
+        HanBaoGia.Han han = hanBaoGia == null ? null : hanBaoGia.hanCua(don);
+        if (han != null && HanBaoGia.daQuaHan(han.ngay(), now)) {
+            throw khongGuiLaiDuoc(ThongDiep.of("sanPhamMuaHang.guiLaiDaHetHan", NGAY_VN.format(han.ngay())));
+        }
 
         boolean[] duocGui = {false};
         Instant lanTruoc = GlobalCache.GUI_LAI_YEU_CAU.compute(id, (k, truoc) -> {
@@ -1202,8 +1371,9 @@ public class DonMuaHangService extends BaseServiceImpl<DonMuaHang, Integer> {
             throw khongGuiLaiDuoc(ThongDiep.of("sanPhamMuaHang.guiLaiVuaGuiLai", cho));
         }
 
-        // E4 đọc dòng của đơn: don là entity đã nạp lại sau khi khóa, danh sách dòng nạp từ CSDL (@OrderBy id)
-        emailNghiepVuService.guiYeuCauBaoGia(don);
+        // E4 đọc dòng của đơn: don là entity đã nạp lại sau khi khóa, danh sách dòng nạp từ CSDL (@OrderBy id). Hạn
+        // giữ như lần gửi đầu (chỉ đơn đã chốt hạn mới in hạn trong thư)
+        emailNghiepVuService.guiYeuCauBaoGia(don, han != null && han.daChot() ? han.ngay() : null);
         return GuiLaiYeuCauDto.builder().daDuaVaoHangDoi(true).build();
     }
 

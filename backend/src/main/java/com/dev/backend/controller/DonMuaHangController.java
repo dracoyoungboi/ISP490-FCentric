@@ -42,7 +42,8 @@ public class DonMuaHangController {
                         .status(HttpStatus.OK.value())
                         // Kiểm phạm vi kho nhập theo vai trò (quản lý kho, nhân viên kho chỉ thấy kho mình); đơn đã đóng /
                         // đã hủy kèm lý do, lúc, người thao tác
-                        .data(donMuaHangService.boSungKetThuc(donMuaHangMapper.toDto(donMuaHangService.layDuocXem(id))))
+                        .data(donMuaHangService.boSungHanBaoGia(donMuaHangService.boSungKetThuc(
+                                donMuaHangMapper.toDto(donMuaHangService.layDuocXem(id)))))
                         .build()
         );
     }
@@ -58,9 +59,12 @@ public class DonMuaHangController {
             rolesLogic = RequireAuth.LogicType.OR
     )
     public ResponseEntity<ResponseData<Page<DonMuaHangDto>>> filter(@RequestBody BaseFilterRequest filter) {
-        Page<DonMuaHangDto> trang = donMuaHangMapper.toDtoPage(donMuaHangService.filter(filter));
+        Page<com.dev.backend.entities.DonMuaHang> trangGoc = donMuaHangService.filter(filter);
+        Page<DonMuaHangDto> trang = donMuaHangMapper.toDtoPage(trangGoc);
         // Số phải trả (trừ hàng lỗi, đóng thiếu) cho cả trang: danh sách đơn mua và tab Đơn mua của nhà cung cấp
         donMuaHangService.boSungPhaiTra(trang.getContent());
+        // Hạn báo giá (đơn đã gửi yêu cầu): cột trạng thái hiện Hết hạn theo giờ
+        donMuaHangService.boSungHanBaoGia(trang.getContent(), trangGoc.getContent());
         return ResponseEntity.ok(
                 ResponseData.<Page<DonMuaHangDto>>builder()
                         .status(HttpStatus.OK.value())

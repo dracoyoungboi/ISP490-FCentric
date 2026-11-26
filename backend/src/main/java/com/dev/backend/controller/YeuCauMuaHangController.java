@@ -31,16 +31,16 @@ public class YeuCauMuaHangController {
     @GetMapping("/get-by-id/{id}")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_mua_hang})
     public ResponseEntity<ResponseData<YeuCauMuaHangDto>> getById(@PathVariable Integer id) {
+        com.dev.backend.entities.YeuCauMuaHang yeuCau = yeuCauMuaHangService.getOne(id).orElseThrow(
+                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.yeuCauMuaKhongTimThay", id)));
+        YeuCauMuaHangDto dto = locDonMua(yeuCauMuaHangService.boSungThongTinDuyet(yeuCauMuaHangMapper.toDto(yeuCau)));
+        // Hạn báo giá của từng đơn kèm theo, và hạn nếu gửi ngay (màn Gửi yêu cầu báo giá)
+        yeuCauMuaHangService.boSungHanBaoGia(dto, yeuCau);
         return ResponseEntity.ok(
                 ResponseData.<YeuCauMuaHangDto>builder()
                         .status(HttpStatus.OK.value())
                         .message("Success")
-                        .data(
-                                locDonMua(yeuCauMuaHangService.boSungThongTinDuyet(
-                                        yeuCauMuaHangMapper.toDto(yeuCauMuaHangService.getOne(id).orElseThrow(
-                                                () -> new CommonException(ThongDiep.of("sanPhamMuaHang.yeuCauMuaKhongTimThay", id))
-                                        ))))
-                        )
+                        .data(dto)
                         .build()
         );
     }
@@ -56,10 +56,16 @@ public class YeuCauMuaHangController {
     @PostMapping("/filter")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho, IRoleType.nhan_vien_mua_hang})
     public ResponseEntity<ResponseData<Page<YeuCauMuaHangDto>>> filter(@RequestBody BaseFilterRequest filter) {
+        Page<com.dev.backend.entities.YeuCauMuaHang> trangGoc = yeuCauMuaHangService.filter(filter);
+        Page<YeuCauMuaHangDto> trang = yeuCauMuaHangMapper.toDtoPage(trangGoc).map(this::locDonMua);
+        // Hạn báo giá của các đơn kèm theo: danh sách yêu cầu báo giá hiện Hết hạn theo giờ
+        for (int i = 0; i < trang.getContent().size() && i < trangGoc.getContent().size(); i++) {
+            yeuCauMuaHangService.boSungHanBaoGia(trang.getContent().get(i), trangGoc.getContent().get(i));
+        }
         return ResponseEntity.ok(
                 ResponseData.<Page<YeuCauMuaHangDto>>builder()
                         .status(HttpStatus.OK.value())
-                        .data(yeuCauMuaHangMapper.toDtoPage(yeuCauMuaHangService.filter(filter)).map(this::locDonMua))
+                        .data(trang)
                         .message("Success")
                         .build()
         );

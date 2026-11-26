@@ -35,4 +35,10 @@ public class YeuCauMuaHangDto implements Serializable {
     String lyDoTuChoi;
     Instant ngayDuyet;
     List<DonMuaHangDto> donMuaHangs;
+    /**
+     * Chỉ điền ở API chi tiết: số ngày chờ báo giá đang cấu hình và hạn báo giá nếu gửi yêu cầu ngay lúc này (màn Gửi yêu
+     * cầu báo giá hiện trước cho người mua). Xem HanBaoGia.
+     */
+    Integer soNgayBaoGia;
+    java.time.LocalDate hanBaoGiaNeuGui;
 }

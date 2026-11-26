@@ -33,6 +33,15 @@ public interface LichSuThayDoiRepository extends JpaRepository<LichSuThayDoi, In
     List<Integer> idCoHanhDong(@Param("loai") String loaiThamChieu, @Param("ids") Collection<Integer> idThamChieus,
                                @Param("hanhDong") String hanhDong);
 
+    /**
+     * (id tham chiếu, giá trị mới) của các dòng một hành động trên nhiều đối tượng cùng loại, mới nhất trước: nơi gọi lấy
+     * dòng đầu của từng id (hạn báo giá đã chốt của các đơn mua, xem HanBaoGia).
+     */
+    @Query("SELECT l.idThamChieu, l.giaTriMoi FROM LichSuThayDoi l WHERE l.loaiThamChieu = :loai"
+            + " AND l.hanhDong = :hanhDong AND l.idThamChieu IN :ids ORDER BY l.id DESC")
+    List<Object[]> giaTriMoiTheoHanhDong(@Param("loai") String loaiThamChieu, @Param("ids") Collection<Integer> idThamChieus,
+                                         @Param("hanhDong") String hanhDong);
+
     /** Mọi dòng lịch sử của một đối tượng, mới nhất trước (thẻ Lịch sử ở trang chi tiết). */
     @EntityGraph(attributePaths = {"nguoiThucHien", "kho"})
     List<LichSuThayDoi> findByLoaiThamChieuAndIdThamChieuOrderByNgayThucHienDescIdDesc(

@@ -58,6 +58,13 @@ public interface DonMuaHangRepository extends JpaRepository<DonMuaHang, Integer>
             + "order by d.ngayDatHang desc, d.id desc")
     List<DonMuaHang> choCongNhaCungCap(@Param("nccIds") java.util.Collection<Integer> nhaCungCapIds);
 
+    /**
+     * Đơn còn chờ nhà cung cấp báo giá (ở 2, chưa có báo giá), cũ trước: lượt xét hạn báo giá mỗi giờ (nhắc, hết hạn).
+     * Mỗi đơn xét lại trong giao dịch riêng có khóa, nên danh sách này không cần khóa.
+     */
+    @Query("select d.id from DonMuaHang d where d.trangThai = 2 and d.ngayBaoGia is null order by d.id")
+    List<Integer> idChoBaoGia();
+
     /** Số đơn mua hàng / yêu cầu báo giá (mọi trạng thái) của một nhà cung cấp — dùng khi kiểm tra xóa nhà cung cấp. */
     long countByNhaCungCap_Id(Integer nhaCungCapId);
 
