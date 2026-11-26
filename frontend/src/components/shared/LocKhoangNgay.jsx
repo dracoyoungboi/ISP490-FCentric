@@ -30,7 +30,7 @@ function NoiDung({ id, tuNgay, denNgay, onChon, dong, trongSheet }) {
     trongSheet ? "h-10" : "h-9",
     hienLoi ? "border-red-500 focus:border-red-500" : "border-bo-input-border focus:border-bo-primary",
   );
-  const NHAN_O = trongSheet ? "text-sm text-bo-foreground" : "text-[13px] text-bo-foreground";
+  const NHAN_O = trongSheet ? "text-sm text-bo-foreground" : "text-[13px] leading-4 font-medium text-slate-700";
 
   return (
     <div className={cn("grid", trongSheet ? "gap-4" : "")}>
@@ -54,7 +54,7 @@ function NoiDung({ id, tuNgay, denNgay, onChon, dong, trongSheet }) {
                 "flex items-center justify-between text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-bo-primary",
                 trongSheet
                   ? "min-h-12 border-t border-bo-border px-3.5 text-[15px] first:border-t-0"
-                  : "h-8 rounded-md px-2.5 text-sm",
+                  : "h-9 rounded-md px-2.5 text-sm",
                 chon
                   ? "bg-bo-primary-soft font-medium text-bo-primary-strong"
                   : cn("text-slate-700", !trongSheet && "hover:bg-slate-100"),
@@ -66,9 +66,12 @@ function NoiDung({ id, tuNgay, denNgay, onChon, dong, trongSheet }) {
           );
         })}
       </div>
-      <div className={cn("grid gap-2.5", !trongSheet && "-mx-1.5 mt-1.5 border-t border-bo-border px-3 pb-1.5 pt-2.5")}>
-        <p className="text-xs font-semibold text-bo-muted">{t("Khoảng tùy chọn")}</p>
-        <div className="grid gap-1">
+      {/* Chữ, ô ngày và nút cùng thẳng mép chữ của kỳ nhanh (16px từ mép hộp); vạch chia chạy hết bề ngang hộp */}
+      <div className={cn("grid", trongSheet ? "gap-2.5" : "-mx-1.5 mt-1.5 gap-3 border-t border-bo-border px-4 pb-2.5 pt-3")}>
+        <p className={trongSheet ? "text-xs font-semibold text-bo-muted" : "text-[11px] font-semibold uppercase tracking-wide text-bo-muted"}>
+          {t("Khoảng tùy chọn")}
+        </p>
+        <div className={cn("grid", trongSheet ? "gap-1" : "gap-1.5")}>
           <label htmlFor={`${id}-tu`} className={NHAN_O}>{t("Từ ngày")}</label>
           <input
             id={`${id}-tu`}
@@ -83,7 +86,7 @@ function NoiDung({ id, tuNgay, denNgay, onChon, dong, trongSheet }) {
             className={O_NGAY}
           />
         </div>
-        <div className="grid gap-1">
+        <div className={cn("grid", trongSheet ? "gap-1" : "gap-1.5")}>
           <label htmlFor={`${id}-den`} className={NHAN_O}>{t("Đến ngày")}</label>
           <input
             id={`${id}-den`}
@@ -121,9 +124,10 @@ function NoiDung({ id, tuNgay, denNgay, onChon, dong, trongSheet }) {
  * 7 ngày qua, Tháng này, Tháng trước) và khoảng tùy chọn có kiểm (từ ≤ đến, không sau hôm nay, bỏ trống một đầu được).
  * Giá trị là chuỗi yyyy-mm-dd ("" = không giới hạn đầu đó); `onDoi({ tuNgay, denNgay })` chỉ gọi khi hợp lệ.
  * Bỏ lọc bằng "Tất cả thời gian" hoặc nút "Xóa lọc" của thanh lọc, nên ô không có × riêng (giống các ô chọn khác).
+ * `canHop`: hộp mở căn theo mép trái ("start") hay phải ("end", khi ô nằm cuối hàng công cụ).
  * Trong sheet "Bộ lọc" (điện thoại) hiện thẳng danh sách kỳ và hai ô ngày; ListToolbar tạo chip bỏ lọc.
  */
-export default function LocKhoangNgay({ nhan, tuNgay = "", denNgay = "", onDoi, className }) {
+export default function LocKhoangNgay({ nhan, tuNgay = "", denNgay = "", onDoi, className, canHop = "start" }) {
   const id = useId();
   const [mo, setMo] = useState(false);
   const trongSheet = useContext(LocTrongSheetContext);
@@ -159,7 +163,7 @@ export default function LocKhoangNgay({ nhan, tuNgay = "", denNgay = "", onDoi, 
           <ChevronDown className="size-4 shrink-0 opacity-60" aria-hidden="true" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" sideOffset={6} className="w-64 border-bo-border bg-bo-surface p-1.5 text-bo-foreground shadow-lg">
+      <PopoverContent align={canHop} sideOffset={6} className="w-[272px] border-bo-border bg-bo-surface p-1.5 text-bo-foreground shadow-lg">
         {mo ? <NoiDung id={id} tuNgay={tuNgay} denNgay={denNgay} onChon={onDoi} dong={() => setMo(false)} /> : null}
       </PopoverContent>
     </Popover>
