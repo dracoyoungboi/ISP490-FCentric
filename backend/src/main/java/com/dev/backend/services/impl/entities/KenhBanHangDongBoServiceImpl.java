@@ -170,12 +170,14 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     final Object shopifyTonKhoLock = new Object();
     @lombok.experimental.NonFinal
     volatile boolean shopifyTonKhoCacheHydrated = false;
+    // Bộ nhớ đệm danh mục kho theo từng sàn (TTL 5 phút) để tránh gọi API getWarehouses liên tục.
     private record CachedWarehouseLocations(List<ShopifyLocationDto> locations, Instant expiresAt) {}
     private static final Duration WAREHOUSE_CACHE_TTL = Duration.ofMinutes(5);
     final Map<String, CachedWarehouseLocations> lazadaWarehouseCache = new ConcurrentHashMap<>();
     final Map<String, CachedWarehouseLocations> tiktokWarehouseCache = new ConcurrentHashMap<>();
     final Map<String, CachedWarehouseLocations> shopeeWarehouseCache = new ConcurrentHashMap<>();
 
+    // Bộ nhớ đệm catalog sản phẩm TikTok (TTL 30 phút): ánh xạ SKU -> ProductId/SkuId/Inventories để tránh gọi phân trang searchProducts lặp lại.
     private record DongCanCapNhat(TrangThaiDongBoSanPham dong, int soDay, String skuSan, String sellerSku) {
         public String skuId() {
             return skuSan;
@@ -3803,6 +3805,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return page.map(item -> toLienKetDto(item, khaDung, seDay, anhTheoSanPham, anhTheoBienThe));
     }
 
+    /**
+     * Truy vấn phân trang danh sách sản phẩm đã/chưa liên kết trên sàn theo nhóm Sản phẩm cha -> danh sách biến thể SKU:
+     * tính tồn khả dụng nội bộ + số lượng dự kiến sẽ đẩy lên sàn theo từng quy tắc kho/buffer của kênh.
+     */
     @Override
     @Transactional(readOnly = true)
     public Page<NhomLienKetDto> filterLienKetTheoSanPham(String maKenh, String search, String trangThai, Pageable pageable) {
@@ -4228,6 +4234,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
+    /**
+     * Đẩy tồn kho thủ công hoặc theo quy tắc mặc định lên 1 kênh bán hàng:
+     * giữ ReentrantLock theo từng kenhId (mỗi kênh chỉ 1 đợt đẩy tại 1 thời điểm) để chống trùng request và tránh chạm rate limit sàn.
+     */
     @Override
     public DayTonResultDto dayTonKhoLenKenh(String maKenh, DayTonKenhRequest request) {
         return dayTonKhoLenKenh(maKenh, request, TheoDoiDayTon.KHONG_THEO_DOI);
@@ -5049,6 +5059,12 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .build();
     }
 
+    /**
+     * Lõi đẩy tồn kho sau khi đã giữ ReentrantLock theo kênh:
+     * 1) Phân luồng theo từng sàn (Lazada, TikTok, Shopee hoặc Shopify đơn/đa kho).
+     * 2) Áp dụng Delta Sync (so sánh số sẽ đẩy với soLuongDaDay / cache đa kho để bỏ qua SKU không đổi)
+     *    và cơ chế backoff 60 phút với SKU lỗi để bảo vệ quota API sàn.
+     */
     private DayTonResultDto dayTonKhiDaGiuKhoa(KenhBanHang kenh, String maKenh, DayTonKenhRequest request, TheoDoiDayTon theoDoi) {
         DayTonKenhRequest quyTac = request != null ? request : quyTacDaLuu(maKenh);
         BigDecimal tyLe = quyTac.getTyLeDayTon() != null ? quyTac.getTyLeDayTon() : BigDecimal.valueOf(100);
@@ -5225,6 +5241,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return sb.toString();
     }
 
+    /**
+     * JOB-03 Real-time Critical Push: khi tồn kho SKU tụt xuống <= ngưỡng cảnh báo (rtThreshold),
+     * lập tức đẩy tồn khẩn cấp qua sàn (hỗ trợ cả đa kho Shopify lẫn đơn kho Lazada/TikTok/Shopee)
+     * với telemetry ngữ cảnh JOB_REALTIME_CRITICAL.
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void dayTonKhoKhanCap(Integer bienTheSanPhamId) {
@@ -5293,6 +5314,11 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
+    /**
+     * API tổng quan màn Theo dõi & Bảng điều khiển đồng bộ (ChannelSyncDashboard):
+     * đếm tổng SKU sàn, số đã liên kết thành công/thất bại, chu kỳ quét hiện tại,
+     * mốc đẩy tồn/lấy đơn gần nhất và số đơn TikTok đang có yêu cầu hủy.
+     */
     @Override
     @Transactional(readOnly = true)
     public DongBoTongQuanDto getTongQuan(String maKenh) {
@@ -6473,6 +6499,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return layCauHinhKhoMapping(maKenh, false);
     }
 
+    /**
+     * Lấy cấu hình ánh xạ kho FCentric <-> kho sàn (kèm danh sách kho sàn mới/đang cache và danh sách kho nội bộ hợp lệ):
+     * chỉ Shopify (>= 2 kho) hỗ trợ Đa kho; Shopee/Lazada/TikTok chạy chế độ Đơn kho mặc định.
+     */
     @Override
     @Transactional
     public KenhKhoMappingConfigDto layCauHinhKhoMapping(String maKenh, boolean forceRefresh) {
@@ -6632,6 +6662,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return result;
     }
 
+    /**
+     * Lưu cấu hình ánh xạ kho (loại trừ kho ảo/kho trả hàng RETURN_WAREHOUSE, ép cheDoDaKho=false với sàn ngoài Shopify)
+     * và cập nhật KENH_<MA>_KHO_ID làm kho xuất mặc định khi định tuyến đơn sàn về FCentric.
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public KenhKhoMappingConfigDto luuCauHinhKhoMapping(String maKenh, KenhKhoMappingUpdateRequest request) {
@@ -6975,6 +7009,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return mapToNhatKyDto(tt);
     }
 
+    /**
+     * Kéo đơn hàng thủ công theo khoảng thời gian [tu, den] (mặc định 24h gần nhất) từ sàn tương ứng
+     * (Lazada/Shopee/TikTok/Shopify) thông qua OmnichannelOrderSyncJob và ghi nhật ký đồng bộ.
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public LayDonResultDto layDonHang(String maKenh, LayDonHangKenhRequest request) {
@@ -7014,6 +7052,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .build();
     }
 
+    /**
+     * Nút "Đồng bộ tất cả" toàn hệ thống: duyệt mọi kênh đang bật (trangThai=1),
+     * vừa đẩy tồn kho theo quy tắc đã lưu vừa kéo đơn hàng mới nhất của từng kênh.
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public DayTonResultDto dongBoTatCa() {
@@ -9028,6 +9070,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return null;
     }
 
+    /**
+     * Đẩy số tồn mới của 1 SKU lên TikTok Shop: lấy SALES_WAREHOUSE (loại trừ RETURN_WAREHOUSE),
+     * tra cứu productId/skuId qua bộ nhớ đệm danh mục (TTL 30 phút) để tiết kiệm quota API.
+     */
     KetQuaGuiTon guiTonLenTikTok(TrangThaiDongBoSanPham dong, int soDay) {
         BienTheSanPham bt = dong.getBienTheSanPham();
         String maSku = bt != null ? bt.getMaSku() : null;
@@ -9768,6 +9814,10 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return headers;
     }
 
+    /**
+     * Lắng nghe sự kiện hoàn tồn kho sau khi hủy đơn (AFTER_COMMIT)
+     * để kích hoạt đẩy tồn cập nhật tức thì qua dayTonKhoKhanCap cho SKU vừa được trả lại kho.
+     */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleInventoryRestockedEvent(InventoryRestockedEvent event) {
         if (event == null || event.getBienTheSanPhamId() == null) return;

@@ -11,6 +11,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
+/**
+ * Lớp cầu nối đồng bộ trạng thái xử lý đơn hàng ngược từ FCentric lên sàn TMĐT
+ * (khi đơn được xác nhận đóng gói, xuất kho, giao hàng hoặc cập nhật mã vận đơn).
+ */
 @Service
 @Slf4j
 public class KenhBanHangSyncServiceImpl implements KenhBanHangSyncService {
@@ -28,6 +32,10 @@ public class KenhBanHangSyncServiceImpl implements KenhBanHangSyncService {
         this.kenhBanHangDongBoService = kenhBanHangDongBoService;
     }
 
+    /**
+     * Đẩy trạng thái đơn hàng và thông tin vận đơn (mã vận đơn, đơn vị vận chuyển)
+     * từ nội bộ FCentric ngược lên sàn tương ứng của đơn bán hàng.
+     */
     @Override
     public void pushOrderStatus(Integer donBanHangId, String channelStatus, String maVanDon, String donViVanChuyen) {
         try {

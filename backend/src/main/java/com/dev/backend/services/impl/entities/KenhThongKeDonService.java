@@ -53,6 +53,7 @@ public class KenhThongKeDonService {
         this.clock = clock;
     }
 
+    // Đọc thống kê đơn hàng của 1 kênh trong tối đa 92 ngày (giờ VN) để vẽ biểu đồ cột & đếm theo trạng thái trên Màn 6
     @Transactional(readOnly = true)
     public KenhThongKeDonDto thongKe(String maKenh, String tuNgay, String denNgay) {
         if (maKenh == null || maKenh.isBlank() || maKenh.trim().length() > 50 || !maKenh.trim().matches("[A-Za-z0-9_-]+")) {
@@ -63,6 +64,7 @@ public class KenhThongKeDonService {
                 .or(() -> kenhBanHangRepository.findByMaKenh(ma.toLowerCase()))
                 .orElseThrow(() -> new CommonException(ThongDiep.of("kenhBan.khongTimThayKenhBan", ma), HttpStatus.NOT_FOUND, null));
 
+        // Bước 1: Chốt khoảng ngày [tu, den] mặc định 30 ngày gần nhất và chặn trần 92 ngày tránh quét bảng quá lớn
         LocalDate den = docNgay(denNgay, LocalDate.now(clock.withZone(MUI_GIO)));
         LocalDate tu = docNgay(tuNgay, den.minusDays(SO_NGAY_MAC_DINH - 1L));
         if (tu.isAfter(den)) {
@@ -75,6 +77,7 @@ public class KenhThongKeDonService {
         Instant batDau = tu.atStartOfDay(MUI_GIO).toInstant();
         Instant ketThuc = den.plusDays(1).atStartOfDay(MUI_GIO).toInstant();
 
+        // Bước 2: Khởi tạo sẵn từng ngày trong khoảng (kể cả ngày 0 đơn) để biểu đồ FE không bị thiếu cột
         Map<LocalDate, long[]> dem = new TreeMap<>();
         Map<LocalDate, BigDecimal> tien = new TreeMap<>();
         for (LocalDate d = tu; !d.isAfter(den); d = d.plusDays(1)) {
@@ -82,6 +85,7 @@ public class KenhThongKeDonService {
             tien.put(d, BigDecimal.ZERO);
         }
 
+        // Bước 3: Duyệt đơn kênh từ `don_ban_hang` tách đơn thường (cộng doanh số) và đơn hủy (DA_HUY = 4)
         long tongDon = 0;
         long donHuy = 0;
         BigDecimal doanhSo = BigDecimal.ZERO;

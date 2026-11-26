@@ -51,6 +51,10 @@ public class KenhCauHinhDongBoService {
     LichSuThayDoiService lichSuThayDoiService;
     NguoiDungRepository nguoiDungRepository;
 
+    /**
+     * Đọc cấu hình đồng bộ của 1 kênh bán hàng (bật/tắt tự động đồng bộ tồn kho,
+     * đồng bộ đơn hàng, chu kỳ quét và quy tắc kho) để hiển thị trên màn Cài đặt kênh.
+     */
     @Transactional(readOnly = true)
     public KenhCauHinhDongBoDto layCauHinh(String maKenh) {
         String ma = kiemTraMaKenh(maKenh);
@@ -79,6 +83,10 @@ public class KenhCauHinhDongBoService {
         return cauHinhHeThongRepository.existsById(KenhCauHinhDongBo.khoa(maKenh, ten));
     }
 
+    /**
+     * Lưu cấu hình đồng bộ mới cho kênh bán hàng trong giao dịch ghi DB riêng,
+     * làm nguồn tham chiếu cho các worker chạy nền (tồn kho, đơn hàng).
+     */
     @Transactional(rollbackFor = Exception.class)
     public KenhCauHinhDongBoDto luuCauHinh(String maKenh, KenhCauHinhDongBoRequest request) {
         String ma = kiemTraMaKenh(maKenh);

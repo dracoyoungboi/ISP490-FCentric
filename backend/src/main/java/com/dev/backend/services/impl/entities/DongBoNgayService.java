@@ -90,7 +90,10 @@ public class DongBoNgayService {
         return batDau(maKenh, false);
     }
 
-    /** Bắt đầu một đợt; nếu {@code epDayToanBo = true} sẽ ép đẩy lại toàn bộ SKU bất kể tồn chưa đổi. */
+    /**
+     * Khởi chạy đợt đồng bộ tay trên luồng nền riêng (mỗi kênh tối đa 1 đợt chạy cùng lúc):
+     * kiểm tra kết nối -> lưu phiếu theo dõi `Phien` vào RAM -> đẩy vào ThreadPool rồi trả ngay DTO để FE poll mỗi 1 giây.
+     */
     public DongBoNgayDto batDau(String maKenh, boolean epDayToanBo) {
         String ma = chuanHoaMa(maKenh);
         // Kiểm tra trước khi lập phiếu theo dõi, để mã kênh không có thật không nằm lại trong bộ nhớ
@@ -155,6 +158,7 @@ public class DongBoNgayService {
         }
     }
 
+    // Chạy tuần tự 2 pha trong một phiên JPA mở sẵn: Pha 1 đẩy tồn toàn kênh -> Pha 2 kéo đơn mới 24h gần nhất
     private void chayCacBuoc(Phien phien) {
         DayTonResultDto ton = dongBoService.dayTonTheoQuyTacDaLuu(phien.maKenh, phien);
         if (ton.getLoiKenh() != null) {

@@ -267,6 +267,10 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         this(kenhBanHangRepository, paymentSecretCipher, lichSuThayDoiService, nguoiDungRepository, null);
     }
 
+    /**
+     * Đọc cấu hình kết nối hiện tại của kênh Shopify (domain, trạng thái token, chế độ khóa/OAuth)
+     * và trả về mã mask an toàn cho Frontend — tuyệt đối không trả raw token/secret ra API.
+     */
     @Override
     @Transactional(readOnly = true)
     public ShopifyConfigResponse getShopifyConfig() {

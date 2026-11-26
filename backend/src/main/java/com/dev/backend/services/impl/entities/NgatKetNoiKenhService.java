@@ -32,6 +32,10 @@ public class NgatKetNoiKenhService {
     KenhBanHangDongBoService kenhBanHangDongBoService;
     DongBoNgayService dongBoNgayService;
 
+    /**
+     * Ngắt kết nối kênh Shopify: xóa thông tin xác thực/token liên kết với gian hàng
+     * và đưa trạng thái kênh về chưa kết nối để dừng mọi tác vụ đồng bộ tự động.
+     */
     public ShopifyConfigResponse ngatKetNoi(String maKenh) {
         kenhBanHangService.kiemTraSanShopify(maKenh);
         String ma = KenhBanHangServiceImpl.MA_KENH_SHOPIFY;
