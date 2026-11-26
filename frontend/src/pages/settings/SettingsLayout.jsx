@@ -17,7 +17,8 @@ import { t } from "@/i18n";
 
 /**
  * Khung trung tâm Cấu hình (/settings/*), kiểu trang Cấu hình của Sapo:
- * - trái: menu các mục theo nhóm Cửa hàng / Kho / Bán hàng (chỉ mục vai trò được mở);
+ * - trái: menu các mục xếp theo nhóm Cửa hàng / Mua hàng / Kho / Bán hàng / Kế toán nhưng không hiện tên nhóm (chỉ mục
+ *   vai trò được mở);
  * - phải: tiêu đề mục, nhãn "Chỉ xem" khi vai trò không được sửa, nút X quay về trang trước khi vào Cấu hình.
  * Trang con báo thay đổi chưa lưu qua useUnsavedChanges: chuyển mục / bấm X / đóng tab khi đó sẽ hỏi lại.
  * Điện thoại (< 768px) và máy tính bảng dọc cảm ứng (768–1023px): kiểu trang Cài đặt của iPhone / Android — /settings là
@@ -120,6 +121,7 @@ export default function SettingsLayout() {
           : "mx-auto flex w-full max-w-[1280px] flex-col gap-6 p-4 sm:p-5 lg:flex-row lg:gap-8 lg:p-6"
       }
     >
+      {/* Mục xếp liền theo thứ tự nhóm Cửa hàng → Mua hàng → Kho → Bán hàng → Kế toán, không hiện tên nhóm (kiểu Sapo) */}
       <nav
         aria-label={t("Cài đặt")}
         className={cn(
@@ -127,16 +129,8 @@ export default function SettingsLayout() {
           danhSach && "hidden",
         )}
       >
-        {groups.map((group, index) => (
+        {groups.map((group) => (
           <Fragment key={group.key}>
-            <p
-              className={cn(
-                "mx-[18px] mb-1 text-[11px] leading-4 font-semibold tracking-[0.05em] text-[#8a94a3] uppercase",
-                index === 0 ? "mt-1.5" : "mt-3.5",
-              )}
-            >
-              {group.label}
-            </p>
             {group.items.map((page) => {
               const active = page === current;
               const Icon = page.icon;
