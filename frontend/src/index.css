@@ -685,9 +685,28 @@
 	0%, 40% { stroke-dashoffset: 46; }
 	54%, 100% { stroke-dashoffset: 0; }
 }
+/* Cổng nhà cung cấp, màn "Không có việc nào cần xử lý": bản nhẹ của dấu tích trên — nền tròn nở ra 0,32 giây rồi dấu
+   tích tự vẽ, xong trong chưa tới 1 giây, không vòng quay (mở tab là chạy lại, vòng quay trông như đang tải). */
+.cong-tich-nen {
+	animation: cong-tich-no 0.32s cubic-bezier(0.2, 0.8, 0.2, 1.2) both;
+}
+@keyframes cong-tich-no {
+	from { transform: scale(0.6); opacity: 0; }
+	to { transform: scale(1); opacity: 1; }
+}
+.cong-tich-net {
+	stroke-dasharray: 46;
+	stroke-dashoffset: 46;
+	animation: mk-tich-ve-nhe 0.45s cubic-bezier(0.65, 0, 0.35, 1) 0.22s forwards;
+}
+@keyframes mk-tich-ve-nhe {
+	to { stroke-dashoffset: 0; }
+}
 @media (prefers-reduced-motion: reduce) {
 	.mk-tich-vong { animation: none; opacity: 0; }
 	.mk-tich-net { animation: none; stroke-dashoffset: 0; }
+	.cong-tich-nen { animation: none; }
+	.cong-tich-net { animation: none; stroke-dashoffset: 0; }
 }
 /* Vòng chờ tải dữ liệu (LoadingState): cung đầu đậm có chấm tròn, đuôi mờ dần. Ẩn 200ms đầu rồi mới hiện,
    dữ liệu về nhanh thì không chớp vòng quay. */

@@ -931,7 +931,7 @@
   "Đơn này không thuộc Quý công ty hoặc liên kết không đúng. Các đơn cần báo giá luôn có ở trang Cần xử lý.": "This order doesn't belong to your company, or the link is incorrect. Orders waiting for your quotation are always listed under Needs action.",
   "Việc cần Quý công ty xử lý": "Tasks for your company",
   "Không có việc nào cần xử lý": "Nothing needs your action",
-  "Khi chúng tôi gửi yêu cầu báo giá hoặc lập biên bản hàng lỗi, việc sẽ hiện ở đây và Quý công ty nhận email báo. Báo giá đã gửi và biên bản đã trả lời xem ở Lịch sử.": "When we send a request for quotation or issue a defect return report, it appears here and your company gets an email. Quotations you've sent and return reports you've answered are under History.",
+  "Khi có yêu cầu báo giá hoặc biên bản hàng lỗi mới, việc sẽ hiện ở đây và Quý công ty nhận email báo.": "New requests for quotation and defect return reports will appear here, and we'll email your company too.",
   "Xem lịch sử": "View history",
   "giá trị": "value",
   "đơn {{soDon}}": "order {{soDon}}",

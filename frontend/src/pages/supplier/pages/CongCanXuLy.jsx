@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Check, ChevronRight, Clock, Info, MessageSquareReply, ReceiptText, Search } from 'lucide-react';
+import { Clock, History, Info, MessageSquareReply, ReceiptText, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import StatusBadge from '@/components/shared/StatusBadge';
 import TablePagination from '@/components/shared/TablePagination';
@@ -360,17 +360,20 @@ function DongViec({ v }) {
 
 function KhongCoViec() {
     return (
-        <div className="flex flex-col items-center gap-3 border-t border-bo-border px-6 py-14 text-center">
-            <span className="grid size-11 place-items-center rounded-full bg-bo-success-soft text-bo-success">
-                <Check className="size-5" aria-hidden="true" />
+        <div className="flex flex-1 flex-col items-center justify-center border-t border-bo-border px-6 py-16 text-center">
+            {/* Nền tròn nở ra rồi dấu tích tự vẽ, một lần khi hiện (index.css .cong-tich-*); giảm chuyển động thì đứng yên */}
+            <span className="cong-tich-nen grid size-14 place-items-center rounded-full bg-bo-success-soft text-bo-success ring-8 ring-bo-success-soft/50">
+                <svg aria-hidden="true" viewBox="0 0 64 64" className="size-7" fill="none" stroke="currentColor" strokeWidth={5.5} strokeLinecap="round" strokeLinejoin="round">
+                    <path className="cong-tich-net" d="M17 33 L28 44 L47 22" />
+                </svg>
             </span>
-            <h2 className="text-base font-semibold text-bo-heading">{t("Không có việc nào cần xử lý")}</h2>
-            <p className="max-w-md text-sm leading-[22px] text-slate-600">
-                {t("Khi chúng tôi gửi yêu cầu báo giá hoặc lập biên bản hàng lỗi, việc sẽ hiện ở đây và Quý công ty nhận email báo. Báo giá đã gửi và biên bản đã trả lời xem ở Lịch sử.")}
+            <h2 className="mt-6 text-lg leading-7 font-semibold tracking-tight text-bo-heading">{t("Không có việc nào cần xử lý")}</h2>
+            <p className="mt-1.5 max-w-[400px] text-sm leading-[22px] text-balance text-slate-600">
+                {t("Khi có yêu cầu báo giá hoặc biên bản hàng lỗi mới, việc sẽ hiện ở đây và Quý công ty nhận email báo.")}
             </p>
-            <Button asChild variant="outline" className="mt-1 h-10 gap-1.5 border-bo-border bg-bo-surface px-4 text-bo-foreground hover:bg-bo-surface-subtle">
+            <Button asChild variant="outline" className="mt-6 h-10 gap-1.5 border-bo-border bg-bo-surface px-4 font-semibold text-bo-foreground shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-bo-surface-subtle">
                 <Link to={DUONG_DAN_CONG.lichSu}>
-                    {t("Xem lịch sử")} <ChevronRight className="size-4" aria-hidden="true" />
+                    <History className="size-4 text-slate-500" aria-hidden="true" /> {t("Xem lịch sử")}
                 </Link>
             </Button>
         </div>
