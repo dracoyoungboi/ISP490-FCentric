@@ -247,7 +247,7 @@ export default function BinMoveHistory() {
           fill
           toolbar={
             <div className="flex flex-wrap items-center gap-3 border-b border-bo-border px-4 py-3">
-              {kho.dsKho.length > 1 ? <ChonKhoKiemKe dsKho={kho.dsKho} value={khoId} onChange={doiKho} nhan={t("Đang xem kho")} hienNhan className="w-full sm:w-[280px]" /> : null}
+              {kho.dsKho.length > 1 ? <ChonKhoKiemKe dsKho={kho.dsKho} value={khoId} onChange={doiKho} nhan={t("Đang xem kho")} hienNhan className="w-full sm:w-auto sm:min-w-[280px] sm:max-w-[420px]" /> : null}
               <SearchInput
                 value={tim}
                 onChange={(e) => {

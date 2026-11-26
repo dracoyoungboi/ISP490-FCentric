@@ -396,7 +396,7 @@ export default function StockTakeUnshelved() {
               <div className="grid gap-3 border-b border-bo-border px-4 py-3">
                 <div className="flex flex-wrap items-center gap-3">
                   {kho.dsKho.length ? (
-                    <ChonKhoKiemKe dsKho={kho.dsKho} value={kho.khoId} onChange={doiKho} nhan={t("Đang xem kho")} hienNhan className="w-full sm:w-[280px]" />
+                    <ChonKhoKiemKe dsKho={kho.dsKho} value={kho.khoId} onChange={doiKho} nhan={t("Đang xem kho")} hienNhan className="w-full sm:w-auto sm:min-w-[280px] sm:max-w-[420px]" />
                   ) : null}
                   <SearchInput
                     label={t("Tìm lô")}
