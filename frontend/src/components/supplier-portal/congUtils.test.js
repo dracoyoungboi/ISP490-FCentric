@@ -32,6 +32,8 @@ import {
   tomTatLuaChon,
   trangThaiTheDong,
   truTienDong,
+  soNgayToiMoc,
+  xepViecCanLam,
 } from "./congUtils.js";
 import { bieuTuongCuaNhan, nhomCuaNhan } from "../../constants/trangThai.js";
 
@@ -74,6 +76,56 @@ test("demViec, tiLePhanTram", () => {
   assert.equal(tiLePhanTram(4, 6), "67%");
   assert.equal(tiLePhanTram(0, 0), null);
   assert.equal(tiLePhanTram(1, null), null);
+});
+
+test("soNgayToiMoc: theo ngày lịch Việt Nam", () => {
+  const bayGio = new Date("2026-11-26T03:00:00Z"); // 10:00 26/11 giờ Việt Nam
+  assert.equal(soNgayToiMoc("2026-11-24T00:00:00Z", bayGio), -2);
+  assert.equal(soNgayToiMoc("2026-11-26T16:59:00Z", bayGio), 0); // 23:59 26/11 VN
+  assert.equal(soNgayToiMoc("2026-11-26T17:00:00Z", bayGio), 1); // 00:00 27/11 VN
+  assert.equal(soNgayToiMoc(null, bayGio), null);
+  assert.equal(soNgayToiMoc("không phải ngày", bayGio), null);
+});
+
+test("xepViecCanLam: đỏ → cam → xám, cùng mức biên bản trước rồi mốc sớm trước", () => {
+  const bayGio = new Date("2026-11-26T03:00:00Z");
+  const ds = xepViecCanLam(
+    {
+      bienBanCho: [
+        { id: 1, soBienBan: "BB-XA", hanTraLoi: "2026-12-05T16:59:00Z" },
+        { id: 2, soBienBan: "BB-GAN", hanTraLoi: "2026-11-27T16:59:00Z" },
+        { id: 3, soBienBan: "BB-QUA", hanTraLoi: "2026-11-25T16:59:00Z" },
+        { id: 4, soBienBan: "BB-KHONG-HAN", hanTraLoi: null },
+      ],
+      donChoBaoGia: [
+        { id: 10, soDonMua: "PO-QUA-32", ngayCanGiao: "2026-10-24T17:00:00Z" },
+        { id: 11, soDonMua: "PO-QUA-2", ngayCanGiao: "2026-11-23T17:00:00Z" },
+        { id: 12, soDonMua: "PO-CON-3", ngayCanGiao: "2026-11-28T17:00:00Z" },
+        { id: 13, soDonMua: "PO-CON-7", ngayCanGiao: "2026-12-02T17:00:00Z" },
+      ],
+    },
+    bayGio,
+  );
+  assert.deepEqual(
+    ds.map((v) => v.so),
+    ["BB-QUA", "PO-QUA-32", "PO-QUA-2", "BB-GAN", "PO-CON-3", "BB-XA", "BB-KHONG-HAN", "PO-CON-7"],
+  );
+  const theoSo = Object.fromEntries(ds.map((v) => [v.so, v]));
+  assert.equal(theoSo["BB-QUA"].quaHan, true);
+  assert.equal(theoSo["BB-QUA"].soNgay, -1);
+  assert.equal(theoSo["PO-QUA-2"].soNgay, -2);
+  assert.equal(theoSo["PO-CON-3"].mucGap, "cam");
+  assert.equal(theoSo["BB-KHONG-HAN"].mucGap, "xam");
+  assert.equal(theoSo["BB-KHONG-HAN"].soNgay, null);
+});
+
+test("xepViecCanLam: biên bản quá giờ hạn trong ngày hạn là quá hạn (đỏ, 0 ngày)", () => {
+  const bayGio = new Date("2026-11-26T10:00:00Z"); // 17:00 26/11 VN
+  const [v] = xepViecCanLam({ bienBanCho: [{ id: 1, soBienBan: "BB", hanTraLoi: "2026-11-26T09:00:00Z" }] }, bayGio);
+  assert.equal(v.soNgay, 0);
+  assert.equal(v.quaHan, true);
+  assert.equal(v.mucGap, "do");
+  assert.deepEqual(xepViecCanLam(null, bayGio), []);
 });
 
 test("cachXuLyLichSu", () => {
