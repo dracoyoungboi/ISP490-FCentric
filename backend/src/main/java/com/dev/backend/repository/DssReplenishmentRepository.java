@@ -19,6 +19,8 @@ import java.util.*;
 
 /**
  * Truy vấn dữ liệu gốc phục vụ bộ máy DSS bổ sung hàng (FE-04.4) và đồng bộ cảnh báo {@code canh_bao}.
+ * Dùng NamedParameterJdbcTemplate chạy 6 câu SQL thuần đọc tổng hợp ~23 bảng (7 bảng lõi: ton_kho_theo_lo,
+ * lo_hang, kho, don_ban_hang, chi_tiet_don_ban_hang, don_mua_hang, phieu_nhap_kho) và batchUpdate bảng canh_bao.
  */
 @Repository
 public class DssReplenishmentRepository {
@@ -100,14 +102,18 @@ public class DssReplenishmentRepository {
      * tổng hợp trên toàn bộ các kho đang hoạt động ({@code trang_thai = 1} và loại trừ {@code KHO_TRANSIT}).
      */
     public List<SkuRawInput> loadRawInputsAllWarehouses(int observationDaysN, int leadTimeSampleM, LocalDate todayVn) {
+        // Cụm SQL 1: Lấy toàn bộ biến thể đang bán kèm tồn tổng hợp (onHand, outgoing, ftu) trên mọi kho active
         List<VariantStockRow> variants = loadVariantsWithStockAllWarehouses();
         if (variants.isEmpty()) {
             return List.of();
         }
 
         List<Integer> bienTheIds = variants.stream().map(VariantStockRow::bienTheId).toList();
+        // Cụm SQL 2: Tổng hợp hàng đang về từ đơn mua hàng (don_mua_hang trang_thai 3, 5)
         Map<Integer, Long> incomingMap = loadIncomingAllWarehouses();
+        // Cụm SQL 3: Lấy số yêu cầu mua hàng đang mở (yeu_cau_mua_hang) để tránh tạo PR trùng
         Map<Integer, TongQuanVaiTroRepository.YeuCauMo> openPrMap = vaiTroRepo.yeuCauMoTheoBienThe(bienTheIds);
+        // Cụm SQL 4: Đo Lead Time giao hàng thực tế (ngay_nhap - ngay_dat_hang) qua M phiếu nhập gần nhất
         Map<Integer, List<Double>> leadTimeMap = loadLeadTimeSamples(leadTimeSampleM);
 
         int n = Math.max(1, observationDaysN);
@@ -121,6 +127,7 @@ public class DssReplenishmentRepository {
         Map<Integer, Long> sold30Map = new HashMap<>();
         Map<Integer, Map<String, Long>> channelMap = new HashMap<>();
 
+        // Kiểm tra tồn tại bảng pos_checkout_request chỉ để gắn nhãn kênh bán là POS hay kênh Online
         boolean hasPosTable = adminRepo.coBang("pos_checkout_request");
         String posJoin = hasPosTable
                 ? "LEFT JOIN pos_checkout_request pos ON pos.don_ban_hang_id = d.id"
@@ -129,6 +136,7 @@ public class DssReplenishmentRepository {
                 ? "CASE WHEN pos.id IS NOT NULL THEN 1 ELSE 0 END AS la_pos"
                 : "0 AS la_pos";
 
+        // Cụm SQL 5: Quét lịch sử bán trong max(N, 30) ngày, bỏ đơn Nháp (0) & Hủy (4), tính chuỗi bán từng ngày + doanh thu
         String sqlSales = """
                 SELECT ct.bien_the_san_pham_id AS bien_the_id,
                        d.ngay_dat_hang,
@@ -263,6 +271,7 @@ public class DssReplenishmentRepository {
         List<MapSqlParameterSource> inserts = new ArrayList<>();
         int activeAlertCount = 0;
 
+        // Phân loại từng SKU thành UPDATE (đã có dòng canh_bao) hoặc INSERT (chưa từng có), gán trang_thai=0 nếu FTU <= ROP
         for (var item : items) {
             boolean shouldAlert = !item.isPrCreationLocked()
                     && item.getReorderPoint() > 0
@@ -292,6 +301,7 @@ public class DssReplenishmentRepository {
             }
         }
 
+        // Dọn các bản ghi trùng thừa (giữ lại đúng id mới nhất ở trên) rồi batchUpdate/batchInsert theo lô
         if (!duplicateIdsToResolve.isEmpty()) {
             jdbc.update("""
                             UPDATE canh_bao

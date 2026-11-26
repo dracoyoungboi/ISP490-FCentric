@@ -19,12 +19,15 @@ public class DssSyncJob {
         this.dssReplenishmentService = dssReplenishmentService;
     }
 
+    // Cron biểu thức: 0 giây 0 phút 2 giờ mỗi ngày theo múi giờ Việt Nam (UTC+7)
     @Scheduled(cron = "0 0 2 * * *", zone = "Asia/Ho_Chi_Minh")
     public void runNightlyDssReplenishment() {
         try {
+            // Quét tổng hợp toàn bộ kho đang hoạt động và đồng bộ lại ngưỡng ROP xuống bảng canh_bao của Kho tổng
             int warehouses = dssReplenishmentService.recalculateAllActiveWarehouses();
             log.info("[DssSyncJob] Đã hoàn tất cập nhật ROP và cảnh báo DSS toàn hệ thống (tổng hợp {} kho).", warehouses);
         } catch (Exception e) {
+            // Bắt lỗi để không làm văng scheduler ban đêm
             log.error("[DssSyncJob] Lỗi chạy batch DSS ban đêm: {}", e.getMessage(), e);
         }
     }
