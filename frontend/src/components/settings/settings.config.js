@@ -8,7 +8,7 @@ import { t } from "@/i18n";
  * - roles:     vai trò được mở trang (frontend chỉ là UX — backend @RequireAuth mới là chốt chặn thật).
  * - editRoles: vai trò được sửa; vai trò còn lại chỉ xem (tiêu đề hiện nhãn "Chỉ xem").
  *
- * Thứ tự theo luồng hàng, khớp sidebar chính: Cửa hàng (thiết lập chung) → Kho (nhập rồi tồn) → Bán hàng
+ * Thứ tự theo luồng hàng, khớp sidebar chính: Cửa hàng (thiết lập chung, sản phẩm) → Mua hàng → Kho (nhập rồi tồn) → Bán hàng
  * (tại quầy rồi kênh online) → Kế toán (xuất sang phần mềm kế toán). Mục đầu tiên vai trò được mở là trang /settings mở mặc định.
  */
 const QTV = "quan_tri_vien";
@@ -27,10 +27,12 @@ export const SETTINGS_PAGES = [
   { key: "store", label: t("Thông tin cửa hàng"), to: "/settings/store", group: "cua-hang", icon: Store, roles: [QTV, QLK], editRoles: [QTV] },
   // CauHinhMauInController: GET cho QTV và QLK; sửa, kích hoạt, xóa mẫu chỉ QTV (quản lý kho chỉ xem)
   { key: "print", label: t("Mẫu in"), to: "/settings/print-templates", group: "cua-hang", icon: Printer, roles: [QTV, QLK], editRoles: [QTV] },
+  // Sản phẩm (mã vạch, tem) là dữ liệu gốc nên đứng trước mua hàng: menu không hiện tên nhóm, nằm giữa Báo giá nhà cung cấp
+  // và Nhập kho thì đọc như chen giữa hai bước mua → nhận hàng.
+  // Sản phẩm, Nhập kho, Tồn kho, Khách hàng, Đồng bộ kênh bán: GET /dieu-hanh-he-thong/cau-hinh cho QTV và QLK; PUT chỉ QTV
+  { key: "product", label: t("Sản phẩm"), to: "/settings/product", group: "cua-hang", icon: Barcode, roles: [QTV, QLK], editRoles: [QTV] },
   // Số ngày chờ báo giá (RFQ_RESPONSE_DAYS) qua /dieu-hanh-he-thong/cau-hinh: GET cho QTV và QLK; PUT chỉ QTV
   { key: "purchasing", label: t("Báo giá nhà cung cấp"), to: "/settings/purchasing", group: "mua-hang", icon: Hourglass, roles: [QTV, QLK], editRoles: [QTV] },
-  // Sản phẩm, Nhập kho, Tồn kho, Khách hàng, Đồng bộ kênh bán: GET /dieu-hanh-he-thong/cau-hinh cho QTV và QLK; PUT chỉ QTV
-  { key: "product", label: t("Sản phẩm"), to: "/settings/product", group: "kho", icon: Barcode, roles: [QTV, QLK], editRoles: [QTV] },
   { key: "inbound", label: t("Nhập kho"), to: "/settings/inbound", group: "kho", icon: PackageCheck, roles: [QTV, QLK], editRoles: [QTV] },
   { key: "stock", label: t("Tồn kho"), to: "/settings/stock", group: "kho", icon: Boxes, roles: [QTV, QLK], editRoles: [QTV] },
   // Ai được xử lý chênh lệch khi nhận hàng chuyển kho (CHUYEN_KHO_QUYEN_XU_LY_LECH) qua /dieu-hanh-he-thong/cau-hinh
