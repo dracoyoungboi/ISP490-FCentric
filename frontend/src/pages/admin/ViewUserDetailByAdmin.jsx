@@ -463,7 +463,9 @@ function ChiTietNguoiDung({ id }) {
                                     error={nhatKyDangNhapQ.error}
                                     onThuLai={nhatKyDangNhapQ.reload}
                                     onCapLaiMatKhau={() => setHop("mat-khau")}
+                                    onDoiMatKhau={() => navigate("/profile?doi-mat-khau=1")}
                                     coEmail={Boolean(nguoiDung.email)}
+                                    laChinhMinh={laChinhMinh}
                                 />
                             ) : (
                                 // Màn rộng: vùng này tự cuộn (index.css › .nd-cuon), khối giữ vừa khung nội dung

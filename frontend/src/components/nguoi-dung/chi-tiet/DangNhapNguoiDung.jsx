@@ -80,7 +80,16 @@ export function KetQuaPill({ ketQua }) {
   );
 }
 
-export default function DangNhapNguoiDung({ data, loading, error, onThuLai, onCapLaiMatKhau, coEmail = true }) {
+export default function DangNhapNguoiDung({
+  data,
+  loading,
+  error,
+  onThuLai,
+  onCapLaiMatKhau,
+  onDoiMatKhau,
+  coEmail = true,
+  laChinhMinh = false,
+}) {
   const [loc, setLoc] = useState("all");
   // Nhiều thiết bị: mặc định hiện SO_THE_TREN_TRANG thẻ, "Xem tất cả" mở rộng tại chỗ (trang không phình).
   const [moRongThietBi, setMoRongThietBi] = useState(false);
@@ -126,21 +135,26 @@ export default function DangNhapNguoiDung({ data, loading, error, onThuLai, onCa
           <div className="flex items-start gap-2.5">
             <ShieldAlert className="mt-0.5 size-[18px] shrink-0 text-bo-danger" aria-hidden="true" />
             <p className="text-[13px] leading-5 text-slate-700">
-              {tomTat.lyDoChuY === "khoa_dung_mat_khau"
-                ? t("Có người nhập đúng mật khẩu khi tài khoản đang khóa trong 24 giờ qua. Mật khẩu cũ có thể đã lộ — nên gửi liên kết đặt lại mật khẩu.")
-                : t("{{count}} lần đăng nhập sai mật khẩu trong 24 giờ qua. Nếu không phải người dùng tự quên, nên gửi liên kết đặt lại mật khẩu.", { count: tomTat.soLanSaiGanDay ?? tomTat.soSai24h })}
+              {/* Quản trị viên tự xem chính mình: không tự gửi liên kết cho mình, mà đổi mật khẩu ở Hồ sơ */}
+              {laChinhMinh
+                ? tomTat.lyDoChuY === "khoa_dung_mat_khau"
+                  ? t("Có người nhập đúng mật khẩu của bạn khi tài khoản đang khóa trong 24 giờ qua. Mật khẩu có thể đã lộ — nên đổi mật khẩu.")
+                  : t("{{count}} lần đăng nhập sai mật khẩu vào tài khoản của bạn trong 24 giờ qua. Nếu không phải bạn, nên đổi mật khẩu.", { count: tomTat.soLanSaiGanDay ?? tomTat.soSai24h })
+                : tomTat.lyDoChuY === "khoa_dung_mat_khau"
+                  ? t("Có người nhập đúng mật khẩu khi tài khoản đang khóa trong 24 giờ qua. Mật khẩu cũ có thể đã lộ — nên gửi liên kết đặt lại mật khẩu.")
+                  : t("{{count}} lần đăng nhập sai mật khẩu trong 24 giờ qua. Nếu không phải người dùng tự quên, nên gửi liên kết đặt lại mật khẩu.", { count: tomTat.soLanSaiGanDay ?? tomTat.soSai24h })}
             </p>
           </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
-            disabled={!coEmail}
-            onClick={onCapLaiMatKhau}
+            disabled={!laChinhMinh && !coEmail}
+            onClick={laChinhMinh ? onDoiMatKhau : onCapLaiMatKhau}
             className="shrink-0 border-bo-border bg-white text-bo-foreground shadow-none hover:bg-bo-surface-subtle max-sm:h-11"
           >
             <KeyRound className="size-3.5" aria-hidden="true" />
-            {t("Gửi liên kết đặt lại mật khẩu")}
+            {laChinhMinh ? t("Đổi mật khẩu") : t("Gửi liên kết đặt lại mật khẩu")}
           </Button>
         </div>
       ) : null}
@@ -182,7 +196,11 @@ export default function DangNhapNguoiDung({ data, loading, error, onThuLai, onCa
         )}
         <p className="mt-2.5 flex items-start gap-1.5 text-xs leading-[18px] text-bo-muted">
           <span aria-hidden="true">ⓘ</span>
-          <span>{t("Quản trị viên chỉ xem. Muốn đăng xuất mọi thiết bị của người này: gửi liên kết đặt lại mật khẩu, hoặc khóa tài khoản.")}</span>
+          <span>
+            {laChinhMinh
+              ? t("Quản lý và đăng xuất thiết bị của bạn ở Hồ sơ.")
+              : t("Quản trị viên chỉ xem. Muốn đăng xuất mọi thiết bị của người này: gửi liên kết đặt lại mật khẩu, hoặc khóa tài khoản.")}
+          </span>
         </p>
       </section>
 
