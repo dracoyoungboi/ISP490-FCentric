@@ -2,9 +2,12 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { batTheoDoiCamUng } from './lib/camUng'
+import { caiLopChanQuayLai } from './lib/chanRoiTrang'
 import { khoiDongNgonNgu, t } from './i18n'
 
 batTheoDoiCamUng()
+// Trước khi dựng router: lớp chặn nút Back khi có thay đổi chưa lưu phải nghe popstate trước BrowserRouter
+caiLopChanQuayLai()
 
 const goc = createRoot(document.getElementById('root'))
 

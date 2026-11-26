@@ -60,6 +60,32 @@ function batTruocTaiDich(win) {
     }
 }
 
+/**
+ * Trình nghe popstate chung của mỗi cửa sổ, đăng ký ở pha bắt LÚC KHỞI ĐỘNG ỨNG DỤNG (main.jsx, trước khi BrowserRouter
+ * nghe popstate): mọi lớp chặn của chanQuayLaiTrinhDuyet gắn vào đây thay vì tự đăng ký lên window.
+ * Lý do: sự kiện popstate phát ngay trên window (đích), nên thứ tự gọi ở đích tùy trình duyệt — Chrome 158 vẫn gọi theo
+ * thứ tự đăng ký, trình nghe của trang (đăng ký sau router) chạy SAU router và không chặn được gì. Trình nghe đăng ký trước
+ * router thì chạy trước trên mọi trình duyệt.
+ * Map: cửa sổ -> danh sách hàm xử lý; hàm trả true khi đã nuốt sự kiện (stopImmediatePropagation) thì dừng.
+ */
+const DIEU_PHOI = new WeakMap();
+
+/** Gọi MỘT lần trước khi dựng router (main.jsx). Gọi lại với cùng cửa sổ thì bỏ qua. */
+export function caiLopChanQuayLai(win = window) {
+    if (!win || DIEU_PHOI.has(win)) return;
+    const ds = [];
+    DIEU_PHOI.set(win, ds);
+    win.addEventListener(
+        "popstate",
+        (event) => {
+            for (const xuLy of [...ds]) {
+                if (ds.includes(xuLy) && xuLy(event) === true) return;
+            }
+        },
+        true,
+    );
+}
+
 /** Đưa trình duyệt về lại trang tối đa chừng này lần trong KHOANG_DEM_BU_MS — quá thì thôi chặn (hành vi cũ). */
 const GIOI_HAN_LAN_BU = 4;
 const KHOANG_DEM_BU_MS = 2000;
@@ -85,7 +111,7 @@ const THOI_GIAN_CHO_VE_MS = 3000;
  *       [key]
  *   );
  *
- * Cách làm: nghe `popstate` ở pha bắt trên window (chạy trước trình nghe thường của BrowserRouter), không
+ * Cách làm: nghe `popstate` qua trình nghe chung caiLopChanQuayLai (đăng ký trước BrowserRouter nên chạy trước router), không
  * cho router thấy lần chuyển đó, đưa trình duyệt về lại mục lịch sử của trang (history.go); chỉ khi popstate
  * về ĐÚNG mục của trang — cả `idx` lẫn `key` mà React Router ghi vào history.state (xem lib/lichSuDieuHuong.js)
  * — mới gọi `hoi(tiepTuc)`; người dùng đồng ý rời thì `tiepTuc()` đi lại đúng số bước đã bấm, lần này router
@@ -104,7 +130,8 @@ const THOI_GIAN_CHO_VE_MS = 3000;
  * diện bằng `idx` + không có key + URL của mục (F5 ở mục #neo cũng sinh một mục `{ idx: 0 }` không key khác
  * trong cùng tài liệu: so URL để lệnh bù dừng nhầm ở mục đó thì vẫn không coi là đã về trang; nếu trùng cả URL
  * thì giao diện vẫn khớp URL).
- * Không chặn từ đầu khi trình duyệt không gọi pha bắt trước ở đích, mục hiện tại không có `idx` (vd. sau link
+ * Không chặn từ đầu khi chưa cài trình nghe chung (caiLopChanQuayLai) mà trình duyệt không gọi pha bắt trước ở đích,
+ * mục hiện tại không có `idx` (vd. sau link
  * #neo), không có `key` mà `khoaTrang` khác "default", hoặc mục hiện tại không phải mục router đang hiển thị
  * (`khoaTrang` khác history.state.key — vd. đăng ký lại đúng lúc trình duyệt chưa về lại trang).
  * Trả hàm hủy (dùng làm cleanup của useEffect); sau khi hủy, `tiepTuc` của lần hỏi cũ không làm gì.
@@ -123,7 +150,7 @@ export function chanQuayLaiTrinhDuyet(hoi, win = window, { dangChan = () => true
             (typeof keyTrang !== "string" ||
                 keyTrang === "" ||
                 (khoaTrang !== undefined && khoaTrang !== keyTrang))) ||
-        !batTruocTaiDich(win)
+        !(DIEU_PHOI.has(win) || batTruocTaiDich(win))
     ) {
         return () => {};
     }
@@ -146,7 +173,13 @@ export function chanQuayLaiTrinhDuyet(hoi, win = window, { dangChan = () => true
         daGo = true;
         if (choVe) win.clearTimeout(choVe.henGio);
         choVe = null;
-        win.removeEventListener("popstate", xuLy, true);
+        const ds = DIEU_PHOI.get(win);
+        if (!ds) {
+            win.removeEventListener("popstate", xuLy, true);
+            return;
+        }
+        const viTri = ds.indexOf(xuLy);
+        if (viTri >= 0) ds.splice(viTri, 1);
     };
 
     const hetGioChoVe = () => {
@@ -177,7 +210,7 @@ export function chanQuayLaiTrinhDuyet(hoi, win = window, { dangChan = () => true
                 win.clearTimeout(henGio);
                 choVe = null;
                 hoiNguoiDung(buoc);
-                return;
+                return true;
             }
             // Lần chuyển khác chen vào trước lệnh bù: thôi chặn — router xử lý lần này và mọi lần sau (kể cả
             // lệnh bù còn trong hàng đợi), giao diện luôn theo URL
@@ -204,8 +237,11 @@ export function chanQuayLaiTrinhDuyet(hoi, win = window, { dangChan = () => true
         const buoc = idx - idxTrang;
         choVe = { buoc, henGio: win.setTimeout(hetGioChoVe, THOI_GIAN_CHO_VE_MS) };
         win.history.go(-buoc);
+        return true;
     }
 
-    win.addEventListener("popstate", xuLy, true);
+    const ds = DIEU_PHOI.get(win);
+    if (ds) ds.push(xuLy);
+    else win.addEventListener("popstate", xuLy, true);
     return goLopChan;
 }
