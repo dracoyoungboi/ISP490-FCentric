@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { UNSAFE_createBrowserHistory as createBrowserHistory } from "react-router-dom";
-import { chanQuayLaiTrinhDuyet, datChanRoiTrang, xinRoiTrang } from "./chanRoiTrang.js";
+import { caiLopChanQuayLai, chanQuayLaiTrinhDuyet, datChanRoiTrang, xinRoiTrang } from "./chanRoiTrang.js";
 
 test("không có trang chặn: rời ngay", () => {
     let roi = 0;
@@ -83,6 +83,7 @@ function taoLopDich(batTruoc) {
  * Hẹn giờ của cửa sổ giả chỉ chạy khi test gọi chayHenGio.
  * `mucDau`: các mục lịch sử có sẵn của tài liệu trước khi React Router khởi tạo (đang đứng ở mục cuối) — mặc
  * định một mục state null như mở thẳng bằng URL / thẻ mới.
+ * `caiTruoc`: cài trình nghe chung (caiLopChanQuayLai) trước khi router nghe popstate, như main.jsx.
  */
 function taoUngDung({
     batTruoc = true,
@@ -90,6 +91,7 @@ function taoUngDung({
     giaiLucGoi = false,
     boQuaGo = false,
     mucDau = [{ state: null, duongDan: "/settings/print-templates" }],
+    caiTruoc = false,
 } = {}) {
     const LopDich = taoLopDich(batTruoc);
     const muc = mucDau.map(({ state, duongDan }) => ({ state, url: new URL(duongDan, "http://fcentric.test") }));
@@ -154,6 +156,7 @@ function taoUngDung({
         },
     };
     Object.defineProperty(cuaSo, "location", { get: () => muc[viTri].url });
+    if (caiTruoc) caiLopChanQuayLai(cuaSo);
     const router = createBrowserHistory({ window: cuaSo, v5Compat: true });
     // Trang router đang hiển thị (như state location của BrowserRouter) — chỉ đổi khi router nhận lần chuyển
     const trangRouter = { duongDan: router.location.pathname, khoa: router.location.key };
@@ -304,6 +307,51 @@ test("Trình duyệt chưa gọi pha bắt trước ở đích: không chặn, B
     assert.equal(hoi, 0);
     assert.equal(app.thongKe.soLanGo, 0);
     huy();
+});
+
+test("Trình duyệt gọi theo thứ tự đăng ký (Chrome 158) nhưng đã cài trình nghe chung trước router: Back vẫn bị chặn", async () => {
+    for (const batTruoc of [false, true]) {
+        const app = taoUngDung({ batTruoc, caiTruoc: true });
+        app.router.push(PHIEU_NHAP);
+        const hoi = [];
+        const huy = chanQuayLaiTrinhDuyet((tiepTuc) => hoi.push(tiepTuc), app.cuaSo);
+        app.bamNut(-1);
+        await choLichSu();
+        assert.equal(app.trangRouter, PHIEU_NHAP, `batTruoc: ${batTruoc}`);
+        assert.equal(app.urlTrinhDuyet, PHIEU_NHAP);
+        assert.equal(hoi.length, 1);
+        // Đồng ý rời: router tới đúng trang đã bấm
+        hoi[0]();
+        await choLichSu();
+        assert.equal(app.trangRouter, DANH_SACH);
+        assert.equal(app.urlTrinhDuyet, DANH_SACH);
+        assert.equal(hoi.length, 1);
+        huy();
+    }
+});
+
+test("Trình nghe chung: gỡ lớp chặn rồi thì Back như thường; trang mới đăng ký thì chặn theo trang mới", async () => {
+    const app = taoUngDung({ batTruoc: false, caiTruoc: true });
+    app.router.push(PHIEU_NHAP);
+    const huyCu = chanQuayLaiTrinhDuyet(() => assert.fail("lớp chặn đã gỡ không được hỏi"), app.cuaSo);
+    huyCu();
+    app.bamNut(-1);
+    await choLichSu();
+    assert.equal(app.trangRouter, DANH_SACH);
+    app.router.push(PHIEU_XUAT);
+    const hoi = [];
+    const huy = chanQuayLaiTrinhDuyet((tiepTuc) => hoi.push(tiepTuc), app.cuaSo);
+    app.bamNut(-1);
+    await choLichSu();
+    assert.equal(app.trangRouter, PHIEU_XUAT);
+    assert.equal(hoi.length, 1);
+    // Không còn thay đổi chưa lưu (dangChan false): Back như thường
+    huy();
+    const huy2 = chanQuayLaiTrinhDuyet(() => assert.fail("không chặn khi không có thay đổi"), app.cuaSo, { dangChan: () => false });
+    app.bamNut(-1);
+    await choLichSu();
+    assert.equal(app.trangRouter, DANH_SACH);
+    huy2();
 });
 
 test("Mục lịch sử không có idx (link #neo, state null): không chặn", async () => {
