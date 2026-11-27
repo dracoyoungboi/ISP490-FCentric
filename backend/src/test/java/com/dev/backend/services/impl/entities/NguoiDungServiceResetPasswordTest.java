@@ -341,6 +341,97 @@ class NguoiDungServiceResetPasswordTest {
         assertTrue(passwordEncoder.matches(dai64, user.getMatKhauHash()));
     }
 
+    // ===== Chặn đặt lại trùng mật khẩu đang dùng (27/11/2026) =====
+
+    @Test
+    void resetPassword_trungMatKhauDangDung_bao400DuoiO_giuMa_truMotLuot() {
+        user.setMatKhauHash(passwordEncoder.encode("Kho@2026"));
+        String hashCu = user.getMatKhauHash();
+        when(calcService.getRandomActiveCode(6L)).thenReturn("111111");
+        forgot();
+
+        CommonException trung = assertThrows(CommonException.class, () -> reset("111111", "Kho@2026"));
+        assertEquals(HttpStatus.BAD_REQUEST, trung.getHttpStatus());
+        assertEquals("Mật khẩu mới phải khác mật khẩu đang dùng, bạn còn 4 lần thử", trung.getMessage());
+        assertEquals(NguoiDungService.RESET_MAT_KHAU_TRUNG_CU_CODE, dataField(trung, "code"));
+        assertEquals(1, resetOtpsInCache().size(), "mã vẫn còn để nhập mật khẩu khác");
+        assertEquals(1, resetOtpsInCache().get(0).getFailedAttempts().get(), "trùng tính một lượt của mã");
+        assertEquals(hashCu, user.getMatKhauHash());
+        verify(emailService, never()).guiDaDoiMatKhau(any(), any(), any());
+
+        // nhập mật khẩu khác với cùng mã thì đặt được
+        assertEquals(200, reset("111111", "Kho@2027").getStatus());
+        assertTrue(passwordEncoder.matches("Kho@2027", user.getMatKhauHash()));
+    }
+
+    @Test
+    void resetPassword_trungMatKhau_chungLuotVoiNhapSaiMa_hetLuotThiHuyMa() {
+        user.setMatKhauHash(passwordEncoder.encode("Kho@2026"));
+        String hashCu = user.getMatKhauHash();
+        when(calcService.getRandomActiveCode(6L)).thenReturn("111111");
+        forgot();
+
+        for (int i = 0; i < 3; i++) assertThrows(CommonException.class, () -> reset("999999", "Kho@2027"));
+        CommonException conMot = assertThrows(CommonException.class, () -> reset("111111", "Kho@2026"));
+        assertEquals("Mật khẩu mới phải khác mật khẩu đang dùng, bạn còn 1 lần thử", conMot.getMessage());
+
+        // lượt thứ 5: hủy mã, giao diện về bước nhập mã (RESET_OTP_EXPIRED)
+        CommonException hetLuot = assertThrows(CommonException.class, () -> reset("111111", "Kho@2026"));
+        assertEquals("Bạn đã thử sai quá 5 lần nên mã xác nhận đã bị hủy, vui lòng yêu cầu mã mới", hetLuot.getMessage());
+        assertEquals(NguoiDungService.RESET_OTP_EXPIRED_CODE, dataField(hetLuot, "code"));
+        assertTrue(resetOtpsInCache().isEmpty());
+
+        // mã đã hủy: mật khẩu khác cũng không đặt được
+        assertThrows(CommonException.class, () -> reset("111111", "Kho@2027"));
+        assertEquals(hashCu, user.getMatKhauHash());
+    }
+
+    @Test
+    void resetPassword_saiMa_khongSoMatKhau_khongLoMatKhauDangDung() {
+        user.setMatKhauHash(passwordEncoder.encode("Kho@2026"));
+        when(calcService.getRandomActiveCode(6L)).thenReturn("111111");
+        forgot();
+
+        // sai mã mà gõ đúng mật khẩu đang dùng: chỉ báo sai mã, không có câu "phải khác mật khẩu đang dùng"
+        CommonException ex = assertThrows(CommonException.class, () -> reset("999999", "Kho@2026"));
+        assertEquals("Mã xác nhận không đúng, bạn còn 4 lần thử", ex.getMessage());
+        assertEquals(NguoiDungService.RESET_OTP_WRONG_CODE, dataField(ex, "code"));
+    }
+
+    @Test
+    void resetPassword_trungMatKhau_goiDongThoi_khongSoQuaNamLan() throws Exception {
+        user.setMatKhauHash(passwordEncoder.encode("Kho@2026"));
+        when(calcService.getRandomActiveCode(6L)).thenReturn("111111");
+        forgot();
+
+        int soYeuCau = 20;
+        ExecutorService pool = Executors.newFixedThreadPool(soYeuCau);
+        CountDownLatch batDau = new CountDownLatch(1);
+        AtomicInteger baoTrung = new AtomicInteger();
+        List<Future<?>> ketQua = new java.util.ArrayList<>();
+        for (int i = 0; i < soYeuCau; i++) {
+            ketQua.add(pool.submit(() -> {
+                batDau.await();
+                try {
+                    reset("111111", "Kho@2026");
+                } catch (CommonException ex) {
+                    if (ex.getData() instanceof Map<?, ?> m
+                            && NguoiDungService.RESET_MAT_KHAU_TRUNG_CU_CODE.equals(m.get("code"))) {
+                        baoTrung.incrementAndGet();
+                    }
+                }
+                return null;
+            }));
+        }
+        batDau.countDown();
+        for (Future<?> f : ketQua) f.get(30, TimeUnit.SECONDS);
+        pool.shutdown();
+
+        // 4 lần báo "trùng" + lần thứ 5 hủy mã; các yêu cầu còn lại chỉ thấy "mã không tồn tại"
+        assertEquals(4, baoTrung.get());
+        assertTrue(resetOtpsInCache().isEmpty());
+    }
+
     @Test
     void resetPassword_khongDungOtpLoaiKhacCungEmail() {
         GlobalCache.OTP_SCHEDULE_OBJS.add(OtpScheduleObj.builder()
