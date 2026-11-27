@@ -4,9 +4,8 @@ import com.dev.backend.dto.TonKhoProjection;
 import com.dev.backend.dto.response.BaoCaoSanPhamDTO;
 import com.dev.backend.dto.response.DoanhThuTongHopDTO;
 import com.dev.backend.dto.response.TienThuDTO;
-import com.dev.backend.repository.BaoCaoSanPhamRepository.BanBienThe;
-import com.dev.backend.repository.BaoCaoSanPhamRepository.GiaVonBienThe;
-import com.dev.backend.repository.BaoCaoSanPhamRepository.TonBienThe;
+import com.dev.backend.repository.BaoCaoSanPhamRepository;
+import com.dev.backend.repository.BaoCaoSanPhamRepository.*;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.CellValue;
@@ -23,7 +22,9 @@ import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -112,14 +113,55 @@ class BaoCaoExcelGiaVonTest {
 
     // ================= Báo cáo sản phẩm =================
 
+    static final LocalDate HOM_NAY = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh"));
+    static final LocalDate TU = HOM_NAY.minusDays(29); // kỳ 30 ngày
+
+    /** Repository giả (không CSDL): chỉ trả các danh sách được nạp, kỳ trước để trống. */
+    static class RepoGia extends BaoCaoSanPhamRepository {
+        final List<BienTheDong> bienThe = new ArrayList<>();
+        final List<BanBienThe> ban = new ArrayList<>();
+        final List<GiaVonBienThe> gv = new ArrayList<>();
+        final List<TonBienThe> ton = new ArrayList<>();
+
+        RepoGia() {
+            super(null);
+        }
+
+        boolean nay(LocalDate tu) {
+            return TU.equals(tu);
+        }
+
+        @Override public List<BanBienThe> banTheoBienThe(PhamVi pv, LocalDate tu, LocalDate den) { return nay(tu) ? ban : List.of(); }
+        @Override public List<GiaVonBienThe> hoanTheoBienThe(PhamVi pv, LocalDate tu, LocalDate den) { return List.of(); }
+        @Override public List<TraQuay> traQuayTheoBienThe(PhamVi pv, LocalDate tu, LocalDate den) { return List.of(); }
+        @Override public List<GiaVonBienThe> giaVonTheoBienThe(PhamVi pv, LocalDate tu, LocalDate den) { return nay(tu) ? gv : List.of(); }
+        @Override public List<TonBienThe> tonTheoBienThe(PhamVi pv) { return ton; }
+        @Override public List<GiuBienThe> giuHangTheoBienThe(PhamVi pv, List<Integer> tt) { return List.of(); }
+        @Override public List<DangVeBienThe> dangVeTheoBienThe(PhamVi pv) { return List.of(); }
+        @Override public List<SoDonSanPham> soDonTheoSanPham(PhamVi pv, LocalDate tu, LocalDate den) { return List.of(); }
+        @Override public long tongSoDon(PhamVi pv, LocalDate tu, LocalDate den) { return 0; }
+        @Override public List<BanNgay> banTheoNgay(PhamVi pv, LocalDate tu, LocalDate den) { return List.of(); }
+        @Override public List<BanKenh> banTheoKenh(PhamVi pv, LocalDate tu, LocalDate den) { return List.of(); }
+        @Override public List<NgaySanPham> ngayBanCuoi(PhamVi pv, LocalDate den) { return List.of(); }
+        @Override public List<NgaySanPham> ngayNhapDau(PhamVi pv) { return List.of(); }
+        @Override public List<BienTheDong> bienThe() { return bienThe; }
+        @Override public Map<Integer, String> anhTheoSanPham() { return new HashMap<>(); }
+        @Override public List<KenhDong> kenhBan() { return List.of(); }
+
+        void them(int btId, int spId, String ma, Integer trangThaiSp) {
+            bienThe.add(new BienTheDong(btId, "SKU-" + btId, new BigDecimal("300000"), 1, "Đen", "#000", "M", 2,
+                    spId, ma, "Sản phẩm " + ma, "Cái", trangThaiSp, "Áo", "FC", null));
+        }
+    }
+
     static BaoCaoSanPhamDTO sanPham(boolean gv) {
-        BaoCaoSanPhamServiceTest.RepoGia repo = new BaoCaoSanPhamServiceTest.RepoGia();
+        RepoGia repo = new RepoGia();
         repo.them(1, 10, "A", 1);
         repo.ban.add(new BanBienThe(1, bd(15), bd(4_500_000), BigDecimal.ZERO));
         repo.gv.add(new GiaVonBienThe(1, bd(1_800_000)));
         repo.ton.add(new TonBienThe(1, bd(12), bd(1_440_000)));
         BaoCaoSanPhamDTO bc = new BaoCaoSanPhamService(repo, null)
-                .layBaoCao(BaoCaoSanPhamServiceTest.TU, BaoCaoSanPhamServiceTest.HOM_NAY, null, null);
+                .layBaoCao(TU, HOM_NAY, null, null);
         if (!gv) BaoCaoSanPhamService.anGiaVon(bc);
         return bc;
     }
