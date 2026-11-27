@@ -82,6 +82,7 @@ public class OmnichannelAnalyticsService {
      */
     @Transactional(readOnly = true)
     public OmnichannelAnalyticsOverviewDto getOverview(String rangeParam, String channelParam) {
+        // Khối 1 (Overview - Dữ liệu nguồn): Quy đổi khoảng thời gian 1h / 24h / 7d -> truy vấn bảng `lich_su_dong_bo_metric`
         String range = normalizeRange(rangeParam);
         String channelFilter = normalizeChannelFilter(channelParam);
 
@@ -96,6 +97,7 @@ public class OmnichannelAnalyticsService {
                 ? metricRepository.findInWindow(since, channelFilter)
                 : List.of();
 
+        // Khối 2 (Overview - Gom nhóm): Tách độ trễ API vs Webhook, đếm thành công/lỗi theo phân loại và gom chuỗi xu hướng
         List<Integer> apiLatencies = new ArrayList<>();
         List<Integer> webhookLatencies = new ArrayList<>();
         long successCount = 0;
@@ -146,7 +148,7 @@ public class OmnichannelAnalyticsService {
         long totalCalls = rows.size();
         double successRate = totalCalls == 0 ? 100.0d : round2(successCount * 100.0d / totalCalls);
 
-        // Merge live rate-limit state on top of historical DB snapshot
+        // Khối 3 (Overview - Rate limit & Chart): Trộn snapshot Bucket mới nhất từ RAM đè lên DB, tính KPI theo từng sàn & Trend Chart
         Map<String, ChannelBucketStatusDto> mergedBuckets = new LinkedHashMap<>(latestDbBuckets);
         rateLimitState.snapshotAll().forEach((ch, snap) -> {
             if (channelFilter == null || channelFilter.equalsIgnoreCase(ch)) {
@@ -243,6 +245,7 @@ public class OmnichannelAnalyticsService {
                     .build());
         }
 
+        // Khối 4 (Overview - Oversell & Trả DTO): Tính tỷ lệ đơn hủy thiếu hàng + tồn lô âm -> trả toàn bộ về Controller -> Tab 1 UI
         OversellStats oversell = computeOversellStats(since, channelFilter);
         double oosRecoveryMinutes = computeAvgOosRecoveryMinutes(since);
 
@@ -280,6 +283,7 @@ public class OmnichannelAnalyticsService {
      */
     @Transactional(readOnly = true)
     public OmnichannelSyncRecommendationDto getSyncRecommendations(Integer daysParam, String channelParam) {
+        // Khối 1 (Khuyến nghị - Tham số hệ thống): Đọc ngưỡng mặc định REALTIME_SYNC_THRESHOLD và cấu hình DSS từ `cau_hinh_he_thong`
         int days = daysParam != null && daysParam >= 1 && daysParam <= 90 ? daysParam : 14;
         String channelFilter = normalizeChannelFilter(channelParam);
         Instant since = Instant.now().minus(Duration.ofDays(days));
@@ -308,6 +312,8 @@ public class OmnichannelAnalyticsService {
             mappingParams.addValue("channelCodes", channelCodes);
         }
 
+        // Khối 2 (Khuyến nghị - 3 luồng SQL): (1) Lấy các SKU đang map kênh (`trang_thai_dong_bo_san_pham`),
+        // (2) Tính tổng tồn khả dụng FTU (`ton_kho_theo_lo`), (3) Tách lượng bán POS vs Online & doanh thu (`don_ban_hang`)
         List<Map<String, Object>> mappings = jdbc.queryForList("""
                         SELECT t.id AS mapping_id,
                                t.bien_the_san_pham_id,
@@ -413,6 +419,7 @@ public class OmnichannelAnalyticsService {
             abcClassByVariant.put(entry.getKey(), cls);
         }
 
+        // Khối 3 (Khuyến nghị - Tính toán): Xếp hạng ABC Pareto + tính r_POS -> đề xuất Buffer% và Threshold_RT cho từng dòng SKU
         List<ItemDto> items = new ArrayList<>(mappings.size());
         for (Map<String, Object> row : mappings) {
             Integer mappingId = ((Number) row.get("mapping_id")).intValue();
@@ -517,6 +524,7 @@ public class OmnichannelAnalyticsService {
             throw new CommonException(ThongDiep.of("dss.duLieuKhuyenNghiRong"));
         }
 
+        // Khối ghi DB: Đọc từng dòng mapping từ `trang_thai_dong_bo_san_pham`, giới hạn an toàn Buffer% (0..50) & RT (0..1000) -> saveAll + Audit Log
         List<TrangThaiDongBoSanPham> toSave = new ArrayList<>();
         for (var reqItem : request.getItems()) {
             if (reqItem.getMappingId() == null) continue;

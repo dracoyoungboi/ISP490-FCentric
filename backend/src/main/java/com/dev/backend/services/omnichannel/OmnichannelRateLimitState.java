@@ -44,10 +44,12 @@ public class OmnichannelRateLimitState {
         if (channelCode == null || channelCode.isBlank()) return;
         String key = normalizeChannel(channelCode);
         Instant now = Instant.now();
+        // Khối 1: Nếu sàn trả HTTP 429 thì chốt bucket = 100% ngay để chặn luồng định kỳ gọi tiếp
         if (httpStatus == 429) {
             buckets.put(key, new BucketSnapshot(40, 40, 100.0d, now));
             return;
         }
+        // Khối 2: Nếu là Shopify có header X-Shopify-Shop-Api-Call-Limit (VD 32/40) -> tính % dùng trực tiếp
         if (callLimitHeader != null && !callLimitHeader.isBlank()) {
             Matcher m = RATIO_PATTERN.matcher(callLimitHeader);
             if (m.find()) {
