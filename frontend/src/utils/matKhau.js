@@ -42,12 +42,15 @@ const PHO_BIEN = new Set([
   "fcentric", "fcentric1", "fcentric123", "fcentric@123", "khohang123", "banhang123", "nhanvien123",
 ]);
 
-// Cùng cách tính với máy chủ: chỉ ký tự in được ASCII (! tới ~), ký tự đặc biệt là mọi ký tự không phải chữ / số
+// Các mẫu dưới tính giống backend MatKhau.java.
+// Mọi khoảng trắng, kể cả dấu cách không ngắt (NBSP, hay dính khi dán)
 const DAU_CACH = /[\s\p{Z}]/u;
-const NGOAI_BAN_PHIM = /[^!-~]/;
+// Ngoài ký tự in được ASCII, từ "!" (0x21) tới "~" (0x7E): chữ có dấu, emoji, ký hiệu ngoài bàn phím tiếng Anh
+const NGOAI_BAN_PHIM = /[^\x21-\x7E]/;
 const HOA = /[A-Z]/;
 const THUONG = /[a-z]/;
 const SO = /[0-9]/;
+// Ký tự đặc biệt: mọi ký tự không phải chữ / số (đã chắc chỉ còn ASCII in được ở bước trên)
 const DAC_BIET = /[^A-Za-z0-9]/;
 const HANG_PHIM = ["qwertyuiop", "asdfghjkl", "zxcvbnm", "1234567890"];
 
@@ -103,9 +106,8 @@ export function kiemTraMatKhauMoi(
   if (!gt.trim()) return t("Nhập mật khẩu mới.");
   if (DAU_CACH.test(gt)) return t("Mật khẩu không được có dấu cách.");
   if (NGOAI_BAN_PHIM.test(gt)) return t("Chỉ dùng chữ không dấu, số và ký tự đặc biệt trên bàn phím.");
-  const toiThieu = MAT_KHAU_TOI_THIEU;
   const dai = gt.length;
-  if (dai < toiThieu) return t("Cần ít nhất {{toiThieu}} ký tự (đang có {{dai}}).", { toiThieu, dai });
+  if (dai < MAT_KHAU_TOI_THIEU) return t("Cần ít nhất {{toiThieu}} ký tự (đang có {{dai}}).", { toiThieu: MAT_KHAU_TOI_THIEU, dai });
   if (dai > MAT_KHAU_TOI_DA) return t("Tối đa {{toiDa}} ký tự (đang có {{dai}}).", { toiDa: MAT_KHAU_TOI_DA, dai });
   if (!HOA.test(gt) || !THUONG.test(gt) || !SO.test(gt) || !DAC_BIET.test(gt)) {
     return t("Cần có chữ hoa, chữ thường, số và ký tự đặc biệt.");

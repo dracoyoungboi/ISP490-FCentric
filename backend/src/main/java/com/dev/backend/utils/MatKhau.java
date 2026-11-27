@@ -11,6 +11,8 @@ import com.dev.backend.i18n.ThongDiep;
  * nhau nên đặt trên máy này có thể không đăng nhập được trên máy khác. 64 ký tự không dấu luôn dưới 72 byte của BCrypt.
  * Chỉ áp khi đặt mật khẩu mới: đăng nhập không kiểm, mật khẩu đang dùng không bị bắt đổi. Tạm chưa chặn mật khẩu phổ
  * biến và mật khẩu chứa tên đăng nhập / email (chốt 27/11/2026).
+ * <p>
+ * Câu lỗi: các khóa {@code heThong.matKhauMoi*}, mục "MatKhau" trong i18n/thong-diep/heThong(_en).properties.
  */
 public final class MatKhau {
 
@@ -22,16 +24,18 @@ public final class MatKhau {
 
     /** Lỗi đầu tiên của mật khẩu mới, hoặc null khi hợp lệ. */
     public static ThongDiep loi(String matKhau) {
-        if (matKhau == null || matKhau.isBlank()) return ThongDiep.of("heThong.nhapMatKhauMoi");
+        if (matKhau == null || matKhau.isBlank()) return ThongDiep.of("heThong.matKhauMoiTrong");
+        // isSpaceChar để bắt cả dấu cách không ngắt (NBSP, hay dính khi dán), thứ isWhitespace bỏ qua
         if (matKhau.codePoints().anyMatch(cp -> Character.isWhitespace(cp) || Character.isSpaceChar(cp))) {
-            return ThongDiep.of("heThong.matKhauCoDauCach");
+            return ThongDiep.of("heThong.matKhauMoiCoDauCach");
         }
+        // Chỉ nhận ký tự in được ASCII, từ '!' (0x21) tới '~' (0x7E): chữ không dấu, số, ký tự đặc biệt trên bàn phím
         if (matKhau.codePoints().anyMatch(cp -> cp < 0x21 || cp > 0x7E)) {
-            return ThongDiep.of("heThong.matKhauKyTuKhongHopLe");
+            return ThongDiep.of("heThong.matKhauMoiKyTuKhongHopLe");
         }
         if (matKhau.length() < DO_DAI_TOI_THIEU) return ThongDiep.of("heThong.matKhauMoiToiThieu", DO_DAI_TOI_THIEU);
         if (matKhau.length() > DO_DAI_TOI_DA) return ThongDiep.of("heThong.matKhauMoiToiDa", DO_DAI_TOI_DA);
-        if (!duBonLoai(matKhau)) return ThongDiep.of("heThong.matKhauThieuLoaiKyTu");
+        if (!duBonLoai(matKhau)) return ThongDiep.of("heThong.matKhauMoiThieuLoaiKyTu");
         return null;
     }
 
