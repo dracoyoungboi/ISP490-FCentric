@@ -143,6 +143,8 @@ public class DssReplenishmentService {
             return recalculateAndSyncAlerts(null);
         }
 
+        // Khối 1: Thu thập toàn bộ khóa cấu hình không null từ Request (nút "Lưu & Tính lại ROP" trên Màn 1)
+        // → đẩy hàng loạt xuống `cau_hinh_he_thong` qua bulkUpdateCauHinh
         Integer userId = currentUserId();
         List<CauHinhHeThongBulkUpdateRequest> updates = new ArrayList<>();
         addConfigUpdate(updates, DieuHanhHeThongServiceImpl.CAU_HINH_DSS_MODE, req.getMode());
@@ -162,6 +164,7 @@ public class DssReplenishmentService {
             dieuHanhHeThongService.bulkUpdateCauHinh(updates, userId);
         }
 
+        // Khối 2: Rẽ nhánh sau khi lưu — hoặc chỉ trả gợi ý lên UI (read-only), hoặc chạy lại DSS & ghi bảng `canh_bao`
         if (Boolean.FALSE.equals(req.getRecalculateNow())) {
             return getRecommendations(req.getKhoId());
         }
@@ -198,6 +201,7 @@ public class DssReplenishmentService {
             output.summary().setAlertedInCanhBaoCount(alertedCount);
         }
 
+        // Khối 5: Đóng gói DssReplenishmentResponse (meta Kho tổng + phạm vi kho + 12 tham số + Summary + từng dòng SKU) trả ngược lên Controller -> FE
         return DssReplenishmentResponse.builder()
                 .khoId(anchorKho.id())
                 .tenKho(anchorKho.tenKho())
@@ -241,6 +245,7 @@ public class DssReplenishmentService {
         return auth != null ? auth.getId() : null;
     }
 
+    // Ghi Audit Log vào bảng `lich_su_thay_doi` mỗi khi người dùng chốt tính lại ROP & đồng bộ bảng `canh_bao`
     private void recordAuditLog(DssReplenishmentResponse response) {
         Integer userId = currentUserId();
         if (userId == null) return;

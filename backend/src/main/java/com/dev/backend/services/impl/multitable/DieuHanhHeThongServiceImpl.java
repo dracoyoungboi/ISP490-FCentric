@@ -523,6 +523,10 @@ public class DieuHanhHeThongServiceImpl implements DieuHanhHeThongService {
         return cauHinhMapper.toDto(saved);
     }
 
+    /**
+     * Lưu hàng loạt cặp (maCauHinh, giaTri) từ Màn 1 DSS hoặc màn Cấu hình vận hành:
+     * kiểm tra kiểu dữ liệu & miền giá trị biên -> lưu bảng `cau_hinh_he_thong` -> ghi Audit Log vào `lich_su_thay_doi`.
+     */
     @Override
     @Transactional
     public List<CauHinhHeThongDto> bulkUpdateCauHinh(List<CauHinhHeThongBulkUpdateRequest> requests, Integer userId) {

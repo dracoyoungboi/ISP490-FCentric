@@ -229,6 +229,7 @@ public final class DssPolicyEngine {
             boolean needsReorder = !isPhaseOut && ftu <= reorderPoint && suggestedOrderQty > 0;
             boolean flashSale = (isPhaseOut && (excessStock > 0 || (doi != null && doi > 60.0))) || deadStock;
 
+            // Khối gán nhãn mức khẩn cấp (CRITICAL -> HIGH -> EXCESS -> NORMAL) và cộng dồn KPI toàn bảng cho Màn 1
             String urgencyLevel;
             if (isPhaseOut) {
                 urgencyLevel = URGENCY_EXCESS;
@@ -252,6 +253,7 @@ public final class DssPolicyEngine {
                 totalSuggestedQty += suggestedOrderQty;
             }
 
+            // Đổ đầy 1 dòng DssRecommendationItemDto trả ra Service -> Controller -> bảng gợi ý nhập hàng FE
             result.add(DssRecommendationItemDto.builder()
                     .sanPhamId(in.sanPhamId())
                     .bienTheSanPhamId(in.bienTheSanPhamId())
@@ -308,6 +310,7 @@ public final class DssPolicyEngine {
                 .thenComparing(d -> d.getAbcClass() != null ? d.getAbcClass() : "C")
                 .thenComparing(d -> d.getMaSku() != null ? d.getMaSku() : ""));
 
+        // Khối tổng hợp 10 chỉ số KPI đầu trang Màn 1 và đóng gói kết quả trả ngược về DssReplenishmentService
         DssSummaryDto summary = DssSummaryDto.builder()
                 .totalSkus(result.size())
                 .criticalCount(criticalCount)

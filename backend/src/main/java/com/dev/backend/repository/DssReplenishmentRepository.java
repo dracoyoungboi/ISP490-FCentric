@@ -191,6 +191,7 @@ public class DssReplenishmentRepository {
                     }
                 });
 
+        // Khối kết nối 6 nguồn dữ liệu thô theo `bienTheId` -> đóng gói thành List<SkuRawInput> đẩy sang DssPolicyEngine.calculate()
         List<SkuRawInput> results = new ArrayList<>(variants.size());
         for (VariantStockRow v : variants) {
             TongQuanVaiTroRepository.YeuCauMo pr = openPrMap.get(v.bienTheId());
@@ -340,6 +341,10 @@ public class DssReplenishmentRepository {
         return activeAlertCount;
     }
 
+    /**
+     * SQL 1: Lấy toàn bộ biến thể đang kinh doanh (trang_thai = 1, sp 0/1) kèm tổng tồn OnHand / Đã đặt / Khả dụng FTU
+     * cộng gộp từ tất cả kho đang hoạt động (trừ KHO_TRANSIT) và đơn giá nhập gần nhất làm dữ liệu gốc cho DSS.
+     */
     private List<VariantStockRow> loadVariantsWithStockAllWarehouses() {
         return jdbc.query("""
                         SELECT sp.id AS san_pham_id, bt.id AS bien_the_id, sp.ma_san_pham, bt.ma_sku,
@@ -401,6 +406,10 @@ public class DssReplenishmentRepository {
                         rs.getBigDecimal("don_gia_nhap")));
     }
 
+    /**
+     * SQL 2: Cộng tổng số lượng hàng đang trên đường về (Incoming = đã đặt - đã nhận) từ bảng don_mua_hang
+     * ở trạng thái đang xử lý/đã duyệt (3, 5) để công thức DSS trừ ra, tránh đặt trùng hàng đang về.
+     */
     private Map<Integer, Long> loadIncomingAllWarehouses() {
         Map<Integer, Long> map = new HashMap<>();
         jdbc.query("""
@@ -419,6 +428,10 @@ public class DssReplenishmentRepository {
         return map;
     }
 
+    /**
+     * SQL 4: Tính danh sách M mẫu thời gian giao hàng thực tế (ngay_nhap - ngay_dat_hang, đơn vị ngày)
+     * từ các phiếu nhập kho đã hoàn tất (`phieu_nhap_kho.trang_thai = 3`) gắn với đơn mua hàng.
+     */
     private Map<Integer, List<Double>> loadLeadTimeSamples(int sampleM) {
         int m = Math.max(1, sampleM);
         Map<Integer, List<Double>> samplesByVariant = new HashMap<>();
