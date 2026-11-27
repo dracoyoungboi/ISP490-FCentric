@@ -5,6 +5,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Kết quả bước "Kiểm tra" trước khi tạo lô: số chứng từ và tiền theo loại, lỗi chặn (chứng từ để lại lô sau), cảnh
@@ -85,6 +86,10 @@ public class XemTruocXuatKeToanDto {
         private Integer idNguon;
         private String soChungTu;
         private String noiDung;
+        /** Mã việc kế toán (services/impl/ketoan/ViecKeToan), null = xem lại; màn Tạo lô xếp theo mã này. */
+        private String viec;
+        /** Số liệu tách sẵn để hiện thành cột: maKho, soLuong (âm = giảm), soDon, phieuXuat, cap, giaTri, thue… */
+        private Map<String, Object> chiTiet;
     }
 
     /**

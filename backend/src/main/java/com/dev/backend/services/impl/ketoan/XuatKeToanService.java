@@ -32,6 +32,8 @@ import java.security.NoSuchAlgorithmException;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -494,7 +496,7 @@ public class XuatKeToanService {
         // Biến động kho chưa có chứng từ: chỉ phần phát sinh sau lô trước (mỗi biến động hiện ở đúng một lô)
         Instant tuBienDong = ketThucLietKeLoTruoc(ch, tu);
         List<DungChungTuAmis.VanDe> bienDong = tuBienDong.isBefore(den)
-                ? nguon.bienDongKhoKhongCoChungTu(tuBienDong, den, tu, tuDong).stream().map(XuatKeToanService::bienDong).toList()
+                ? ghepDonHuy(nguon.bienDongKhoKhongCoChungTu(tuBienDong, den, tu, tuDong).stream().map(XuatKeToanService::bienDong).toList())
                 : List.of();
         // Phiếu mua đã giao dạng chưa có hóa đơn, nay mới có hóa đơn (hoặc ghi không có): nhắc kế toán làm trên AMIS
         Instant taoLoMoiNhat = loXuatRepository.ngayTaoMoiNhat();
@@ -538,7 +540,78 @@ public class XuatKeToanService {
                     + ". Lập phiếu xuất kho từ kho này trên AMIS, hạch toán theo cách xử lý hàng thiếu của công ty.";
             default -> "Biến động kho " + b.maKho() + " không có chứng từ kế toán: " + luong + ". Xem tay.";
         };
-        return new DungChungTuAmis.VanDe(LOAI_BIEN_DONG_KHO, b.idThamChieu(), ma, noiDung);
+        String viec = switch (b.nhom()) {
+            case "kiem_ke" -> ViecKeToan.DIEU_CHINH_KIEM_KE;
+            case "xuat_khac" -> ViecKeToan.XUAT_KHO_KHAC;
+            case "nhap_lai_ban_truoc_moc" -> ViecKeToan.NHAP_LAI_TRUOC_MOC;
+            case "nhap_hang_hoan" -> ViecKeToan.NHAP_HANG_HOAN;
+            case "xuat_ban_khong_doanh_thu" -> ViecKeToan.XUAT_KHO_DON_HUY;
+            case "nhap_khac" -> ViecKeToan.NHAP_KHO_KHAC;
+            case "ghi_giam_chuyen_kho" -> ViecKeToan.XUAT_KHO_HAO_HUT;
+            default -> ViecKeToan.BIEN_DONG_KHAC;
+        };
+        String ghiChu = b.ghiChu() == null || b.ghiChu().isBlank() ? null : b.ghiChu().trim();
+        // nguon: bảng của chứng từ gốc (phiếu xuất, phiếu nhập, đợt kiểm kê…) để màn Tạo lô xuất mở đúng màn chi tiết
+        Map<String, Object> ct = DungChungTuAmis.chiTiet("maKho", b.maKho(), "soLuong", b.tang().subtract(b.giam()),
+                "soDong", b.soDong(), "nguon", b.loaiThamChieu());
+        if ("xuat_ban_khong_doanh_thu".equals(b.nhom())) {
+            // Câu lệnh đọc nguồn ghi "Đơn <số đơn>" vào ghi chú của phiếu xuất bán
+            if (ghiChu != null && ghiChu.startsWith("Đơn ")) ct.put("soDon", ghiChu.substring(4).trim());
+            if (b.soChungTu() != null) ct.put("phieuXuat", b.soChungTu());
+            if (b.idDon() != null) ct.put("idDon", b.idDon());
+        } else if ("nhap_hang_hoan".equals(b.nhom()) && ghiChu != null) {
+            // Phiếu PN-RET ghi "Nhập hoàn trả từ phiếu xuất: <số phiếu xuất>" (kèm "(Đơn: <số đơn>)" khi lập từ đơn)
+            Matcher m = PHIEU_XUAT_TRONG_GHI_CHU.matcher(ghiChu);
+            if (m.find()) ct.put("phieuXuat", m.group(1));
+            Matcher d = DON_TRONG_GHI_CHU.matcher(ghiChu);
+            if (d.find()) ct.put("soDon", d.group(1).trim());
+        } else if (ghiChu != null) {
+            ct.put("ghiChu", ghiChu);
+        }
+        if ("ghi_giam_chuyen_kho".equals(b.nhom())) {
+            // Cách xử lý chênh lệch quyết định hạch toán: giao bù (kho gửi chuyển bù) hay ghi giảm hao hụt / đền bù
+            if (b.phuongAn() != null) ct.put("phuongAn", b.phuongAn());
+            if (b.soBienBan() != null) ct.put("soBienBan", b.soBienBan());
+            if (b.soPhieuChuyen() != null) ct.put("soPhieuChuyen", b.soPhieuChuyen());
+        }
+        return new DungChungTuAmis.VanDe(LOAI_BIEN_DONG_KHO, b.idThamChieu(), ma, noiDung, viec, ct);
+    }
+
+    private static final Pattern PHIEU_XUAT_TRONG_GHI_CHU = Pattern.compile("phiếu xuất:\\s*([^\\s(),;]+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DON_TRONG_GHI_CHU = Pattern.compile("Đơn:\\s*([^)]+)\\)");
+
+    /**
+     * Ghép phiếu xuất bán của đơn hủy / hoàn trả với các phiếu nhập lại (PN-RET) ghi số phiếu xuất đó. Tổng nhập lại bằng
+     * số đã xuất: cả cặp thành "khớp" (không lập gì, đơn không ghi doanh thu và hàng đã về). Lệch: cả cặp thành "lệch" để
+     * kế toán kiểm lại. Phiếu xuất không có phiếu nhập lại giữ "lập phiếu xuất kho"; phiếu nhập lại không ghép được (phiếu
+     * xuất ở lô trước, đơn đã giao kế toán…) giữ việc cũ. Các dòng của một cặp mang chung khóa {@code cap} (số phiếu xuất).
+     */
+    static List<DungChungTuAmis.VanDe> ghepDonHuy(List<DungChungTuAmis.VanDe> ds) {
+        Map<String, List<DungChungTuAmis.VanDe>> nhapTheoPhieuXuat = new HashMap<>();
+        Map<String, BigDecimal> xuatTheoPhieu = new HashMap<>();
+        for (DungChungTuAmis.VanDe v : ds) {
+            Object px = v.chiTiet().get("phieuXuat");
+            if (px == null) continue;
+            if (ViecKeToan.NHAP_HANG_HOAN.equals(v.viec())) {
+                nhapTheoPhieuXuat.computeIfAbsent(px.toString(), k -> new ArrayList<>()).add(v);
+            } else if (ViecKeToan.XUAT_KHO_DON_HUY.equals(v.viec())) {
+                xuatTheoPhieu.merge(px.toString(), (BigDecimal) v.chiTiet().get("soLuong"), BigDecimal::add);
+            }
+        }
+        Map<String, String> viecCap = new HashMap<>();
+        xuatTheoPhieu.forEach((px, xuat) -> {
+            List<DungChungTuAmis.VanDe> nhap = nhapTheoPhieuXuat.get(px);
+            if (nhap == null) return;
+            BigDecimal tong = nhap.stream().map(v -> (BigDecimal) v.chiTiet().get("soLuong")).reduce(xuat, BigDecimal::add);
+            viecCap.put(px, tong.signum() == 0 ? ViecKeToan.KHOP_DON_HUY : ViecKeToan.LECH_DON_HUY);
+        });
+        if (viecCap.isEmpty()) return ds;
+        return ds.stream().map(v -> {
+            Object px = v.chiTiet().get("phieuXuat");
+            boolean trongCap = px != null && (ViecKeToan.NHAP_HANG_HOAN.equals(v.viec()) || ViecKeToan.XUAT_KHO_DON_HUY.equals(v.viec()));
+            String viec = trongCap ? viecCap.get(px.toString()) : null;
+            return viec == null ? v : v.voiViec(viec, Map.of("cap", px.toString()));
+        }).toList();
     }
 
     private static String soLuong(BigDecimal so) {
@@ -726,10 +799,14 @@ public class XuatKeToanService {
                         lo.hoaDonSauXuat().stream().map(h -> XemTruocXuatKeToanDto.VanDe.builder()
                                 .loai(ChungTuXuatKeToan.LOAI_MUA_HANG).idNguon(h.phieuId()).soChungTu(h.soPhieu())
                                 .noiDung(noiDungHoaDonSauXuat(h).theoNgonNgu(NgonNgu.hienTai()))
+                                .viec(ViecKeToan.HOA_DON_SAU_XUAT)
+                                .chiTiet(DungChungTuAmis.chiTiet("soLo", h.soLo()))
                                 .build()),
                         lo.sauXuat().stream().map(s -> XemTruocXuatKeToanDto.VanDe.builder()
                                 .loai(ChungTuXuatKeToan.LOAI_BAN_HANG).idNguon(s.donId()).soChungTu(s.soDon())
                                 .noiDung(ThongDiep.dich("keToanDuLieuVao.phatSinhSauXuat", s.soLo()))
+                                .viec(ViecKeToan.TRA_LAI_SAU_XUAT)
+                                .chiTiet(DungChungTuAmis.chiTiet("soLo", s.soLo()))
                                 .build())).toList())
                 .bienDongKho(lo.bienDongKho().stream().map(XuatKeToanService::vanDe).toList())
                 .tepNhap(tepNhap(kq))
@@ -778,7 +855,8 @@ public class XuatKeToanService {
 
     private static XemTruocXuatKeToanDto.VanDe vanDe(DungChungTuAmis.VanDe v) {
         return XemTruocXuatKeToanDto.VanDe.builder()
-                .loai(v.loai()).idNguon(v.idNguon()).soChungTu(v.soChungTu()).noiDung(v.noiDung()).build();
+                .loai(v.loai()).idNguon(v.idNguon()).soChungTu(v.soChungTu()).noiDung(v.noiDung())
+                .viec(v.viec()).chiTiet(v.chiTiet()).build();
     }
 
     record TongLoai(String loai, int soChungTu, int soDong, BigDecimal truocThue, BigDecimal thue, BigDecimal thueChoHoaDon,

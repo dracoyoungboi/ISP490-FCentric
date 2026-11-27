@@ -655,6 +655,7 @@ public class KeToanNguonRepository {
                    COALESCE(NULLIF(l.gia_von, 0), lh.gia_von) AS gia_von,
                    COALESCE(px.so_phieu_xuat, pn.so_phieu_nhap, dck.so_phieu, dkk.ma_dot_kiem_ke) AS so_chung_tu,
                    LEFT(COALESCE(pn.ghi_chu, dck.ly_do, CONCAT('Đơn ', dx.so_don_hang)), 200) AS ghi_chu,
+                   bbg.phuong_an_xu_ly AS phuong_an, bbg.so_bien_ban, pckd.so_phieu_chuyen, dx.id AS id_don,
                    CASE WHEN l.so_luong_truoc IS NOT NULL AND l.so_luong_sau IS NOT NULL THEN l.so_luong_sau - l.so_luong_truoc
                         WHEN l.loai_giao_dich = 'xuat_kho' THEN -l.so_luong
                         ELSE l.so_luong END AS chenh,
@@ -681,6 +682,8 @@ public class KeToanNguonRepository {
               LEFT JOIN chung_tu_xuat_ke_toan cb ON cb.khoa_hieu_luc = CONCAT('ban_hang:', dx.id)
               LEFT JOIN phieu_nhap_kho pn ON l.loai_tham_chieu = 'phieu_nhap_kho' AND pn.id = l.id_tham_chieu
               LEFT JOIN phieu_dieu_chinh_kho dck ON l.loai_tham_chieu = 'phieu_dieu_chinh_kho' AND dck.id = l.id_tham_chieu
+              LEFT JOIN bien_ban_giao_nhan bbg ON bbg.id = dck.bien_ban_giao_nhan_id
+              LEFT JOIN phieu_chuyen_kho pckd ON pckd.id = dck.phieu_chuyen_kho_id
               LEFT JOIN dot_kiem_ke dkk ON l.loai_tham_chieu = 'kiem_ke' AND dkk.id = l.id_tham_chieu
              WHERE l.ngay_giao_dich >= :tu AND l.ngay_giao_dich < :den
                AND l.loai_giao_dich <> 'chuyen_ke_noi_bo'
@@ -698,6 +701,8 @@ public class KeToanNguonRepository {
         String sql = """
                 SELECT nhom, loai_tham_chieu, id_tham_chieu, ma_kho,
                        MAX(so_chung_tu) AS so_chung_tu, MAX(ghi_chu) AS ghi_chu, COUNT(*) AS so_dong,
+                       MAX(phuong_an) AS phuong_an, MAX(so_bien_ban) AS so_bien_ban, MAX(so_phieu_chuyen) AS so_phieu_chuyen,
+                       MAX(id_don) AS id_don,
                        SUM(GREATEST(chenh, 0)) AS tang, SUM(GREATEST(-chenh, 0)) AS giam, MIN(ngay_giao_dich) AS ngay
                   FROM (%s) x
                  WHERE nhom IS NOT NULL
@@ -717,7 +722,11 @@ public class KeToanNguonRepository {
                 so(rs, "tang"),
                 so(rs, "giam"),
                 instant(rs, "ngay"),
-                rs.getString("ghi_chu")));
+                rs.getString("ghi_chu"),
+                rs.getString("phuong_an"),
+                rs.getString("so_bien_ban"),
+                rs.getString("so_phieu_chuyen"),
+                soNguyen(rs, "id_don")));
     }
 
     /**

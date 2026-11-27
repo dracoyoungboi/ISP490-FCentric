@@ -124,7 +124,22 @@ public final class DungChungTuAmis {
         }
     }
 
-    public record VanDe(String loai, Integer idNguon, String soChungTu, String noiDung) {
+    /**
+     * Một lỗi / cảnh báo / việc kế toán làm thêm. {@code noiDung}: câu đầy đủ (ghi vào tệp hướng dẫn, đối chiếu).
+     * {@code viec}: mã việc để màn Tạo lô xếp theo việc cần làm (xem VIEC_* trong XuatKeToanService), null = việc chung
+     * "xem lại". {@code chiTiet}: số liệu tách sẵn để màn hiện thành cột (maKho, soLuong, soDon, giaTri…), có thể rỗng.
+     */
+    public record VanDe(String loai, Integer idNguon, String soChungTu, String noiDung, String viec, Map<String, Object> chiTiet) {
+        public VanDe(String loai, Integer idNguon, String soChungTu, String noiDung) {
+            this(loai, idNguon, soChungTu, noiDung, null, Map.of());
+        }
+
+        /** Cùng vấn đề, đổi mã việc (dùng khi ghép phiếu xuất ↔ phiếu nhập lại của đơn hủy). */
+        public VanDe voiViec(String viecMoi, Map<String, Object> themChiTiet) {
+            Map<String, Object> ct = new LinkedHashMap<>(chiTiet);
+            ct.putAll(themChiTiet);
+            return new VanDe(loai, idNguon, soChungTu, noiDung, viecMoi, ct);
+        }
     }
 
     /** Một tệp Excel trong tệp nén: tên (không đuôi), mẫu, các dòng. */
@@ -426,7 +441,11 @@ public final class DungChungTuAmis {
                 canhBao(ChungTuXuatKeToan.LOAI_BAN_HANG, don.id(), don.soDon(), "Khách trả kết hợp tại quầy: xuất dạng \""
                         + CHUA_THU_TIEN + "\" (" + cauHinh.getTkPhaiThu() + "). Lập phiếu thu trên AMIS: tiền mặt "
                         + tien(TachThue.dong(don.tienMatDaThu())) + " đ vào " + cauHinh.getTkTienMat() + ", QR payOS "
-                        + tien(TachThue.dong(don.nganHangDaThu())) + " đ vào " + cauHinh.getTkNganHang() + ".");
+                        + tien(TachThue.dong(don.nganHangDaThu())) + " đ vào " + cauHinh.getTkNganHang() + ".",
+                        ViecKeToan.LAP_PHIEU_THU, chiTiet(
+                                "tienMat", TachThue.dong(don.tienMatDaThu()), "tkTienMat", cauHinh.getTkTienMat(),
+                                "chuyenKhoan", TachThue.dong(don.nganHangDaThu()), "tkNganHang", cauHinh.getTkNganHang(),
+                                "tkPhaiThu", cauHinh.getTkPhaiThu()));
             }
             kq.them("30_BanHang", HoSoAmis.BAN_HANG, rows, ngay);
             kq.chungTu.add(new ChungTu(ChungTuXuatKeToan.LOAI_BAN_HANG, don.id(), don.soDon(), ngay,
@@ -672,7 +691,8 @@ public final class DungChungTuAmis {
             }
             if (!p.donDaGiao() && !donTrongLo.contains(p.donId())) {
                 canhBao(ChungTuXuatKeToan.LOAI_TRA_LAI_QUAY, p.id(), p.soPhieu(), "Đơn gốc " + p.soDon()
-                        + " bán trước ngày mốc nên không có chứng từ bán trên AMIS; phiếu trả vẫn ghi giảm doanh thu kỳ này.");
+                        + " bán trước ngày mốc nên không có chứng từ bán trên AMIS; phiếu trả vẫn ghi giảm doanh thu kỳ này.",
+                        ViecKeToan.DE_BIET, chiTiet("soDon", p.soDon()));
             }
             if (tong.compareTo(TachThue.dong(p.tongTienHoan())) != 0) {
                 canhBao(ChungTuXuatKeToan.LOAI_TRA_LAI_QUAY, p.id(), p.soPhieu(), "Tổng tiền các dòng " + tien(tong)
@@ -681,12 +701,15 @@ public final class DungChungTuAmis {
             if (chuyenKhoan) {
                 canhBao(ChungTuXuatKeToan.LOAI_TRA_LAI_QUAY, p.id(), p.soPhieu(), "Hoàn tiền chuyển khoản " + tien(tong)
                         + " đ: chứng từ trả lại ghi giảm trừ công nợ (" + cauHinh.getTkPhaiThu() + "). Lập chứng từ chi tiền gửi"
-                        + " (" + cauHinh.getTkNganHang() + ") trả khách trên AMIS cùng số tiền.");
+                        + " (" + cauHinh.getTkNganHang() + ") trả khách trên AMIS cùng số tiền.",
+                        ViecKeToan.LAP_PHIEU_CHI, chiTiet("soTien", tong, "tkNganHang", cauHinh.getTkNganHang(),
+                                "soDon", p.soDon()));
             }
             if (!rowsHong.isEmpty()) {
                 canhBao(ChungTuXuatKeToan.LOAI_TRA_LAI_QUAY, p.id(), p.soPhieu(), "Hàng lỗi (" + rowsHong.size()
                         + " dòng) ghi thành chứng từ " + p.soPhieu() + "-L không kèm phiếu nhập kho: hàng lỗi không vào tồn,"
-                        + " giá vốn đã ghi lúc bán giữ nguyên. Xử lý hàng lỗi (trả nhà cung cấp, hủy) theo quy định của công ty.");
+                        + " giá vốn đã ghi lúc bán giữ nguyên. Xử lý hàng lỗi (trả nhà cung cấp, hủy) theo quy định của công ty.",
+                        ViecKeToan.HANG_LOI, chiTiet("soDong", rowsHong.size(), "chungTuAmis", p.soPhieu() + "-L"));
             }
             if (!rowsDat.isEmpty()) {
                 kq.them("31_HangTraLai", HoSoAmis.TRA_LAI, rowsDat, ngay);
@@ -748,7 +771,8 @@ public final class DungChungTuAmis {
             }
             canhBao(ChungTuXuatKeToan.LOAI_TRA_LAI_DON, don.id(), so, "Đơn " + don.soDon() + " bị hoàn trả: chứng từ trả lại"
                     + " giảm trừ công nợ, không kèm phiếu nhập kho. Hàng về kho (phiếu nhập hoàn trả PN-RET) thì lập phiếu nhập"
-                    + " kho loại \"Nhập kho hàng bán trả lại\" trên AMIS; tiền đã thu của khách thì lập phiếu chi khi hoàn tiền.");
+                    + " kho loại \"Nhập kho hàng bán trả lại\" trên AMIS; tiền đã thu của khách thì lập phiếu chi khi hoàn tiền.",
+                    ViecKeToan.TRA_LAI_DON, chiTiet("soDon", don.soDon(), "soTien", TachThue.dong(don.tongCong())));
             kq.them("31_HangTraLai", HoSoAmis.TRA_LAI, rows, ngay);
             kq.chungTu.add(new ChungTu(ChungTuXuatKeToan.LOAI_TRA_LAI_DON, don.id(), so, ngay, TachThue.dong(don.tongCong()),
                     td.truocThue(), td.thue(), rows.size(), kh.ma()));
@@ -979,7 +1003,9 @@ public final class DungChungTuAmis {
                 canhBao(ChungTuXuatKeToan.LOAI_MUA_HANG, p.id(), p.soPhieu(), "Chưa nhập hóa đơn nhà cung cấp: xuất dạng \""
                         + KHONG_KEM_HOA_DON + "\", AMIS ghi giá trị hàng " + tien(truocThue) + " đ (tách thuế "
                         + phanTram(tsTach) + "%), thuế " + tien(thueCho) + " đ chờ hóa đơn. Khi nhận hóa đơn, kế toán vào Mua hàng"
-                        + " › Nhận hóa đơn trên AMIS và chọn phiếu này; đã có hóa đơn thì nên nhập ở phiếu nhập trước khi xuất.");
+                        + " › Nhận hóa đơn trên AMIS và chọn phiếu này; đã có hóa đơn thì nên nhập ở phiếu nhập trước khi xuất.",
+                        ViecKeToan.NHAN_HOA_DON, chiTiet("giaTri", truocThue, "thue", thueCho, "thueSuat", tsTach,
+                                "nhaCungCap", p.maNhaCungCap()));
             }
             kq.them("10_MuaHang", HoSoAmis.MUA_HANG, rows, ngay);
             kq.chungTu.add(new ChungTu(ChungTuXuatKeToan.LOAI_MUA_HANG, p.id(), p.soPhieu(), ngay, tong,
@@ -1115,12 +1141,13 @@ public final class DungChungTuAmis {
                 ngayMoc, tong, tong, BigDecimal.ZERO, gop.size()));
         if (gop.isEmpty()) {
             canhBao(ChungTuXuatKeToan.LOAI_TON_DAU_KY, 0, "Tồn đầu kỳ", "Không có hàng tồn ở đầu ngày mốc "
-                    + ngayMoc.format(GhiTepAmis.NGAY) + " nên không có tệp số dư ban đầu.");
+                    + ngayMoc.format(GhiTepAmis.NGAY) + " nên không có tệp số dư ban đầu.", ViecKeToan.DE_BIET, Map.of());
             return;
         }
         kq.them("05_TonDauKy", HoSoAmis.TON_DAU_KY, new ArrayList<>(gop.values()), null);
         canhBao(ChungTuXuatKeToan.LOAI_TON_DAU_KY, 0, "Tồn đầu kỳ", "Giá trị tồn tính từ giá vốn lô (đơn giá đơn mua đã gồm thuế) trừ thuế theo mức chung "
-                + phanTram(ts) + "%. Kế toán kiểm lại trước khi nhập số dư.");
+                + phanTram(ts) + "%. Kế toán kiểm lại trước khi nhập số dư.",
+                ViecKeToan.KIEM_TON_DAU_KY, chiTiet("thueSuat", ts, "giaTri", tong, "soMatHang", gop.size()));
     }
 
     // ── Danh mục ───────────────────────────────────────────────────────────
@@ -1244,5 +1271,19 @@ public final class DungChungTuAmis {
 
     private void canhBao(String loai, Integer id, String so, String noiDung) {
         kq.canhBao.add(new VanDe(loai, id, so, noiDung));
+    }
+
+    /** Cảnh báo kèm mã việc và số liệu tách sẵn cho màn Tạo lô (xem VanDe). */
+    private void canhBao(String loai, Integer id, String so, String noiDung, String viec, Map<String, Object> chiTiet) {
+        kq.canhBao.add(new VanDe(loai, id, so, noiDung, viec, chiTiet));
+    }
+
+    /** Map giữ thứ tự, bỏ cặp có giá trị null (Map.of không nhận null). */
+    static Map<String, Object> chiTiet(Object... cap) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        for (int i = 0; i + 1 < cap.length; i += 2) {
+            if (cap[i + 1] != null) m.put((String) cap[i], cap[i + 1]);
+        }
+        return m;
     }
 }

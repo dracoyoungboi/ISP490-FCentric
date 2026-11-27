@@ -139,9 +139,13 @@ public final class NguonKeToan {
     /**
      * Biến động kho không có chứng từ kế toán tương ứng, gộp theo chứng từ gốc và kho. nhom: kiem_ke / xuat_khac /
      * nhap_lai_ban_truoc_moc / nhap_hang_hoan / nhap_khac / ghi_giam_chuyen_kho / xuat_ban_khong_doanh_thu / khac. tang, giam: tổng số lượng tăng, giảm (đều không âm).
-     * ghiChu: ghi chú phiếu nhập (phiếu hàng hoàn ghi phiếu xuất và đơn gốc), null với loại khác.
+     * ghiChu: ghi chú phiếu nhập (phiếu hàng hoàn ghi phiếu xuất và đơn gốc), lý do của phiếu điều chỉnh, "Đơn …" của
+     * phiếu xuất bán. phuongAn, soBienBan, soPhieuChuyen: phiếu ghi giảm hao hụt chuyển kho — cách xử lý chênh lệch
+     * (bien_ban_giao_nhan.phuong_an_xu_ly: GIAO_BU_HANG / GHI_GIAM_HAO_HUT), biên bản giao nhận và phiếu chuyển; null với loại khác.
+     * idDon: đơn bán của phiếu xuất bán (mở màn đơn từ màn Tạo lô xuất); null với loại khác.
      */
     public record BienDongKho(String nhom, String loaiThamChieu, Integer idThamChieu, String soChungTu, String maKho,
-                              int soDong, BigDecimal tang, BigDecimal giam, Instant ngay, String ghiChu) {
+                              int soDong, BigDecimal tang, BigDecimal giam, Instant ngay, String ghiChu,
+                              String phuongAn, String soBienBan, String soPhieuChuyen, Integer idDon) {
     }
 }
