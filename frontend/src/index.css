@@ -198,6 +198,96 @@
 }
 
 /*
+ * Thân bảng danh sách (TableShell): thanh cuộn mảnh bo tròn thay thanh mặc định của Windows.
+ * Phần xám 4px (viền trong suốt 3px quanh), rê vào dày 6px và đậm hơn. Đường ray dọc bắt đầu dưới
+ * hàng tiêu đề cột: TableShell đo chiều cao thead và ghi vào --bo-cuon-dau.
+ * Đã cuộn xuống (data-da-cuon) thì hàng tiêu đề cột đứng yên có bóng mờ phía dưới.
+ */
+.bo-cuon::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+/* Khe thanh cuộn ngang hàng tiêu đề cột: nền của chính khung cuộn (không cuộn theo nội dung, nằm dưới thanh cuộn)
+   tô dải trên cùng màu nền và viền dưới của tiêu đề, để hàng tiêu đề liền tới mép khung, không để lại ô trắng ở
+   góc phải. Vẽ trên khung chứ không trên thanh cuộn để cùng hệ tọa độ với bảng, không lệch khi phóng to 125–150%.
+   TableShell ghi chiều cao và màu nền tiêu đề vào --bo-cuon-dau, --bo-cuon-nen-dau. */
+.bo-cuon {
+	background: linear-gradient(
+			to bottom,
+			var(--bo-cuon-nen-dau, transparent) 0 calc(var(--bo-cuon-dau, 0px) - 1px),
+			var(--color-bo-border) 0 var(--bo-cuon-dau, 0px),
+			transparent 0
+		)
+		no-repeat;
+}
+/* Viền dưới hàng tiêu đề đứng yên: vẽ bằng bóng trong của ô thay cho border của tr. Border của bảng gộp viền nằm vắt
+   qua mép hàng (nửa trong nửa ngoài) nên không khớp đúng dải tô ở khe thanh cuộn, và còn trôi mất khi cuộn. */
+.bo-cuon thead.sticky > tr[class*="border-b"] {
+	border-bottom-width: 0;
+}
+.bo-cuon thead.sticky > tr[class*="border-b"] > th {
+	box-shadow: inset 0 -1px 0 var(--color-bo-border);
+}
+.bo-cuon::-webkit-scrollbar-track {
+	background: transparent;
+}
+.bo-cuon::-webkit-scrollbar-track:vertical {
+	margin-top: var(--bo-cuon-dau, 0px);
+}
+.bo-cuon::-webkit-scrollbar-thumb {
+	background-color: #cbd5e1;
+	background-clip: padding-box;
+	border: 3px solid transparent;
+	border-radius: 999px;
+}
+.bo-cuon::-webkit-scrollbar-thumb:hover {
+	background-color: #94a3b8;
+	border-width: 2px;
+}
+.bo-cuon::-webkit-scrollbar-thumb:active {
+	background-color: #64748b;
+	border-width: 2px;
+}
+.bo-cuon::-webkit-scrollbar-corner {
+	background: transparent;
+}
+/* Firefox không có ::-webkit-scrollbar */
+@supports not selector(::-webkit-scrollbar) {
+	.bo-cuon {
+		scrollbar-width: thin;
+		scrollbar-color: #cbd5e1 transparent;
+	}
+}
+.bo-cuon thead.sticky > tr > th {
+	transition: box-shadow 0.15s ease;
+}
+.bo-cuon[data-da-cuon] thead.sticky > tr > th {
+	box-shadow: 0 6px 8px -6px rgb(15 23 42 / 0.12);
+}
+/* Bóng nối dài qua khe thanh cuộn (rộng 10px), để bóng dưới tiêu đề không bị cụt ở mép phải */
+.bo-cuon[data-da-cuon]:has(> table > thead.sticky) {
+	background:
+		linear-gradient(to bottom, rgb(15 23 42 / 0.07), transparent) right var(--bo-cuon-dau, 0px) / 10px 5px no-repeat,
+		linear-gradient(
+			to bottom,
+			var(--bo-cuon-nen-dau, transparent) 0 calc(var(--bo-cuon-dau, 0px) - 1px),
+			var(--color-bo-border) 0 var(--bo-cuon-dau, 0px),
+			transparent 0
+		)
+		no-repeat;
+}
+.bo-cuon[data-da-cuon] thead.sticky > tr[class*="border-b"] > th {
+	box-shadow:
+		inset 0 -1px 0 var(--color-bo-border),
+		0 6px 8px -6px rgb(15 23 42 / 0.12);
+}
+@media (prefers-reduced-motion: reduce) {
+	.bo-cuon thead.sticky > tr > th {
+		transition: none;
+	}
+}
+
+/*
  * Logo sidebar: logo đầy đủ và icon F luôn cùng được render, chồng lên nhau và
  * biến hình qua lại quanh tâm chữ F (logo cao 36px: F trong logo lớn gấp ~1,18 lần
  * F của icon 32px; tâm F của logo ở 19,8px × 18px, của icon ở 18px × 16px,
