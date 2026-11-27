@@ -333,7 +333,7 @@ export default function ChannelOrdersPage() {
     setTab(tab, { yeuCauHuy: null });
     veTrangDau();
   };
-  // "Xem đơn" ở thanh nhắc: bỏ mọi lọc khác, về tab Tất cả, chỉ còn đúng các đơn thanh nhắc đang đếm
+  // Nút "Xem đơn" từ thanh nhắc yêu cầu hủy (TikTok): xóa bộ lọc khác, bật ?yeuCauHuy=1 để gom đúng các đơn chưa xuất kho cần xử lý
   const xemYeuCauHuy = () => {
     boLocTrongTrang();
     setTab(TAB_MAC_DINH, { yeuCauHuy: "1" });

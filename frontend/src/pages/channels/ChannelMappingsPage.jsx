@@ -577,6 +577,7 @@ export default function ChannelMappingsPage() {
     );
   };
 
+  // Ghép tay 1 dòng sàn với biến thể FCentric (PUT /api/v1/kenh-ban-hang/lien-ket/{id}) -> tải lại trang nếu đổi sản phẩm cha
   const ghep = (dong, bienThe) =>
     chay(
       "ghep",

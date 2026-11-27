@@ -67,6 +67,7 @@ export default function NutDongBoNgay({ tienDo, tenSan, onDen, viecPhu = null, l
   const hien = dangGui && !dangChay ? PHIEN_DANG_BAT_DAU : phien;
   const pct = phanTramDongBo(hien);
 
+  // Bấm nút chính khi rảnh: mở ngay bảng tiến độ popover rồi gọi POST /{maKenh}/dong-bo-ngay qua hook
   const batDauVaMo = async () => {
     setMo(true);
     const p = await batDau();

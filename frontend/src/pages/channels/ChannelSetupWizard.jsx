@@ -558,6 +558,7 @@ function BuocKetNoi({ config, onHuy, onXong, onDoiKetNoi }) {
     setErrors((cu) => ({ ...cu, [name]: undefined }));
   };
 
+  // Bước 1 Lưu kết nối Shopify: nếu khóa thay đổi thì gọi PUT /SHOPIFY/ket-noi/khoa mã hóa AES-GCM xuống DB
   const tiepTheo = () =>
     chay("luu", async () => {
       if (daCo && !coThayDoiKetNoi(values, config)) {
@@ -663,6 +664,7 @@ function BuocTonKho({ cauHinh, choHoanTat, khoSan, ketNoi, dsKhoSan, onLoi, onHu
     }
   };
 
+  // Bước 2 Lưu tồn kho: ghi quy tắc tỷ lệ/đệm/tự động (`PUT /cau-hinh-dong-bo`) rồi gắn kho bán mặc định của sàn (`PUT /cai-dat`)
   const tiepTheo = () =>
     chay("luu", async () => {
       const loi = kiemTraCauHinh(values);
@@ -761,6 +763,7 @@ function BuocDonHang({ cauHinh, ketNoi, choHoanTat, onLoi, onHuy, onQuayLai, onX
   });
   const [dangChay, chay] = useDangChay();
 
+  // Bước 3 Lưu đơn hàng: gọi PUT /cau-hinh-dong-bo (bật/tắt tự kéo đơn) và kéo ngay đơn cũ nếu là Shopify
   const tiepTheo = () =>
     chay("luu", async () => {
       const payload = taoPayloadCauHinh(values, "don-hang");
@@ -883,6 +886,7 @@ function BuocLienKet({
     return true;
   };
 
+  // Bước 4 (Nút "Tải sản phẩm"): gọi POST /{maKenh}/tai-san-pham kéo catalog sàn về ghép SKU trong `trang_thai_dong_bo_san_pham`
   const taiVaGhep = () =>
     chay("tai", async () => {
       setKetQuaTai(null);
@@ -897,6 +901,7 @@ function BuocLienKet({
       }
     });
 
+  // Bước 4 (Nút "Đưa sản phẩm lên sàn"): gọi POST /{maKenh}/tu-dong-lien-ket tạo SKU còn thiếu từ FCentric lên sàn
   const dayLenSan = () =>
     chay("day", async () => {
       setKetQuaDay(null);

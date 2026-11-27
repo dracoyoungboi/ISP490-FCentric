@@ -341,7 +341,7 @@ function ONhanSo({ nhan, giaTri, phu, onClick, loi = false }) {
   );
 }
 
-/** Số đơn theo ngày, tách đơn không hủy và đơn hủy. */
+/** Biểu đồ cột xếp chồng theo ngày (từ GET /{maKenh}/thong-ke-don): tách Đơn không hủy và Đơn hủy. */
 function BieuDoDon({ data, loading, error, onRetry, tenKy }) {
   const SAN = useSanHienTai();
   const n = data.length;
@@ -428,7 +428,7 @@ function DongGoiY({ nhan, giaTri }) {
   );
 }
 
-/** Việc đang chờ ở gian hàng; chỉ dòng có việc mới nổi bật. Bấm để mở đúng tab. */
+/** Danh sách "Việc cần xử lý" của gian hàng: đếm đơn theo trạng thái (`thongKe`) + SKU lỗi (`tongQuan`), bấm để mở đúng tab. */
 function ViecCanXuLy({ theoTrangThai, tongQuan, dangTai, onDen }) {
   const SAN = useSanHienTai();
   const don = (trangThai) => (theoTrangThai ? Number(theoTrangThai[trangThai] ?? 0) : undefined);

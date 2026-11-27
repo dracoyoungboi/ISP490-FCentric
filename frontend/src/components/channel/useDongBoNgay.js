@@ -103,7 +103,7 @@ export default function useDongBoNgay(maKenh, { enabled = true, onXong, onMatKet
     [maBoNho, nhan],
   );
 
-  // Mở trang: có đợt đang chạy thì hiện tiến độ luôn
+  // API GET lúc mở trang: bắt nhịp ngay nếu kênh đang có đợt chạy nền từ tab khác / người dùng khác
   useEffect(() => {
     if (!enabled) return undefined;
     let boQua = false;
@@ -145,7 +145,7 @@ export default function useDongBoNgay(maKenh, { enabled = true, onXong, onMatKet
     };
   }, [chay, phien, soLanLoi, maKenh, nhan]);
 
-  /** Bắt đầu một đợt; trả ảnh chụp đầu tiên, lỗi thì báo và trả null. */
+  // Bấm "Đồng bộ ngay": gọi POST /{maKenh}/dong-bo-ngay -> ghi maPhien vào RAM/session và bật chu kỳ poll 1s
   const batDau = useCallback(async ({ epDayToanBo = false } = {}) => {
     if (!enabled || dangGuiRef.current) return null;
     dangGuiRef.current = true;
@@ -165,6 +165,7 @@ export default function useDongBoNgay(maKenh, { enabled = true, onXong, onMatKet
     }
   }, [enabled, maKenh, nhan, theoDoi]);
 
+  // Bấm "Dừng": gọi POST /{maKenh}/dong-bo-ngay/dung để đặt cờ dừng mềm trên Backend và nhận lại snapshot `da_dung`
   const dung = useCallback(async () => {
     try {
       const p = await kenhBanHangService.dungDongBoNgay(maKenh);
