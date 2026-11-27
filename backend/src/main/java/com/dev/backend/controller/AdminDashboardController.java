@@ -171,9 +171,9 @@ public class AdminDashboardController {
     }
 
     /** Tệp Excel (.xlsx) của Báo cáo doanh thu, cùng tham số với /bao-cao/doanh-thu/tong-hop. Cần quyền Xuất báo cáo. */
-    // Excel có giá vốn, lợi nhuận gộp: chỉ quản trị viên (nhân viên bán hàng không có giá vốn nên tệp sẽ ra số sai)
+    // SRS 4.4 "Export report data": nhân viên bán hàng tải được, cùng phạm vi với màn; tệp bỏ cột, dòng giá vốn, lợi nhuận
     @GetMapping("/bao-cao/doanh-thu/xuat-excel")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang},
             permissions = {IPermissionType.xuat_bao_cao}, inWarehouse = true)
     public ResponseEntity<byte[]> xuatExcelDoanhThu(
             @RequestParam String loai,
@@ -209,9 +209,9 @@ public class AdminDashboardController {
     }
 
     /** Tệp Excel (.xlsx) của Báo cáo sản phẩm, cùng tham số với /bao-cao/san-pham. Cần quyền Xuất báo cáo. */
-    // Excel có giá vốn, lợi nhuận gộp, giá trị tồn: chỉ quản trị viên (như Excel báo cáo doanh thu)
+    // Như Excel báo cáo doanh thu: nhân viên bán hàng nhận tệp không có giá vốn, lợi nhuận gộp, giá trị tồn
     @GetMapping("/bao-cao/san-pham/xuat-excel")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien},
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang},
             permissions = {IPermissionType.xuat_bao_cao}, inWarehouse = true)
     public ResponseEntity<byte[]> xuatExcelSanPham(
             @RequestParam String tuNgay,
