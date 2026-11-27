@@ -170,8 +170,12 @@ public class AdminDashboardController {
                 .status(HttpStatus.OK.value()).message("Success").data(data).build());
     }
 
-    /** Tệp Excel (.xlsx) của Báo cáo doanh thu, cùng tham số với /bao-cao/doanh-thu/tong-hop. Cần quyền Xuất báo cáo. */
-    // SRS 4.4 "Export report data": nhân viên bán hàng tải được, cùng phạm vi với màn; tệp bỏ cột, dòng giá vốn, lợi nhuận
+    /**
+     * Tệp Excel (.xlsx) của Báo cáo doanh thu, cùng tham số với /bao-cao/doanh-thu/tong-hop. Cần quyền Xuất báo cáo.
+     * SRS 4.4 "Export report data to Excel": nhân viên bán hàng cũng tải được, số liệu cùng phạm vi với màn. Với họ,
+     * DoanhThuReportService.anGiaVon đặt coGiaVon = false nên BaoCaoDoanhThuExcel bỏ hẳn cột, dòng giá vốn, lợi nhuận gộp,
+     * biên lãi.
+     */
     @GetMapping("/bao-cao/doanh-thu/xuat-excel")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang},
             permissions = {IPermissionType.xuat_bao_cao}, inWarehouse = true)
@@ -208,8 +212,11 @@ public class AdminDashboardController {
                 .status(HttpStatus.OK.value()).message("Success").data(data).build());
     }
 
-    /** Tệp Excel (.xlsx) của Báo cáo sản phẩm, cùng tham số với /bao-cao/san-pham. Cần quyền Xuất báo cáo. */
-    // Như Excel báo cáo doanh thu: nhân viên bán hàng nhận tệp không có giá vốn, lợi nhuận gộp, giá trị tồn
+    /**
+     * Tệp Excel (.xlsx) của Báo cáo sản phẩm, cùng tham số với /bao-cao/san-pham. Cần quyền Xuất báo cáo. Như Excel báo
+     * cáo doanh thu: với nhân viên bán hàng, BaoCaoSanPhamService.anGiaVon đặt coGiaVon = false nên BaoCaoSanPhamExcel
+     * bỏ hẳn giá vốn, lợi nhuận gộp, biên lãi, giá trị tồn.
+     */
     @GetMapping("/bao-cao/san-pham/xuat-excel")
     @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.nhan_vien_ban_hang},
             permissions = {IPermissionType.xuat_bao_cao}, inWarehouse = true)

@@ -108,8 +108,9 @@ public class ThongKeHeThongController {
     }
 
     /**
-     * Người không được xem giá vốn (nhân viên bán hàng, SRS 2.4.1): bỏ giá vốn, giá trị tồn của dòng và giá vốn từng lô
-     * trước khi gửi (máy chủ không gửi, không chỉ ẩn trên giao diện).
+     * Bỏ giá vốn khỏi phản hồi của /ton-kho, /ton-kho-bien-the khi người gọi không được xem giá vốn (XemGiaVon: nhân viên
+     * bán hàng, SRS 2.4.1): giá vốn, giá trị tồn của dòng và giá vốn từng lô thành null. Phải bỏ ở máy chủ vì gọi thẳng
+     * API là đọc được, ẩn trên giao diện không đủ.
      */
     private static ResponseEntity<ResponseData<List<TonKhoChiTietDTO>>> anGiaVon(
             ResponseEntity<ResponseData<List<TonKhoChiTietDTO>>> phanHoi) {

@@ -26,8 +26,9 @@ import static com.dev.backend.services.impl.multitable.BaoCaoTonKhoService.*;
  * - Cần nhập: các mã hết hàng / sắp hết hàng (không tính Kho Trung Chuyển), để lập yêu cầu nhập hàng.
  * Số là số tại thời điểm lập báo cáo.
  * <p>
- * Người tải không được xem giá vốn (nhân viên bán hàng — SRS 2.4.1, XemGiaVon) thì tệp bỏ hẳn giá trị tồn và giá vốn
- * bình quân, như API của màn Báo cáo tồn kho (không gửi giá trị tồn, giá vốn lô) và màn (ẩn các ô đó).
+ * Người tải không được xem giá vốn (nhân viên bán hàng — SRS 2.4.1, XemGiaVon) thì tệp bỏ hẳn giá trị tồn, giá vốn
+ * bình quân và dòng "Đơn vị tính: đồng". Cùng luật với màn Báo cáo tồn kho: API /ton-kho-tong-quan không gửi giá trị
+ * tồn, API lô không gửi giá vốn lô, giao diện ẩn các ô đó.
  */
 public final class BaoCaoTonKhoExcel extends KhuonExcelBaoCao {
 
@@ -37,6 +38,7 @@ public final class BaoCaoTonKhoExcel extends KhuonExcelBaoCao {
     private final Set<Integer> khoAo;
     private final String dongKy;
     private final String boLoc;
+    /** Người tải được xem giá vốn; false thì bỏ cột giá trị tồn (trang Tổng hợp, Chi tiết) và giá vốn bình quân. */
     private final boolean gv;
 
     private BaoCaoTonKhoExcel(List<BaoCaoTonKhoService.Dong> ds, Set<Integer> khoAo, String boLoc, ThongTin tin, boolean gv) {

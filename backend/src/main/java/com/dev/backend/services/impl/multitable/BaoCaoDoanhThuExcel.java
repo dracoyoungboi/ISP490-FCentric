@@ -21,6 +21,7 @@ import java.util.Map;
  */
 public final class BaoCaoDoanhThuExcel extends KhuonExcelBaoCao {
 
+    /** Tệp có giá vốn (DoanhThuTongHopDTO.coGiaVon); false thì mọi trang bỏ cột, dòng giá vốn, lợi nhuận gộp, biên lãi. */
     private final boolean gv;
 
     private BaoCaoDoanhThuExcel(boolean gv) {

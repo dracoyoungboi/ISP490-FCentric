@@ -502,8 +502,9 @@ export default function BaoCaoDoanhThu() {
   const coQuyenXuat = useCoQuyenXuatBaoCao();
   const vaiTro = parseRoles(localStorage.getItem("role"));
   const laQtv = vaiTro.includes("quan_tri_vien");
-  // Quản trị viên: đủ số giá vốn, lợi nhuận. Nhân viên bán hàng: chỉ doanh thu, đơn (máy chủ cũng không gửi giá vốn, tệp
-  // Excel bỏ các cột đó); cờ coGiaVon của máy chủ là chuẩn khi đã có số liệu.
+  // quanLy: vai trò thấy giá vốn, lợi nhuận và chọn được mọi kho (quản trị viên; quản lý kho hiện không vào được màn này
+  // nhưng giữ để khớp XemGiaVon). Nhân viên bán hàng chỉ thấy doanh thu, đơn: máy chủ không gửi giá vốn và tệp Excel của
+  // họ cũng bỏ các cột đó. Khi đã có số liệu thì cờ coGiaVon máy chủ trả là chuẩn, quanLy chỉ dùng lúc chưa tải xong.
   const quanLy = laQtv || vaiTro.includes("quan_ly_kho");
   const [boLoc, datBoLoc] = useState(() => ({
     loai: "thang",

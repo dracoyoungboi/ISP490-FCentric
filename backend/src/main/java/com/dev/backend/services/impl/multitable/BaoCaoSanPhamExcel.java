@@ -39,6 +39,10 @@ public final class BaoCaoSanPhamExcel extends KhuonExcelBaoCao {
             "HET_HANG", "Hết hàng",
             "BINH_THUONG", "Bình thường");
 
+    /**
+     * Tệp có giá vốn (BaoCaoSanPhamDTO.coGiaVon); false thì mọi trang bỏ giá vốn, lợi nhuận gộp, biên lãi, giá trị tồn.
+     * Trang Theo sản phẩm, Theo mã SKU đặt cột qua BoCot; trang Tổng hợp tự tính vị trí theo cờ này.
+     */
     private final boolean gv;
 
     private BaoCaoSanPhamExcel(boolean gv) {
@@ -289,6 +293,10 @@ public final class BaoCaoSanPhamExcel extends KhuonExcelBaoCao {
     /**
      * Danh sách cột của một trang theo khóa: cột bị bỏ (khối {@code neu(false) … het()}) không chiếm chỗ, các cột sau tự
      * dồn sang trái, công thức lấy vị trí qua {@link #i(String)} nên không phải tính tay.
+     * <p>
+     * {@link #i(String)} ném lỗi nếu cột không có (đã bị bỏ): cột chỉ có khi có giá vốn thì chỉ gọi trong
+     * {@code if (gv)} hoặc kiểm trước bằng {@link #co(String)}. Thêm cột mới: thêm một lời gọi them(...) đúng vị trí,
+     * không sửa số cột ở chỗ khác.
      */
     private static final class BoCot {
         private final List<String> khoa = new ArrayList<>();
@@ -345,6 +353,7 @@ public final class BaoCaoSanPhamExcel extends KhuonExcelBaoCao {
 
     private void sheetSanPham(BaoCaoSanPhamDTO bc, ThongTin tin) {
         Sheet s = wb.createSheet("Theo sản phẩm");
+        // Thứ tự them(...) là thứ tự cột trái sang phải (khóa, tên cột, độ rộng); khối neu(gv)…het() chỉ có khi có giá vốn
         BoCot c = new BoCot()
                 .them("stt", "STT", 5).them("hang", "Hạng", 6).them("ma", "Mã sản phẩm", 12)
                 .them("ten", "Tên sản phẩm", 30).them("dm", "Danh mục", 11).them("th", "Thương hiệu", 10)
@@ -390,6 +399,7 @@ public final class BaoCaoSanPhamExcel extends KhuonExcelBaoCao {
         int hoan = c.i("hoan");
         int slt = c.i("slt");
         int kd = c.i("kd");
+        // Ô doanh thu của dòng Cộng, tham chiếu tuyệt đối (vd. $J$25) để mọi dòng tính tỷ trọng doanh thu
         String tongDt = new CellReference(dongCong, dt, true, true).formatAsString();
         int stt = 1;
         for (BaoCaoSanPhamDTO.SanPham p : ds) {
@@ -460,6 +470,7 @@ public final class BaoCaoSanPhamExcel extends KhuonExcelBaoCao {
 
     private void sheetSku(BaoCaoSanPhamDTO bc, ThongTin tin) {
         Sheet s = wb.createSheet("Theo mã SKU");
+        // Thứ tự them(...) là thứ tự cột; khối neu(gv)…het() chỉ có khi có giá vốn
         BoCot c = new BoCot()
                 .them("stt", "STT", 6).them("ma", "Mã sản phẩm", 13).them("ten", "Tên sản phẩm", 34)
                 .them("sku", "Mã SKU", 30).them("mau", "Màu", 12).them("size", "Size", 8)
