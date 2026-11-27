@@ -281,7 +281,7 @@ class NguoiDungServiceAuthHardeningTest {
         CommonException v = assertThrows(CommonException.class,
                 () -> service.verifyResetOtp(new VerifyResetOtpRequest("khang", otp)));
         CommonException r = assertThrows(CommonException.class,
-                () -> service.resetPassword(new ResetPasswordRequest("khang", otp, "matkhaumoi")));
+                () -> service.resetPassword(new ResetPasswordRequest("khang", otp, "MatKhau@moi1")));
 
         assertEquals("RESET_OTP_EXPIRED", data(v, "code"));
         assertEquals("RESET_OTP_EXPIRED", data(r, "code"));
@@ -306,7 +306,7 @@ class NguoiDungServiceAuthHardeningTest {
         String oldHash = user.getMatKhauHash();
 
         CommonException r = assertThrows(CommonException.class,
-                () -> service.resetPassword(new ResetPasswordRequest("khang", otp, "matkhaumoi")));
+                () -> service.resetPassword(new ResetPasswordRequest("khang", otp, "MatKhau@moi1")));
 
         assertEquals("RESET_OTP_EXPIRED", data(r, "code"));
         assertEquals(oldHash, user.getMatKhauHash());
@@ -414,9 +414,9 @@ class NguoiDungServiceAuthHardeningTest {
         when(repository.findById(7)).thenReturn(Optional.of(user));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        ResponseData<String> res = service.changePassword(new ChangePasswordRequest("matkhaucu", "matkhaumoi")).getBody();
+        ResponseData<String> res = service.changePassword(new ChangePasswordRequest("matkhaucu", "MatKhau@moi1")).getBody();
 
-        assertTrue(encoder.matches("matkhaumoi", user.getMatKhauHash()));
+        assertTrue(encoder.matches("MatKhau@moi1", user.getMatKhauHash()));
         String newCv = jwtService.getNguoiDungAuthInfoFromToken(res.getData()).getCredentialVersion();
         assertEquals(jwtService.credentialVersion(user.getMatKhauHash()), newCv);
         assertNotEquals(oldCv, newCv, "token cũ (cv cũ) sẽ bị AuthInterceptor từ chối");
@@ -426,17 +426,44 @@ class NguoiDungServiceAuthHardeningTest {
     }
 
     @Test
-    void doiMatKhau_qua72Byte_bao400_khongDoi() {
+    void doiMatKhau_trungMatKhauHienTai_hoacThieuLoaiKyTu_khongDoi() {
         com.dev.backend.config.SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(7).build());
-        // kiểm độ dài mật khẩu mới chạy trước khi tra tài khoản nên stub này có thể không được dùng
+        lenient().when(repository.findById(7)).thenReturn(Optional.of(user));
+        user.setMatKhauHash(encoder.encode("Kho@2026"));
+        String oldHash = user.getMatKhauHash();
+
+        assertEquals("Mật khẩu mới phải khác mật khẩu hiện tại", assertThrows(CommonException.class,
+                () -> service.changePassword(new ChangePasswordRequest("Kho@2026", "Kho@2026"))).getMessage());
+        assertEquals("Mật khẩu cần có chữ hoa, chữ thường, số và ký tự đặc biệt", assertThrows(CommonException.class,
+                () -> service.changePassword(new ChangePasswordRequest("Kho@2026", "kho@2027"))).getMessage());
+        assertEquals(oldHash, user.getMatKhauHash());
+    }
+
+    @Test
+    void doiMatKhau_coDauCach_khongDoi() {
+        com.dev.backend.config.SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(7).build());
+        lenient().when(repository.findById(7)).thenReturn(Optional.of(user));
+        String oldHash = user.getMatKhauHash();
+
+        for (String mk : new String[]{" Kho@2026", "Kho@2026 ", "Kho tong@2026"}) {
+            assertEquals("Mật khẩu không được có dấu cách", assertThrows(CommonException.class,
+                    () -> service.changePassword(new ChangePasswordRequest("matkhaucu", mk))).getMessage(), mk);
+        }
+        assertEquals(oldHash, user.getMatKhauHash());
+    }
+
+    @Test
+    void doiMatKhau_chuCoDau_bao400_khongDoi() {
+        com.dev.backend.config.SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(7).build());
+        // kiểm mật khẩu mới chạy trước khi tra tài khoản nên stub này có thể không được dùng
         lenient().when(repository.findById(7)).thenReturn(Optional.of(user));
         String oldHash = user.getMatKhauHash();
 
         CommonException ex = assertThrows(CommonException.class,
-                () -> service.changePassword(new ChangePasswordRequest("matkhaucu", "ệ".repeat(30))));
+                () -> service.changePassword(new ChangePasswordRequest("matkhaucu", "Kho@Hà_Nội_2026")));
 
         assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
-        assertTrue(ex.getMessage().startsWith("Mật khẩu quá dài"));
+        assertEquals("Mật khẩu chỉ dùng chữ không dấu, số và ký tự đặc biệt trên bàn phím", ex.getMessage());
         assertEquals(oldHash, user.getMatKhauHash());
     }
 
@@ -638,12 +665,12 @@ class NguoiDungServiceAuthHardeningTest {
         when(repository.findById(7)).thenReturn(Optional.of(user));
         for (int i = 0; i < LoginRateLimiter.MAX_FAILS; i++) {
             CommonException sai = assertThrows(CommonException.class,
-                    () -> service.changePassword(new ChangePasswordRequest("doan" , "matkhaumoi")));
+                    () -> service.changePassword(new ChangePasswordRequest("doan" , "MatKhau@moi1")));
             assertEquals("Mật khẩu hiện tại không đúng", sai.getMessage());
         }
 
         CommonException khoa = assertThrows(CommonException.class,
-                () -> service.changePassword(new ChangePasswordRequest("matkhaucu", "matkhaumoi")));
+                () -> service.changePassword(new ChangePasswordRequest("matkhaucu", "MatKhau@moi1")));
         assertEquals(HttpStatus.TOO_MANY_REQUESTS, khoa.getHttpStatus());
         assertTrue(khoa.getMessage().startsWith(NguoiDungService.CHANGE_PASSWORD_LOCKED_MESSAGE), khoa.getMessage());
         CommonException dangNhap = assertThrows(CommonException.class,
@@ -659,9 +686,9 @@ class NguoiDungServiceAuthHardeningTest {
         }
         forgot("khang", "1.1.1.1");
         String otp = (String) GlobalCache.OTP_SCHEDULE_OBJS.iterator().next().getOtp();
-        service.resetPassword(new ResetPasswordRequest("khang", otp, "matkhaumoi"));
+        service.resetPassword(new ResetPasswordRequest("khang", otp, "MatKhau@moi1"));
 
-        assertNotNull(service.login(new LoginRequest("khang", "matkhaumoi"), IP, UA).getBody().getData().getToken(),
+        assertNotNull(service.login(new LoginRequest("khang", "MatKhau@moi1"), IP, UA).getBody().getData().getToken(),
                 "quên mật khẩu xong đăng nhập được ngay, không phải chờ hết khoá");
     }
 
@@ -678,16 +705,16 @@ class NguoiDungServiceAuthHardeningTest {
     }
 
     @Test
-    void doiMatKhau_matKhauMoiQuaDai_khongLoMatKhauHienTaiDungHaySai() {
+    void doiMatKhau_matKhauMoiKhongHopLe_khongLoMatKhauHienTaiDungHaySai() {
         com.dev.backend.config.SecurityContextHolder.setUser(NguoiDungAuthInfo.builder().id(7).build());
         lenient().when(repository.findById(7)).thenReturn(Optional.of(user));
         CommonException saiHienTai = assertThrows(CommonException.class,
-                () -> service.changePassword(new ChangePasswordRequest("doan", "ệ".repeat(30))));
+                () -> service.changePassword(new ChangePasswordRequest("doan", "Aa1!" + "a".repeat(61))));
         CommonException dungHienTai = assertThrows(CommonException.class,
-                () -> service.changePassword(new ChangePasswordRequest("matkhaucu", "ệ".repeat(30))));
+                () -> service.changePassword(new ChangePasswordRequest("matkhaucu", "Aa1!" + "a".repeat(61))));
 
         assertEquals(dungHienTai.getMessage(), saiHienTai.getMessage());
-        assertTrue(dungHienTai.getMessage().startsWith("Mật khẩu quá dài"), dungHienTai.getMessage());
+        assertEquals("Mật khẩu mới tối đa 64 ký tự", dungHienTai.getMessage());
     }
 
     // ---------- Nhật ký bảo mật (lich_su_thay_doi) ----------
@@ -806,10 +833,10 @@ class NguoiDungServiceAuthHardeningTest {
         forgot("khang", "1.1.1.1");
         String otp = (String) GlobalCache.OTP_SCHEDULE_OBJS.iterator().next().getOtp();
 
-        service.resetPassword(new ResetPasswordRequest("khang", otp, "matkhaumoi"));
+        service.resetPassword(new ResetPasswordRequest("khang", otp, "MatKhau@moi1"));
 
         assertFalse(user.getMustChangePassword(), "tự đặt bằng mã email thì không bắt đổi lần nữa");
-        assertTrue(encoder.matches("matkhaumoi", user.getMatKhauHash()));
+        assertTrue(encoder.matches("MatKhau@moi1", user.getMatKhauHash()));
         verify(repository).save(user);
         verify(phienDangNhapService).thuHoiTatCa(7);
         verify(lienKetRepo).huyConMo(eq(7), any(Instant.class));
@@ -866,19 +893,19 @@ class NguoiDungServiceAuthHardeningTest {
         user.setMustChangePassword(true);
         LienKetDatMatKhau lk = lienKetCua(user);
 
-        ResponseData<String> kq = service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, " mật khẩu mới ")).getBody();
+        ResponseData<String> kq = service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, "MatKhau@moi1")).getBody();
 
         assertEquals("khang", kq.getData());
         assertNotNull(lk.getDaDungLuc(), "liên kết đã dùng");
         verify(lienKetRepo).khoaTheoMaBam(LienKetDatMatKhauService.bam(MA));
-        assertTrue(encoder.matches(" mật khẩu mới ", user.getMatKhauHash()), "giữ nguyên khoảng trắng như người dùng gõ");
+        assertTrue(encoder.matches("MatKhau@moi1", user.getMatKhauHash()));
         assertFalse(user.getMustChangePassword());
         verify(repository).save(user);
         verify(lienKetRepo).huyConMo(eq(7), any(Instant.class));
         verify(phienDangNhapService).thuHoiTatCa(7);
         verify(emailService).guiDaDoiMatKhau(same(user), eq(com.dev.backend.services.email.CachDoiMatKhau.DAT_QUA_LIEN_KET),
                 any(Instant.class));
-        assertNotNull(service.login(new LoginRequest("khang", " mật khẩu mới "), IP, UA).getBody().getData().getToken());
+        assertNotNull(service.login(new LoginRequest("khang", "MatKhau@moi1"), IP, UA).getBody().getData().getToken());
     }
 
     @Test
@@ -887,7 +914,7 @@ class NguoiDungServiceAuthHardeningTest {
         LienKetDatMatKhau lk = lienKetCua(user);
         lk.setMucDich(LienKetDatMatKhauService.TAO_TAI_KHOAN);
 
-        service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, "mat-khau-moi"));
+        service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, "Mat-khau-moi1"));
 
         assertNotNull(lk.getDaDungLuc(), "liên kết đã dùng");
         assertFalse(user.getMustChangePassword());
@@ -905,10 +932,14 @@ class NguoiDungServiceAuthHardeningTest {
                 "toàn dấu cách");
         assertTrue(assertThrows(CommonException.class,
                 () -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, "12345"))).getMessage()
-                .contains("ít nhất 6 ký tự"));
+                .contains("ít nhất 8 ký tự"));
+        assertEquals("Mật khẩu cần có chữ hoa, chữ thường, số và ký tự đặc biệt", assertThrows(CommonException.class,
+                () -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, "matkhau2026"))).getMessage());
         assertTrue(assertThrows(CommonException.class,
-                () -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, "ệ".repeat(30)))).getMessage()
-                .startsWith("Mật khẩu quá dài"));
+                () -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, "Mật@Khẩu2026"))).getMessage()
+                .equals("Mật khẩu chỉ dùng chữ không dấu, số và ký tự đặc biệt trên bàn phím"));
+        assertEquals("Mật khẩu không được có dấu cách", assertThrows(CommonException.class,
+                () -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, " MatKhau@moi1 "))).getMessage());
         verifyNoInteractions(lienKetRepo);
         assertTrue(encoder.matches("matkhaucu", user.getMatKhauHash()));
     }
@@ -916,7 +947,7 @@ class NguoiDungServiceAuthHardeningTest {
     @Test
     void datQuaLienKet_lienKetKhongDungDuoc_khongDoiMatKhau() {
         LienKetDatMatKhau lk = lienKetCua(user);
-        DatMatKhauQuaLienKetRequest req = new DatMatKhauQuaLienKetRequest(MA, "matkhaumoi");
+        DatMatKhauQuaLienKetRequest req = new DatMatKhauQuaLienKetRequest(MA, "MatKhau@moi1");
 
         lk.setDaDungLuc(Instant.now());
         assertEquals(MaLoi.LIEN_KET_DA_DUNG, maLoi(() -> service.datMatKhauQuaLienKet(req)));
@@ -927,7 +958,7 @@ class NguoiDungServiceAuthHardeningTest {
         lk.setHetHanLuc(Instant.now().minusSeconds(1));
         assertEquals(MaLoi.LIEN_KET_HET_HAN, maLoi(() -> service.datMatKhauQuaLienKet(req)));
         assertEquals(MaLoi.LIEN_KET_KHONG_HOP_LE,
-                maLoi(() -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest("sai", "matkhaumoi"))));
+                maLoi(() -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest("sai", "MatKhau@moi1"))));
 
         assertTrue(encoder.matches("matkhaucu", user.getMatKhauHash()));
         verify(repository, never()).save(any());
@@ -937,7 +968,7 @@ class NguoiDungServiceAuthHardeningTest {
     @Test
     void datQuaLienKet_requestSau_docDongDaKhoa_thayDaDungHoacDaThay() {
         LienKetDatMatKhau lk = lienKetCua(user);
-        DatMatKhauQuaLienKetRequest req = new DatMatKhauQuaLienKetRequest(MA, "matkhaumoi");
+        DatMatKhauQuaLienKetRequest req = new DatMatKhauQuaLienKetRequest(MA, "MatKhau@moi1");
         // request trước giữ khóa dòng rồi commit; request sau đọc dòng mới nhất (FOR UPDATE)
         LienKetDatMatKhau sauKhiDung = LienKetDatMatKhau.builder().id(5).nguoiDungId(7).maBam(lk.getMaBam())
                 .mucDich(lk.getMucDich()).taoLuc(lk.getTaoLuc()).hetHanLuc(lk.getHetHanLuc()).daDungLuc(Instant.now())

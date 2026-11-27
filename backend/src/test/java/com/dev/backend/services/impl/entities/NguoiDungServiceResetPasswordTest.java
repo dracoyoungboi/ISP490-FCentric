@@ -124,13 +124,13 @@ class NguoiDungServiceResetPasswordTest {
         verify(emailService).guiMaDatLaiMatKhau(same(user), eq("111111"), any(Instant.class), any(Instant.class));
         verify(emailService).guiMaDatLaiMatKhau(same(user), eq("222222"), any(Instant.class), any(Instant.class));
 
-        CommonException oldCode = assertThrows(CommonException.class, () -> reset("111111", "matkhaumoi"));
+        CommonException oldCode = assertThrows(CommonException.class, () -> reset("111111", "MatKhau@moi1"));
         assertEquals(HttpStatus.BAD_REQUEST, oldCode.getHttpStatus());
         assertEquals(OLD_HASH, user.getMatKhauHash());
 
-        ResponseData<String> ok = reset("222222", "matkhaumoi");
+        ResponseData<String> ok = reset("222222", "MatKhau@moi1");
         assertEquals(200, ok.getStatus());
-        assertTrue(passwordEncoder.matches("matkhaumoi", user.getMatKhauHash()));
+        assertTrue(passwordEncoder.matches("MatKhau@moi1", user.getMatKhauHash()));
         assertTrue(resetOtpsInCache().isEmpty(), "dùng xong phải xoá OTP");
     }
 
@@ -139,12 +139,12 @@ class NguoiDungServiceResetPasswordTest {
         when(calcService.getRandomActiveCode(6L)).thenReturn("111111", "222222");
         forgot();
         for (int i = 0; i < 4; i++) {
-            assertThrows(CommonException.class, () -> reset("999999", "matkhaumoi"));
+            assertThrows(CommonException.class, () -> reset("999999", "MatKhau@moi1"));
         }
         forgot(); // mã mới -> bộ đếm mới
 
         assertEquals(0, resetOtpsInCache().get(0).getFailedAttempts().get());
-        assertEquals(200, reset("222222", "matkhaumoi").getStatus());
+        assertEquals(200, reset("222222", "MatKhau@moi1").getStatus());
     }
 
     @Test
@@ -158,7 +158,7 @@ class NguoiDungServiceResetPasswordTest {
 
         // trước đây equals theo email -> OTP đặt lại MK bị set bỏ qua vì đã có OTP NCC cùng email
         assertEquals(2, GlobalCache.OTP_SCHEDULE_OBJS.size());
-        assertEquals(200, reset("111111", "matkhaumoi").getStatus());
+        assertEquals(200, reset("111111", "MatKhau@moi1").getStatus());
         assertTrue(GlobalCache.OTP_SCHEDULE_OBJS.contains(supplierOtp), "OTP nhà cung cấp phải được giữ nguyên");
     }
 
@@ -205,10 +205,10 @@ class NguoiDungServiceResetPasswordTest {
         when(calcService.getRandomActiveCode(6L)).thenReturn("444444");
         forgot();
 
-        assertThrows(CommonException.class, () -> reset("000000", "matkhaumoi"));
+        assertThrows(CommonException.class, () -> reset("000000", "MatKhau@moi1"));
         verify(emailService, never()).guiDaDoiMatKhau(any(), any(), any());
 
-        reset("444444", "matkhaumoi");
+        reset("444444", "MatKhau@moi1");
         verify(emailService).guiDaDoiMatKhau(same(user),
                 eq(com.dev.backend.services.email.CachDoiMatKhau.DAT_LAI_BANG_MA), any(Instant.class));
     }
@@ -245,7 +245,7 @@ class NguoiDungServiceResetPasswordTest {
 
     @Test
     void resetPassword_chuaYeuCauOtp_baoMaKhongTonTai() {
-        CommonException ex = assertThrows(CommonException.class, () -> reset("123456", "matkhaumoi"));
+        CommonException ex = assertThrows(CommonException.class, () -> reset("123456", "MatKhau@moi1"));
         assertEquals("Mã xác nhận không tồn tại hoặc đã hết hạn", ex.getMessage());
         assertEquals(OLD_HASH, user.getMatKhauHash());
     }
@@ -256,7 +256,7 @@ class NguoiDungServiceResetPasswordTest {
                 .email(EMAIL).otp("111111").type(OtpType.RESET_PASSWORD)
                 .createdAt(Instant.now().minusSeconds(NguoiDungService.RESET_OTP_TTL_SECONDS + 1)).build());
 
-        CommonException ex = assertThrows(CommonException.class, () -> reset("111111", "matkhaumoi"));
+        CommonException ex = assertThrows(CommonException.class, () -> reset("111111", "MatKhau@moi1"));
 
         assertEquals("Mã xác nhận không tồn tại hoặc đã hết hạn", ex.getMessage());
         assertTrue(GlobalCache.OTP_SCHEDULE_OBJS.isEmpty());
@@ -269,7 +269,7 @@ class NguoiDungServiceResetPasswordTest {
                 .email(EMAIL).otp("111111").type(OtpType.RESET_PASSWORD)
                 .createdAt(Instant.now().minusSeconds(NguoiDungService.RESET_OTP_TTL_SECONDS - 5)).build());
 
-        assertEquals(200, reset("111111", "matkhaumoi").getStatus());
+        assertEquals(200, reset("111111", "MatKhau@moi1").getStatus());
     }
 
     @Test
@@ -278,17 +278,17 @@ class NguoiDungServiceResetPasswordTest {
         forgot();
 
         for (int i = 1; i <= 4; i++) {
-            CommonException ex = assertThrows(CommonException.class, () -> reset("999999", "matkhaumoi"));
+            CommonException ex = assertThrows(CommonException.class, () -> reset("999999", "MatKhau@moi1"));
             assertEquals("Mã xác nhận không đúng, bạn còn " + (5 - i) + " lần thử", ex.getMessage());
             assertEquals(1, resetOtpsInCache().size(), "chưa đủ 5 lần thì mã vẫn còn");
         }
 
-        CommonException fifth = assertThrows(CommonException.class, () -> reset("999999", "matkhaumoi"));
+        CommonException fifth = assertThrows(CommonException.class, () -> reset("999999", "MatKhau@moi1"));
         assertEquals("Bạn đã nhập sai mã xác nhận quá 5 lần, vui lòng yêu cầu mã mới", fifth.getMessage());
         assertTrue(resetOtpsInCache().isEmpty(), "sai lần thứ 5 phải huỷ mã");
 
         // mã đúng cũng không dùng được nữa
-        CommonException afterLock = assertThrows(CommonException.class, () -> reset("111111", "matkhaumoi"));
+        CommonException afterLock = assertThrows(CommonException.class, () -> reset("111111", "MatKhau@moi1"));
         assertEquals("Mã xác nhận không tồn tại hoặc đã hết hạn", afterLock.getMessage());
         assertEquals(OLD_HASH, user.getMatKhauHash());
     }
@@ -297,46 +297,48 @@ class NguoiDungServiceResetPasswordTest {
     void resetPassword_nhapSaiVaiLanRoiDung_thanhCong() {
         when(calcService.getRandomActiveCode(6L)).thenReturn("111111");
         forgot();
-        assertThrows(CommonException.class, () -> reset("999999", "matkhaumoi"));
-        assertThrows(CommonException.class, () -> reset("000000", "matkhaumoi"));
+        assertThrows(CommonException.class, () -> reset("999999", "MatKhau@moi1"));
+        assertThrows(CommonException.class, () -> reset("000000", "MatKhau@moi1"));
 
-        assertEquals(200, reset("111111", "matkhaumoi").getStatus());
-        assertTrue(passwordEncoder.matches("matkhaumoi", user.getMatKhauHash()));
+        assertEquals(200, reset("111111", "MatKhau@moi1").getStatus());
+        assertTrue(passwordEncoder.matches("MatKhau@moi1", user.getMatKhauHash()));
     }
 
     @Test
     void resetPassword_maChiDungDuocMotLan() {
         when(calcService.getRandomActiveCode(6L)).thenReturn("111111");
         forgot();
-        assertEquals(200, reset("111111", "matkhaumoi").getStatus());
+        assertEquals(200, reset("111111", "MatKhau@moi1").getStatus());
         String hashAfterFirst = user.getMatKhauHash();
 
-        CommonException ex = assertThrows(CommonException.class, () -> reset("111111", "matkhaukhac"));
+        CommonException ex = assertThrows(CommonException.class, () -> reset("111111", "MatKhau@khac2"));
 
         assertEquals("Mã xác nhận không tồn tại hoặc đã hết hạn", ex.getMessage());
         assertEquals(hashAfterFirst, user.getMatKhauHash());
     }
 
     @Test
-    void resetPassword_matKhauQua72Byte_bao400_giuNguyenOtp() {
+    void resetPassword_matKhauKhongHopLe_bao400_giuNguyenOtp() {
         when(calcService.getRandomActiveCode(6L)).thenReturn("111111");
         forgot();
 
-        // 30 ký tự có dấu = 90 byte UTF-8: BCrypt sẽ ném IllegalArgumentException (500) nếu không chặn trước
-        for (String tooLong : new String[]{"a".repeat(73), "ệ".repeat(30)}) {
-            CommonException ex = assertThrows(CommonException.class, () -> reset("111111", tooLong));
-            assertEquals(HttpStatus.BAD_REQUEST, ex.getHttpStatus());
-            assertTrue(ex.getMessage().startsWith("Mật khẩu quá dài"));
-        }
+        // chữ có dấu: chặn trước khi tới BCrypt (30 chữ có dấu = 90 byte, BCrypt sẽ ném IllegalArgumentException -> 500)
+        CommonException coDau = assertThrows(CommonException.class, () -> reset("111111", "Aa1!" + "ệ".repeat(30)));
+        assertEquals(HttpStatus.BAD_REQUEST, coDau.getHttpStatus());
+        assertEquals("Mật khẩu chỉ dùng chữ không dấu, số và ký tự đặc biệt trên bàn phím", coDau.getMessage());
+        // 65 ký tự không dấu: quá 64 ký tự
+        CommonException quaKyTu = assertThrows(CommonException.class, () -> reset("111111", "Aa1!" + "a".repeat(61)));
+        assertEquals("Mật khẩu mới tối đa 64 ký tự", quaKyTu.getMessage());
 
         // mã chưa bị dùng và không bị tính là nhập sai
         assertEquals(1, resetOtpsInCache().size());
         assertEquals(0, resetOtpsInCache().get(0).getFailedAttempts().get());
         assertEquals(OLD_HASH, user.getMatKhauHash());
 
-        // đúng 72 byte vẫn hợp lệ
-        assertEquals(200, reset("111111", "a".repeat(72)).getStatus());
-        assertTrue(passwordEncoder.matches("a".repeat(72), user.getMatKhauHash()));
+        // đúng 64 ký tự vẫn hợp lệ
+        String dai64 = "Aa1!" + "a".repeat(60);
+        assertEquals(200, reset("111111", dai64).getStatus());
+        assertTrue(passwordEncoder.matches(dai64, user.getMatKhauHash()));
     }
 
     @Test
@@ -344,7 +346,7 @@ class NguoiDungServiceResetPasswordTest {
         GlobalCache.OTP_SCHEDULE_OBJS.add(OtpScheduleObj.builder()
                 .email(EMAIL).otp("555555").type(OtpType.SUPPLIER_MAIL_SIGN_KEY).build());
 
-        assertThrows(CommonException.class, () -> reset("555555", "matkhaumoi"));
+        assertThrows(CommonException.class, () -> reset("555555", "MatKhau@moi1"));
         assertEquals(OLD_HASH, user.getMatKhauHash());
     }
 
@@ -356,7 +358,7 @@ class NguoiDungServiceResetPasswordTest {
         when(calcService.getRandomActiveCode(6L)).thenReturn("111111");
         forgot();
 
-        assertEquals(200, reset("111111", "matkhaumoi").getStatus());
+        assertEquals(200, reset("111111", "MatKhau@moi1").getStatus());
     }
 
     @Test
@@ -392,8 +394,8 @@ class NguoiDungServiceResetPasswordTest {
         assertEquals(1, resetOtpsInCache().size(), "xác thực không được xoá mã");
         assertEquals(0, resetOtpsInCache().get(0).getFailedAttempts().get());
         assertEquals(OLD_HASH, user.getMatKhauHash(), "xác thực không được đổi mật khẩu");
-        assertEquals(200, reset("111111", "matkhaumoi").getStatus());
-        assertTrue(passwordEncoder.matches("matkhaumoi", user.getMatKhauHash()));
+        assertEquals(200, reset("111111", "MatKhau@moi1").getStatus());
+        assertTrue(passwordEncoder.matches("MatKhau@moi1", user.getMatKhauHash()));
     }
 
     @Test
@@ -415,7 +417,7 @@ class NguoiDungServiceResetPasswordTest {
         when(calcService.getRandomActiveCode(6L)).thenReturn("111111");
         forgot();
         for (int i = 0; i < 3; i++) assertThrows(CommonException.class, () -> verifyOtp("999999"));
-        assertThrows(CommonException.class, () -> reset("999999", "matkhaumoi"));
+        assertThrows(CommonException.class, () -> reset("999999", "MatKhau@moi1"));
 
         CommonException fifth = assertThrows(CommonException.class, () -> verifyOtp("999999"));
 
@@ -448,7 +450,7 @@ class NguoiDungServiceResetPasswordTest {
         // người dùng ngồi ở bước nhập mật khẩu quá 5 phút
         resetOtpsInCache().get(0).setCreatedAt(Instant.now().minusSeconds(NguoiDungService.RESET_OTP_TTL_SECONDS + 1));
 
-        CommonException ex = assertThrows(CommonException.class, () -> reset("111111", "matkhaumoi"));
+        CommonException ex = assertThrows(CommonException.class, () -> reset("111111", "MatKhau@moi1"));
 
         assertEquals(NguoiDungService.RESET_OTP_EXPIRED_CODE, dataField(ex, "code"));
         assertEquals(OLD_HASH, user.getMatKhauHash());
@@ -494,7 +496,7 @@ class NguoiDungServiceResetPasswordTest {
 
         runConcurrently(16, () -> {
             try {
-                reset("111111", "matkhaumoi");
+                reset("111111", "MatKhau@moi1");
                 success.incrementAndGet();
             } catch (CommonException e) {
                 rejected.incrementAndGet();
@@ -538,7 +540,7 @@ class NguoiDungServiceResetPasswordTest {
         forgot();
         resetOtpsInCache().get(0).getFailedAttempts().set(NguoiDungService.RESET_OTP_MAX_FAILED_ATTEMPTS);
 
-        CommonException datLai = assertThrows(CommonException.class, () -> reset("111111", "matkhaumoi"));
+        CommonException datLai = assertThrows(CommonException.class, () -> reset("111111", "MatKhau@moi1"));
         assertEquals(NguoiDungService.RESET_OTP_EXPIRED_CODE, dataField(datLai, "code"));
         assertEquals(OLD_HASH, user.getMatKhauHash());
         assertTrue(resetOtpsInCache().isEmpty(), "mã đã đủ lần sai phải bị hủy");
@@ -573,7 +575,7 @@ class NguoiDungServiceResetPasswordTest {
         assertEquals(NguoiDungService.RESET_OTP_MAX_FAILED_ATTEMPTS, ma.getFailedAttempts().get(),
                 "chỉ được đếm đúng số lần thử cho phép");
         assertEquals(NguoiDungService.RESET_OTP_MAX_FAILED_ATTEMPTS - 1, saiConLuot.get());
-        assertThrows(CommonException.class, () -> reset("111111", "matkhaumoi"));
+        assertThrows(CommonException.class, () -> reset("111111", "MatKhau@moi1"));
         assertEquals(OLD_HASH, user.getMatKhauHash());
     }
 
