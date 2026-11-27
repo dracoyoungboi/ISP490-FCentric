@@ -132,6 +132,7 @@ public class KenhBanHangController {
         );
     }
 
+    // Màn 3/4/5/6/7/9 (GET mở trang mọi màn kênh bán hàng): trả trạng thái kết nối & domain/shopName đã che khóa (không lộ secret)
     @GetMapping("/{maKenh}/ket-noi")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Kết nối của kênh: Shopify như GET /shopify (có trangThaiKetNoi); Lazada, TikTok Shop luôn chưa kết nối")
@@ -145,6 +146,7 @@ public class KenhBanHangController {
         );
     }
 
+    // Màn 4 & 6 (Bước Kết nối bằng khóa): lưu App Key/Secret (OAuth2) hoặc Access Token (Shopify), mã hóa AES-256-GCM xuống `kenh_ban_hang`
     @PutMapping("/{maKenh}/ket-noi/khoa")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lưu khóa kết nối (Shopify hoặc sàn ủy quyền như Lazada)")
@@ -222,6 +224,7 @@ public class KenhBanHangController {
         return null;
     }
 
+    // Màn 4 Pha A (OAuth2 Lazada/TikTok/Shopee): đọc khóa App đã lưu -> ghép authUrl trả FE chuyển hướng sang Seller Center
     @PostMapping("/{maKenh}/uy-quyen")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy đường dẫn ủy quyền gian hàng của sàn ủy quyền (Lazada, TikTok Shop)")
@@ -263,6 +266,7 @@ public class KenhBanHangController {
         throw new LoiCoMaException(HttpStatus.BAD_REQUEST, MaLoi.SAN_KHONG_HO_TRO, ThongDiep.of("kenhBan.sanKhongHoTro", maKenh));
     }
 
+    // Màn 4b Pha B (OAuthCallbackPage): nhận authorization `code` -> gọi sàn đổi Access/Refresh Token + lấy cipher/shopName -> mã hóa lưu DB
     @PostMapping("/{maKenh}/uy-quyen/hoan-tat")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Hoàn tất ủy quyền gian hàng với mã authorization code nhận từ sàn")
@@ -335,6 +339,7 @@ public class KenhBanHangController {
                         .build()
         );
     }
+    // Màn 6 (Menu ⋯ Thử kết nối / Làm mới khóa / Ngắt kết nối): kiểm tra API sàn sống hay chết, gia hạn token bằng refresh_token hoặc xóa khóa kênh
     @PostMapping("/{maKenh}/kiem-tra-ket-noi")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Kiểm tra kết nối tới sàn bán hàng")
@@ -469,6 +474,7 @@ public class KenhBanHangController {
         return null;
     }
 
+    // Màn 6 (Menu ⋯ -> Ngắt kết nối): xóa token & tắt đồng bộ trên `kenh_ban_hang`, vẫn giữ nguyên đơn hàng đã về DB
     @DeleteMapping("/{maKenh}/ket-noi")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Ngắt kết nối (hiện chỉ Shopify): xóa khóa, dừng job, giữ tên miền, liên kết và đơn; đang đồng bộ thì 409 DANG_DONG_BO")
@@ -619,6 +625,7 @@ public class KenhBanHangController {
         );
     }
 
+    // Màn 7 (Nút "Tải sản phẩm" & "Tự động liên kết"): gọi sàn lấy catalog lưu vào `trang_thai_dong_bo_san_pham` và tự ghép SKU trùng / tạo mới lên sàn
     @PostMapping("/{maKenh}/tai-san-pham")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Tải toàn bộ danh mục sản phẩm từ kênh bán hàng về FCentric")
@@ -662,6 +669,7 @@ public class KenhBanHangController {
         );
     }
 
+    // Màn 7 (GET chính bảng Sản phẩm): truy vấn `trang_thai_dong_bo_san_pham` gom nhóm theo Sản phẩm cha -> danh sách biến thể + tồn khả dụng/sẽ đẩy
     @GetMapping("/{maKenh}/lien-ket/theo-san-pham")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Danh sách liên kết của kênh phân trang theo sản phẩm (mỗi phần tử là một sản phẩm kèm đủ SKU)")
@@ -679,6 +687,7 @@ public class KenhBanHangController {
         );
     }
 
+    // Màn 7 (Gạt switch Bật/Tắt đồng bộ hoặc ghép tay SKU FCentric): cập nhật bảng `trang_thai_dong_bo_san_pham` & tính lại số sẽ đẩy
     @PutMapping("/lien-ket/{id}")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Cập nhật ghép nối thủ công hoặc hủy ghép nối cho 1 liên kết")
@@ -707,6 +716,7 @@ public class KenhBanHangController {
         );
     }
 
+    // Màn 7 (Nút Đẩy tồn đồng bộ theo quy tắc): chạy đẩy tồn trực tiếp trên HTTP request (khác `/dong-bo-ngay` chạy nền)
     @PostMapping("/{maKenh}/day-ton")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Đẩy tồn kho khả dụng lên kênh bán hàng theo chính sách tồn kho")
@@ -727,6 +737,7 @@ public class KenhBanHangController {
         );
     }
 
+    // Màn 3 & 5 & 7 (GET Tổng quan kênh): đếm tổng SKU đã liên kết / lỗi / chưa liên kết + mốc chạy cuối + đơn yêu cầu hủy
     @GetMapping("/{maKenh}/tong-quan")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy chỉ số KPI tổng quan đồng bộ của kênh")
@@ -826,6 +837,7 @@ public class KenhBanHangController {
         );
     }
 
+    // Màn 4 & 6 (Cấu hình kho & quy tắc đồng bộ): đọc/lưu danh sách kho sàn, ánh xạ Đa kho Shopify (hay Đơn kho cho sàn khác) và bật tắt tự đẩy tồn/tự lấy đơn
     @GetMapping("/{maKenh}/kho-mapping")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy cấu hình ánh xạ kho sàn với kho FCentric (tự động nhận diện 1 kho vs đa kho)")
@@ -856,6 +868,7 @@ public class KenhBanHangController {
         );
     }
 
+    // Màn 3/4/5/6 (GET cấu hình tự đẩy tồn / tự lấy đơn / công thức tồn): đọc từ `cau_hinh_he_thong` theo khóa `KENH_<MA>_*`
     @GetMapping("/{maKenh}/cau-hinh-dong-bo")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lấy cấu hình đồng bộ của kênh (tự đẩy tồn, tự lấy đơn, quy tắc tồn)")
@@ -869,6 +882,7 @@ public class KenhBanHangController {
         );
     }
 
+    // Màn 5 (Biểu đồ đơn hàng theo ngày): truy vấn `don_ban_hang` tối đa 92 ngày theo mã kênh trả thống kê doanh thu/số đơn/đơn hủy
     @GetMapping("/{maKenh}/thong-ke-don")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Số liệu đơn hàng của kênh theo ngày (tối đa 92 ngày) và số đơn theo trạng thái")
@@ -885,6 +899,7 @@ public class KenhBanHangController {
         );
     }
 
+    // Màn 4 & 6 (PUT lưu cấu hình đồng bộ): ghi tỷ lệ đẩy, tồn đệm, ngưỡng về 0 và bật/tắt cronjob xuống `cau_hinh_he_thong`
     @PutMapping("/{maKenh}/cau-hinh-dong-bo")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Lưu cấu hình đồng bộ của kênh; trường để trống giữ nguyên giá trị cũ")
@@ -931,6 +946,7 @@ public class KenhBanHangController {
         );
     }
 
+    // Màn 4 (Bước 3 Lấy đơn cũ) & Màn 9 (Nút "Lấy đơn thủ công"): gọi OmnichannelOrderSyncJob kéo đơn trong khoảng [tu, den] vào `don_ban_hang`
     @PostMapping("/{maKenh}/lay-don")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Chủ động lấy đơn hàng mới từ sàn theo khoảng thời gian")
@@ -946,6 +962,10 @@ public class KenhBanHangController {
         );
     }
 
+    // Cụm 3 API "Đồng bộ ngay" chạy nền (gọi từ `useDongBoNgay.js` ở Màn 5/7/9):
+    // 1) POST /dong-bo-ngay -> đẩy tác vụ vào ThreadPool (DongBoNgayService.batDau), trả HTTP 200 kèm `maPhien` ngay lập tức
+    // 2) GET /dong-bo-ngay -> Frontend poll 1s/lần đọc ảnh chụp `Phien` trên RAM (công việc, SKU đang đẩy, % hoàn thành)
+    // 3) POST /dong-bo-ngay/dung -> đặt cờ dừng mềm `yeuCauDung = true`, dừng sau SKU hiện tại và bỏ pha kéo đơn
     @PostMapping("/{maKenh}/dong-bo-ngay")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})
     @Operation(summary = "Bắt đầu đồng bộ tay chạy nền (đẩy tồn theo quy tắc đã lưu rồi lấy đơn 24 giờ qua); đang chạy thì trả đợt đang chạy")
@@ -1013,7 +1033,7 @@ public class KenhBanHangController {
         );
     }
 
-    // ── Shopee REST Endpoints ──
+    // ── Nhóm Shopee REST Endpoints (Màn 9 - Đơn hàng sàn / Chi tiết đơn Shopee: hủy đơn, giao hàng, lấy/in vận đơn, đối soát ví) ──
 
     @PostMapping("/shopee/orders/cancel")
     @RequireAuth(roles = {IRoleType.quan_tri_vien})

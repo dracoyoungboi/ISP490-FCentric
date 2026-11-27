@@ -44,9 +44,9 @@ public interface KenhBanHangDongBoService {
     }
 
     /**
-     * Nhận tiến độ của một đợt đẩy tồn. Gọi trên luồng đang đẩy, theo thứ tự:
-     * {@code batDauDay} (đã kết nối Shopify) → mỗi SKU {@code dangDay} rồi {@code daDay}.
-     * Lỗi cả gian hàng thì dừng giữa chừng, SKU gặp lỗi đó không có {@code daDay}.
+     * Cầu nối tiến độ giữa luồng đẩy tồn ({@code KenhBanHangDongBoServiceImpl}) và {@code DongBoNgayService.Phien} trên RAM:
+     * {@code DongBoNgayService} truyền chính đối tượng {@code Phien} vào đây làm {@code theoDoi}; mỗi lần {@code dangDay(maSku)}
+     * hay {@code daDay(...)} được gọi trong vòng lặp SKU, dữ liệu cập nhật thẳng vào RAM để API GET /dong-bo-ngay đọc mỗi 1s.
      */
     interface TheoDoiDayTon {
         TheoDoiDayTon KHONG_THEO_DOI = new TheoDoiDayTon() {};
