@@ -264,6 +264,8 @@ class IRoleTypeTest {
                 Arguments.of(PhieuNhapKhoController.class, "PUT", "/{id}/complete", Set.of(QT, QLK, NVK)),
                 Arguments.of(PhieuNhapKhoController.class, "GET", "/{id}/so-luong-in-tem", Set.of(QT, QLK, NVK)),
                 Arguments.of(KeToanController.class, "GET", "/hoa-don-dau-vao/{phieuNhapKhoId}", Set.of(QT, QLK, NVK, NVMH)),
+                // Input VAT Invoice (SRS 20/11): quản lý kho, nhân viên kho ghi; nhân viên mua hàng chỉ xem
+                Arguments.of(KeToanController.class, "PUT", "/hoa-don-dau-vao/{phieuNhapKhoId}", Set.of(QT, QLK, NVK)),
                 // Goods Issue, Stock Transfer, Stock Take, Adjustment: vai trò kho; duyệt, hủy quản lý kho
                 Arguments.of(PhieuXuatKhoController.class, "POST", "/create", Set.of(QT, QLK, NVK)),
                 Arguments.of(PhieuXuatKhoController.class, "PUT", "/{id}/cancel", Set.of(QT, QLK)),
@@ -295,14 +297,18 @@ class IRoleTypeTest {
                 Arguments.of(AdminDashboardController.class, "GET", "", Set.of(QT)),
                 Arguments.of(AdminDashboardController.class, "GET", "/bao-cao/doanh-thu", Set.of(QT)),
                 Arguments.of(AdminDashboardController.class, "GET", "/bao-cao/doanh-thu/tong-hop", Set.of(QT, NVBH)),
-                Arguments.of(AdminDashboardController.class, "GET", "/bao-cao/doanh-thu/xuat-excel", Set.of(QT)),
+                // Export report data (SRS 20/11): nhân viên bán hàng tải được, tệp không có giá vốn
+                Arguments.of(AdminDashboardController.class, "GET", "/bao-cao/doanh-thu/xuat-excel", Set.of(QT, NVBH)),
                 Arguments.of(AdminDashboardController.class, "GET", "/bao-cao/san-pham", Set.of(QT, NVBH)),
-                Arguments.of(AdminDashboardController.class, "GET", "/bao-cao/san-pham/xuat-excel", Set.of(QT)),
+                Arguments.of(AdminDashboardController.class, "GET", "/bao-cao/san-pham/xuat-excel", Set.of(QT, NVBH)),
                 Arguments.of(AdminDashboardController.class, "GET", "/bao-cao/tien-thu", Set.of(QT, NVBH)),
                 Arguments.of(NhatKyNhapXuatController.class, "GET", "/tong-hop", Set.of(QT, QLK, NVK)),
                 Arguments.of(NhatKyNhapXuatController.class, "GET", "/xuat-excel", Set.of(QT, QLK, NVK)),
                 Arguments.of(KeToanController.class, "POST", "/lo-xuat", Set.of(QT)),
-                // Cấu hình (Đ5): quản lý kho chỉ xem thông tin cửa hàng, mẫu in
+                // VAT Rate & Accounting Config: quản lý kho xem
+                Arguments.of(KeToanController.class, "GET", "/cau-hinh", Set.of(QT, QLK)),
+                Arguments.of(KeToanController.class, "PUT", "/cau-hinh", Set.of(QT)),
+                // Print Template & Company Profile (SRS 20/11): trang cấu hình chỉ quản trị viên; API đọc mở cho in chứng từ
                 Arguments.of(ThongTinCongTyController.class, "GET", "", TAT_CA),
                 Arguments.of(ThongTinCongTyController.class, "PUT", "", Set.of(QT)),
                 Arguments.of(ThongTinCongTyController.class, "POST", "/logo", Set.of(QT)),
@@ -310,7 +316,7 @@ class IRoleTypeTest {
                 Arguments.of(CauHinhMauInController.class, "PUT", "/{documentType}/{templateId}", Set.of(QT)),
                 Arguments.of(CauHinhMauInController.class, "PUT", "/{documentType}/active", Set.of(QT)),
                 Arguments.of(CauHinhMauInController.class, "POST", "/migrate", Set.of(QT)),
-                Arguments.of(CauHinhMauInController.class, "GET", "/{documentType}/lich-su", Set.of(QT, QLK)),
+                Arguments.of(CauHinhMauInController.class, "GET", "/{documentType}/lich-su", Set.of(QT)),
                 Arguments.of(CauHinhThanhToanController.class, "PUT", "", Set.of(QT)),
                 // Omnichannel Integration: chỉ quản trị viên
                 Arguments.of(KenhBanHangController.class, "GET", "/{maKenh}/ket-noi", Set.of(QT)),
@@ -471,17 +477,24 @@ class IRoleTypeTest {
         }
 
         @Test
-        @DisplayName("Kế toán (Đ4): lô xuất MISA, chứng từ, cấu hình, lưu bảng thuế suất chỉ quản trị viên")
+        @DisplayName("Kế toán (Đ4): lô xuất MISA, chứng từ, lưu cấu hình, lưu bảng thuế suất chỉ quản trị viên")
         void keToan_chiQuanTri() {
             int dem = 0;
             for (Method m : api(KeToanController.class)) {
                 String d = duongDan(m, dongTu(m)).get(0);
                 // Hóa đơn đầu vào đi theo phiếu nhập; đọc bảng thuế suất phục vụ màn đó
-                if (d.startsWith("/hoa-don-dau-vao") || ("/thue-suat".equals(d) && "GET".equals(dongTu(m)))) continue;
+                // Quản lý kho xem cấu hình tài khoản MISA (SRS 4.4 "VAT Rate & Accounting Config", kiểm ở bảng trên)
+                if (d.startsWith("/hoa-don-dau-vao") || (("/thue-suat".equals(d) || "/cau-hinh".equals(d)) && "GET".equals(dongTu(m)))) continue;
                 assertEquals(Set.of(QT), vaiTro(m), ten(m));
                 dem++;
             }
             assertTrue(dem >= 9, "phải kiểm đủ API lô xuất, chứng từ, cấu hình; thấy " + dem);
+        }
+
+        @Test
+        @DisplayName("Lưu hóa đơn đầu vào: người ghi phải thuộc kho đang chọn (không tin header kho_id tự gửi)")
+        void hoaDonDauVao_luuPhaiThuocKho() {
+            assertTrue(yeuCau(KeToanController.class, "PUT", "/hoa-don-dau-vao/{phieuNhapKhoId}").inWarehouse());
         }
 
         @Test
