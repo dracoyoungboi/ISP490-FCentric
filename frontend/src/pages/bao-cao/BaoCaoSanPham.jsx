@@ -324,9 +324,9 @@ export default function BaoCaoSanPham() {
   const coQuyenXuat = useCoQuyenXuatBaoCao();
   const vaiTro = parseRoles(localStorage.getItem("role"));
   const laQtv = vaiTro.includes("quan_tri_vien");
-  // Xuất Excel Báo cáo sản phẩm: máy chủ chỉ cho quản trị viên, quản lý kho (nhân viên bán hàng có quyền Xuất báo cáo để
-  // tải Báo cáo tồn kho vẫn không xuất được ở đây)
-  const xuatDuoc = coQuyenXuat && (laQtv || vaiTro.includes("quan_ly_kho"));
+  // Xuất Excel Báo cáo sản phẩm: ai vào được màn và có quyền Xuất báo cáo; tệp của nhân viên bán hàng không có giá vốn,
+  // lợi nhuận gộp, giá trị tồn (máy chủ tự bỏ)
+  const xuatDuoc = coQuyenXuat;
   const [nhom, setNhom] = useTabTrenUrl(NHOM.map((n) => n.value), "tat-ca", { ten: "nhom" });
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();

@@ -502,8 +502,8 @@ export default function BaoCaoDoanhThu() {
   const coQuyenXuat = useCoQuyenXuatBaoCao();
   const vaiTro = parseRoles(localStorage.getItem("role"));
   const laQtv = vaiTro.includes("quan_tri_vien");
-  // Quản trị viên, quản lý kho: đủ số giá vốn, lợi nhuận, xuất Excel. Nhân viên bán hàng: chỉ doanh thu, đơn (máy chủ cũng
-  // không gửi giá vốn); cờ coGiaVon của máy chủ là chuẩn khi đã có số liệu.
+  // Quản trị viên: đủ số giá vốn, lợi nhuận. Nhân viên bán hàng: chỉ doanh thu, đơn (máy chủ cũng không gửi giá vốn, tệp
+  // Excel bỏ các cột đó); cờ coGiaVon của máy chủ là chuẩn khi đã có số liệu.
   const quanLy = laQtv || vaiTro.includes("quan_ly_kho");
   const [boLoc, datBoLoc] = useState(() => ({
     loai: "thang",
@@ -573,7 +573,7 @@ export default function BaoCaoDoanhThu() {
       <PageHeader
         className="mb-0"
         title={t("Báo cáo doanh thu")}
-        actions={coQuyenXuat && quanLy ? (
+        actions={coQuyenXuat ? (
           <NutXuatExcel
             taiTep={() => baoCaoDoanhThuService.xuatExcel(ts)}
             tenTep={() => tenTepExcel(ts)}
