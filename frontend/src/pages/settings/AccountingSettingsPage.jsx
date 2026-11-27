@@ -32,7 +32,8 @@ const SELECT_CLASS = "h-9 w-full rounded-md border border-[#8a96a6] bg-white px-
 
 /**
  * Cấu hình › Xuất kế toán: thiết lập xuất dữ liệu sang AMIS Kế toán doanh nghiệp (ngày mốc, tài khoản mặc định, dòng phí vận
- * chuyển, hình thức chuyển kho). Thuế suất GTGT dùng chung với hóa đơn bán hàng, sửa ở Cấu hình › Thuế GTGT. Chỉ quản trị viên.
+ * chuyển, hình thức chuyển kho). Thuế suất GTGT dùng chung với hóa đơn bán hàng, sửa ở Cấu hình › Thuế GTGT. Quản trị viên
+ * sửa; quản lý kho chỉ xem (SRS 4.4 "VAT Rate & Accounting Config"), không thấy liên kết sang màn xuất lô kế toán.
  */
 export default function AccountingSettingsPage() {
   const { canEdit } = useSettingsPage();
@@ -227,7 +228,8 @@ export default function AccountingSettingsPage() {
             )}
           </div>
         </div>
-        {dangSua ? <SettingsFormActions onCancel={() => setDangSua(false)} saving={dangLuu} disabled={!coThayDoi} /> : (
+        {/* Màn xuất lô kế toán chỉ quản trị viên mở được (canEdit cùng vai trò): quản lý kho chỉ xem cấu hình */}
+        {dangSua ? <SettingsFormActions onCancel={() => setDangSua(false)} saving={dangLuu} disabled={!coThayDoi} /> : canEdit && (
           <SettingsFooterLink
             to="/reports/accounting-export"
             icon={FileSpreadsheet}

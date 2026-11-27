@@ -47,8 +47,8 @@ export const SETTINGS_PAGES = [
   { key: "vat", label: t("Thuế GTGT"), to: "/settings/vat", group: "ban-hang", icon: Percent, roles: [QTV, QLK], editRoles: [QTV] },
   // Đồng bộ kênh bán: SRS 4.4 "Omnichannel Integration" chỉ quản trị viên
   { key: "sync", label: t("Đồng bộ kênh bán"), to: "/settings/sync", group: "ban-hang", icon: RefreshCcw, roles: [QTV], editRoles: [QTV] },
-  // KeToanController: chỉ QTV (chưa có vai trò kế toán)
-  { key: "accounting", label: t("Xuất kế toán"), to: "/settings/accounting", group: "ke-toan", icon: Calculator, roles: [QTV], editRoles: [QTV] },
+  // SRS 4.4 "VAT Rate & Accounting Config": quản lý kho xem tài khoản MISA (GET /ke-toan/cau-hinh); lưu, xuất lô chỉ QTV
+  { key: "accounting", label: t("Xuất kế toán"), to: "/settings/accounting", group: "ke-toan", icon: Calculator, roles: [QTV, QLK], editRoles: [QTV] },
 ];
 
 /** Vai trò được mở ít nhất một trang cấu hình. */

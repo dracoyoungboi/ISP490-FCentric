@@ -50,8 +50,9 @@ public class KeToanController {
 
     // ── Cấu hình ───────────────────────────────────────────────────────────
 
+    // SRS 4.4 "VAT Rate & Accounting Config": quản lý kho xem (Cấu hình › Xuất kế toán chỉ xem); lưu chỉ quản trị viên
     @GetMapping("/cau-hinh")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
     public ResponseEntity<ResponseData<CauHinhKeToanDto>> layCauHinh() {
         return ok(cauHinhKeToanService.layDto());
     }
