@@ -186,7 +186,8 @@ export default function ProductDetail() {
                 ) : null}
             </div>
 
-            <div className="grid items-start gap-5 xl:grid-cols-2">
+            {/* Ảnh 5 phần, thông tin 7 phần: ảnh vuông nên chia đôi ở màn rộng thì ảnh phình, đẩy hàng ảnh nhỏ khỏi màn */}
+            <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
                 {/* ── THƯ VIỆN ẢNH ── */}
                 <SurfaceCard>
                     <div className="group relative aspect-square overflow-hidden rounded-lg border border-bo-border bg-bo-surface-subtle">
