@@ -348,6 +348,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         }
     }
 
+    // Màn 4 & 6 (Lưu kết nối Shopify): chuẩn hóa domain -> kiểm tra đổi cửa hàng khác (409) -> mã hóa AES-256-GCM khóa mới -> lưu `kenh_ban_hang`
     private ShopifyConfigResponse luuCauHinhShopify(ShopifyConfigUpdating request) {
         if (request.getShopDomain() == null || request.getShopDomain().isBlank()) {
             throw new CommonException(ThongDiep.of("kenhBan.shopifyDomainTrong"), HttpStatus.BAD_REQUEST, null);
@@ -1367,6 +1368,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         }
 
         try {
+            // Khối 1: Gọi LazadaClient đổi `code` lấy `access_token`, `refresh_token`, `expires_in`
             JsonNode res = getLazadaClient().exchangeToken(appKey, appSecret, request.getCode());
             String accessToken = res.path("access_token").asText(null);
             String refreshToken = res.path("refresh_token").asText(null);
@@ -1379,6 +1381,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                         : ThongDiep.of("kenhBan.loiXacThucOAuth2LazadaMacDinh"), HttpStatus.BAD_REQUEST, null);
             }
 
+            // Khối 2: Trích `seller_id`/`account`, mã hóa AES-GCM các token và lưu xuống bảng `kenh_ban_hang`
             String oldSellerId = kenh.getApiUrl();
             String account = res.path("account").asText(null);
             String sellerId = res.path("country_user_info").path(0).path("seller_id").asText(null);
@@ -1393,6 +1396,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
             if (newIdentifier != null && !newIdentifier.isBlank()) {
                 kenh.setApiUrl(newIdentifier);
             }
+            // Mã hóa AES-GCM Access Token + Refresh Token Lazada, cập nhật hạn dùng và lưu `kenh_ban_hang`
             kenh.setApiKey(paymentSecretCipher.encrypt(accessToken));
             if (refreshToken != null && !refreshToken.isBlank()) {
                 kenh.setRefreshToken(paymentSecretCipher.encrypt(refreshToken));
@@ -1846,6 +1850,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
         }
 
         try {
+            // Khối 1: Gọi TikTokShopClient đổi `code` lấy `access_token`, `refresh_token` và hạn token
             JsonNode res = getTikTokShopClient().exchangeToken(appKey, appSecret, request.getCode());
             JsonNode dataNode = res.path("data");
             String accessToken = dataNode.path("access_token").asText(null);
@@ -1860,6 +1865,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                         : ThongDiep.of("kenhBan.loiXacThucOAuth2TikTokMacDinh"), HttpStatus.BAD_REQUEST, null);
             }
 
+            // Khối 2: Mã hóa AES-GCM lưu token -> gọi getAuthorizedShops trích `shop_cipher` + tên shop -> save `kenh_ban_hang`
             kenh.setApiKey(paymentSecretCipher.encrypt(accessToken));
             if (refreshToken != null && !refreshToken.isBlank()) {
                 kenh.setRefreshToken(paymentSecretCipher.encrypt(refreshToken));
@@ -2291,6 +2297,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 false
         );
 
+        // Khối 1: Gọi ShopeeClient.getAccessToken đổi `code` lấy token; tìm `shop_id` từ response hoặc `getShopsByPartner`
         com.fasterxml.jackson.databind.JsonNode tokenRes = client.getAccessToken(code, shopId != null ? shopId : 0L);
         if (tokenRes == null || !tokenRes.path("error").asText("").isEmpty()) {
             String err = tokenRes != null ? tokenRes.path("message").asText(null) : null;
@@ -2326,6 +2333,7 @@ public class KenhBanHangServiceImpl implements KenhBanHangService {
                 () -> new CommonException(ThongDiep.of("kenhBan.khongTimThayKenh", ma), HttpStatus.NOT_FOUND, null)
         );
 
+        // Khối 2: Mã hóa AES-GCM cặp token, gọi `getShopInfo()` lấy tên shop thật rồi lưu toàn bộ vào `kenh_ban_hang`
         kenh.setApiKey(paymentSecretCipher.encrypt(accessToken));
         kenh.setRefreshToken(paymentSecretCipher.encrypt(refreshToken));
         kenh.setTokenExpiresAt(Instant.now().plusSeconds(expireIn));
