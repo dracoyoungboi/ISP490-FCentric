@@ -935,9 +935,8 @@ class NguoiDungServiceAuthHardeningTest {
                 .contains("ít nhất 8 ký tự"));
         assertEquals("Mật khẩu cần có chữ hoa, chữ thường, số và ký tự đặc biệt", assertThrows(CommonException.class,
                 () -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, "matkhau2026"))).getMessage());
-        assertTrue(assertThrows(CommonException.class,
-                () -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, "Mật@Khẩu2026"))).getMessage()
-                .equals("Mật khẩu chỉ dùng chữ không dấu, số và ký tự đặc biệt trên bàn phím"));
+        assertEquals("Mật khẩu chỉ dùng chữ không dấu, số và ký tự đặc biệt trên bàn phím", assertThrows(CommonException.class,
+                () -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, "Mật@Khẩu2026"))).getMessage());
         assertEquals("Mật khẩu không được có dấu cách", assertThrows(CommonException.class,
                 () -> service.datMatKhauQuaLienKet(new DatMatKhauQuaLienKetRequest(MA, " MatKhau@moi1 "))).getMessage());
         verifyNoInteractions(lienKetRepo);

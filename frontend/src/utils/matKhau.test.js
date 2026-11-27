@@ -18,7 +18,7 @@ test("độ dài 8–64 ký tự", () => {
 
 test("không dấu cách ở bất kỳ đâu", () => {
   assert.equal(kiemTraMatKhauMoi("        "), "Nhập mật khẩu mới.");
-  for (const mk of ["Kho tong@2026", " Kho@2026", "Kho@2026 ", "Kho@2026\t", "Kho @2026"]) {
+  for (const mk of ["Kho tong@2026", " Kho@2026", "Kho@2026 ", "Kho@2026\t", "Kho\u00a0@2026"]) {
     assert.equal(kiemTraMatKhauMoi(mk), DAU_CACH, JSON.stringify(mk));
   }
 });
@@ -26,7 +26,7 @@ test("không dấu cách ở bất kỳ đâu", () => {
 test("chỉ ký tự trên bàn phím tiếng Anh, không chữ có dấu", () => {
   for (const mk of ["Hà@Nội2026", "Đalat@2026", "Kho@2026€", "Kho@2026😀"]) assert.equal(kiemTraMatKhauMoi(mk), NGOAI_BAN_PHIM, mk);
   // cùng chữ "ệ" ở dạng tổ hợp (e + dấu) cũng bị chặn
-  assert.equal(kiemTraMatKhauMoi("Kho@2026ệ"), NGOAI_BAN_PHIM);
+  assert.equal(kiemTraMatKhauMoi("Kho@2026e\u0323\u0302"), NGOAI_BAN_PHIM);
 });
 
 test("phải đủ chữ hoa, chữ thường, số và ký tự đặc biệt", () => {
