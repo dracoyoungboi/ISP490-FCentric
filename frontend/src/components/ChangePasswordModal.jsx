@@ -53,8 +53,8 @@ function NutXem({ hien, onClick, disabled, nhan }) {
  * - lỗi báo ngay dưới từng ô (kiểm tra khi rời ô, sửa thì lỗi mất),
  *   bấm Đổi mật khẩu mà còn lỗi thì con trỏ nhảy về ô sai đầu tiên; lỗi "mật khẩu hiện tại không đúng" từ máy chủ
  *   cũng gắn vào ô đó;
- * - chính sách mật khẩu ở utils/matKhau.js (8–64 ký tự, có chữ và số, không phổ biến, không chứa tên đăng nhập / email,
- *   khác mật khẩu hiện tại), gợi ý ngắn hiện sẵn dưới ô Mật khẩu mới; không tự cắt khoảng trắng (chỉ nhắc);
+ * - luật mật khẩu ở utils/matKhau.js (8–64 ký tự không dấu, không dấu cách, đủ 4 loại ký tự, khác mật khẩu hiện
+ *   tại), gợi ý ngắn hiện sẵn dưới ô Mật khẩu mới;
  * - báo Caps Lock đang bật; có lối "Quên mật khẩu hiện tại?" (hỏi lại bằng một dòng chữ, rồi đăng xuất và sang trang
  *   lấy lại mật khẩu);
  * - đang gửi thì không đóng được hộp; ô ẩn tên đăng nhập giúp trình quản lý mật khẩu lưu đúng tài khoản.
@@ -215,8 +215,6 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess, for
     );
   };
 
-  const coDauCach = mk.moi && mk.moi !== mk.moi.trim();
-
   return (
     <Dialog open={open} onOpenChange={dong}>
       <DialogContent
@@ -277,12 +275,7 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess, for
             "moi",
             t("Mật khẩu mới"),
             "new-password",
-            <>
-              {GOI_Y_MAT_KHAU ? <p className={cn(DONG_PHU, "text-bo-muted")}>{GOI_Y_MAT_KHAU}</p> : null}
-              {coDauCach ? (
-                <p className={cn(DONG_PHU, "text-orange-800")}>{t("Mật khẩu có dấu cách ở đầu hoặc cuối — sẽ được giữ nguyên.")}</p>
-              ) : null}
-            </>,
+            <p className={cn(DONG_PHU, "text-bo-muted")}>{GOI_Y_MAT_KHAU}</p>,
           )}
 
           {o("xacNhan", t("Nhập lại mật khẩu mới"), "new-password")}

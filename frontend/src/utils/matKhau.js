@@ -1,30 +1,29 @@
 import { t } from "../i18n/t.js";
 /**
- * Chính sách mật khẩu của FCentric (chốt 31/10/2026), dựa trên NIST SP 800-63B và OWASP Authentication Cheat Sheet,
- * điều chỉnh cho nhân viên kho / cửa hàng (gõ trên máy POS, điện thoại):
- * - dài 8–64 ký tự (NIST: tối thiểu 8, cho phép ít nhất 64 để dùng được cụm từ dài);
- * - có cả chữ và số (một yêu cầu nhẹ, dễ hiểu; KHÔNG bắt chữ hoa / ký tự đặc biệt vì làm người dùng chọn mật khẩu
- *   kiểu "Abc@1234" vừa khó nhớ vừa dễ đoán);
- * - không nằm trong danh sách mật khẩu phổ biến, không phải dãy lặp / liên tiếp (11111111, 12345678, abcd1234…);
- * - không chứa tên đăng nhập, phần trước @ của email hay tên hệ thống;
- * - khác mật khẩu hiện tại. Không bắt đổi định kỳ (NIST khuyên không làm).
- * Mật khẩu giữ nguyên như người dùng gõ (không cắt khoảng trắng), mọi ký tự Unicode đều hợp lệ.
- * BACKEND PHẢI KIỂM TRA Y HỆT — kiểm tra ở giao diện chỉ để báo sớm, gọi API thẳng là bỏ qua được.
+ * Luật mật khẩu mới (chốt 27/11/2026), dùng ở Đổi mật khẩu, Quên mật khẩu và trang đặt mật khẩu qua liên kết:
+ * - chỉ ký tự trên bàn phím tiếng Anh: chữ không dấu, số, ký tự đặc biệt; không có dấu cách (đầu, giữa hay cuối).
+ *   Không nhận chữ có dấu vì cùng một chữ "ệ" mỗi bộ gõ gửi một kiểu mã khác nhau: đặt trên máy này có thể không đăng
+ *   nhập được trên máy khác;
+ * - dài 8–64 ký tự (64 ký tự không dấu luôn dưới giới hạn 72 byte của BCrypt ở máy chủ);
+ * - có đủ chữ hoa A–Z, chữ thường a–z, số 0–9 và ký tự đặc biệt (thông lệ ngân hàng Việt Nam);
+ * - khác mật khẩu hiện tại (hộp Đổi mật khẩu).
+ * Chỉ áp khi đặt mật khẩu mới: mật khẩu đang dùng giữ nguyên, không bắt đổi. Tạm chưa chặn mật khẩu phổ biến / dãy đơn
+ * giản và mật khẩu chứa tên đăng nhập / email: phần kiểm đó vẫn để dưới đây, bật bằng CHAN_PHO_BIEN_VA_TEN.
+ * MÁY CHỦ KIỂM Y HỆT ở backend utils/MatKhau.java: sửa một bên thì sửa cả bên kia.
  * Không import alias "@/..." để chạy được bằng `node --test`.
  */
 
-/**
- * TẠM TẮT trong đợt test (chốt 31/10/2026): chỉ yêu cầu tối thiểu 6 ký tự như cũ, để tester đặt được mật khẩu 6 số.
- * Bật chính sách đầy đủ ở trên: đổi thành `true` (và sửa kiểm tra ở backend cùng lúc).
- */
-export const AP_DUNG_CHINH_SACH_DAY_DU = false;
+/** Tạm tắt (27/11/2026). Bật lại thì thêm kiểm tương ứng ở backend utils/MatKhau.java cùng lúc. */
+export const CHAN_PHO_BIEN_VA_TEN = false;
 
-export const MAT_KHAU_TOI_THIEU = AP_DUNG_CHINH_SACH_DAY_DU ? 8 : 6;
+export const MAT_KHAU_TOI_THIEU = 8;
 export const MAT_KHAU_TOI_DA = 64;
-const BCRYPT_TOI_DA_BYTE = 72;
 
-/** Dòng gợi ý hiện sẵn dưới ô Mật khẩu mới (để trống khi chưa bật chính sách đầy đủ). */
-export const GOI_Y_MAT_KHAU = AP_DUNG_CHINH_SACH_DAY_DU ? t("Từ {{toiThieu}} ký tự, có cả chữ và số.", { toiThieu: MAT_KHAU_TOI_THIEU }) : "";
+/** Dòng gợi ý hiện sẵn dưới ô Mật khẩu mới. */
+export const GOI_Y_MAT_KHAU = t("{{toiThieu}}–{{toiDa}} ký tự, không dấu, không dấu cách, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.", {
+  toiThieu: MAT_KHAU_TOI_THIEU,
+  toiDa: MAT_KHAU_TOI_DA,
+});
 
 /**
  * Hạn liên kết đặt mật khẩu gửi qua email (tạo tài khoản, quản trị viên cấp lại), hiện ở các hộp xác nhận.
@@ -43,8 +42,13 @@ const PHO_BIEN = new Set([
   "fcentric", "fcentric1", "fcentric123", "fcentric@123", "khohang123", "banhang123", "nhanvien123",
 ]);
 
-const CHU = /\p{L}/u;
-const SO = /\p{N}/u;
+// Cùng cách tính với máy chủ: chỉ ký tự in được ASCII (! tới ~), ký tự đặc biệt là mọi ký tự không phải chữ / số
+const DAU_CACH = /[\s\p{Z}]/u;
+const NGOAI_BAN_PHIM = /[^!-~]/;
+const HOA = /[A-Z]/;
+const THUONG = /[a-z]/;
+const SO = /[0-9]/;
+const DAC_BIET = /[^A-Za-z0-9]/;
 const HANG_PHIM = ["qwertyuiop", "asdfghjkl", "zxcvbnm", "1234567890"];
 
 const boDau = (s) => s.normalize("NFD").replace(/\p{M}/gu, "").replace(/đ/g, "d").replace(/Đ/g, "D");
@@ -89,26 +93,25 @@ function laDayDonGian(mk) {
 
 /**
  * Kiểm tra mật khẩu mới. Trả về câu báo lỗi (một lỗi, theo thứ tự ưu tiên) hoặc "" nếu hợp lệ.
- * `ngữ cảnh`: { tenDangNhap, email, matKhauHienTai, dayDu } — `dayDu` mặc định theo AP_DUNG_CHINH_SACH_DAY_DU.
+ * `ngữ cảnh`: { tenDangNhap, email, matKhauHienTai, chanPhoBien } — `chanPhoBien` mặc định theo CHAN_PHO_BIEN_VA_TEN.
  */
 export function kiemTraMatKhauMoi(
   mk,
-  { tenDangNhap = "", email = "", matKhauHienTai = "", dayDu = AP_DUNG_CHINH_SACH_DAY_DU } = {},
+  { tenDangNhap = "", email = "", matKhauHienTai = "", chanPhoBien = CHAN_PHO_BIEN_VA_TEN } = {},
 ) {
   const gt = mk ?? "";
-  if (!gt) return t("Nhập mật khẩu mới.");
-  const toiThieu = dayDu ? 8 : 6;
-  const dai = [...gt].length;
+  if (!gt.trim()) return t("Nhập mật khẩu mới.");
+  if (DAU_CACH.test(gt)) return t("Mật khẩu không được có dấu cách.");
+  if (NGOAI_BAN_PHIM.test(gt)) return t("Chỉ dùng chữ không dấu, số và ký tự đặc biệt trên bàn phím.");
+  const toiThieu = MAT_KHAU_TOI_THIEU;
+  const dai = gt.length;
   if (dai < toiThieu) return t("Cần ít nhất {{toiThieu}} ký tự (đang có {{dai}}).", { toiThieu, dai });
   if (dai > MAT_KHAU_TOI_DA) return t("Tối đa {{toiDa}} ký tự (đang có {{dai}}).", { toiDa: MAT_KHAU_TOI_DA, dai });
-  // Máy chủ băm bằng BCrypt (tối đa 72 byte UTF-8): chữ có dấu chiếm 2–3 byte nên 64 ký tự có dấu vẫn có thể quá
-  if (new TextEncoder().encode(gt).length > BCRYPT_TOI_DA_BYTE) {
-    return t("Mật khẩu quá dài: chữ có dấu tính như 2–3 ký tự, hãy rút ngắn.");
+  if (!HOA.test(gt) || !THUONG.test(gt) || !SO.test(gt) || !DAC_BIET.test(gt)) {
+    return t("Cần có chữ hoa, chữ thường, số và ký tự đặc biệt.");
   }
-  // Luôn kiểm tra (kể cả khi tạm tắt chính sách đầy đủ): đổi sang đúng mật khẩu cũ là vô nghĩa
   if (matKhauHienTai && gt === matKhauHienTai) return t("Mật khẩu mới phải khác mật khẩu hiện tại.");
-  if (!dayDu) return "";
-  if (!CHU.test(gt) || !SO.test(gt)) return t("Cần có cả chữ và số.");
+  if (!chanPhoBien) return "";
 
   const thuong = boDau(gt).toLowerCase();
   const ten = boDau(tenDangNhap || "").trim().toLowerCase();

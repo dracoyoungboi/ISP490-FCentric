@@ -6,6 +6,7 @@ import AuthShell from '../components/auth/AuthShell';
 import AuthProgress from '../components/auth/AuthProgress';
 import OtpInputs from '../components/auth/OtpInputs';
 import { t } from "@/i18n";
+import { GOI_Y_MAT_KHAU, kiemTraMatKhauMoi } from '../utils/matKhau';
 
 /* ── Class patterns dùng chung (theo thiết kế modern white/gray) ── */
 const INPUT_BASE =
@@ -145,12 +146,9 @@ export default function ForgotPasswordPage() {
         const trimmed = username.trim();
         if (!trimmed) return setFieldError('general', t("Thiếu tên đăng nhập/email"));
         if (otpValue.length !== 6) return backToOtpStep(t("Vui lòng nhập mã OTP"));
-        if (!newPassword.trim()) return setFieldError('newPassword', t("Vui lòng nhập mật khẩu mới"));
-        if (newPassword.length < 6) return setFieldError('newPassword', t("Mật khẩu tối thiểu 6 ký tự"));
-        // BCrypt giới hạn 72 byte; ký tự có dấu chiếm 2-3 byte
-        if (new TextEncoder().encode(newPassword).length > 72) {
-            return setFieldError('newPassword', t("Mật khẩu quá dài (tối đa 72 ký tự không dấu, ít hơn nếu có dấu)"));
-        }
+        // cùng luật mật khẩu với Đổi mật khẩu và trang đặt mật khẩu qua liên kết (utils/matKhau.js)
+        const loiMatKhau = kiemTraMatKhauMoi(newPassword);
+        if (loiMatKhau) return setFieldError('newPassword', loiMatKhau);
         if (newPassword !== confirmPassword) return setFieldError('confirmPassword', t("Mật khẩu xác nhận không khớp"));
         setIsLoading(true);
         try {
@@ -333,13 +331,12 @@ export default function ForgotPasswordPage() {
                             <input
                                 id="forgot-new-password"
                                 type={showNewPassword ? 'text' : 'password'}
-                                placeholder={t("Tối thiểu 6 ký tự")}
                                 className={`${INPUT_BASE} ${errors.newPassword ? INPUT_ERROR : INPUT_NORMAL} pr-10`}
                                 value={newPassword}
                                 onChange={(e) => { setNewPassword(e.target.value); clearErrors(); }}
                                 autoComplete="new-password"
                                 aria-invalid={Boolean(errors.newPassword)}
-                                aria-describedby={errors.newPassword ? 'forgot-new-password-error' : undefined}
+                                aria-describedby={errors.newPassword ? 'forgot-new-password-error' : 'forgot-new-password-goi-y'}
                             />
                             <button
                                 type="button"
@@ -350,10 +347,12 @@ export default function ForgotPasswordPage() {
                                 {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                             </button>
                         </div>
-                        {errors.newPassword && (
+                        {errors.newPassword ? (
                             <p id="forgot-new-password-error" className={FIELD_ERROR}>
                                 <AlertCircle size={13} className="shrink-0" />{errors.newPassword}
                             </p>
+                        ) : (
+                            <p id="forgot-new-password-goi-y" className="mt-1.5 text-sm text-gray-500">{GOI_Y_MAT_KHAU}</p>
                         )}
                     </div>
 

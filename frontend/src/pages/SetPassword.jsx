@@ -219,12 +219,7 @@ export default function SetPasswordPage() {
                     <AlertCircle size={13} className="shrink-0" />{loiO[k]}
                 </p>
             ) : k === 'moi' ? (
-                <>
-                    {GOI_Y_MAT_KHAU ? <p className={`${DONG_PHU} text-gray-500`}>{GOI_Y_MAT_KHAU}</p> : null}
-                    {giaTri && giaTri !== giaTri.trim() ? (
-                        <p className={`${DONG_PHU} text-orange-800`}>{t("Mật khẩu có dấu cách ở đầu hoặc cuối — sẽ được giữ nguyên.")}</p>
-                    ) : null}
-                </>
+                <p className={`${DONG_PHU} text-gray-500`}>{GOI_Y_MAT_KHAU}</p>
             ) : null}
         </div>
     );
