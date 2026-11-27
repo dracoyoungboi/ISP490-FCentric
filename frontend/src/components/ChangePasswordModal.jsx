@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { nguoiDungService } from "@/services/nguoiDungService";
 import { getApiErrorMessage } from "@/utils/apiError";
-import { GOI_Y_MAT_KHAU, kiemTraMatKhauMoi } from "@/utils/matKhau";
+import { GOI_Y_MAT_KHAU, danMatKhauBoDauCachHaiDau, kiemTraMatKhauMoi } from "@/utils/matKhau";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
 
@@ -54,7 +54,7 @@ function NutXem({ hien, onClick, disabled, nhan }) {
  *   bấm Đổi mật khẩu mà còn lỗi thì con trỏ nhảy về ô sai đầu tiên; lỗi "mật khẩu hiện tại không đúng" từ máy chủ
  *   cũng gắn vào ô đó;
  * - luật mật khẩu ở utils/matKhau.js (8–64 ký tự không dấu, không dấu cách, đủ 4 loại ký tự, khác mật khẩu hiện
- *   tại), gợi ý ngắn hiện sẵn dưới ô Mật khẩu mới;
+ *   tại), gợi ý ngắn hiện sẵn dưới ô Mật khẩu mới; dán vào ô Mật khẩu mới / Nhập lại thì bỏ dấu cách ở hai đầu;
  * - báo Caps Lock đang bật; có lối "Quên mật khẩu hiện tại?" (hỏi lại bằng một dòng chữ, rồi đăng xuất và sang trang
  *   lấy lại mật khẩu);
  * - đang gửi thì không đóng được hộp; ô ẩn tên đăng nhập giúp trình quản lý mật khẩu lưu đúng tài khoản.
@@ -181,6 +181,9 @@ export default function ChangePasswordModal({ open, onOpenChange, onSuccess, for
             autoComplete={autoComplete}
             value={mk[k]}
             onChange={go(k)}
+            // Chỉ ô Mật khẩu mới / Nhập lại: dán thì bỏ dấu cách dính ở hai đầu. Ô Mật khẩu hiện tại gửi nguyên văn
+            // (mật khẩu cũ có thể có dấu cách ở hai đầu thật)
+            onPaste={k === "hienTai" ? undefined : danMatKhauBoDauCachHaiDau}
             onBlur={roi(k)}
             onFocus={() => setODangGo(k)}
             onKeyDown={theoDoiCaps}

@@ -4,7 +4,7 @@ import { AlertCircle, CheckCircle2, Eye, EyeOff, Info, Loader2 } from 'lucide-re
 import AuthShell from '../components/auth/AuthShell';
 import { nguoiDungService } from '../services/nguoiDungService';
 import { getApiErrorCode, getApiErrorMessage } from '../utils/apiError';
-import { GOI_Y_MAT_KHAU, kiemTraMatKhauMoi } from '../utils/matKhau';
+import { GOI_Y_MAT_KHAU, danMatKhauBoDauCachHaiDau, kiemTraMatKhauMoi } from '../utils/matKhau';
 import { formatDateTime } from '../utils/dateTime';
 import { t } from "@/i18n";
 
@@ -184,6 +184,8 @@ export default function SetPasswordPage() {
                     type={hien[k] ? 'text' : 'password'}
                     className={`${INPUT_BASE} ${loiO[k] ? INPUT_ERROR : INPUT_NORMAL} pr-10`}
                     value={giaTri}
+                    // cả hai ô đều là mật khẩu mới: dán thì bỏ dấu cách dính ở hai đầu
+                    onPaste={danMatKhauBoDauCachHaiDau}
                     onChange={(e) => {
                         datGiaTri(e.target.value);
                         setLoiChung('');

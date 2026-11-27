@@ -6,7 +6,7 @@ import AuthShell from '../components/auth/AuthShell';
 import AuthProgress from '../components/auth/AuthProgress';
 import OtpInputs from '../components/auth/OtpInputs';
 import { t } from "@/i18n";
-import { GOI_Y_MAT_KHAU, kiemTraMatKhauMoi } from '../utils/matKhau';
+import { GOI_Y_MAT_KHAU, danMatKhauBoDauCachHaiDau, kiemTraMatKhauMoi } from '../utils/matKhau';
 
 /* ── Class patterns dùng chung (theo thiết kế modern white/gray) ── */
 const INPUT_BASE =
@@ -334,6 +334,8 @@ export default function ForgotPasswordPage() {
                                 className={`${INPUT_BASE} ${errors.newPassword ? INPUT_ERROR : INPUT_NORMAL} pr-10`}
                                 value={newPassword}
                                 onChange={(e) => { setNewPassword(e.target.value); clearErrors(); }}
+                                // dán thì bỏ dấu cách dính ở hai đầu (utils/matKhau.js)
+                                onPaste={danMatKhauBoDauCachHaiDau}
                                 autoComplete="new-password"
                                 aria-invalid={Boolean(errors.newPassword)}
                                 aria-describedby={errors.newPassword ? 'forgot-new-password-error' : 'forgot-new-password-goi-y'}
@@ -366,6 +368,7 @@ export default function ForgotPasswordPage() {
                                 className={`${INPUT_BASE} ${errors.confirmPassword ? INPUT_ERROR : INPUT_NORMAL} pr-10`}
                                 value={confirmPassword}
                                 onChange={(e) => { setConfirmPassword(e.target.value); clearErrors(); }}
+                                onPaste={danMatKhauBoDauCachHaiDau}
                                 autoComplete="new-password"
                                 aria-invalid={Boolean(errors.confirmPassword)}
                                 aria-describedby={errors.confirmPassword ? 'forgot-confirm-password-error' : undefined}

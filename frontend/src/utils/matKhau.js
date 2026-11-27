@@ -124,3 +124,29 @@ export function kiemTraMatKhauMoi(
   if (PHO_BIEN.has(thuong.trim()) || laDayDonGian(gt)) return t("Mật khẩu này quá phổ biến, dễ bị đoán. Hãy chọn mật khẩu khác.");
   return "";
 }
+
+const DAU_CACH_HAI_DAU = /^[\s\p{Z}]+|[\s\p{Z}]+$/gu;
+
+/** Bỏ khoảng trắng ở hai đầu (cả dấu cách không ngắt, xuống dòng); khoảng trắng ở giữa giữ nguyên. */
+export const catDauCachHaiDau = (chuoi) => (chuoi ?? "").replace(DAU_CACH_HAI_DAU, "");
+
+/**
+ * Gắn vào `onPaste` của ô Mật khẩu mới và ô Nhập lại mật khẩu mới (chốt 27/11/2026): đoạn dán có dấu cách ở hai đầu
+ * (hay dính khi chép từ ghi chú, Zalo, email) thì chỉ dán phần giữa. Dấu cách ở giữa giữ nguyên để luật báo "Mật khẩu
+ * không được có dấu cách.". Gõ tay không bị đụng tới.
+ *
+ * KHÔNG gắn vào ô đăng nhập hay ô Mật khẩu hiện tại: mật khẩu đặt trước luật mới có thể có dấu cách ở hai đầu thật, và
+ * dán sai ở đó chỉ báo "sai mật khẩu" chung (chốt 27/11/2026, không nhắc gì thêm).
+ *
+ * Chèn bằng execCommand("insertText"): trình duyệt tự phát sự kiện input nên React onChange chạy y như gõ tay (kiểm lỗi,
+ * xóa lỗi), con trỏ và Ctrl+Z vẫn đúng. Trình duyệt không hỗ trợ thì để dán nguyên văn, luật kiểm sẽ báo lỗi dấu cách.
+ */
+export function danMatKhauBoDauCachHaiDau(e) {
+  const dan = e.clipboardData?.getData("text") ?? "";
+  const gon = catDauCachHaiDau(dan);
+  // Không có gì để bỏ, hoặc dán toàn dấu cách (để luật báo "Nhập mật khẩu mới."): dán bình thường
+  if (gon === dan || !gon) return;
+  if (typeof document === "undefined" || !document.queryCommandSupported?.("insertText")) return;
+  e.preventDefault();
+  document.execCommand("insertText", false, gon);
+}
