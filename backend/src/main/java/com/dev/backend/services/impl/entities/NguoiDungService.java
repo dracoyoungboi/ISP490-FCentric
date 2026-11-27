@@ -823,6 +823,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
     // gửi lại mã)
     static final String RESET_OTP_WRONG_CODE = "RESET_OTP_WRONG";
     static final String RESET_OTP_EXPIRED_CODE = "RESET_OTP_EXPIRED";
+    // mật khẩu mới trùng mật khẩu đang dùng (mã vẫn còn, nhập mật khẩu khác) — xem chanTrungMatKhauDangDung
+    static final String RESET_MAT_KHAU_TRUNG_CU_CODE = "RESET_MAT_KHAU_TRUNG_CU";
 
     private static boolean isResetOtpOf(OtpScheduleObj otpScheduleObj, String email) {
         return otpScheduleObj.getType() == OtpType.RESET_PASSWORD
@@ -983,6 +985,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         NguoiDung nguoiDung = findUserForPasswordReset(rpRequest.getUsername());
 
         OtpScheduleObj findingResetOtp = checkResetOtp(nguoiDung, rpRequest.getOtp());
+        // mã đúng rồi mới so với mật khẩu đang dùng; trùng thì trừ một lượt của mã
+        chanTrungMatKhauDangDung(findingResetOtp, nguoiDung, rpRequest.getPassword());
 
         // Xoá OTP khỏi bộ nhớ đệm trước khi đổi MK: remove() là nguyên tử nên mỗi mã
         // chỉ dùng được 1 lần,
@@ -1069,6 +1073,48 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
             }
         }
         return findingResetOtp;
+    }
+
+    /**
+     * Quên mật khẩu: không cho đặt lại đúng mật khẩu đang dùng (chốt 27/11/2026). Hộp Đổi mật khẩu chặn việc này
+     * bằng cách so với ô Mật khẩu hiện tại; ở đây người dùng không gõ mật khẩu cũ nên so mật khẩu mới với bản băm
+     * đang lưu.
+     * <p>
+     * Câu "phải khác mật khẩu đang dùng" xác nhận luôn rằng chuỗi vừa gõ CHÍNH LÀ mật khẩu đang dùng. Ai chiếm được
+     * email nhận mã có thể gõ thử nhiều lần để dò ra mật khẩu cũ, rồi đem đi thử ở nơi khác nếu chủ tài khoản dùng
+     * chung mật khẩu. Nên:
+     * <ul>
+     *   <li>chỉ kiểm sau khi mã đã đúng: người không có mã không bao giờ thấy câu này;</li>
+     *   <li>mỗi lần trùng tính là một lần sai của chính mã, chung {@link #RESET_OTP_MAX_FAILED_ATTEMPTS} lượt với
+     *       lần nhập sai mã; hết lượt thì hủy mã, phải gửi mã mới qua email (có giới hạn gửi lại);</li>
+     *   <li>kiểm lại mã còn dùng được và so mật khẩu trong khóa của chính mã, như {@link #checkResetOtp}: gửi nhiều
+     *       yêu cầu cùng lúc cũng không so được quá số lượt.</li>
+     * </ul>
+     * Luồng đặt mật khẩu qua liên kết không cần kiểm: lúc tạo liên kết (tài khoản mới, quản trị viên cấp lại) máy chủ
+     * đã thay mật khẩu bằng chuỗi ngẫu nhiên không ai biết, nên không còn mật khẩu cũ nào để trùng.
+     */
+    private void chanTrungMatKhauDangDung(OtpScheduleObj ma, NguoiDung nguoiDung, String matKhauMoi) {
+        synchronized (ma) {
+            // mã đã bị hủy trong lúc chờ khóa: hết lượt, đã dùng để đặt mật khẩu, hoặc có mã mới thay
+            if (ma.getFailedAttempts().get() >= RESET_OTP_MAX_FAILED_ATTEMPTS
+                    || !GlobalCache.OTP_SCHEDULE_OBJS.contains(ma)) {
+                GlobalCache.OTP_SCHEDULE_OBJS.remove(ma);
+                throw resetOtpExpired(ThongDiep.of(KHOA_RESET_OTP_INVALID));
+            }
+            if (!passwordEncoder.matches(matKhauMoi, nguoiDung.getMatKhauHash())) return;
+
+            int daSai = ma.getFailedAttempts().incrementAndGet();
+            if (daSai >= RESET_OTP_MAX_FAILED_ATTEMPTS) {
+                GlobalCache.OTP_SCHEDULE_OBJS.remove(ma);
+                // mã trả RESET_OTP_EXPIRED: giao diện đưa về bước nhập mã để gửi mã mới
+                throw resetOtpExpired(ThongDiep.of("heThong.thuQuaNhieuLanMaDaHuy", RESET_OTP_MAX_FAILED_ATTEMPTS));
+            }
+            int conLai = RESET_OTP_MAX_FAILED_ATTEMPTS - daSai;
+            // mã riêng để giao diện hiện lỗi dưới ô Mật khẩu mới, giữ nguyên bước và mã đang nhập
+            throw new CommonException(ThongDiep.of("heThong.matKhauMoiTrungMatKhauCu", conLai),
+                    HttpStatus.BAD_REQUEST,
+                    Map.of("code", RESET_MAT_KHAU_TRUNG_CU_CODE, "remainingAttempts", conLai));
+        }
     }
 
     /** So mã trong thời gian không đổi: thời gian phản hồi không lộ mã nhập đúng được mấy chữ số đầu. */
