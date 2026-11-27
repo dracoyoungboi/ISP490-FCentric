@@ -286,36 +286,17 @@ export const NHAN_CHUNG_TU = { da_xuat: "Đang khóa", da_mo_khoa: "Đã mở kh
  * Đường dẫn tới màn chi tiết của chứng từ nguồn (null khi loại đó chưa có màn chi tiết mở theo id):
  * đơn bán (cả đơn hoàn trả) theo don_ban_hang.id, phiếu mua và phiếu nhập khác theo phieu_nhap_kho.id.
  */
-export function duongDanChungTu(loai, idNguon) {
+export function duongDanChungTu(loai, idNguon, nguon) {
   if (idNguon == null || idNguon === 0) return null;
   if (loai === "ban_hang" || loai === "tra_lai_don") return `/sales-orders/${idNguon}`;
   if (loai === "mua_hang" || loai === "nhap_khac_pnk") return `/goods-receipts/${idNguon}`;
+  // Biến động kho chưa có chứng từ: idNguon là id ở bảng nguồn mà máy chủ gửi kèm (chiTiet.nguon)
+  if (loai === "bien_dong_kho") {
+    if (nguon === "phieu_xuat_kho") return `/goods-issues/${idNguon}`;
+    if (nguon === "phieu_nhap_kho") return `/goods-receipts/${idNguon}`;
+    if (nguon === "kiem_ke") return `/stock-take/${idNguon}`;
+  }
   return null;
-}
-
-/**
- * Việc kế toán làm thêm trên AMIS từ kết quả kiểm tra, mỗi dòng một thẻ việc:
- * - Lập tay: biến động kho không có chứng từ trong lô, đơn đã giao rồi bị hoàn trả.
- * - Nhận hóa đơn: phiếu mua chưa có hóa đơn (cảnh báo mua hàng) hoặc nay mới có hóa đơn (phát sinh sau khi xuất).
- * - Lưu ý: các cảnh báo khác (vẫn xuất, kế toán nên đọc).
- * Trả [{ khoa, loai, idNguon, soChungTu, noiDung, viec, loTruoc }]; loTruoc = việc của chứng từ đã giao ở lô trước.
- */
-export function viecKeToan(xemTruoc) {
-  if (!xemTruoc) return [];
-  const dong = (v, viec, nguon, i, loTruoc = false) => ({
-    khoa: `${nguon}-${v.loai}-${v.idNguon ?? ""}-${i}`,
-    loai: v.loai,
-    idNguon: v.idNguon,
-    soChungTu: v.soChungTu,
-    noiDung: v.noiDung,
-    viec,
-    loTruoc,
-  });
-  return [
-    ...(xemTruoc.bienDongKho ?? []).map((v, i) => dong(v, "Lập tay", "bd", i)), // i18n-giu-nguyen: tên nhãn trạng thái
-    ...(xemTruoc.phatSinhSauXuat ?? []).map((v, i) => dong(v, v.loai === "mua_hang" ? "Nhận hóa đơn" : "Lập tay", "sx", i, true)), // i18n-giu-nguyen: tên nhãn trạng thái
-    ...(xemTruoc.canhBao ?? []).map((v, i) => dong(v, v.loai === "mua_hang" ? "Nhận hóa đơn" : "Lưu ý", "cb", i)), // i18n-giu-nguyen: tên nhãn trạng thái
-  ];
 }
 
 /** Số chứng từ theo nhóm hiển thị, đúng thứ tự nhập AMIS: [{ loai, ten, so }]. */

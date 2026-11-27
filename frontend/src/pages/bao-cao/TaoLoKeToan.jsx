@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Calendar, CheckCircle2, Download, FileSpreadsheet, Loader2, Settings, TriangleAlert } from "lucide-react";
 import PageContainer from "@/components/backoffice/PageContainer";
@@ -23,21 +23,19 @@ import { GOI_Y_O, NHAN_O, O_NHAP_NHIEU_DONG } from "@/components/chung-tu/kieuHo
 import EmptyState from "@/components/shared/EmptyState";
 import ErrorState from "@/components/shared/ErrorState";
 import LoadingState from "@/components/shared/LoadingState";
-import StatusBadge from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   coThue,
   coTien,
   congTongHop,
-  duongDanChungTu,
   hienNgay,
   homQuaIso,
   kyChungTu,
   ngayIso,
   tenLoai,
-  viecKeToan,
 } from "@/components/ke-toan/tinhKeToan";
+import ViecKeToanAmis, { MaChungTu } from "@/components/ke-toan/ViecKeToanAmis";
 import { toast } from "@/lib/thongBaoNhanh";
 import { cn } from "@/lib/utils";
 import { keToanService } from "@/services/keToanService";
@@ -56,46 +54,6 @@ function TieuDeMuc({ id, children, phu }) {
       <h2 id={id} className="text-base font-semibold leading-6 text-bo-foreground">{children}</h2>
       {phu ? <span className="text-[13px] leading-5 text-bo-muted">{phu}</span> : null}
     </div>
-  );
-}
-
-/** Mã chứng từ: liên kết tới màn chi tiết khi loại đó có màn, không thì chữ thường. */
-function MaChungTu({ loai, idNguon, so }) {
-  const den = duongDanChungTu(loai, idNguon);
-  if (!so) return <span className="text-bo-muted">{tenLoai(loai)}</span>;
-  return den ? (
-    <Link to={den} className="whitespace-nowrap font-medium text-bo-primary hover:text-bo-primary-hover hover:underline">{so}</Link>
-  ) : (
-    <span className="whitespace-nowrap font-medium text-bo-foreground">{so}</span>
-  );
-}
-
-/** Ghi chú việc kế toán: thu còn 2 dòng, chỉ hiện "Xem đủ" khi chữ thật sự bị cắt (đo theo bề rộng ô). */
-function GhiChu({ noiDung }) {
-  const [mo, setMo] = useState(false);
-  const [dai, setDai] = useState(false);
-  const ref = useRef(null);
-  const chu = tDuLieu(noiDung);
-  useLayoutEffect(() => {
-    const p = ref.current;
-    if (!p || mo) return undefined;
-    const do0 = () => setDai(p.scrollHeight > p.clientHeight + 1);
-    do0();
-    if (typeof ResizeObserver === "undefined") return undefined;
-    const theoDoi = new ResizeObserver(do0);
-    theoDoi.observe(p);
-    return () => theoDoi.disconnect();
-  }, [chu, mo]);
-  return (
-    <>
-      <p ref={ref} className={cn("text-[13px] leading-5 text-slate-600", !mo && "line-clamp-2")}>{chu}</p>
-      {dai ? (
-        <button type="button" onClick={() => setMo((m) => !m)} aria-expanded={mo}
-          className="mt-0.5 rounded text-xs font-medium text-bo-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bo-primary/30">
-          {mo ? t("Thu gọn") : t("Xem đủ")}
-        </button>
-      ) : null}
-    </>
   );
 }
 
@@ -194,7 +152,6 @@ export default function TaoLoKeToan() {
   const tong = xemTruoc ? congTongHop(xemTruoc.tongHop) : null;
   const ban = xemTruoc?.tongHop?.find((d) => d.loai === "ban_hang");
   const chan = xemTruoc?.loiChan ?? [];
-  const viec = viecKeToan(xemTruoc);
   const tep = xemTruoc?.tepNhap ?? [];
   const dc = xemTruoc?.doiChieu;
   const khop = dc && Number(dc.chenhLech) === 0;
@@ -323,38 +280,10 @@ export default function TaoLoKeToan() {
           </div>
         </section>
 
-        {viec.length ? (
-          <section aria-labelledby={`${id}-viec`} className="border-t border-bo-border">
-            <TieuDeMuc id={`${id}-viec`} phu={t("Không chặn tạo lô, đã ghi trong tệp hướng dẫn")}>{t("Kế toán làm thêm trên AMIS")}</TieuDeMuc>
-            <div className={KHUNG_CUON}>
-              <table className={cn(BANG, "@2xl/khoi:min-w-[620px]")}>
-                <thead>
-                  <tr className={DONG_TIEU_DE}>
-                    <th scope="col" className={cn(O_TIEU_DE, O_DAU, "@2xl/khoi:w-48")}>{t("Chứng từ")}</th>
-                    <th scope="col" className={cn(O_TIEU_DE, AN_DIEN_THOAI, "w-40")}>{t("Việc")}</th>
-                    <th scope="col" className={cn(O_TIEU_DE, O_CUOI, AN_DIEN_THOAI)}>{t("Ghi chú")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {viec.map((v) => (
-                    <tr key={v.khoa} className={DONG}>
-                      <td className={cn(O, O_DAU, "align-top")}>
-                        <MaChungTu loai={v.loai} idNguon={v.idNguon} so={v.soChungTu} />
-                        {v.loTruoc ? <span className="block text-xs text-bo-muted">{t("Đã giao ở lô trước")}</span> : null}
-                        <div className={cn("mt-1 grid gap-1", CHI_DIEN_THOAI)}>
-                          <span><StatusBadge label={v.viec} /></span>
-                          <div><GhiChu noiDung={v.noiDung} /></div>
-                        </div>
-                      </td>
-                      <td className={cn(O, AN_DIEN_THOAI, "whitespace-nowrap align-top")}><StatusBadge label={v.viec} /></td>
-                      <td className={cn(O, O_CUOI, AN_DIEN_THOAI, "align-top")}><GhiChu noiDung={v.noiDung} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        ) : null}
+        <section aria-labelledby={`${id}-viec`} className="border-t border-bo-border empty:hidden">
+          <ViecKeToanAmis xemTruoc={xemTruoc} idTieuDe={`${id}-viec`}
+            tieuDe={<TieuDeMuc id={`${id}-viec`} phu={t("Không chặn tạo lô, đã ghi trong tệp hướng dẫn")}>{t("Kế toán làm thêm trên AMIS")}</TieuDeMuc>} />
+        </section>
       </div>
     );
   }
