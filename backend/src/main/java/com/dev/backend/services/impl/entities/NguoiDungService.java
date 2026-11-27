@@ -42,6 +42,7 @@ import com.dev.backend.services.impl.utils.PasswordResetRateLimiter;
 import com.dev.backend.services.multitable.PhanQuyenNguoiDungService;
 import com.dev.backend.utils.AvatarImageValidator;
 import com.dev.backend.utils.HoTen;
+import com.dev.backend.utils.MatKhau;
 import jakarta.persistence.EntityManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -816,11 +817,8 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     // OTP đặt lại mật khẩu: hiệu lực 5 phút, tối đa 5 lần nhập sai
     static final long RESET_OTP_TTL_SECONDS = 300;
-    // Độ dài tối thiểu của mật khẩu đặt qua liên kết (cùng mức với đổi mật khẩu và giao diện utils/matKhau.js)
-    static final int MAT_KHAU_TOI_THIEU = 6;
     static final int RESET_OTP_MAX_FAILED_ATTEMPTS = 5;
     private static final String KHOA_RESET_OTP_INVALID = "heThong.maXacNhanKhongTonTai";
-    private static final int BCRYPT_MAX_PASSWORD_BYTES = 72;
     // mã lỗi trong data.code để FE phân biệt: sai mã (nhập lại) / hết hạn-huỷ (phải
     // gửi lại mã)
     static final String RESET_OTP_WRONG_CODE = "RESET_OTP_WRONG";
@@ -956,12 +954,10 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         return byPhone.stream().findFirst();
     }
 
-    // BCrypt từ chối mật khẩu > 72 byte (IllegalArgumentException -> 500). Tính
-    // theo byte UTF-8 vì ký tự có dấu chiếm 2-3 byte.
-    private static void assertPasswordFitsBcrypt(String password) {
-        if (password != null && password.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_PASSWORD_BYTES) {
-            throw new CommonException(ThongDiep.of("heThong.matKhauQuaDai"));
-        }
+    // Luật mật khẩu mới ở utils/MatKhau (8–64 ký tự không dấu, không dấu cách, đủ 4 loại ký tự)
+    private static void kiemMatKhauMoi(String matKhau) {
+        ThongDiep loi = MatKhau.loi(matKhau);
+        if (loi != null) throw new CommonException(loi);
     }
 
     // Bước "Xác thực OTP" (FE bước 2): chỉ kiểm tra mã, KHÔNG tiêu thụ mã — mã vẫn
@@ -981,7 +977,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     public ResponseEntity<ResponseData<String>> resetPassword(ResetPasswordRequest rpRequest) {
         // kiểm tra trước khi đụng tới OTP để không làm mất mã / tính là nhập sai
-        assertPasswordFitsBcrypt(rpRequest.getPassword());
+        kiemMatKhauMoi(rpRequest.getPassword());
 
         // tìm xem thông tin người dùng có trong hệ thống hay chưa
         NguoiDung nguoiDung = findUserForPasswordReset(rpRequest.getUsername());
@@ -1257,12 +1253,12 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         if (changePass.getCurrentPassword() == null || changePass.getCurrentPassword().isBlank()) {
             throw new CommonException(ThongDiep.of("heThong.matKhauHienTaiTrong"));
         }
-        if (changePass.getNewPassword() == null || changePass.getNewPassword().isBlank()
-                || changePass.getNewPassword().trim().length() < 6) {
-            throw new CommonException(ThongDiep.of("heThong.matKhauMoiToiThieu", 6));
+        // kiểm mật khẩu mới TRƯỚC khi so mật khẩu hiện tại: không để lỗi này xác nhận ngầm mật khẩu hiện tại đúng.
+        String matKhauMoi = changePass.getNewPassword();
+        kiemMatKhauMoi(matKhauMoi);
+        if (matKhauMoi.equals(changePass.getCurrentPassword())) {
+            throw new CommonException(ThongDiep.of("heThong.matKhauMoiTrungHienTai"));
         }
-        // kiểm mật khẩu mới TRƯỚC khi so mật khẩu hiện tại: không để lỗi này xác nhận ngầm mật khẩu hiện tại đúng
-        assertPasswordFitsBcrypt(changePass.getNewPassword().trim());
 
         // lấy user từ context đăng nhập (token), không tin tưởng id từ frontend;
         // dùng id trong token thay vì email (email có thể đã bị thay đổi -> stale)
@@ -1277,7 +1273,7 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
         loginRateLimiter.recordSuccess(null, nguoiDung.getId());
 
         // chỉ encode mật khẩu mới sau khi đã validate
-        nguoiDung.setMatKhauHash(passwordEncoder.encode(changePass.getNewPassword().trim()));
+        nguoiDung.setMatKhauHash(passwordEncoder.encode(matKhauMoi));
         nguoiDung.setMustChangePassword(false);
 
         update(nguoiDung.getId(), nguoiDung);
@@ -1388,20 +1384,14 @@ public class NguoiDungService extends BaseServiceImpl<NguoiDung, Integer> {
 
     /**
      * Đặt mật khẩu bằng liên kết: dùng một lần (khóa dòng liên kết tới hết giao dịch), gỡ cờ phải đổi mật khẩu, đăng
-     * xuất mọi thiết bị, gửi M4 (trừ lần đặt đầu của tài khoản mới). Mật khẩu giữ nguyên như người dùng gõ (không cắt
-     * khoảng trắng), giống Quên mật khẩu.
+     * xuất mọi thiết bị, gửi M4 (trừ lần đặt đầu của tài khoản mới). Mật khẩu kiểm theo utils/MatKhau như Quên mật
+     * khẩu và Đổi mật khẩu.
      */
     @Transactional
     public ResponseEntity<ResponseData<String>> datMatKhauQuaLienKet(DatMatKhauQuaLienKetRequest request) {
         String matKhau = request == null ? null : request.getMatKhauMoi();
         // kiểm mật khẩu trước khi đụng tới liên kết: nhập sai thì liên kết vẫn còn nguyên
-        if (matKhau == null || matKhau.isBlank()) {
-            throw new CommonException(ThongDiep.of("heThong.nhapMatKhauMoi"));
-        }
-        if (matKhau.codePointCount(0, matKhau.length()) < MAT_KHAU_TOI_THIEU) {
-            throw new CommonException(ThongDiep.of("heThong.matKhauMoiToiThieu", MAT_KHAU_TOI_THIEU));
-        }
-        assertPasswordFitsBcrypt(matKhau);
+        kiemMatKhauMoi(matKhau);
 
         Instant luc = Instant.now();
         // Khóa dòng liên kết: request khác cùng mã (hoặc quản trị viên đang gửi liên kết mới) chờ tới khi giao dịch này

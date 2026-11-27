@@ -3,7 +3,7 @@ package com.dev.backend.dto.request;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-/** Đặt mật khẩu bằng liên kết trong email: mã trong liên kết + mật khẩu mới (giữ nguyên như người dùng gõ). */
+/** Đặt mật khẩu bằng liên kết trong email: mã trong liên kết + mật khẩu mới (luật mật khẩu ở utils/MatKhau). */
 @AllArgsConstructor
 @Getter
 @Setter
