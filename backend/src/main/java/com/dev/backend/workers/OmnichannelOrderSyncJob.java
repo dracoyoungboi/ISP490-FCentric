@@ -1012,6 +1012,10 @@ public class OmnichannelOrderSyncJob {
         return syncLazadaOrders(kenh, Instant.now().minus(Duration.ofMinutes(bufferMinutes)), null);
     }
 
+    /**
+     * Kéo đơn Lazada theo cửa sổ [tuNgay, denNgay]:
+     * gọi lazadaClient.getOrders -> xử lý từng đơn (`processSingleLazadaOrder` tạo/cập nhật `don_ban_hang`) -> đối soát đơn mở.
+     */
     public int syncLazadaOrders(KenhBanHang kenh, Instant tuNgay, Instant denNgay) {
         String maKenh = kenh.getMaKenh();
         String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
@@ -1071,6 +1075,10 @@ public class OmnichannelOrderSyncJob {
         return syncTikTokOrders(kenh, Instant.now().minus(Duration.ofMinutes(bufferMinutes)), Instant.now());
     }
 
+    /**
+     * Kéo đơn TikTok Shop (v202309): đảm bảo cache danh mục kho sẵn có -> gọi searchOrders (page_size ở Query Param)
+     * -> tạo đơn mới tiền tố TKT-/cập nhật trạng thái hủy & giao vận vào `don_ban_hang`.
+     */
     public int syncTikTokOrders(KenhBanHang kenh, Instant tu, Instant den) {
         String appKey = kenhBanHangService.getTikTokAppKey();
         String appSecret = kenhBanHangService.getDecryptedTikTokAppSecret();
@@ -1915,6 +1923,7 @@ public class OmnichannelOrderSyncJob {
 
         int synced = 0;
         try {
+            // Khối 1 (Shopee 90-day guard): Tự chặn mốc bắt đầu không vượt quá 90 ngày lưu trữ của Shopee
             long timeFrom = tuNgay != null ? tuNgay.getEpochSecond() : (Instant.now().getEpochSecond() - 86400L);
             long timeTo = denNgay != null ? denNgay.getEpochSecond() : Instant.now().getEpochSecond();
             long ninetyDaysAgo = Instant.now().getEpochSecond() - (90L * 86400L);
@@ -1924,6 +1933,7 @@ public class OmnichannelOrderSyncJob {
             }
             boolean isSandbox = isShopeeSandbox(maKenh);
 
+            // Khối 2 (Phân trang cursor & Lấy chi tiết lô 50 đơn): getOrderList lấy danh sách order_sn -> getOrderDetail nạp đủ item/vận đơn
             List<String> orderSnList = new ArrayList<>();
             String cursor = null;
             boolean hasMore = true;
@@ -2177,6 +2187,10 @@ public class OmnichannelOrderSyncJob {
                 }
             }
 
+            // Khối 3 (Vòng đời đơn Shopee đã tồn tại trong DB):
+            // - CANCELLED/IN_CANCEL -> gọi huyDonTuSan trả giữ chỗ
+            // - TO_RETURN/RETURNED -> cập nhật Bị hoàn trả (trạng thái 6)
+            // - Còn lại: gắn/gỡ [SHOPEE_CHO_XAC_NHAN], gắn cờ [KHÁCH YÊU CẦU HỦY], cập nhật đã thanh toán & vận đơn
             boolean laHuy = "CANCELLED".equals(shopeeStatus) || "IN_CANCEL".equals(shopeeStatus);
             boolean laHoanTra = "TO_RETURN".equals(shopeeStatus) || "RETURNED".equals(shopeeStatus) || "RETURN_REFUND".equals(shopeeStatus);
 

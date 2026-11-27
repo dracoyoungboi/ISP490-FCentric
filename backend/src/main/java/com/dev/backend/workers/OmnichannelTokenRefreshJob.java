@@ -53,6 +53,7 @@ public class OmnichannelTokenRefreshJob {
                 if (kenh.getTokenExpiresAt() == null) continue;
                 String maKenh = kenh.getMaKenh();
 
+                // Nhánh 1: TikTok Shop access_token (hạn 7 ngày) còn < 2 ngày -> gọi refreshTikTokAccessToken() gia hạn & mã hóa lưu lại DB
                 if ("TIKTOK".equalsIgnoreCase(maKenh)) {
                     if (kenh.getTokenExpiresAt().isBefore(tiktokSapHetHan)) {
                         log.info("[TOKEN-REFRESH] Kênh TikTok Shop sắp hết hạn ủy quyền (hạn: {}), tự động kích hoạt làm mới token...",
@@ -65,6 +66,7 @@ public class OmnichannelTokenRefreshJob {
                             baoLamMoiThatBai(kenh);
                         }
                     }
+                // Nhánh 2: Lazada Production còn < 7 ngày -> gọi refreshLazadaAccessToken() gia hạn trước khi hết hạn
                 } else if ("LAZADA".equalsIgnoreCase(maKenh)) {
                     Instant lazadaSapHetHan = now.plus(Duration.ofDays(7));
                     if (kenh.getTokenExpiresAt().isBefore(lazadaSapHetHan)) {
@@ -78,6 +80,7 @@ public class OmnichannelTokenRefreshJob {
                             baoLamMoiThatBai(kenh);
                         }
                     }
+                // Nhánh 3: Shopee access_token (chỉ sống 4 giờ) còn < 1 giờ -> tự gọi refreshShopeeAccessToken() liên tục
                 } else if (OmnichannelOrderSyncJob.isShopee(maKenh)) {
                     if (kenh.getTokenExpiresAt().isBefore(shopeeSapHetHan)) {
                         log.info("[TOKEN-REFRESH] Kênh {} Shopee sắp hết hạn access token (hạn: {}), tự động kích hoạt làm mới token...",
