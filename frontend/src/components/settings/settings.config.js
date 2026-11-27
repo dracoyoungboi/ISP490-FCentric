@@ -23,10 +23,10 @@ export const SETTINGS_GROUPS = [
 ];
 
 export const SETTINGS_PAGES = [
-  // ThongTinCongTyController: GET cho QTV và QLK; PUT, logo chỉ QTV (quản lý kho chỉ xem)
-  { key: "store", label: t("Thông tin cửa hàng"), to: "/settings/store", group: "cua-hang", icon: Store, roles: [QTV, QLK], editRoles: [QTV] },
-  // CauHinhMauInController: GET cho QTV và QLK; sửa, kích hoạt, xóa mẫu chỉ QTV (quản lý kho chỉ xem)
-  { key: "print", label: t("Mẫu in"), to: "/settings/print-templates", group: "cua-hang", icon: Printer, roles: [QTV, QLK], editRoles: [QTV] },
+  // SRS 4.4 "Print Template & Company Profile": chỉ quản trị viên. API đọc (GET /thong-tin-cong-ty, /cau-hinh-mau-in) vẫn
+  // mở cho mọi vai trò vì in chứng từ cần, chỉ trang cấu hình là đóng.
+  { key: "store", label: t("Thông tin cửa hàng"), to: "/settings/store", group: "cua-hang", icon: Store, roles: [QTV], editRoles: [QTV] },
+  { key: "print", label: t("Mẫu in"), to: "/settings/print-templates", group: "cua-hang", icon: Printer, roles: [QTV], editRoles: [QTV] },
   // Sản phẩm (mã vạch, tem) là dữ liệu gốc nên đứng trước mua hàng: menu không hiện tên nhóm, nằm giữa Báo giá nhà cung cấp
   // và Nhập kho thì đọc như chen giữa hai bước mua → nhận hàng.
   // Sản phẩm, Nhập kho, Tồn kho, Khách hàng, Đồng bộ kênh bán: GET /dieu-hanh-he-thong/cau-hinh cho QTV và QLK; PUT chỉ QTV

@@ -491,7 +491,7 @@ const CAY_DUONG_DAN = (
 
       {/* Trình sửa mẫu in một màn (xem trước + chỉnh sửa): toàn chiều rộng, ngoài khung Cấu hình.
           Đường dẫn cũ (trang xem mẫu, /edit, theo định danh mẫu) chuyển về trình sửa của loại chứng từ.
-          Chỉ quản trị viên (sửa mẫu in); quản lý kho xem danh sách mẫu ở Cấu hình › Mẫu in. */}
+          Chỉ quản trị viên (SRS 4.4 "Print Template": cả danh sách mẫu ở Cấu hình › Mẫu in cũng chỉ quản trị viên). */}
       <Route element={<RequireRole roles={["quan_tri_vien"]} />}>
         <Route path="/settings/print-templates/:documentType" element={<PrintTemplateEditorPage />} />
         <Route path="/settings/print-templates/:documentType/edit" element={<MauInRedirect />} />

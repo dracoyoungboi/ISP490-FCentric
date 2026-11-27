@@ -74,8 +74,9 @@ public class CauHinhMauInController {
     }
 
     /** Các phiên bản đã lưu của mẫu in một loại chứng từ, mới nhất trước (ngăn "Lịch sử chỉnh sửa"). */
+    // Chỉ trang cấu hình Mẫu in dùng (SRS 4.4 "Print Template": chỉ quản trị viên)
     @GetMapping("/{documentType}/lich-su")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien})
     public ResponseEntity<ResponseData<List<LichSuMauInDto>>> getHistory(@PathVariable String documentType) {
         return ResponseEntity.ok(
                 ResponseData.<List<LichSuMauInDto>>builder()

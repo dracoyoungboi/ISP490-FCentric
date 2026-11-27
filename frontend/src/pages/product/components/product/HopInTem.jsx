@@ -129,8 +129,8 @@ function NoiDung({ nguon, dongBanDau, maPhieu, hienGiaCu, onDatGia, onDaMoIn, on
   const inTenCuaHang = Boolean(ch?.inTenCuaHang);
   const inSku = Boolean(ch?.inSku);
   const tenCuaHang = ch?.tenCuaHang ?? null;
+  // Cấu hình tem nằm ở Cài đặt › Mẫu in: SRS 4.4 "Print Template" chỉ quản trị viên mở được
   const suaCauHinh = hasAnyRole([ROLES.QUAN_TRI_VIEN]);
-  const xemCauHinh = suaCauHinh || hasAnyRole([ROLES.QUAN_LY_KHO]);
 
   const lan = dungLanIn({ dong: dsDong, cheDo, soTemDaSua, kho });
   const lyDoCua = new Map(lan.boQua.map((b) => [b.dong.id, b.lyDo]));
@@ -537,10 +537,10 @@ function NoiDung({ nguon, dongBanDau, maPhieu, hienGiaCu, onDatGia, onDaMoIn, on
           </label>
           <div className="-mt-0.5 flex justify-between gap-2 text-xs text-bo-muted">
             <span>{t("Cuộn {{rongCuon}} mm · CODE128 · giá đã gồm thuế", { rongCuon: kho.rongCuon })}</span>
-            {xemCauHinh ? (
+            {suaCauHinh ? (
               // Màn cảm ứng: liên kết cao 44px (hộp thoại nằm ngoài vùng nội dung chính nên lớp đệm liên kết chung không áp)
               <Link to="/settings/print-templates" className="shrink-0 font-medium text-bo-primary hover:text-bo-primary-hover cam-ung:inline-flex cam-ung:min-h-11 cam-ung:items-center">
-                {suaCauHinh ? t("Sửa trong Cài đặt") : t("Xem trong Cài đặt")}
+                {t("Sửa trong Cài đặt")}
               </Link>
             ) : null}
           </div>
