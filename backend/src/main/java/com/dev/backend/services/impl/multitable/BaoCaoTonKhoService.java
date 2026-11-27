@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.utils.XemGiaVon;
 
 /**
  * Báo cáo tồn kho (màn /reports/inventory): tồn từng mã SKU ở từng kho tại thời điểm xem, và tệp Excel của màn này.
@@ -132,6 +133,8 @@ public class BaoCaoTonKhoService {
             maDot = kk.dotToanKho() != null ? kk.dotToanKho() : kk.dotCuaMa().get(bienTheId);
         }
 
+        // Giá vốn lô là số nội bộ: người không được xem giá vốn (nhân viên bán hàng, SRS 2.4.1) nhận null
+        boolean xemGiaVon = XemGiaVon.nguoiDangNhapDuocXem();
         List<LoTrongKhoDto> kq = new ArrayList<>();
         for (LoHangTonKhoDTO l : lots) {
             List<LoTrongKhoDto.KeCuaLo> ke = keTheoLo.getOrDefault(l.getLoHangId(), List.of());
@@ -140,7 +143,7 @@ public class BaoCaoTonKhoService {
             boolean coKiem = kiem != null && kiem.signum() > 0;
             kq.add(new LoTrongKhoDto(
                     l.getLoHangId(), l.getMaLo(), l.getNgayNhapGanNhat(), l.getNgaySanXuat(), l.getTenNhaCungCap(),
-                    l.getGiaVonLo(), l.getSoLuongTon(), l.getSoLuongDaDat().max(BigDecimal.ZERO),
+                    xemGiaVon ? l.getGiaVonLo() : null, l.getSoLuongTon(), l.getSoLuongDaDat().max(BigDecimal.ZERO),
                     coKiem ? kiem : BigDecimal.ZERO, coKiem ? maDot : null,
                     ke, l.getSoLuongTon().subtract(trenKe).max(BigDecimal.ZERO)));
         }
@@ -165,7 +168,7 @@ public class BaoCaoTonKhoService {
         if (tuKhoa != null) boLoc.append(" · Từ khóa: \"").append(tuKhoa).append('"');
         KhuonExcelBaoCao.ThongTin tin = xuatBaoCaoService.thongTin(phamVi);
         String tenTep = "Bao-cao-ton-kho_" + LocalDate.now(VN) + ".xlsx";
-        byte[] tep = BaoCaoTonKhoExcel.tao(ds, khoAo, boLoc.toString(), tin);
+        byte[] tep = BaoCaoTonKhoExcel.tao(ds, khoAo, boLoc.toString(), tin, XemGiaVon.nguoiDangNhapDuocXem());
 
         Map<String, Object> nhatKy = new LinkedHashMap<>();
         nhatKy.put("phamVi", phamVi);

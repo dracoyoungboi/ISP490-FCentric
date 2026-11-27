@@ -4,6 +4,7 @@ import com.dev.backend.config.SecurityContextHolder;
 import com.dev.backend.constant.variables.IPermissionType;
 import com.dev.backend.constant.variables.IRoleType;
 import com.dev.backend.customizeanotation.RequireAuth;
+import com.dev.backend.dto.TonKhoKhongGiaVon;
 import com.dev.backend.dto.TonKhoProjection;
 import com.dev.backend.dto.response.ResponseData;
 import com.dev.backend.dto.response.customize.LoTrongKhoDto;
@@ -12,6 +13,7 @@ import com.dev.backend.mapper.TonKhoTheoLoMapper;
 import com.dev.backend.services.impl.kiemke.KiemKeTheoMaService;
 import com.dev.backend.services.impl.multitable.BaoCaoTonKhoService;
 import com.dev.backend.services.multitable.ThongKeHeThongService;
+import com.dev.backend.utils.XemGiaVon;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -68,7 +70,7 @@ public class ThongKeHeThongController {
     )
     public ResponseEntity<ResponseData<List<TonKhoChiTietDTO>>> tonKho(
     ) {
-        return thongKeHeThongService.findTonKhoChiTietByKho(SecurityContextHolder.getKhoId());
+        return anGiaVon(thongKeHeThongService.findTonKhoChiTietByKho(SecurityContextHolder.getKhoId()));
     }
 
 
@@ -84,7 +86,7 @@ public class ThongKeHeThongController {
             rolesLogic = RequireAuth.LogicType.OR
     )
     public ResponseEntity<ResponseData<List<TonKhoChiTietDTO>>> tonKhoBienThe(@PathVariable Integer bienTheId) {
-        return thongKeHeThongService.findTonKhoChiTietByBienThe(bienTheId);
+        return anGiaVon(thongKeHeThongService.findTonKhoChiTietByBienThe(bienTheId));
     }
 
     //sau khi lấy được danh sách sản phẩm ở trong khoID thì xem được danh sách biến thể của từng sản phẩm
@@ -102,7 +104,23 @@ public class ThongKeHeThongController {
     )
     public ResponseEntity<ResponseData<List<TonKhoChiTietDTO>>> tonKhoBienThe(@PathVariable Integer khoId, @PathVariable Integer bienTheId) {
         System.out.println("đi qua đây");
-        return thongKeHeThongService.findTonKhoChiTietByBienTheAndKho(bienTheId, khoId);
+        return anGiaVon(thongKeHeThongService.findTonKhoChiTietByBienTheAndKho(bienTheId, khoId));
+    }
+
+    /**
+     * Người không được xem giá vốn (nhân viên bán hàng, SRS 2.4.1): bỏ giá vốn, giá trị tồn của dòng và giá vốn từng lô
+     * trước khi gửi (máy chủ không gửi, không chỉ ẩn trên giao diện).
+     */
+    private static ResponseEntity<ResponseData<List<TonKhoChiTietDTO>>> anGiaVon(
+            ResponseEntity<ResponseData<List<TonKhoChiTietDTO>>> phanHoi) {
+        ResponseData<List<TonKhoChiTietDTO>> body = phanHoi.getBody();
+        if (XemGiaVon.nguoiDangNhapDuocXem() || body == null || body.getData() == null) return phanHoi;
+        for (TonKhoChiTietDTO d : body.getData()) {
+            d.setGiaVon(null);
+            d.setGiaTriTonKho(null);
+            if (d.getDanhSachLoHang() != null) d.getDanhSachLoHang().forEach(lo -> lo.setGiaVonLo(null));
+        }
+        return phanHoi;
     }
 
     //api của màn hình BCTK
@@ -119,12 +137,19 @@ public class ThongKeHeThongController {
     )
     public ResponseEntity<ResponseData<List<TonKhoProjection>>> tonKhoTongHop(@RequestParam(required = false) Integer khoId, @RequestParam(required = false) String keyword) {
         baoCaoTonKhoService.kiemTraKhoXem(khoId);
-        return thongKeHeThongService.tonKhoTongHop(khoId, keyword);
+        List<TonKhoProjection> ds = thongKeHeThongService.getTonKhoTongHop(khoId, keyword);
+        // Giá trị tồn tính theo giá vốn lô: người không được xem giá vốn (nhân viên bán hàng, SRS 2.4.1) không nhận số này
+        if (!XemGiaVon.nguoiDangNhapDuocXem()) {
+            ds = ds.stream().<TonKhoProjection>map(TonKhoKhongGiaVon::new).toList();
+        }
+        return ResponseEntity.ok(ResponseData.<List<TonKhoProjection>>builder()
+                .status(200).data(ds).message("Success").build());
     }
 
     /**
      * Các lô đang tồn của một mã ở một kho (bấm mở một dòng của Báo cáo tồn kho): mã lô, kệ đang chứa, ngày nhập,
-     * nhà cung cấp, tồn, giá vốn, phần đang giữ và đang kiểm kê. Chặn kho như /ton-kho-tong-quan.
+     * nhà cung cấp, tồn, giá vốn (null với người không được xem giá vốn), phần đang giữ và đang kiểm kê. Chặn kho như
+     * /ton-kho-tong-quan.
      */
     @GetMapping("/ton-kho-tong-quan/lo")
     @RequireAuth(

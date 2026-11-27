@@ -25,6 +25,9 @@ import static com.dev.backend.services.impl.multitable.BaoCaoTonKhoService.*;
  * - Chi tiết: mỗi dòng một mã SKU ở một kho (như bảng trên màn), dòng Cộng tự tính lại khi lọc.
  * - Cần nhập: các mã hết hàng / sắp hết hàng (không tính Kho Trung Chuyển), để lập yêu cầu nhập hàng.
  * Số là số tại thời điểm lập báo cáo.
+ * <p>
+ * Người tải không được xem giá vốn (nhân viên bán hàng — SRS 2.4.1, XemGiaVon) thì tệp bỏ hẳn giá trị tồn và giá vốn
+ * bình quân, như API của màn Báo cáo tồn kho (không gửi giá trị tồn, giá vốn lô) và màn (ẩn các ô đó).
  */
 public final class BaoCaoTonKhoExcel extends KhuonExcelBaoCao {
 
@@ -34,16 +37,19 @@ public final class BaoCaoTonKhoExcel extends KhuonExcelBaoCao {
     private final Set<Integer> khoAo;
     private final String dongKy;
     private final String boLoc;
+    private final boolean gv;
 
-    private BaoCaoTonKhoExcel(List<BaoCaoTonKhoService.Dong> ds, Set<Integer> khoAo, String boLoc, ThongTin tin) {
+    private BaoCaoTonKhoExcel(List<BaoCaoTonKhoService.Dong> ds, Set<Integer> khoAo, String boLoc, ThongTin tin, boolean gv) {
+        this.gv = gv;
         this.ds = ds;
         this.khoAo = khoAo;
         this.boLoc = boLoc;
         this.dongKy = "Số liệu tại thời điểm " + tin.lapLuc().format(DateTimeFormatter.ofPattern("HH:mm 'ngày' dd/MM/yyyy"));
     }
 
-    public static byte[] tao(List<BaoCaoTonKhoService.Dong> ds, Set<Integer> khoAo, String boLoc, ThongTin tin) {
-        BaoCaoTonKhoExcel x = new BaoCaoTonKhoExcel(ds, khoAo, boLoc, tin);
+    /** gv: người tải được xem giá vốn (XemGiaVon); không thì tệp không có cột giá trị tồn, giá vốn bình quân. */
+    public static byte[] tao(List<BaoCaoTonKhoService.Dong> ds, Set<Integer> khoAo, String boLoc, ThongTin tin, boolean gv) {
+        BaoCaoTonKhoExcel x = new BaoCaoTonKhoExcel(ds, khoAo, boLoc, tin, gv);
         x.sheetTongHop(tin);
         // Chi tiết, Cần nhập: mỗi mã SKU ở mỗi kho một dòng, có thể rất dài — ghi dần ra đĩa
         return x.xuat("Báo cáo tồn kho", tin, sx -> {
@@ -56,13 +62,19 @@ public final class BaoCaoTonKhoExcel extends KhuonExcelBaoCao {
 
     private void sheetTongHop(ThongTin tin) {
         Sheet s = wb.createSheet("Tổng hợp");
-        doRongCot(s, 6, 34, 10, 14, 18, 12, 12, 12);
+        // Không có giá vốn: bỏ cột Giá trị tồn (cột 4), các cột sau dồn sang trái
+        int lui = gv ? 0 : 1;
+        int cuoiCot = 7 - lui;
+        if (gv) doRongCot(s, 6, 34, 10, 14, 18, 12, 12, 12);
+        else doRongCot(s, 6, 34, 10, 14, 12, 12, 12);
         s.setDisplayGridlines(false);
-        int r = dauTrang(s, tin, "BÁO CÁO TỒN KHO", 7, dongKy, boLoc);
+        // Không có giá vốn thì trang không còn cột tiền: bỏ dòng "Đơn vị tính: đồng"
+        int r = dauTrang(s, tin, "BÁO CÁO TỒN KHO", cuoiCot, dongKy, boLoc, gv);
 
         // --- I. Theo kho (Kho Trung Chuyển xếp cuối) ---
         o(s, r++, 0, "I. TỒN KHO THEO KHO", k("muc"));
-        tieuDe(s, r++, 30, "STT", "Kho", "Số mã", "Tồn thực tế", "Giá trị tồn", "Đang về", "Đang xuất", "Khả dụng");
+        if (gv) tieuDe(s, r++, 30, "STT", "Kho", "Số mã", "Tồn thực tế", "Giá trị tồn", "Đang về", "Đang xuất", "Khả dụng");
+        else tieuDe(s, r++, 30, "STT", "Kho", "Số mã", "Tồn thực tế", "Đang về", "Đang xuất", "Khả dụng");
         // Gộp theo mã kho (hai kho trùng tên vẫn là hai dòng); Kho Trung Chuyển xếp cuối
         Map<Integer, List<BaoCaoTonKhoService.Dong>> theoKho = new LinkedHashMap<>();
         ds.stream()
@@ -78,21 +90,23 @@ public final class BaoCaoTonKhoExcel extends KhuonExcelBaoCao {
             o(row, 1, tenKho(nhom.get(0).so()) + (trungChuyen ? " (hàng đang đi đường)" : ""), k("chuXuong"));
             so(row, 2, nhom.size(), k("so"));
             so(row, 3, cong(nhom, TonKhoProjection::getOnHand), k("so"));
-            so(row, 4, cong(nhom, TonKhoProjection::getTongGiaTri), k("tien"));
-            so(row, 5, cong(nhom, TonKhoProjection::getIncoming), k("so"));
-            so(row, 6, cong(nhom, TonKhoProjection::getOutgoing), k("so"));
-            so(row, 7, cong(nhom, TonKhoProjection::getFreeToUse), k("so"));
+            if (gv) so(row, 4, cong(nhom, TonKhoProjection::getTongGiaTri), k("tien"));
+            so(row, 5 - lui, cong(nhom, TonKhoProjection::getIncoming), k("so"));
+            so(row, 6 - lui, cong(nhom, TonKhoProjection::getOutgoing), k("so"));
+            so(row, 7 - lui, cong(nhom, TonKhoProjection::getFreeToUse), k("so"));
         }
         int cuoi = r - 1;
-        Row cong = dongCong(s, r++, 7, 1, "Cộng");
-        for (int c = 2; c <= 7; c++) f(cong, c, tongCot(dau, cuoi, c, false), k(c == 4 ? "congTien" : "congSo"));
+        Row cong = dongCong(s, r++, cuoiCot, 1, "Cộng");
+        for (int c = 2; c <= cuoiCot; c++) f(cong, c, tongCot(dau, cuoi, c, false), k(gv && c == 4 ? "congTien" : "congSo"));
         r++;
 
         // --- II. Theo tình trạng ---
         o(s, r++, 0, "II. TỒN KHO THEO TÌNH TRẠNG", k("muc"));
         int hII = r;
-        tieuDe(s, r++, 30, "STT", "Tình trạng", "Số mã", "Tồn thực tế", "Giá trị tồn", "Cách xác định", "", "");
-        gop(s, hII, 5, 7);
+        int cCach = 5 - lui;
+        if (gv) tieuDe(s, r++, 30, "STT", "Tình trạng", "Số mã", "Tồn thực tế", "Giá trị tồn", "Cách xác định", "", "");
+        else tieuDe(s, r++, 30, "STT", "Tình trạng", "Số mã", "Tồn thực tế", "Cách xác định", "", "");
+        gop(s, hII, cCach, cuoiCot);
         Map<String, String> cachXacDinh = Map.of(
                 HET_HANG, "Tồn thực tế bằng 0 (hoặc âm)",
                 SAP_HET, "Tồn thực tế không quá tồn tối thiểu của mã",
@@ -110,26 +124,24 @@ public final class BaoCaoTonKhoExcel extends KhuonExcelBaoCao {
             o(row, 1, TEN_TINH_TRANG.get(tt), k(tt.equals(HET_HANG) || tt.equals(SAP_HET) ? "chuDo" : "chu"));
             so(row, 2, nhom.size(), k("so"));
             so(row, 3, cong(nhom, TonKhoProjection::getOnHand), k("so"));
-            so(row, 4, cong(nhom, TonKhoProjection::getTongGiaTri), k("tien"));
-            o(row, 5, cachXacDinh.get(tt), k("ghiChuO"));
-            o(row, 6, "", k("ghiChuO"));
-            o(row, 7, "", k("ghiChuO"));
-            gop(s, r, 5, 7);
+            if (gv) so(row, 4, cong(nhom, TonKhoProjection::getTongGiaTri), k("tien"));
+            o(row, cCach, cachXacDinh.get(tt), k("ghiChuO"));
+            for (int c = cCach + 1; c <= cuoiCot; c++) o(row, c, "", k("ghiChuO"));
+            gop(s, r, cCach, cuoiCot);
             r++;
         }
         int cuoiII = r - 1;
-        Row congII = dongCong(s, r, 7, 1, "Cộng");
-        for (int c = 2; c <= 4; c++) f(congII, c, tongCot(dauII, cuoiII, c, false), k(c == 4 ? "congTien" : "congSo"));
-        gop(s, r, 5, 7);
+        Row congII = dongCong(s, r, cuoiCot, 1, "Cộng");
+        for (int c = 2; c <= cCach - 1; c++) f(congII, c, tongCot(dauII, cuoiII, c, false), k(gv && c == 4 ? "congTien" : "congSo"));
+        gop(s, r, cCach, cuoiCot);
         r += 2;
 
-        String[] ghi = {
+        List<String> ghi = new ArrayList<>(List.of(
                 "Ghi chú:",
                 "- Tồn thực tế: số đang nằm trong kho. Đang về: đơn mua đã gửi, đã duyệt hoặc nhận một phần mà chưa nhận đủ.",
-                "- Đang xuất: hàng đang giữ cho đơn bán chưa xuất kho. Khả dụng = tồn thực tế − đang xuất.",
-                "- Giá trị tồn tính theo giá vốn của từng lô còn trong kho.",
-                "- Mỗi mã SKU ở mỗi kho là một dòng; cùng một mã ở hai kho được đếm hai lần ở cột Số mã.",
-        };
+                "- Đang xuất: hàng đang giữ cho đơn bán chưa xuất kho. Khả dụng = tồn thực tế − đang xuất."));
+        if (gv) ghi.add("- Giá trị tồn tính theo giá vốn của từng lô còn trong kho.");
+        ghi.add("- Mỗi mã SKU ở mỗi kho là một dòng; cùng một mã ở hai kho được đếm hai lần ở cột Số mã.");
         for (String g : ghi) o(s, r++, 0, g, k(g.equals("Ghi chú:") ? "ghiChuDam" : "ghiChu"));
         long trungChuyenHet = ds.stream().filter(d -> d.tinhTrang() == null).count();
         if (trungChuyenHet > 0) {
@@ -137,7 +149,7 @@ public final class BaoCaoTonKhoExcel extends KhuonExcelBaoCao {
         }
         if (ds.isEmpty()) o(s, r++, 0, "- Không có mã hàng nào khớp bộ lọc đang chọn.", k("ghiChu"));
         r++;
-        chuKy(s, r, tin, 7);
+        chuKy(s, r, tin, cuoiCot);
         inTrang(s, false, -1, -1);
         if (theoKho.size() <= 20) s.getPrintSetup().setFitHeight((short) 1);
     }
@@ -147,13 +159,20 @@ public final class BaoCaoTonKhoExcel extends KhuonExcelBaoCao {
     private void sheetChiTiet(SXSSFWorkbook sx, ThongTin tin) {
         Sheet s = sx.createSheet("Chi tiết");
         //         STT Mã SP Tên SKU Màu Size CL  Kho Tồn Về  Xuất KD  Min GVBQ GT  TT
-        doRongCot(s, 6, 13, 32, 22, 11, 7, 12, 20, 10, 9, 9, 10, 9, 13, 15, 15);
-        int cuoiCot = 15;
-        int r = dauTrang(s, tin, "CHI TIẾT TỒN KHO THEO MÃ SKU", cuoiCot, dongKy, boLoc);
+        // Không có giá vốn: bỏ cột Giá vốn bình quân, Giá trị tồn (13, 14); Tình trạng lùi về cột 13
+        if (gv) doRongCot(s, 6, 13, 32, 22, 11, 7, 12, 20, 10, 9, 9, 10, 9, 13, 15, 15);
+        else doRongCot(s, 6, 13, 32, 22, 11, 7, 12, 20, 10, 9, 9, 10, 9, 15);
+        int cuoiCot = gv ? 15 : 13;
+        int r = dauTrang(s, tin, "CHI TIẾT TỒN KHO THEO MÃ SKU", cuoiCot, dongKy, boLoc, gv);
         int h = r;
-        tieuDe(s, r++, 45, "STT", "Mã sản phẩm", "Tên sản phẩm", "Mã SKU", "Màu", "Size", "Chất liệu", "Kho",
-                "Tồn thực tế", "Đang về", "Đang xuất", "Khả dụng", "Tồn tối thiểu", "Giá vốn bình quân", "Giá trị tồn",
-                "Tình trạng");
+        if (gv) {
+            tieuDe(s, r++, 45, "STT", "Mã sản phẩm", "Tên sản phẩm", "Mã SKU", "Màu", "Size", "Chất liệu", "Kho",
+                    "Tồn thực tế", "Đang về", "Đang xuất", "Khả dụng", "Tồn tối thiểu", "Giá vốn bình quân", "Giá trị tồn",
+                    "Tình trạng");
+        } else {
+            tieuDe(s, r++, 45, "STT", "Mã sản phẩm", "Tên sản phẩm", "Mã SKU", "Màu", "Size", "Chất liệu", "Kho",
+                    "Tồn thực tế", "Đang về", "Đang xuất", "Khả dụng", "Tồn tối thiểu", "Tình trạng");
+        }
         int dau = r;
         int stt = 1;
         for (BaoCaoTonKhoService.Dong d : ds) {
@@ -173,26 +192,31 @@ public final class BaoCaoTonKhoExcel extends KhuonExcelBaoCao {
             so(row, 11, p.getFreeToUse(), k("so"));
             if (p.getMucTonToiThieu() != null && !khoAo.contains(p.getKhoId())) so(row, 12, p.getMucTonToiThieu(), k("so"));
             else o(row, 12, "", k("so"));
-            double ton = soThuc(p.getOnHand());
-            fCo(row, 13, "IF(" + ref(r, 8) + "<=0,\"\"," + ref(r, 14) + "/" + ref(r, 8) + ")",
-                    ton <= 0 ? null : soThuc(p.getTongGiaTri()) / ton, k("tien"));
-            so(row, 14, p.getTongGiaTri(), k("tien"));
+            if (gv) {
+                double ton = soThuc(p.getOnHand());
+                fCo(row, 13, "IF(" + ref(r, 8) + "<=0,\"\"," + ref(r, 14) + "/" + ref(r, 8) + ")",
+                        ton <= 0 ? null : soThuc(p.getTongGiaTri()) / ton, k("tien"));
+                so(row, 14, p.getTongGiaTri(), k("tien"));
+            }
             String tt = d.tinhTrang() == null ? "" : TEN_TINH_TRANG.get(d.tinhTrang());
-            o(row, 15, tt, k(HET_HANG.equals(d.tinhTrang()) || SAP_HET.equals(d.tinhTrang()) ? "chuDo" : "chuXuong"));
+            o(row, cuoiCot, tt, k(HET_HANG.equals(d.tinhTrang()) || SAP_HET.equals(d.tinhTrang()) ? "chuDo" : "chuXuong"));
             r++;
         }
         int cuoi = r - 1;
         Row cong = dongCong(s, r, cuoiCot, 2, "Cộng (" + ds.size() + " dòng)");
         double tongTon = soThuc(cong(ds, TonKhoProjection::getOnHand));
-        double tongGt = soThuc(cong(ds, TonKhoProjection::getTongGiaTri));
+        double tongGt = gv ? soThuc(cong(ds, TonKhoProjection::getTongGiaTri)) : 0;
         fCo(cong, 8, tongCot(dau, cuoi, 8, true), tongTon, k("congSo"));
         fCo(cong, 9, tongCot(dau, cuoi, 9, true), soThuc(cong(ds, TonKhoProjection::getIncoming)), k("congSo"));
         fCo(cong, 10, tongCot(dau, cuoi, 10, true), soThuc(cong(ds, TonKhoProjection::getOutgoing)), k("congSo"));
         fCo(cong, 11, tongCot(dau, cuoi, 11, true), soThuc(cong(ds, TonKhoProjection::getFreeToUse)), k("congSo"));
-        fCo(cong, 14, tongCot(dau, cuoi, 14, true), tongGt, k("congTien"));
-        fCo(cong, 13, "IF(" + ref(r, 8) + "<=0,\"\"," + ref(r, 14) + "/" + ref(r, 8) + ")", tongTon <= 0 ? null : tongGt / tongTon, k("congTien"));
+        if (gv) {
+            fCo(cong, 14, tongCot(dau, cuoi, 14, true), tongGt, k("congTien"));
+            fCo(cong, 13, "IF(" + ref(r, 8) + "<=0,\"\"," + ref(r, 14) + "/" + ref(r, 8) + ")", tongTon <= 0 ? null : tongGt / tongTon, k("congTien"));
+        }
         r += 2;
-        o(s, r++, 1, "Ghi chú: Dòng Cộng tự tính lại khi lọc. Giá vốn bình quân = giá trị tồn / tồn thực tế.", k("ghiChu"));
+        o(s, r++, 1, gv ? "Ghi chú: Dòng Cộng tự tính lại khi lọc. Giá vốn bình quân = giá trị tồn / tồn thực tế."
+                : "Ghi chú: Dòng Cộng tự tính lại khi lọc.", k("ghiChu"));
         o(s, r, 1, lapLuc(tin), k("ghiChu"));
 
         s.createFreezePane(3, h + 1);
