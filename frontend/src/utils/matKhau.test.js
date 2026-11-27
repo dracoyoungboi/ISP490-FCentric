@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { MAT_KHAU_TOI_DA, kiemTraMatKhauMoi } from "./matKhau.js";
+import { MAT_KHAU_TOI_DA, catDauCachHaiDau, kiemTraMatKhauMoi } from "./matKhau.js";
 
 // Cùng ca với backend MatKhauTest
 const BON_LOAI = "Cần có chữ hoa, chữ thường, số và ký tự đặc biệt.";
@@ -50,4 +50,12 @@ test("khi bật lại: chặn mật khẩu phổ biến, dãy đơn giản, ch�
   for (const mk of ["Matkhau@123", "Fcentric@123", "Aaaaaa1!", "Qwerty1!"]) assert.equal(kiemTraMatKhauMoi(mk, NC), PB, mk);
   assert.equal(kiemTraMatKhauMoi("Lan.nt@2026", NC), "Không dùng tên đăng nhập hoặc email trong mật khẩu.");
   assert.equal(kiemTraMatKhauMoi("Cum@TuDeNho9", NC), "");
+});
+
+test("dán vào ô mật khẩu mới: chỉ bỏ khoảng trắng ở hai đầu", () => {
+  assert.equal(catDauCachHaiDau("  Kho@2026  "), "Kho@2026");
+  assert.equal(catDauCachHaiDau("Kho@2026\n"), "Kho@2026", "xuống dòng dính khi chép cả dòng");
+  assert.equal(catDauCachHaiDau(" Kho tong@2026 "), "Kho tong@2026", "dấu cách ở giữa giữ để luật báo lỗi");
+  assert.equal(catDauCachHaiDau("   "), "");
+  assert.equal(catDauCachHaiDau(undefined), "");
 });
