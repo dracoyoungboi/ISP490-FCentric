@@ -45,7 +45,7 @@ import { thongKeHeThongService } from "@/services/thongKeHeThongService";
 import { laKhoAo, laKhoGiaoDich, laKhoHoatDong } from "@/utils/kho";
 import { SO_DONG_MAC_DINH } from "@/constants/phanTrang";
 import { formatCurrency, formatNumber } from "@/utils/formatters";
-import { VAI_TRO_CANH_BAO_TON, VAI_TRO_TAO_YEU_CAU_NHAP } from "@/constants/vaiTroTheoNghiepVu";
+import { VAI_TRO_CANH_BAO_TON, VAI_TRO_TAO_YEU_CAU_NHAP, VAI_TRO_XEM_GIA_VON } from "@/constants/vaiTroTheoNghiepVu";
 import { hasAnyRole } from "@/utils/roles";
 import { t } from "@/i18n";
 
@@ -195,6 +195,8 @@ export default function TonKhoTongQuan() {
     // Từ khóa của dữ liệu đang hiện (ô tìm kiếm chỉ áp dụng khi bấm Enter, như cũ)
     const [tuKhoaDaApDung, setTuKhoaDaApDung] = useState("");
     const xemCanhBao = hasAnyRole(VAI_TRO_CANH_BAO_TON);
+    // Giá trị tồn tính theo giá vốn lô: nhân viên bán hàng không thấy (máy chủ cũng không gửi, SRS 2.4.1)
+    const xemGiaVon = hasAnyRole(VAI_TRO_XEM_GIA_VON);
     // Tab tình trạng trên URL (?tinhTrang=); giữ nguyên ?kho= từ Tổng quan
     const [trangThaiFilter, setTrangThaiFilter] = useTabTrenUrl(
         xemCanhBao ? TAB_VALUES : TAB_VALUES_KHONG_CANH_BAO, TAB_MAC_DINH, { ten: "tinhTrang" });
@@ -602,12 +604,16 @@ export default function TonKhoTongQuan() {
                                     value={formatNumber(filteredData.reduce((s, i) => s + Number(i.outgoing ?? i.tongSoLuongChoDuaHang ?? 0), 0))}
                                     valueClass="text-bo-warning"
                                 />
-                                <Divider />
-                                <SummaryItem
-                                    label={t("Tổng giá trị tồn")}
-                                    value={formatCurrency(filteredData.reduce((s, i) => s + Number(i.tongGiaTri ?? i.giaTriTonKho ?? 0), 0))}
-                                    valueClass="text-bo-success"
-                                />
+                                {xemGiaVon ? (
+                                    <>
+                                        <Divider />
+                                        <SummaryItem
+                                            label={t("Tổng giá trị tồn")}
+                                            value={formatCurrency(filteredData.reduce((s, i) => s + Number(i.tongGiaTri ?? i.giaTriTonKho ?? 0), 0))}
+                                            valueClass="text-bo-success"
+                                        />
+                                    </>
+                                ) : null}
                                 {xemCanhBao ? (
                                     <>
                                         <Divider />
@@ -763,8 +769,12 @@ export default function TonKhoTongQuan() {
                                     <div className={`mt-2 flex items-center justify-between gap-3 ${coNutNhap ? "min-h-9" : ""}`}>
                                         <span className="min-w-0 text-[13px] text-bo-muted">
                                             {t("Tối thiểu")} {trungChuyen || item.mucTonToiThieu == null ? "—" : formatNumber(item.mucTonToiThieu)}
-                                            {" · "}
-                                            <b className="font-semibold tabular-nums text-bo-foreground">{formatCurrency(giaTri)}</b>
+                                            {xemGiaVon ? (
+                                                <>
+                                                    {" · "}
+                                                    <b className="font-semibold tabular-nums text-bo-foreground">{formatCurrency(giaTri)}</b>
+                                                </>
+                                            ) : null}
                                         </span>
                                         {coNutNhap ? (
                                             <Button
@@ -824,7 +834,7 @@ export default function TonKhoTongQuan() {
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>↑ Outgoing</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums`}>Free to Use</th>
                                 <th className={`${TH_CLASS} text-right tabular-nums cam-ung:max-lg:hidden`}>{t("Tồn tối thiểu")}</th>
-                                <th className={`${TH_CLASS} text-right tabular-nums`}>{t("Giá trị tồn")}</th>
+                                {xemGiaVon ? <th className={`${TH_CLASS} text-right tabular-nums`}>{t("Giá trị tồn")}</th> : null}
                                 <th className={`${TH_CLASS} text-left cam-ung:max-lg:hidden`}>{t("Tình trạng")}</th>
                                 <th className={`${TH_CLASS} text-center cam-ung:max-lg:hidden`}>{t("Thao tác")}</th>
                             </tr>
@@ -943,7 +953,9 @@ export default function TonKhoTongQuan() {
                                                 <span className="font-semibold text-slate-600">{formatNumber(item.mucTonToiThieu)}</span>
                                             )}
                                         </td>
-                                        <td className="whitespace-nowrap px-3 py-3 text-right text-xs font-bold tabular-nums text-bo-foreground">{formatCurrency(giaTri)}</td>
+                                        {xemGiaVon ? (
+                                            <td className="whitespace-nowrap px-3 py-3 text-right text-xs font-bold tabular-nums text-bo-foreground">{formatCurrency(giaTri)}</td>
+                                        ) : null}
 
                                         <td className="px-3 py-3 cam-ung:max-lg:hidden">
                                             {statusCfg ? (
@@ -967,7 +979,7 @@ export default function TonKhoTongQuan() {
                                     </tr>
                                     {moLo && !laDienThoai ? (
                                         <tr className="bg-bo-surface-subtle">
-                                            <td colSpan={13} className="px-3 pb-3.5 pt-0.5 cam-ung:max-lg:px-2">
+                                            <td colSpan={xemGiaVon ? 13 : 12} className="px-3 pb-3.5 pt-0.5 cam-ung:max-lg:px-2">
                                                 <BangLoTonKho
                                                     item={item}
                                                     so={so}

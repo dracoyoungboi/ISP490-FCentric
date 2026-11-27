@@ -6,6 +6,8 @@ import LoadingState from "@/components/shared/LoadingState";
 import { thongKeHeThongService } from "@/services/thongKeHeThongService";
 import { formatCurrency, formatDate, formatNumber } from "@/utils/formatters";
 import { t, tDuLieu } from "@/i18n";
+import { VAI_TRO_XEM_GIA_VON } from "@/constants/vaiTroTheoNghiepVu";
+import { hasAnyRole } from "@/utils/roles";
 
 const TH = "h-8 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 
@@ -195,6 +197,8 @@ function GhiChuFreeToUse({ so }) {
 
 function BangLo({ ds, so, trungChuyen }) {
     const tong = tongCua(ds);
+    // Giá vốn lô là số nội bộ: nhân viên bán hàng không thấy (máy chủ cũng không gửi, SRS 2.4.1)
+    const xemGiaVon = hasAnyRole(VAI_TRO_XEM_GIA_VON);
     return (
         <>
             <div className="overflow-x-auto">
@@ -206,8 +210,12 @@ function BangLo({ ds, so, trungChuyen }) {
                             <th className={`${TH} text-left`}>{t("Kệ")}</th>
                             <th className={`${TH} text-left`}>{t("Ngày nhập / SX")}</th>
                             <th className={`${TH} text-right`}>{t("Tồn")}</th>
-                            <th className={`${TH} text-right`}>{t("Giá vốn")}</th>
-                            <th className={`${TH} text-right`}>{t("Giá trị tồn")}</th>
+                            {xemGiaVon ? (
+                                <>
+                                    <th className={`${TH} text-right`}>{t("Giá vốn")}</th>
+                                    <th className={`${TH} text-right`}>{t("Giá trị tồn")}</th>
+                                </>
+                            ) : null}
                             <th className={`${TH} text-left`}>{t("Tình trạng")}</th>
                         </tr>
                     </thead>
@@ -235,10 +243,14 @@ function BangLo({ ds, so, trungChuyen }) {
                                         <span className="font-semibold text-bo-foreground">{formatNumber(ton)}</span>
                                         <GhiChuTon lo={lo} />
                                     </td>
-                                    <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-600">{formatCurrency(lo.giaVon ?? 0)}</td>
-                                    <td className="whitespace-nowrap px-3 py-2 text-right text-xs font-bold tabular-nums text-bo-foreground">
-                                        {formatCurrency(ton * Number(lo.giaVon ?? 0))}
-                                    </td>
+                                    {xemGiaVon ? (
+                                        <>
+                                            <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-600">{formatCurrency(lo.giaVon ?? 0)}</td>
+                                            <td className="whitespace-nowrap px-3 py-2 text-right text-xs font-bold tabular-nums text-bo-foreground">
+                                                {formatCurrency(ton * Number(lo.giaVon ?? 0))}
+                                            </td>
+                                        </>
+                                    ) : null}
                                     <td className="px-3 py-2"><TinhTrangLo lo={lo} /></td>
                                 </tr>
                             );
@@ -248,8 +260,12 @@ function BangLo({ ds, so, trungChuyen }) {
                         <tr className="border-t border-bo-border bg-bo-surface-subtle font-semibold text-bo-foreground">
                             <td className="px-3 py-2" colSpan={3}>{t("Cộng {{count}} lô", { count: ds.length })}</td>
                             <td className="px-3 py-2 text-right tabular-nums">{formatNumber(tong.ton)}</td>
-                            <td />
-                            <td className="whitespace-nowrap px-3 py-2 text-right text-xs font-bold tabular-nums">{formatCurrency(tong.giaTri)}</td>
+                            {xemGiaVon ? (
+                                <>
+                                    <td />
+                                    <td className="whitespace-nowrap px-3 py-2 text-right text-xs font-bold tabular-nums">{formatCurrency(tong.giaTri)}</td>
+                                </>
+                            ) : null}
                             <td />
                         </tr>
                     </tfoot>
@@ -265,6 +281,7 @@ function BangLo({ ds, so, trungChuyen }) {
 
 function DanhSachLoDienThoai({ ds, so, trungChuyen }) {
     const tong = tongCua(ds);
+    const xemGiaVon = hasAnyRole(VAI_TRO_XEM_GIA_VON);
     return (
         <>
             <ul className="divide-y divide-bo-border">
@@ -288,9 +305,11 @@ function DanhSachLoDienThoai({ ds, so, trungChuyen }) {
                                     {t("Tồn")} <b className="font-semibold tabular-nums text-bo-foreground">{formatNumber(ton)}</b>
                                     <GhiChuTon lo={lo} />
                                 </span>
-                                <span className="whitespace-nowrap font-semibold tabular-nums text-bo-foreground">
-                                    {formatCurrency(ton * Number(lo.giaVon ?? 0))}
-                                </span>
+                                {xemGiaVon ? (
+                                    <span className="whitespace-nowrap font-semibold tabular-nums text-bo-foreground">
+                                        {formatCurrency(ton * Number(lo.giaVon ?? 0))}
+                                    </span>
+                                ) : null}
                             </div>
                         </li>
                     );
@@ -298,7 +317,7 @@ function DanhSachLoDienThoai({ ds, so, trungChuyen }) {
             </ul>
             <div className="flex items-baseline justify-between gap-2 border-t border-bo-border bg-bo-surface-subtle px-3 py-2 text-[13px] font-semibold tabular-nums text-bo-foreground">
                 <span>{t("Cộng {{count}} lô", { count: ds.length })} · {formatNumber(tong.ton)}</span>
-                <span className="whitespace-nowrap">{formatCurrency(tong.giaTri)}</span>
+                {xemGiaVon ? <span className="whitespace-nowrap">{formatCurrency(tong.giaTri)}</span> : null}
             </div>
             <p className="border-t border-bo-border px-3 py-2 text-xs leading-5 text-bo-muted">
                 <GhiChuFreeToUse so={so} />
