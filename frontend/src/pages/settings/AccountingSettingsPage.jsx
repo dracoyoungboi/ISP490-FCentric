@@ -228,7 +228,8 @@ export default function AccountingSettingsPage() {
             )}
           </div>
         </div>
-        {/* Màn xuất lô kế toán chỉ quản trị viên mở được (canEdit cùng vai trò): quản lý kho chỉ xem cấu hình */}
+        {/* Liên kết sang màn xuất lô kế toán (route chỉ quản trị viên): dùng canEdit vì editRoles của trang này cũng chỉ
+            có quản trị viên; quản lý kho xem cấu hình mà không thấy liên kết */}
         {dangSua ? <SettingsFormActions onCancel={() => setDangSua(false)} saving={dangLuu} disabled={!coThayDoi} /> : canEdit && (
           <SettingsFooterLink
             to="/reports/accounting-export"

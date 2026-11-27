@@ -305,7 +305,7 @@ class IRoleTypeTest {
                 Arguments.of(NhatKyNhapXuatController.class, "GET", "/tong-hop", Set.of(QT, QLK, NVK)),
                 Arguments.of(NhatKyNhapXuatController.class, "GET", "/xuat-excel", Set.of(QT, QLK, NVK)),
                 Arguments.of(KeToanController.class, "POST", "/lo-xuat", Set.of(QT)),
-                // VAT Rate & Accounting Config: quản lý kho xem
+                // VAT Rate & Accounting Config (SRS 20/11): quản lý kho xem cấu hình tài khoản MISA, lưu chỉ quản trị viên
                 Arguments.of(KeToanController.class, "GET", "/cau-hinh", Set.of(QT, QLK)),
                 Arguments.of(KeToanController.class, "PUT", "/cau-hinh", Set.of(QT)),
                 // Print Template & Company Profile (SRS 20/11): trang cấu hình chỉ quản trị viên; API đọc mở cho in chứng từ
