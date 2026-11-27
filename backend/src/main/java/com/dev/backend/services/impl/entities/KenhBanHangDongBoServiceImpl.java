@@ -177,14 +177,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
     final Map<String, CachedWarehouseLocations> tiktokWarehouseCache = new ConcurrentHashMap<>();
     final Map<String, CachedWarehouseLocations> shopeeWarehouseCache = new ConcurrentHashMap<>();
 
-    // Đại diện 1 dòng SKU "bẩn" (dirty) sau bước lọc Delta Sync cần gửi API cập nhật tồn lên sàn
+    // Bộ nhớ đệm catalog sản phẩm TikTok (TTL 30 phút): ánh xạ SKU -> ProductId/SkuId/Inventories để tránh gọi phân trang searchProducts lặp lại.
     private record DongCanCapNhat(TrangThaiDongBoSanPham dong, int soDay, String skuSan, String sellerSku) {
         public String skuId() {
             return skuSan;
         }
     }
 
-    // Bộ nhớ đệm catalog sản phẩm TikTok (TTL 30 phút): ánh xạ SKU -> ProductId/SkuId/Inventories để tránh gọi phân trang searchProducts lặp lại.
     private record TikTokCatalogCache(
             Map<String, String> skuToProductId,
             Map<String, String> skuToSkuId,
@@ -260,10 +259,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
      */
     static final int SO_SAN_PHAM_TOI_DA_MOI_TRANG = 100;
 
-    /**
-     * Màn 7 (Nút "Tải sản phẩm" / làm mới danh mục): kéo toàn bộ sản phẩm từ sàn (Lazada/TikTok/Shopee/Shopify),
-     * so khớp tự động theo mã SKU về `bien_the_san_pham` và cập nhật trạng thái vào bảng `trang_thai_dong_bo_san_pham`.
-     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public TaiSanPhamResultDto taiSanPhamTuKenh(String maKenh) {
@@ -708,7 +703,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         }
     }
 
-    // Luồng tải sản phẩm từ Lazada Seller Center (Màn 7) về bảng `trang_thai_dong_bo_san_pham`
     private TaiSanPhamResultDto taiSanPhamLazada(KenhBanHang kenh) {
         String maKenh = kenh != null ? kenh.getMaKenh() : "LAZADA";
         String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
@@ -3305,7 +3299,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .build();
     }
 
-    // Luồng tự động ghép SKU nội bộ <-> Lazada theo mã SKU và tạo sản phẩm mới lên sàn nếu chưa có (Màn 7)
     private TuDongLienKetResultDto tuDongLienKetLazada(KenhBanHang kenh) {
         String maKenh = kenh != null ? kenh.getMaKenh() : "LAZADA";
         String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
@@ -3522,10 +3515,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
                 .build();
     }
 
-    /**
-     * Màn 4 & 7 (Nút "Tự động liên kết / Đẩy sản phẩm FCentric lên sàn"): giữ khóa ReentrantLock theo kênh,
-     * chia luồng theo sàn -> ghép các biến thể khớp SKU và đẩy tạo sản phẩm mới lên sàn nếu chưa có -> lưu `trang_thai_dong_bo_san_pham`.
-     */
     @Override
     public TuDongLienKetResultDto tuDongLienKet(String maKenh) {
         KenhBanHang kenh = getKenhActive(maKenh);
@@ -4162,10 +4151,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         return ketQua;
     }
 
-    /**
-     * Màn 7 (Gạt nút bật/tắt đồng bộ hoặc ghép tay SKU FCentric cho 1 dòng sàn):
-     * kiểm tra không trùng SKU trong cùng kênh -> lưu `trang_thai_dong_bo_san_pham` -> tính lại `soLuongSeDay` trả về FE.
-     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public LienKetSanPhamDto capNhatLienKet(Integer lienKetId, CapNhatLienKetRequest request) {
@@ -4357,7 +4342,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             int nguongVe0,
             TheoDoiDayTon theoDoi) {
 
-        // Khối 1 (TikTok Đẩy tồn): Lấy thông tin xác thực giải mã & chọn duy nhất SALES_WAREHOUSE (cấm RETURN_WAREHOUSE)
         String appKey = kenhBanHangService.getTikTokAppKey();
         String appSecret = kenhBanHangService.getDecryptedTikTokAppSecret();
         String curToken = kenhBanHangService.getDecryptedTikTokAccessToken();
@@ -4372,8 +4356,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         // Lấy warehouse bán hàng (chỉ nhận SALES_WAREHOUSE, loại trừ hoàn toàn RETURN_WAREHOUSE)
         String warehouseId = xacDinhTikTokSalesWarehouseId(appKey, appSecret, curToken, cipher, maKenh);
 
-        // Khối 2 (TikTok Delta Sync & Backoff 60p): Với từng SKU bật đồng bộ -> tính tồn FTU sau Buffer%/tồn đệm
-        // -> bỏ qua SKU không đổi số lượng (hoặc vừa lỗi < 60p ở job định kỳ); đồng bộ tay (boQuaBackoffLoi=true) vẫn thử lại ngay
         List<DongCanCapNhat> dirtyList = new ArrayList<>();
         int soBoQuaKhongDoi = 0;
         boolean boQuaBackoffLoi = theoDoi.boQuaBackoffLoi();
@@ -4418,7 +4400,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             return DayTonResultDto.builder().soDong(0).soLoi(0).soChuaDay(0).loiKenh(null).build();
         }
 
-        // Khối 3 (TikTok Catalog Cache & Gom nhóm theo Product): Đọc cache RAM (TTL 30p) lấy productId/skuId -> gom lô theo ProductID để đẩy API hàng loạt
         TikTokCatalogCache catalog = layHoacCapNhatTikTokCatalog(appKey, appSecret, curToken, cipher, false);
         Map<String, String> skuToProductId = catalog.skuToProductId();
         Map<String, String> skuToSkuId = catalog.skuToSkuId();
@@ -4769,7 +4750,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             int tonDem,
             int nguongVe0,
             TheoDoiDayTon theoDoi) {
-        // Khối 1 (Lazada Đẩy tồn): Giải mã khóa app/token -> nếu kênh mapping nhiều kho Lazada thì nạp trước tồn theo từng kho
         String appKey = kenhBanHangService.getLazadaAppKey(maKenh);
         String appSecret = kenhBanHangService.getDecryptedLazadaAppSecret(maKenh);
         String token = kenhBanHangService.getDecryptedLazadaAccessToken(maKenh);
@@ -4796,7 +4776,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
             laKhoTongLzd = taiBanDoLaKhoTong();
         }
 
-        // Khối 2 (Lazada Delta Sync): Tính số đẩy cho từng SKU → bỏ qua các SKU không đổi (daThanhCong && soLuongDaDay == soDay)
         List<DongCanCapNhat> dirtyList = new ArrayList<>();
         Map<Integer, Map<String, Integer>> lzdWhQtyByDongId = new HashMap<>();
         int soBoQuaKhongDoi = 0;
@@ -5143,15 +5122,13 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         int soBoQuaKhongDoi = 0;
         boolean epDayToanBo = theoDoi.epDayToanBo();
         boolean dungTheoYeuCau = false;
-        // Khối 1 (Shopify Loop): Gửi từng SKU dirty qua Shopify API (nghỉ 250ms tránh vượt leaky bucket),
-        // cập nhật live tiến độ về `theoDoi` (DongBoNgayService.Phien) rồi lưu DB + flush cache đa kho
         if (loiKenh == null) {
             KenhKhoMappingConfigDto mappingCfg = layCauHinhKhoMappingDaLuu("SHOPIFY");
             boolean shopifyDaKho = mappingCfg != null && Boolean.TRUE.equals(mappingCfg.getCheDoDaKho())
                     && mappingCfg.getDanhSachKho() != null && mappingCfg.getDanhSachKho().size() >= 2;
             Map<Integer, Boolean> laKhoTongMap = shopifyDaKho ? taiBanDoLaKhoTong() : Collections.emptyMap();
 
-            // Khối 2 (Shopify Delta Sync): Lọc danh sách SKU cần đẩy (khi bật đa kho Shopify so sánh theo từng cặp bienTheId + locationId)
+            // Delta Sync: Lọc danh sách SKU cần đẩy (khi bật đa kho Shopify so sánh theo từng cặp bienTheId + locationId)
             List<DongCanCapNhat> dirtyList = new ArrayList<>();
             Map<Integer, Map<Long, Integer>> expectedTheoSku = new HashMap<>();
             for (TrangThaiDongBoSanPham dong : dongCanDay) {
@@ -9036,6 +9013,49 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
         try {
             // Cách 1: Tìm theo seller_skus = [maSku]
             TikTokProductSearchResponse searchRes = getTikTokShopClient().searchProducts(
+                    appKey, appSecret, token, cipher, 20, null, List.of(maSku), null);
+            TikTokOnDemandResult res = trichXuatOnDemand(searchRes, maSku, maSanPhamKenh, catalog);
+            if (res != null) return res;
+
+            // Cách 2: Nếu có maSanPhamKenh và khác maSku, thử tìm theo seller_skus = [maSanPhamKenh]
+            if (maSanPhamKenh != null && !maSanPhamKenh.isBlank() && !maSanPhamKenh.equalsIgnoreCase(maSku)) {
+                searchRes = getTikTokShopClient().searchProducts(
+                        appKey, appSecret, token, cipher, 20, null, List.of(maSanPhamKenh), null);
+                res = trichXuatOnDemand(searchRes, maSku, maSanPhamKenh, catalog);
+                if (res != null) return res;
+            }
+
+            // Cách 3: Tìm theo từ khóa tên sản phẩm cha
+            if (bt != null && bt.getSanPham() != null && bt.getSanPham().getTenSanPham() != null) {
+                String tenSp = bt.getSanPham().getTenSanPham().trim();
+                searchRes = getTikTokShopClient().searchProducts(
+                        appKey, appSecret, token, cipher, 20, null, null, tenSp);
+                res = trichXuatOnDemand(searchRes, maSku, maSanPhamKenh, catalog);
+                if (res != null) return res;
+            }
+        } catch (Exception ex) {
+            log.warn("[TIKTOK-ON-DEMAND] Tra cứu on-demand thất bại cho SKU {}: {}", maSku, ex.getMessage());
+        }
+        return null;
+    }
+
+    private TikTokOnDemandResult trichXuatOnDemand(TikTokProductSearchResponse searchRes, String maSku,
+                                                  String maSanPhamKenh, TikTokCatalogCache catalog) {
+        if (searchRes == null || searchRes.getProducts() == null || searchRes.getProducts().isEmpty()) {
+            return null;
+        }
+        String normSku = maSku != null ? maSku.trim().toLowerCase(Locale.ROOT) : "";
+        String normKenh = maSanPhamKenh != null ? maSanPhamKenh.trim().toLowerCase(Locale.ROOT) : null;
+
+        for (TikTokProductDto prod : searchRes.getProducts()) {
+            if (prod.getStatus() != null && "DELETED".equalsIgnoreCase(prod.getStatus().trim())) continue;
+            String pId = prod.getId();
+            if (pId == null || !pId.matches("\\d+")) continue;
+
+            if (prod.getSkus() != null) {
+                for (TikTokSkuDto sku : prod.getSkus()) {
+                    String sId = sku.getId();
+                    String sSku = sku.getSellerSku();
                     // Nạp luôn vào catalog cache (gồm productId, skuId, inventories) để tái sử dụng ngay
                     napSkuVaoTikTokCatalog(catalog, pId, sku);
 
@@ -13345,10 +13365,6 @@ public class KenhBanHangDongBoServiceImpl implements KenhBanHangDongBoService {
 
     record DongCanCapNhatShopee(TrangThaiDongBoSanPham dong, int soDay) {}
 
-    /**
-     * Luồng đẩy tồn kho Shopee tối ưu: giữ khóa/giải mã client -> lọc Delta Sync theo `tinhKhaDungTheoKhoKenh`
-     * -> gom nhóm các biến thể bẩn theo `itemId` để gọi Shopee updateStockBatch và báo live tiến độ về `theoDoi`.
-     */
     private DayTonResultDto dayTonShopeeToiUu(
             KenhBanHang kenh,
             String maKenh,

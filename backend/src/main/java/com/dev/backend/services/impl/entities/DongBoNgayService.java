@@ -142,7 +142,7 @@ public class DongBoNgayService {
     }
 
     void chay(Phien phien, NguoiDungAuthInfo nguoi, Integer khoId) {
-        // Khối 1: Lưu người bấm + kho vào ThreadLocal và mở 1 JPA EntityManager riêng cho luồng nền để đọc LAZY không bị đóng session
+        // Nhật ký kênh ghi đúng người bấm
         SecurityContextHolder.setUser(nguoi);
         SecurityContextHolder.setKhoId(khoId);
         try {
@@ -151,16 +151,14 @@ public class DongBoNgayService {
             log.warn("[Đồng bộ ngay] Kênh {} dừng vì lỗi: {}", phien.maKenh, e.getMessage(), e);
             phien.ketThuc(LOI, thongDiepLoi(e), null);
         } finally {
-            // Khối 2 (Bảo vệ kẹt phiên): đảm bảo dù gặp Error nặng thì Phien vẫn chốt kết thúc để lần bấm sau không bị trả lại đợt treo cũ
+            // Lỗi nặng (Error) không vào catch trên và vẫn được ném tiếp; đợt phải kết thúc ở đây,
+            // nếu không sẽ kẹt "đang chạy" và mọi lần bấm sau chỉ trả lại đợt kẹt tới khi khởi động lại máy chủ.
             phien.ketThuc(LOI, LOI_MAY_CHU, null);
             SecurityContextHolder.clear();
         }
     }
 
-    // Chạy tuần tự 2 pha trong một phiên JPA mở sẵn:
-    // - Pha 1: Truyền chính `phien` (implements TheoDoiDayTon) vào `dongBoService.dayTonTheoQuyTacDaLuu` -> đẩy tồn & cập nhật SKU vào RAM
-    // - Kiểm tra canDung(): nếu người dùng bấm POST /dong-bo-ngay/dung thì chốt `da_dung` và bỏ qua Pha 2
-    // - Pha 2: Chuyển trạng thái `lay_don` -> gọi `dongBoService.layDonHang` kéo đơn mới trong 24h gần nhất -> chốt `xong`
+    // Chạy tuần tự 2 pha trong một phiên JPA mở sẵn: Pha 1 đẩy tồn toàn kênh -> Pha 2 kéo đơn mới 24h gần nhất
     private void chayCacBuoc(Phien phien) {
         DayTonResultDto ton = dongBoService.dayTonTheoQuyTacDaLuu(phien.maKenh, phien);
         if (ton.getLoiKenh() != null) {
@@ -253,7 +251,6 @@ public class DongBoNgayService {
             this.batDau = dongHo.instant();
         }
 
-        // Nhóm callback TheoDoiDayTon — nơi KenhBanHangDongBoServiceImpl đẩy ngược trạng thái SKU vào Phien trong RAM:
         @Override
         public synchronized void batDauDay(int tong) {
             giaiDoan = DAY_TON;
@@ -266,7 +263,6 @@ public class DongBoNgayService {
             skuDangDay = maSku;
         }
 
-        // Sau khi gửi 1 SKU lên sàn (xong hoặc lỗi): cộng dồn bộ đếm và giữ tối đa TOI_DA_DS_LOI (50) lỗi hiển thị lên UI
         @Override
         public synchronized void daDay(String maSku, String tenSku, boolean thanhCong, String lyDo) {
             daXuLy++;
