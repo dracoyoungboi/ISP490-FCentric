@@ -38,6 +38,9 @@ const STEP_SUBS = {
 };
 // data.code BE trả về khi OTP đặt lại mật khẩu không hợp lệ
 const OTP_ERROR_CODES = ['RESET_OTP_WRONG', 'RESET_OTP_EXPIRED'];
+// data.code BE trả khi mật khẩu mới trùng mật khẩu đang dùng (NguoiDungService.chanTrungMatKhauDangDung): mã vẫn còn,
+// chỉ cần nhập mật khẩu khác. Mỗi lần trùng trừ một lượt của mã; hết lượt BE trả RESET_OTP_EXPIRED -> về bước nhập mã.
+const MAT_KHAU_TRUNG_CU_CODE = 'RESET_MAT_KHAU_TRUNG_CU';
 // khớp PasswordResetRateLimiter.COOLDOWN phía BE (60 giây giữa 2 lần gửi mã)
 const RESEND_COOLDOWN_SECONDS = 60;
 const SENT_FALLBACK_MESSAGE = t("Nếu thông tin tài khoản hợp lệ, mã xác nhận đã được gửi tới email đã đăng ký.");
@@ -158,7 +161,11 @@ export default function ForgotPasswordPage() {
         } catch (err) {
             // mã hết hạn / bị huỷ trong lúc nhập mật khẩu -> quay lại bước OTP để gửi lại mã
             if (isOtpError(err)) backToOtpStep(err.response.data.message);
-            else setFieldError('general', err?.response?.data?.message || t("Có lỗi xảy ra khi đặt lại mật khẩu"));
+            // trùng mật khẩu đang dùng: báo ngay dưới ô Mật khẩu mới (câu kèm số lượt còn lại do máy chủ trả)
+            else if (err?.response?.data?.data?.code === MAT_KHAU_TRUNG_CU_CODE) {
+                setFieldError('newPassword', err.response.data.message);
+                document.getElementById('forgot-new-password')?.focus();
+            } else setFieldError('general', err?.response?.data?.message || t("Có lỗi xảy ra khi đặt lại mật khẩu"));
         } finally {
             setIsLoading(false);
         }
