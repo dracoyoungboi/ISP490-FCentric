@@ -33,6 +33,7 @@ function formatNgay(iso) {
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
+// Bảng chi tiết đề xuất nhập hàng Màn 1: tick chọn SKU (khóa nếu Phase-Out), sửa tay số lượng đặt Q trước khi mở Modal tạo PR
 export default function DssRecommendationTable({
   items,
   loading,

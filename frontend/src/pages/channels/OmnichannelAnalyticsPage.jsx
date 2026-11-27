@@ -94,6 +94,7 @@ export default function OmnichannelAnalyticsPage() {
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [editMap, setEditMap] = useState({});
 
+  // Đổi dropdown kênh bán → cập nhật query URL (?channel=...) để giữ bộ lọc khi tải lại và kích hoạt loadData()
   const handleChannelChange = useCallback(
     (nextVal) => {
       const normalized = chuanHoaKenhBaoCao(nextVal);
@@ -200,6 +201,7 @@ export default function OmnichannelAnalyticsPage() {
     return Math.floor(numFtu * ((100 - numBuf) / 100));
   }
 
+  // Khối dựng 6 thẻ KPI hiệu năng đầu trang từ payload `/overview` (độ trễ P95, Webhook P95, % thành công, tải rate limit, Oversell)
   const metricItems = [
     {
       label: t("Độ trễ API P95"),

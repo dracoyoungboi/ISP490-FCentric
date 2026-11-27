@@ -37,6 +37,7 @@ const KICH_BAN = [
   },
 ];
 
+// Thanh chọn chế độ kịch bản Màn 1 (Theo hạng ABC tự động hay 1 kịch bản cho toàn bộ) + 4 thẻ Preset What-If (0 API)
 export default function DssScenarioCards({ mode, globalPresetCode, onSelectMode, onSelectPreset, disabled }) {
   const dangTheoAbc = mode === "BY_ABC_CLASS";
 

@@ -161,6 +161,7 @@ export default function DssReplenishmentPage() {
     };
   }, [displayItems]);
 
+  // Khối 2 (Lọc hiển thị trên FE): lọc theo Tab khẩn cấp/hạng ABC/hàng ế + từ khóa tìm SKU mà không cần gọi lại API
   const filteredItems = useMemo(() => {
     const q = search.trim().toLowerCase();
     return displayItems.filter((it) => {
@@ -246,6 +247,7 @@ export default function DssReplenishmentPage() {
     });
   }
 
+  // Khối 3 (Chuẩn bị lập PR): chỉ giữ SKU đang tick & không bị khóa phase-out, luôn neo kho đích về Kho tổng đầu tiên
   const selectedItems = useMemo(
     () => displayItems.filter((it) => selectedIds.has(it.bienTheSanPhamId) && !it.prCreationLocked),
     [displayItems, selectedIds],
@@ -264,6 +266,7 @@ export default function DssReplenishmentPage() {
   const soKhoHoatDong = data?.includedWarehouseCount || includedWarehouses.length;
   const tenCacKho = includedWarehouses.map((w) => w.tenKho).filter(Boolean).join(", ");
 
+  // Khối 4 (Dải KPI đầu trang): cập nhật động theo cả kết quả BE lẫn dữ liệu mô phỏng What-If trên trình duyệt
   const metricItems = [
     {
       label: t("Tổng SKU đang bán"),
