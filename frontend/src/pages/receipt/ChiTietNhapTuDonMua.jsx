@@ -38,7 +38,7 @@ import { chuanHoaDongInTem } from "@/components/print/tinhTem";
 import HopInTem from "@/pages/product/components/product/HopInTem";
 import EditProductModal from "@/pages/product/components/product/EditProductModal";
 import { t } from "@/i18n";
-import { VAI_TRO_KHO } from "@/constants/vaiTroTheoNghiepVu";
+import { VAI_TRO_KHO, VAI_TRO_SUA_HOA_DON_NCC } from "@/constants/vaiTroTheoNghiepVu";
 import { moTrangIn } from "@/lib/moTrangIn";
 
 const TH = "h-10 px-4 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
@@ -446,7 +446,7 @@ export default function ChiTietNhapTuDonMua({ data, onReload }) {
           bienBanTraHang={bb}
           tongDat={tong.dat}
           giaTriDat={Number(data.tongTien) || 0}
-          coTheSua={hasAnyRole([ROLES.QUAN_TRI_VIEN, ROLES.QUAN_LY_KHO, ROLES.NHAN_VIEN_MUA_HANG])}
+          coTheSua={hasAnyRole(VAI_TRO_SUA_HOA_DON_NCC)}
         />
       ) : null}
 

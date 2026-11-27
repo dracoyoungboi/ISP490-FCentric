@@ -41,6 +41,11 @@ export const VAI_TRO_CHUYEN_KE = Object.freeze([...VAI_TRO_KHO, NVBH]);
 export const VAI_TRO_DANH_SACH_KHO = Object.freeze([QTV, QLK]);
 /** "Goods Receipt – View": nhân viên mua hàng chỉ xem để theo dõi hàng về của đơn mua. */
 export const VAI_TRO_XEM_PHIEU_NHAP = Object.freeze([...VAI_TRO_KHO, NVMH]);
+/**
+ * "Input VAT Invoice – Record / Edit": hóa đơn nhà cung cấp trên phiếu nhập đã hoàn tất, ghi ở kho của phiếu. Nhân viên mua
+ * hàng chỉ xem. Khớp PUT /ke-toan/hoa-don-dau-vao ở backend.
+ */
+export const VAI_TRO_SUA_HOA_DON_NCC = Object.freeze([QTV, QLK, NVK]);
 /** "Low Stock – View low-stock alerts": thẻ Hết hàng / Sắp hết hàng ở Báo cáo tồn kho. */
 export const VAI_TRO_CANH_BAO_TON = Object.freeze([QTV, QLK, NVK]);
 
