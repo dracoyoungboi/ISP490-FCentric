@@ -150,8 +150,10 @@ public class KeToanController {
         return ok(hoaDonDauVaoService.lay(phieuNhapKhoId));
     }
 
+    // SRS 4.4 "Input VAT Invoice": quản lý kho, nhân viên kho ghi ở kho của phiếu; nhân viên mua hàng chỉ xem.
+    // inWarehouse: người ghi phải được phân đúng kho đang chọn (service còn so kho đang chọn với kho của phiếu)
     @PutMapping("/hoa-don-dau-vao/{phieuNhapKhoId}")
-    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_mua_hang})
+    @RequireAuth(roles = {IRoleType.quan_tri_vien, IRoleType.quan_ly_kho, IRoleType.nhan_vien_kho}, inWarehouse = true)
     public ResponseEntity<ResponseData<HoaDonDauVaoDto>> luuHoaDon(@PathVariable Integer phieuNhapKhoId,
                                                                     @RequestBody HoaDonDauVaoRequest request) {
         return ok(hoaDonDauVaoService.luu(phieuNhapKhoId, request));
