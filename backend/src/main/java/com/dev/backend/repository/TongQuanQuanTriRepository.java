@@ -94,10 +94,11 @@ public class TongQuanQuanTriRepository {
 
     /**
      * Một loại việc: tổng số và chứng từ mẫu (cũ nhất / gấp nhất) để ghi dòng phụ. moc là giờ Việt Nam (đã đổi).
-     * soPhu, soPhu2: số kèm theo tùy loại (số cái, số kệ khóa…).
+     * soPhu, soPhu2: số kèm theo tùy loại (số cái, số kệ khóa…). thamChieuId: id để mở đúng trang xử lý (traNcc: nhà
+     * cung cấp của biên bản chờ lâu nhất), loại khác null.
      */
     public record ViecDong(String loai, long so, String ma, String ten, String kho, String kho2, LocalDateTime moc,
-                           long soPhu, long soPhu2, Integer khoId) {}
+                           long soPhu, long soPhu2, Integer khoId, Integer thamChieuId) {}
 
     /** Một sự kiện của Hoạt động gần đây (giờ Việt Nam). */
     public record SuKienDong(String loai, Integer id, String ma, LocalDateTime thoiGian, Integer khoId, String tenKho,
@@ -714,8 +715,8 @@ public class TongQuanQuanTriRepository {
 
     /**
      * Mỗi truy vấn trả một dòng cho một loại việc: tong (COUNT(*) OVER ()) và chứng từ đứng đầu theo thứ tự của truy vấn.
-     * Cột: tong, ma, ten, kho, kho2, moc (cột gốc, đổi giờ theo loại cột), so_phu, so_phu2, kho_id. Không có việc thì
-     * không có dòng.
+     * Cột: tong, ma, ten, kho, kho2, moc (cột gốc, đổi giờ theo loại cột), so_phu, so_phu2, kho_id, và tham_chieu_id
+     * nếu loại việc có. Không có việc thì không có dòng.
      */
     private ViecDong mot(String loai, String sql, MapSqlParameterSource p, boolean mocTuDien) {
         List<ViecDong> ds = jdbc.query(sql, p, (rs, i) -> {
@@ -723,9 +724,9 @@ public class TongQuanQuanTriRepository {
             LocalDateTime moc = t == null ? null : t.plusMinutes(mocTuDien ? goc.lechTuDien() : goc.lechUngDung());
             return new ViecDong(loai, rs.getLong("tong"), rs.getString("ma"), rs.getString("ten"),
                     rs.getString("kho"), rs.getString("kho2"), moc, rs.getLong("so_phu"), rs.getLong("so_phu2"),
-                    (Integer) rs.getObject("kho_id", Integer.class));
+                    (Integer) rs.getObject("kho_id", Integer.class), soNguyenNeuCo(rs, "tham_chieu_id"));
         });
-        return ds.isEmpty() ? new ViecDong(loai, 0, null, null, null, null, null, 0, 0, null) : ds.get(0);
+        return ds.isEmpty() ? new ViecDong(loai, 0, null, null, null, null, null, 0, 0, null, null) : ds.get(0);
     }
 
     private MapSqlParameterSource thamSoViec(Integer khoId, LocalDateTime bayGio) {
@@ -895,10 +896,14 @@ public class TongQuanQuanTriRepository {
             LIMIT 1
             """;
 
-    /** Biên bản hàng lỗi chờ trả nhà cung cấp (bước kho làm): so_phu = tổng số cái lỗi. */
+    /**
+     * Biên bản hàng lỗi chờ trả nhà cung cấp (bước kho làm): so_phu = tổng số cái lỗi; tham_chieu_id = nhà cung cấp của
+     * biên bản chờ lâu nhất, để mở thẻ Trả hàng của nhà cung cấp đó (app nội bộ không có màn danh sách biên bản).
+     */
     static final String SQL_VIEC_TRA_NCC = """
             SELECT COUNT(*) OVER () AS tong, bb.ma_bien_ban AS ma, ncc.ten_nha_cung_cap AS ten, k.ten_kho AS kho, NULL AS kho2,
-                   bb.ngay_tao AS moc, SUM(bb.tong_so_luong_loi) OVER () AS so_phu, 0 AS so_phu2, pn.kho_id AS kho_id
+                   bb.ngay_tao AS moc, SUM(bb.tong_so_luong_loi) OVER () AS so_phu, 0 AS so_phu2, pn.kho_id AS kho_id,
+                   bb.nha_cung_cap_id AS tham_chieu_id
             FROM bien_ban_tra_hang_ncc bb
             JOIN phieu_nhap_kho pn     ON pn.id = bb.phieu_nhap_kho_id
             JOIN kho k                 ON k.id = pn.kho_id
@@ -1174,6 +1179,15 @@ public class TongQuanQuanTriRepository {
 
     static String chuoi(LocalDateTime t) {
         return t.format(DINH_DANG_GIO);
+    }
+
+    /** Cột số nguyên chỉ một vài truy vấn có: không có cột thì null. */
+    private static Integer soNguyenNeuCo(ResultSet rs, String cot) throws SQLException {
+        java.sql.ResultSetMetaData md = rs.getMetaData();
+        for (int i = 1; i <= md.getColumnCount(); i++) {
+            if (cot.equalsIgnoreCase(md.getColumnLabel(i))) return (Integer) rs.getObject(i, Integer.class);
+        }
+        return null;
     }
 
     private static BigDecimal bd(ResultSet rs, String cot) throws SQLException {

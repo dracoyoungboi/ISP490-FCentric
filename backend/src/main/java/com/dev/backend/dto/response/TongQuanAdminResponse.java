@@ -114,8 +114,9 @@ public record TongQuanAdminResponse(
      * Một loại việc. so: tổng số; ma, ten, kho, kho2, moc: chứng từ đứng đầu (cũ nhất / trễ nhất) để ghi dòng phụ; soPhu,
      * soPhu2: số kèm theo tùy loại; kenh: lỗi đồng bộ theo kênh; khoId: kho của chứng từ đứng đầu.
      */
+    /** thamChieuId: id để mở đúng trang xử lý (traNcc: nhà cung cấp của biên bản chờ lâu nhất), loại khác null. */
     public record Viec(String loai, long so, String ma, String ten, String kho, String kho2, String moc, long soPhu,
-                       long soPhu2, Integer khoId, List<ViecKenh> kenh) {}
+                       long soPhu2, Integer khoId, Integer thamChieuId, List<ViecKenh> kenh) {}
 
     public record ViecKenh(Integer kenhId, String maKenh, String tenKenh, long so) {}
 

@@ -98,7 +98,8 @@ export const LOAI_VIEC = {
       return d ? t("{{ma}} · {{kho}}, đếm xong {{ngay}}", { ma: v.ma, kho: v.kho, ngay: dm(d) }) : t("{{ma}} · {{kho}}", { ma: v.ma, kho: v.kho });
     } },
   traNcc: { nhom: "kho", ten: t("Hàng lỗi chờ trả nhà cung cấp"), donVi: t("biên bản"), icon: "traNcc",
-    to: () => "/supplier",
+    // Mở thẻ Trả hàng của nhà cung cấp có biên bản chờ lâu nhất (app nội bộ không có màn danh sách biên bản)
+    to: (v) => (v.thamChieuId != null ? `/supplier/${v.thamChieuId}?tab=tra-hang` : "/supplier"),
     phu: (v) => t("{{kho}} · {{so}} cái chờ xuất trả", { kho: v.kho, so: nf.format(v.soPhu) }) },
 
   muaQuaHan: { nhom: "mua", ten: t("Đơn mua quá hạn giao"), donVi: t("đơn"), gap: true, icon: "xeTai",

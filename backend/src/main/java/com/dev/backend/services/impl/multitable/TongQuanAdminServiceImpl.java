@@ -444,13 +444,13 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
             if (v.so() <= 0) continue;
             if ("matKetNoi".equals(v.loai()) && !coViecKenh) continue;
             kq.add(new Viec(v.loai(), v.so(), v.ma(), v.ten(), v.kho(), v.kho2(), thoiDiem(v.moc()), v.soPhu(), v.soPhu2(),
-                    v.khoId(), null));
+                    v.khoId(), v.thamChieuId(), null));
         }
         if (coViecKenh) {
             List<TongQuanQuanTriRepository.LoiDongBoDong> loi = phu("loiDongBo", repo::loiDongBo);
             if (loi != null && !loi.isEmpty()) {
                 long tongLoi = loi.stream().mapToLong(TongQuanQuanTriRepository.LoiDongBoDong::soLoi).sum();
-                kq.add(new Viec("loiDongBo", tongLoi, null, null, null, null, null, 0, 0, null,
+                kq.add(new Viec("loiDongBo", tongLoi, null, null, null, null, null, 0, 0, null, null,
                         loi.stream().map(r -> new ViecKenh(r.kenhId(), r.maKenh(), tenKenh(r.maKenh(), r.tenKenh()), r.soLoi())).toList()));
             }
         }
@@ -475,7 +475,7 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
         }
         if (soLo <= 0) return null;
         return new Viec("hangChuaCoKe", soLo, null, null, mau == null ? null : mau.tenKho(), null, null, soLuong, 0,
-                mau == null ? null : mau.id(), null);
+                mau == null ? null : mau.id(), null, null);
     }
 
     /* ======================================================================
