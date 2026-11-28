@@ -158,6 +158,9 @@ test("cần xử lý: nhóm theo phân hệ, số nhóm là tổng việc, gấp
     { loai: "muaQuaHan", so: 1, ma: "PO-1", ten: "NCC A", moc: "2026-11-25T00:00:00" },
   ], BAY_GIO, true);
   assert.deepEqual(chiMua.map((x) => x.id), ["mua", "kho"], "nhóm có việc gấp lên đầu");
+  const traNcc = (them) => chiaViec([{ loai: "traNcc", so: 2, ma: "RTV-1", kho: "Kho tổng", soPhu: 5, ...them }], BAY_GIO, true)[0].dong[0].to;
+  assert.equal(traNcc({ thamChieuId: 7 }), "/supplier/7?tab=tra-hang", "mở thẻ Trả hàng của nhà cung cấp");
+  assert.equal(traNcc({}), "/supplier", "máy chủ cũ chưa gửi nhà cung cấp");
   assert.equal(lauChua("2026-11-27T21:00:00", BAY_GIO), "13 phút");
   assert.equal(duongDanLoiDongBo("KHONG_CO"), "/channels");
 });

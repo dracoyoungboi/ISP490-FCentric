@@ -73,6 +73,8 @@ class TongQuanQuanTriSqlTest {
         assertTrue(TongQuanQuanTriRepository.SQL_LOI_DONG_BO.contains("_TU_DONG_DAY_TON"), "bỏ kênh đã tắt tự động đẩy tồn");
         assertTrue(TongQuanQuanTriRepository.SQL_VIEC_TRE_HEN.contains("p.kho_xuat_id = :khoId OR p.kho_nhap_id = :khoId"),
                 "chuyển kho theo kho gửi hoặc kho nhận");
+        assertTrue(TongQuanQuanTriRepository.SQL_VIEC_TRA_NCC.contains("bb.nha_cung_cap_id AS tham_chieu_id"),
+                "hàng lỗi chờ trả mở thẻ Trả hàng của nhà cung cấp");
     }
 
     @Test
