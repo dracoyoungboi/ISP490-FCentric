@@ -21,10 +21,12 @@ import java.util.Set;
 /**
  * Số liệu của Báo cáo sản phẩm (/reports/products). Lọc đơn như Báo cáo doanh thu (DoanhThuReportRepository) để tổng
  * khớp nhau:
- * - Chỉ đơn bán (loai_chung_tu = 'don_ban_hang'), trạng thái 3 (đã xuất toàn bộ) và 5 (hoàn thành);
- *   đơn 6 (bị hoàn trả) chỉ đếm vào số hoàn. Ngày tính là ngay_giao_hang, khoảng [tu, den + 1 ngày).
- * - Hàng khách trả tại quầy (phieu_tra_hang) trừ khỏi số bán, doanh thu, giá vốn ở kỳ chứa ngày trả (traQuayTheoBienThe).
- * - Doanh thu hàng của dòng = thành tiền − giảm giá dòng (đơn Shopify), gồm thuế GTGT, không gồm phí vận chuyển.
+ * - Chỉ đơn bán (loai_chung_tu = 'don_ban_hang') đã xuất đủ hàng: trạng thái 3, 5 và 6 (bị hoàn sau khi xuất vẫn là bán
+ *   ở ngày xuất). Ngày tính là ngay_giao_hang, khoảng [tu, den + 1 ngày).
+ * - Hàng khách trả tại quầy và đơn sàn bị hoàn trừ khỏi số bán, doanh thu, giá vốn ở kỳ chứa ngày trả / ngày hoàn
+ *   (traQuayTheoBienThe), như màn Tổng quan: số của kỳ đã qua không đổi.
+ * - Doanh thu hàng của dòng: doanh thu đơn (tổng cộng − phí vận chuyển − thuế GTGT, như Báo cáo doanh thu và Tổng quan)
+ *   chia cho các dòng theo tiền dòng sau giảm giá, nên tổng các dòng bằng doanh thu đơn. Đơn sàn không ghi thuế GTGT.
  * - Giá vốn chỉ cộng dòng phiếu xuất hoàn tất CÓ LÔ (dòng gốc không lô của phiếu qua nhặt hàng là số cần xuất).
  * - Khả dụng: tồn khả dụng các lô ở kho đang hoạt động, bỏ Kho Trung Chuyển, trừ hàng đang giữ cho đơn bán chưa xuất và
  *   phiếu chuyển kho (giuHangTheoBienThe) — như tồn đẩy lên sàn.
@@ -87,9 +89,29 @@ public class BaoCaoSanPhamRepository {
 
     /** Ngày tính của đơn đã ghi nhận doanh thu: ngày giao hàng (như Báo cáo doanh thu). */
     private static final String NGAY_GIAO = "dbh.ngay_giao_hang";
-    /** Ngày tính của đơn bị hoàn trả: ngày giao, chưa có (hoàn khi mới xuất một phần) thì ngày phiếu xuất hoàn tất cuối. */
-    private static final String NGAY_HOAN = "COALESCE(dbh.ngay_giao_hang, (SELECT MAX(p2.ngay_xuat) FROM phieu_xuat_kho p2"
-            + " WHERE p2.don_ban_hang_id = dbh.id AND p2.trang_thai = 3))";
+    /**
+     * Ngày đơn sàn bị hoàn về (đơn trạng thái 6): ngày nhập phiếu PN-RET đã hoàn tất của phiếu xuất của đơn; chưa có phiếu
+     * thì ngày cập nhật đơn. Cùng luật với Tổng quan (TongQuanQuanTriRepository) và Báo cáo doanh thu.
+     */
+    static final String NGAY_HOAN_SAN = "COALESCE((SELECT MAX(pn.ngay_nhap) FROM phieu_xuat_kho px"
+            + " JOIN phieu_nhap_kho pn ON pn.so_phieu_nhap LIKE 'PN-RET%' AND pn.trang_thai = 3 AND pn.phieu_chuyen_kho_id IS NULL"
+            + " AND " + TongQuanQuanTriRepository.KHOP_PN_RET
+            + " WHERE px.don_ban_hang_id = dbh.id AND px.trang_thai = 3), dbh.ngay_cap_nhat)";
+
+    /** Tiền dòng sau giảm giá. */
+    private static final String TIEN_DONG = "(COALESCE(ct.thanh_tien, ct.so_luong_dat * ct.don_gia) - COALESCE(ct.tien_giam_gia, 0))";
+
+    /**
+     * Doanh thu của dòng đơn (cần đủ mọi dòng của đơn trong truy vấn): doanh thu đơn không phí vận chuyển, không thuế GTGT,
+     * chia theo tiền dòng. Dùng hàm cửa sổ nên phải tính trong bảng dẫn xuất rồi mới gom.
+     */
+    static final String DT_DONG = "COALESCE(" + TIEN_DONG
+            + " * (dbh.tong_cong - COALESCE(dbh.phi_van_chuyen, 0) - COALESCE(dbh.tien_thue_gtgt, 0))"
+            + " / NULLIF(SUM(" + TIEN_DONG + ") OVER (PARTITION BY dbh.id), 0), 0)";
+
+    /** Phần thuế GTGT trong tiền hàng của đơn dbh (0 khi đơn không ghi thuế). */
+    static final String TY_LE_VAT =
+            "COALESCE(COALESCE(dbh.tien_thue_gtgt, 0) / NULLIF(dbh.tong_cong - COALESCE(dbh.phi_van_chuyen, 0), 0), 0)";
 
     /**
      * Điều kiện kênh của đơn dbh. Kênh POS: đơn từ quầy không gắn kênh khác (kênh sàn được ưu tiên như bảng theo kênh ở
@@ -121,7 +143,17 @@ public class BaoCaoSanPhamRepository {
               AND
             """ + DIEU_KIEN_KENH;
     private static final String DIEU_KIEN_DON = DIEU_KIEN_DON_MAU.replace("{NGAY}", NGAY_GIAO);
-    private static final String DIEU_KIEN_HOAN = DIEU_KIEN_DON_MAU.replace("{NGAY}", NGAY_HOAN);
+
+    /**
+     * Đơn sàn bị hoàn (6) có ngày hoàn trong kỳ, tính cho kho xuất. Chỉ đơn đã giao (đã ghi nhận bán): sàn đổi đơn sang 6
+     * cả khi đơn còn chờ đóng gói, chưa xuất — đơn đó chưa từng được cộng nên không trừ.
+     */
+    private static final String DIEU_KIEN_HOAN_SAN = """
+              dbh.loai_chung_tu = 'don_ban_hang' AND dbh.trang_thai = 6 AND dbh.ngay_giao_hang IS NOT NULL
+              AND {NGAY_HOAN_SAN} >= :tu AND {NGAY_HOAN_SAN} < :den
+              AND (:tatCa = 1 OR dbh.kho_xuat_id IN (:khoIds))
+              AND
+            """.replace("{NGAY_HOAN_SAN}", NGAY_HOAN_SAN) + DIEU_KIEN_KENH;
 
     private static MapSqlParameterSource thamSo(PhamVi pv, LocalDate tu, LocalDate den, List<Integer> trangThai) {
         Integer kenhId = null;
@@ -141,34 +173,20 @@ public class BaoCaoSanPhamRepository {
     }
 
     private static final String SQL_BAN_BIEN_THE = """
-            SELECT ct.bien_the_san_pham_id AS bt_id,
-                   SUM(ct.so_luong_dat)                                                                        AS so_luong,
-                   SUM(COALESCE(ct.thanh_tien, ct.so_luong_dat * ct.don_gia) - COALESCE(ct.tien_giam_gia, 0)) AS doanh_thu
-            FROM don_ban_hang dbh
-            JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = dbh.id
-            WHERE """ + DIEU_KIEN_DON + """
-            GROUP BY ct.bien_the_san_pham_id
+            SELECT x.bt_id, SUM(x.so_luong) AS so_luong, SUM(x.doanh_thu) AS doanh_thu
+            FROM (
+                SELECT ct.bien_the_san_pham_id AS bt_id, ct.so_luong_dat AS so_luong, {DT_DONG} AS doanh_thu
+                FROM don_ban_hang dbh
+                JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = dbh.id
+                WHERE """.replace("{DT_DONG}", DT_DONG) + DIEU_KIEN_DON + """
+            ) x
+            GROUP BY x.bt_id
             """;
 
-    /** Số bán và doanh thu hàng theo biến thể trong [tu, den] (soLuongHoan luôn 0, xem hoanTheoBienThe). */
+    /** Số bán và doanh thu hàng theo biến thể trong [tu, den] (soLuongHoan luôn 0: hàng trả, đơn hoàn trừ ở traQuayTheoBienThe). */
     public List<BanBienThe> banTheoBienThe(PhamVi pv, LocalDate tu, LocalDate den) {
-        return jdbc.query(SQL_BAN_BIEN_THE, thamSo(pv, tu, den, List.of(3, 5)), (rs, i) -> new BanBienThe(
+        return jdbc.query(SQL_BAN_BIEN_THE, thamSo(pv, tu, den, List.of(3, 5, 6)), (rs, i) -> new BanBienThe(
                 rs.getInt("bt_id"), bd(rs, "so_luong"), bd(rs, "doanh_thu"), BigDecimal.ZERO));
-    }
-
-    private static final String SQL_HOAN_BIEN_THE = """
-            SELECT ctpx.bien_the_san_pham_id AS bt_id, SUM(ctpx.so_luong_xuat) AS so_luong
-            FROM don_ban_hang dbh
-            JOIN phieu_xuat_kho pxk           ON pxk.don_ban_hang_id = dbh.id AND pxk.trang_thai = 3
-            JOIN chi_tiet_phieu_xuat_kho ctpx ON ctpx.phieu_xuat_kho_id = pxk.id AND ctpx.lo_hang_id IS NOT NULL
-            WHERE """ + DIEU_KIEN_HOAN + """
-            GROUP BY ctpx.bien_the_san_pham_id
-            """;
-
-    /** Số lượng bị hoàn trả theo biến thể: số đã xuất (dòng có lô) của đơn bị hoàn trả có ngày tính trong [tu, den]. */
-    public List<GiaVonBienThe> hoanTheoBienThe(PhamVi pv, LocalDate tu, LocalDate den) {
-        return jdbc.query(SQL_HOAN_BIEN_THE, thamSo(pv, tu, den, List.of(6)),
-                (rs, i) -> new GiaVonBienThe(rs.getInt("bt_id"), bd(rs, "so_luong")));
     }
 
     private static final String SQL_GIA_VON_BIEN_THE = """
@@ -182,7 +200,7 @@ public class BaoCaoSanPhamRepository {
 
     /** Giá vốn theo biến thể của các đơn đã ghi nhận doanh thu trong [tu, den]. */
     public List<GiaVonBienThe> giaVonTheoBienThe(PhamVi pv, LocalDate tu, LocalDate den) {
-        return jdbc.query(SQL_GIA_VON_BIEN_THE, thamSo(pv, tu, den, List.of(3, 5)),
+        return jdbc.query(SQL_GIA_VON_BIEN_THE, thamSo(pv, tu, den, List.of(3, 5, 6)),
                 (rs, i) -> new GiaVonBienThe(rs.getInt("bt_id"), bd(rs, "gia_von")));
     }
 
@@ -194,7 +212,7 @@ public class BaoCaoSanPhamRepository {
             FROM (
                 SELECT c.bien_the_san_pham_id AS bt_id, bt.san_pham_id AS sp_id, DATE(pth.ngay_tao) AS ngay,
                        c.so_luong             AS so_luong,
-                       c.thanh_tien_hoan      AS tien_hoan,
+                       c.thanh_tien_hoan * (1 - {TY_LE_VAT}) AS tien_hoan,
                        CASE WHEN c.tinh_trang = 'dat' THEN COALESCE((
                                SELECT SUM(l.so_luong * l.gia_von) FROM chi_tiet_phieu_tra_hang_lo l
                                WHERE l.chi_tiet_phieu_tra_hang_id = c.id), 0) ELSE 0 END AS gia_von_dat,
@@ -207,16 +225,34 @@ public class BaoCaoSanPhamRepository {
                 WHERE pth.ngay_tao >= :tu AND pth.ngay_tao < :den
                   AND (:tatCa = 1 OR pth.kho_ban_id IN (:khoIds))
                   AND
-            """.replace("{TEN_KENH}", TEN_KENH) + DIEU_KIEN_KENH + """
+            """.replace("{TEN_KENH}", TEN_KENH).replace("{TY_LE_VAT}", TY_LE_VAT) + DIEU_KIEN_KENH + """
+                UNION ALL
+                SELECT ct.bien_the_san_pham_id, bt.san_pham_id, DATE({NGAY_HOAN_SAN}), ct.so_luong_dat, {DT_DONG},
+                       COALESCE((SELECT SUM(ctpx.so_luong_xuat * ctpx.gia_von)
+                                   FROM phieu_xuat_kho px
+                                   JOIN chi_tiet_phieu_xuat_kho ctpx ON ctpx.phieu_xuat_kho_id = px.id AND ctpx.lo_hang_id IS NOT NULL
+                                  WHERE px.don_ban_hang_id = dbh.id AND px.trang_thai = 3
+                                    AND ctpx.bien_the_san_pham_id = ct.bien_the_san_pham_id), 0)
+                         / COUNT(*) OVER (PARTITION BY dbh.id, ct.bien_the_san_pham_id),
+                       {TEN_KENH}
+                FROM don_ban_hang dbh
+                JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = dbh.id
+                JOIN bien_the_san_pham bt     ON bt.id = ct.bien_the_san_pham_id
+                LEFT JOIN kenh_ban_hang kb    ON kb.id = dbh.kenh_ban_id
+                WHERE """.replace("{NGAY_HOAN_SAN}", NGAY_HOAN_SAN).replace("{DT_DONG}", DT_DONG).replace("{TEN_KENH}", TEN_KENH)
+            + DIEU_KIEN_HOAN_SAN + """
             ) x
             GROUP BY x.bt_id, x.sp_id, x.ngay, x.ten_kenh
             """;
 
     /**
-     * Hàng khách trả tại quầy theo ngày lập phiếu trả trong [tu, den], tính cho cửa hàng BÁN (kho_ban_id) và theo kênh
-     * của đơn gốc — như Báo cáo doanh thu (GBR-RET-06): giảm số bán, doanh thu hàng (tiền hoàn từng dòng) và giá vốn phần
-     * hàng Đạt (quay lại kho); hàng Lỗi vẫn giữ giá vốn (tổn thất). Đơn gốc không đổi trạng thái khi trả nên các câu bán ở
-     * trên vẫn đếm đủ, phải trừ bằng số này.
+     * Hàng trả về theo ngày trả trong [tu, den], theo kênh của đơn gốc:
+     * - khách trả tại quầy, theo ngày lập phiếu trả, tính cho cửa hàng BÁN (kho_ban_id) — như Báo cáo doanh thu
+     *   (GBR-RET-06): giảm số bán, doanh thu hàng (tiền hoàn từng dòng, bỏ phần thuế GTGT) và giá vốn phần hàng Đạt (quay
+     *   lại kho); hàng Lỗi vẫn giữ giá vốn (tổn thất);
+     * - đơn sàn bị hoàn (trạng thái 6), theo ngày hoàn (NGAY_HOAN_SAN), tính cho kho xuất: mọi dòng của đơn, doanh thu dòng
+     *   như lúc bán, giá vốn hàng đã xuất (hàng hoàn sàn không ghi lỗi nên cộng lại cả).
+     * Các câu bán ở trên vẫn đếm đơn ở ngày xuất, nên phải trừ bằng số này. Số trả cũng là cột Hoàn của báo cáo.
      */
     public List<TraQuay> traQuayTheoBienThe(PhamVi pv, LocalDate tu, LocalDate den) {
         return jdbc.query(SQL_TRA_QUAY, thamSo(pv, tu, den, List.of()), (rs, i) -> new TraQuay(
@@ -276,42 +312,67 @@ public class BaoCaoSanPhamRepository {
         return jdbc.query(SQL_GIU_HANG, p, (rs, i) -> new GiuBienThe(rs.getInt("bt_id"), bd(rs, "so_luong")));
     }
 
-    private static final String SQL_SO_DON = """
-            SELECT bt.san_pham_id AS sp_id, COUNT(DISTINCT dbh.id) AS so_don
+    /**
+     * Đơn (theo sản phẩm) đã ghi nhận trong kỳ trừ đơn trả về trong kỳ, như số đơn của Báo cáo doanh thu: đơn sàn bị hoàn
+     * trừ ở ngày hoàn; đơn khách trả hết tại quầy trừ ở ngày phiếu trả cuối, tính cho cửa hàng bán. Có thể âm khi kỳ chỉ
+     * có hàng trả về.
+     */
+    private static final String SQL_DON_TRU_TRA = """
+            SELECT DISTINCT bt.san_pham_id AS sp_id, dbh.id AS don_id, 1 AS so
             FROM don_ban_hang dbh
             JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = dbh.id
             JOIN bien_the_san_pham bt     ON bt.id = ct.bien_the_san_pham_id
             WHERE """ + DIEU_KIEN_DON + """
-            GROUP BY bt.san_pham_id
-            """;
+            UNION ALL
+            SELECT DISTINCT bt.san_pham_id, dbh.id, -1
+            FROM don_ban_hang dbh
+            JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = dbh.id
+            JOIN bien_the_san_pham bt     ON bt.id = ct.bien_the_san_pham_id
+            WHERE """ + DIEU_KIEN_HOAN_SAN + """
+            UNION ALL
+            SELECT DISTINCT bt.san_pham_id, dbh.id, -1
+            FROM phieu_tra_hang pth
+            JOIN don_ban_hang dbh         ON dbh.id = pth.don_ban_hang_id
+            JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = dbh.id
+            JOIN bien_the_san_pham bt     ON bt.id = ct.bien_the_san_pham_id
+            WHERE dbh.trang_thai_tra_hang = 'da_tra_het'
+              AND pth.id = (SELECT MAX(r2.id) FROM phieu_tra_hang r2 WHERE r2.don_ban_hang_id = dbh.id)
+              AND pth.ngay_tao >= :tu AND pth.ngay_tao < :den
+              AND (:tatCa = 1 OR pth.kho_ban_id IN (:khoIds))
+              AND
+            """ + DIEU_KIEN_KENH;
+
+    private static final String SQL_SO_DON = "SELECT x.sp_id, SUM(x.so) AS so_don FROM (\n" + SQL_DON_TRU_TRA
+            + ") x\nGROUP BY x.sp_id";
 
     public List<SoDonSanPham> soDonTheoSanPham(PhamVi pv, LocalDate tu, LocalDate den) {
-        return jdbc.query(SQL_SO_DON, thamSo(pv, tu, den, List.of(3, 5)),
+        return jdbc.query(SQL_SO_DON, thamSo(pv, tu, den, List.of(3, 5, 6)),
                 (rs, i) -> new SoDonSanPham(rs.getInt("sp_id"), rs.getLong("so_don")));
     }
 
-    private static final String SQL_TONG_SO_DON = """
-            SELECT COUNT(DISTINCT dbh.id)
-            FROM don_ban_hang dbh
-            WHERE """ + DIEU_KIEN_DON;
+    private static final String SQL_TONG_SO_DON = "SELECT COALESCE(SUM(y.so), 0) FROM (SELECT DISTINCT x.don_id, x.so FROM (\n"
+            + SQL_DON_TRU_TRA + ") x) y";
 
     public long tongSoDon(PhamVi pv, LocalDate tu, LocalDate den) {
-        Long n = jdbc.queryForObject(SQL_TONG_SO_DON, thamSo(pv, tu, den, List.of(3, 5)), Long.class);
+        Long n = jdbc.queryForObject(SQL_TONG_SO_DON, thamSo(pv, tu, den, List.of(3, 5, 6)), Long.class);
         return n == null ? 0 : n;
     }
 
     private static final String SQL_BAN_NGAY = """
-            SELECT bt.san_pham_id AS sp_id, DATE(dbh.ngay_giao_hang) AS ngay, SUM(ct.so_luong_dat) AS so_luong,
-                   SUM(COALESCE(ct.thanh_tien, ct.so_luong_dat * ct.don_gia) - COALESCE(ct.tien_giam_gia, 0)) AS doanh_thu
-            FROM don_ban_hang dbh
-            JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = dbh.id
-            JOIN bien_the_san_pham bt     ON bt.id = ct.bien_the_san_pham_id
-            WHERE """ + DIEU_KIEN_DON + """
-            GROUP BY bt.san_pham_id, DATE(dbh.ngay_giao_hang)
+            SELECT x.sp_id, x.ngay, SUM(x.so_luong) AS so_luong, SUM(x.doanh_thu) AS doanh_thu
+            FROM (
+                SELECT bt.san_pham_id AS sp_id, DATE(dbh.ngay_giao_hang) AS ngay, ct.so_luong_dat AS so_luong,
+                       {DT_DONG} AS doanh_thu
+                FROM don_ban_hang dbh
+                JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = dbh.id
+                JOIN bien_the_san_pham bt     ON bt.id = ct.bien_the_san_pham_id
+                WHERE """.replace("{DT_DONG}", DT_DONG) + DIEU_KIEN_DON + """
+            ) x
+            GROUP BY x.sp_id, x.ngay
             """;
 
     public List<BanNgay> banTheoNgay(PhamVi pv, LocalDate tu, LocalDate den) {
-        return jdbc.query(SQL_BAN_NGAY, thamSo(pv, tu, den, List.of(3, 5)), (rs, i) -> new BanNgay(
+        return jdbc.query(SQL_BAN_NGAY, thamSo(pv, tu, den, List.of(3, 5, 6)), (rs, i) -> new BanNgay(
                 rs.getInt("sp_id"), rs.getDate("ngay").toLocalDate(), bd(rs, "so_luong"), bd(rs, "doanh_thu")));
     }
 
@@ -320,19 +381,19 @@ public class BaoCaoSanPhamRepository {
             FROM (
                 SELECT bt.san_pham_id AS sp_id,
                        ct.so_luong_dat                                                             AS so_luong,
-                       COALESCE(ct.thanh_tien, ct.so_luong_dat * ct.don_gia) - COALESCE(ct.tien_giam_gia, 0) AS doanh_thu,
+                       {DT_DONG}                                                                   AS doanh_thu,
                        {TEN_KENH} AS ten_kenh
                 FROM don_ban_hang dbh
                 JOIN chi_tiet_don_ban_hang ct ON ct.don_ban_hang_id = dbh.id
                 JOIN bien_the_san_pham bt     ON bt.id = ct.bien_the_san_pham_id
                 LEFT JOIN kenh_ban_hang kb    ON kb.id = dbh.kenh_ban_id
-                WHERE """.replace("{TEN_KENH}", TEN_KENH) + DIEU_KIEN_DON + """
+                WHERE """.replace("{TEN_KENH}", TEN_KENH).replace("{DT_DONG}", DT_DONG) + DIEU_KIEN_DON + """
             ) x
             GROUP BY x.sp_id, x.ten_kenh
             """;
 
     public List<BanKenh> banTheoKenh(PhamVi pv, LocalDate tu, LocalDate den) {
-        return jdbc.query(SQL_BAN_KENH, thamSo(pv, tu, den, List.of(3, 5)), (rs, i) -> new BanKenh(
+        return jdbc.query(SQL_BAN_KENH, thamSo(pv, tu, den, List.of(3, 5, 6)), (rs, i) -> new BanKenh(
                 rs.getInt("sp_id"), rs.getString("ten_kenh"), bd(rs, "so_luong"), bd(rs, "doanh_thu")));
     }
 
@@ -347,7 +408,7 @@ public class BaoCaoSanPhamRepository {
 
     /** Ngày bán gần nhất của từng sản phẩm trong 2 năm tới hết ngày den (cũ hơn coi như chưa bán, đỡ quét cả lịch sử). */
     public List<NgaySanPham> ngayBanCuoi(PhamVi pv, LocalDate den) {
-        return jdbc.query(SQL_BAN_CUOI, thamSo(pv, den.minusYears(2), den, List.of(3, 5)),
+        return jdbc.query(SQL_BAN_CUOI, thamSo(pv, den.minusYears(2), den, List.of(3, 5, 6)),
                 (rs, i) -> new NgaySanPham(rs.getInt("sp_id"), rs.getDate("ngay").toLocalDate()));
     }
 

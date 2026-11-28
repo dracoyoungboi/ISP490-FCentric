@@ -175,9 +175,9 @@ public final class BaoCaoDoanhThuExcel extends KhuonExcelBaoCao {
         DoanhThuTongHopDTO.Tong a = dt.getKyNay();
         DoanhThuTongHopDTO.Tong b = dt.getCungKy();
         int rDt = r;
-        dongSoSanh(s, r++, "1", "Doanh thu bán hàng", a.getDoanhThu(), b.getDoanhThu(), true);
-        dongSoSanh(s, r++, "", "   Trong đó: tiền hàng", a.getTienHang(), b.getTienHang(), false);
-        dongSoSanh(s, r++, "", "   Trong đó: phí vận chuyển thu của khách", a.getPhiVanChuyen(), b.getPhiVanChuyen(), false);
+        dongSoSanh(s, r++, "1", "Doanh thu bán hàng (chưa gồm thuế GTGT, phí vận chuyển)", a.getDoanhThu(), b.getDoanhThu(), true);
+        dongSoSanh(s, r++, "", "   Tiền hàng khách trả (gồm thuế GTGT, đã trừ hàng trả)", a.getTienHang(), b.getTienHang(), false);
+        dongSoSanh(s, r++, "", "   Phí vận chuyển thu của khách (không tính doanh thu)", a.getPhiVanChuyen(), b.getPhiVanChuyen(), false);
         if (gv) {
             int rGv = r;
             dongSoSanh(s, r++, "2", "Giá vốn hàng bán", a.getGiaVon(), b.getGiaVon(), true);

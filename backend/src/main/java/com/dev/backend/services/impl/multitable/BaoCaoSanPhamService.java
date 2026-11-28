@@ -112,11 +112,9 @@ public class BaoCaoSanPhamService {
 
         Map<Integer, BaoCaoSanPhamRepository.BanBienThe> ban = theo(repo.banTheoBienThe(pv, k.tu(), k.den()), BaoCaoSanPhamRepository.BanBienThe::bienTheId);
         Map<Integer, BaoCaoSanPhamRepository.BanBienThe> banTruoc = theo(repo.banTheoBienThe(pv, k.tuTruoc(), k.denTruoc()), BaoCaoSanPhamRepository.BanBienThe::bienTheId);
-        Map<Integer, BigDecimal> hoanBt = repo.hoanTheoBienThe(pv, k.tu(), k.den()).stream()
-                .collect(Collectors.toMap(BaoCaoSanPhamRepository.GiaVonBienThe::bienTheId, BaoCaoSanPhamRepository.GiaVonBienThe::giaVon, BigDecimal::add));
-        BigDecimal tongHoanTruoc = repo.hoanTheoBienThe(pv, k.tuTruoc(), k.denTruoc()).stream()
-                .map(BaoCaoSanPhamRepository.GiaVonBienThe::giaVon).reduce(BigDecimal.ZERO, BigDecimal::add);
-        // Hàng khách trả tại quầy: đơn gốc vẫn ở trạng thái hoàn thành nên phải trừ riêng, ở kỳ chứa ngày trả
+        // Hàng trả về (khách trả tại quầy, đơn sàn bị hoàn): đơn gốc vẫn đếm là bán ở ngày xuất nên phải trừ riêng, ở kỳ chứa
+        // ngày trả / ngày hoàn; số trả cũng là cột Hoàn
+        BigDecimal tongHoanTruoc = BigDecimal.ZERO;
         List<BaoCaoSanPhamRepository.TraQuay> dsTra = repo.traQuayTheoBienThe(pv, k.tu(), k.den());
         Map<Integer, Tra> traBt = gopTra(dsTra);
         Map<Integer, Tra> traTruocBt = gopTra(repo.traQuayTheoBienThe(pv, k.tuTruoc(), k.denTruoc()));
@@ -173,7 +171,7 @@ public class BaoCaoSanPhamService {
                 Tra trT = traTruocBt.getOrDefault(id, Tra.KHONG);
                 BigDecimal bSl = (x == null ? BigDecimal.ZERO : x.soLuong()).subtract(tr.soLuong());
                 BigDecimal bDt = (x == null ? BigDecimal.ZERO : x.doanhThu()).subtract(tr.tien());
-                BigDecimal bHoan = hoanBt.getOrDefault(id, BigDecimal.ZERO).add(tr.soLuong());
+                BigDecimal bHoan = tr.soLuong();
                 BigDecimal bSlMoiKenh = (xm == null ? BigDecimal.ZERO : xm.soLuong())
                         .subtract(traMoiKenhBt.getOrDefault(id, Tra.KHONG).soLuong());
                 BigDecimal bGv = gv.getOrDefault(id, BigDecimal.ZERO).subtract(tr.giaVon());

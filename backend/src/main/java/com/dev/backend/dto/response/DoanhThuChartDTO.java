@@ -13,9 +13,9 @@ import java.math.BigDecimal;
 public class DoanhThuChartDTO {
     String nhanThoiGian;        // Nhãn trục X: "01/01", "Tuần 1", "T1/2024", "2024"
 
-    BigDecimal tienHang;        // Tổng tiền hàng (trước ship)
-    BigDecimal phiVanChuyen;    // Tổng phí vận chuyển
-    BigDecimal doanhThu;        // Tổng cộng = tienHang + phiVanChuyen  → CỘT
+    BigDecimal tienHang;        // Tiền hàng khách trả: tổng cộng − phí vận chuyển (còn gồm thuế GTGT), đã trừ hàng trả
+    BigDecimal phiVanChuyen;    // Phí vận chuyển thu của khách (không tính doanh thu)
+    BigDecimal doanhThu;        // Doanh thu = tiền hàng − thuế GTGT, đã trừ hàng trả về  → CỘT
     BigDecimal giaVon;          // Tổng giá vốn xuất kho
     BigDecimal loiNhuan;        // doanhThu - giaVon                    → ĐƯỜNG
 

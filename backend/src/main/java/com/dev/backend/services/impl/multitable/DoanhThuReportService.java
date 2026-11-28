@@ -61,9 +61,10 @@ public class DoanhThuReportService {
         ));
     }
 
-    // ================= Trừ hàng trả tại quầy (GBR-RET-06) =================
-    // Các câu doanh thu theo kỳ chỉ cộng đơn bán; phiếu trả tại quầy trừ doanh thu (tiền hoàn) và giá vốn (phần hàng Đạt
-    // quay lại kho) vào kỳ chứa NGÀY TRẢ, cho cửa hàng BÁN đơn gốc. Kỳ chỉ có hàng trả (không có đơn) vẫn hiện, số âm.
+    // ================= Trừ hàng trả về (GBR-RET-06) =================
+    // Các câu doanh thu theo kỳ chỉ cộng đơn bán (gồm đơn sau này bị hoàn); hàng trả tại quầy và đơn sàn bị hoàn trừ doanh
+    // thu (bỏ thuế GTGT), giá vốn (phần hàng còn bán được) và số đơn (đơn trả hết) vào kỳ chứa NGÀY TRẢ / NGÀY HOÀN. Kỳ chỉ
+    // có hàng trả (không có đơn) vẫn hiện, số âm.
 
     private List<DoanhThuChartDTO> bcNgay(LocalDate tuNgay, LocalDate denNgay, Integer khoId) {
         return truHangTra(repo.baoCaoTheoNgay(tuNgay, denNgay, khoId), tuNgay, denNgay, khoId,
@@ -113,6 +114,8 @@ public class DoanhThuReportService {
             NhanKy nhan = nhanCua.apply(LocalDate.parse(String.valueOf(r[0])));
             BigDecimal hoan = so(r[1]);
             BigDecimal giaVon = so(r[2]);
+            long donTra = r.length > 3 ? dem(r[3]) : 0;
+            BigDecimal tienHangTra = r.length > 4 ? so(r[4]) : hoan;
             DoanhThuChartDTO d = theoNhan.get(nhan.nhan());
             if (d == null) {
                 d = new DoanhThuChartDTO(nhan.nhan(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
@@ -120,8 +123,9 @@ public class DoanhThuReportService {
                 theoNhan.put(nhan.nhan(), d);
                 themDong = true;
             }
-            d.setTienHang(so(d.getTienHang()).subtract(hoan));
+            d.setTienHang(so(d.getTienHang()).subtract(tienHangTra));
             d.setDoanhThu(so(d.getDoanhThu()).subtract(hoan));
+            d.setSoLuongDon(dem(d.getSoLuongDon()) - donTra);
             d.setGiaVon(so(d.getGiaVon()).subtract(giaVon));
             d.setLoiNhuan(so(d.getDoanhThu()).subtract(so(d.getGiaVon())));
         }

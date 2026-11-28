@@ -132,7 +132,6 @@ class BaoCaoExcelGiaVonTest {
         }
 
         @Override public List<BanBienThe> banTheoBienThe(PhamVi pv, LocalDate tu, LocalDate den) { return nay(tu) ? ban : List.of(); }
-        @Override public List<GiaVonBienThe> hoanTheoBienThe(PhamVi pv, LocalDate tu, LocalDate den) { return List.of(); }
         @Override public List<TraQuay> traQuayTheoBienThe(PhamVi pv, LocalDate tu, LocalDate den) { return List.of(); }
         @Override public List<GiaVonBienThe> giaVonTheoBienThe(PhamVi pv, LocalDate tu, LocalDate den) { return nay(tu) ? gv : List.of(); }
         @Override public List<TonBienThe> tonTheoBienThe(PhamVi pv) { return ton; }
