@@ -19,7 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -98,7 +97,7 @@ public class TraHangTaiQuayService {
             KhachHang kh = d.getKhachHang();
             String tt = trangThaiTraHang(d.getId());
             kq.add(new TraHangDto.DonTomTat(d.getId(), d.getSoDonHang(), thanhToanLuc(d),
-                    d.getKhoXuat() == null ? null : d.getKhoXuat().getTenKho(), d.getTongCong(),
+                    TraHangQuyTac.hanTraDen(thanhToanLuc(d)), d.getKhoXuat() == null ? null : d.getKhoXuat().getTenKho(), d.getTongCong(),
                     kh == null ? null : kh.getTenKhachHang(), kh == null ? null : TraHangQuyTac.cheSoDienThoai(kh.getSoDienThoai()),
                     tt, !DA_TRA_HET.equals(tt), TraHangQuyTac.quaHan(thanhToanLuc(d), bayGio)));
         }
@@ -127,7 +126,7 @@ public class TraHangTaiQuayService {
                 + " order by coalesce(d.ngayGiaoHang, d.ngayDatHang) desc, d.id desc";
         var query = em.createQuery(jpql, DonBanHang.class)
                 .setParameter("hoanThanh", ITrangThaiDonBanHang.HOAN_THANH)
-                .setParameter("tu", bayGio.minus(TraHangQuyTac.HAN_TRA))
+                .setParameter("tu", TraHangQuyTac.conHanTu(bayGio))
                 .setMaxResults(TOI_DA_GAN_DAY);
         if (!moiCuaHang) query.setParameter("kho", khoNhanId);
         List<DonBanHang> ds = query.getResultList();
@@ -144,7 +143,8 @@ public class TraHangTaiQuayService {
         for (DonBanHang d : ds) {
             KhachHang kh = d.getKhachHang();
             String tt = trangThaiTra.get(d.getId());
-            kq.add(new TraHangDto.DonTomTat(d.getId(), d.getSoDonHang(), thanhToanLuc(d), d.getKhoXuat().getTenKho(),
+            kq.add(new TraHangDto.DonTomTat(d.getId(), d.getSoDonHang(), thanhToanLuc(d),
+                    TraHangQuyTac.hanTraDen(thanhToanLuc(d)), d.getKhoXuat().getTenKho(),
                     d.getTongCong(), kh == null ? null : kh.getTenKhachHang(),
                     kh == null ? null : TraHangQuyTac.cheSoDienThoai(kh.getSoDienThoai()),
                     tt, !DA_TRA_HET.equals(tt), TraHangQuyTac.quaHan(thanhToanLuc(d), bayGio)));
@@ -191,8 +191,7 @@ public class TraHangTaiQuayService {
                         tenKho(p.getKhoNhanId())))
                 .toList();
         return new TraHangDto.DonGoc(don.getId(), don.getSoDonHang(), thanhToan,
-                thanhToan == null ? null : thanhToan.plus(TraHangQuyTac.HAN_TRA),
-                thanhToan == null ? 0 : Math.max(0, Duration.between(thanhToan, bayGio).toDays()), quaHan,
+                TraHangQuyTac.hanTraDen(thanhToan), TraHangQuyTac.soNgayDaQua(thanhToan, bayGio), quaHan,
                 don.getKhoXuat().getId(), don.getKhoXuat().getTenKho(), khoNhan.getId(), khoNhan.getTenKho(),
                 !Objects.equals(don.getKhoXuat().getId(), khoNhan.getId()),
                 don.getNguoiTao() == null ? null : tenNguoi(don.getNguoiTao()),

@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Set;
 
 /**
@@ -11,8 +13,12 @@ import java.util.Set;
  */
 public final class TraHangQuyTac {
 
-    /** GBR-RET-02: trong vòng 03 ngày (72 giờ) kể từ lúc thanh toán. */
-    public static final Duration HAN_TRA = Duration.ofDays(3);
+    /**
+     * GBR-RET-02: trong vòng 03 ngày kể từ ngày thanh toán, tính theo ngày lịch giờ Việt Nam — ngày mua không tính,
+     * hạn tới hết ngày thứ 3 sau đó (mua 28/11 lúc nào cũng được trả tới 23:59 ngày 01/12).
+     */
+    public static final int SO_NGAY_TRA = 3;
+    public static final ZoneId MUI_GIO_VN = ZoneId.of("Asia/Ho_Chi_Minh");
     /** Mã PIN quản lý: hiệu lực nhập 10 phút, sai tối đa 5 lần. */
     public static final Duration HAN_MA = Duration.ofMinutes(10);
     public static final int SO_LAN_SAI_TOI_DA = 5;
@@ -43,9 +49,28 @@ public final class TraHangQuyTac {
         return KHAC.equals(dat ? lyDo : nhomLoi);
     }
 
-    /** Đã quá hạn trả (lúc {@code bayGio} cách lúc thanh toán hơn 03 ngày). Không rõ lúc thanh toán thì coi là quá hạn. */
+    /** Mốc hết hạn trả (không tính mốc này): 00:00 ngày thứ 4 sau ngày thanh toán, giờ Việt Nam. */
+    public static Instant hanTraDen(Instant thanhToanLuc) {
+        if (thanhToanLuc == null) return null;
+        return thanhToanLuc.atZone(MUI_GIO_VN).toLocalDate().plusDays(SO_NGAY_TRA + 1L)
+                .atStartOfDay(MUI_GIO_VN).toInstant();
+    }
+
+    /** Đã quá hạn trả: đã sang ngày thứ 4 sau ngày thanh toán. Không rõ lúc thanh toán thì coi là quá hạn. */
     public static boolean quaHan(Instant thanhToanLuc, Instant bayGio) {
-        return thanhToanLuc == null || Duration.between(thanhToanLuc, bayGio).compareTo(HAN_TRA) > 0;
+        return thanhToanLuc == null || !bayGio.isBefore(hanTraDen(thanhToanLuc));
+    }
+
+    /** Số ngày lịch (giờ Việt Nam) từ ngày thanh toán tới hôm nay: 0 = mua hôm nay. */
+    public static long soNgayDaQua(Instant thanhToanLuc, Instant bayGio) {
+        if (thanhToanLuc == null) return 0;
+        return Math.max(0, ChronoUnit.DAYS.between(thanhToanLuc.atZone(MUI_GIO_VN).toLocalDate(),
+                bayGio.atZone(MUI_GIO_VN).toLocalDate()));
+    }
+
+    /** Hóa đơn thanh toán từ mốc này trở đi còn hạn trả: 00:00 ngày (hôm nay − 3), giờ Việt Nam. */
+    public static Instant conHanTu(Instant bayGio) {
+        return bayGio.atZone(MUI_GIO_VN).toLocalDate().minusDays(SO_NGAY_TRA).atStartOfDay(MUI_GIO_VN).toInstant();
     }
 
     /**

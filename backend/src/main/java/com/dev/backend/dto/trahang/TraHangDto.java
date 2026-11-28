@@ -15,10 +15,13 @@ public final class TraHangDto {
 
     // ───────────── Tra cứu ─────────────
 
-    /** Một hóa đơn POS tìm thấy (tìm theo số điện thoại có thể ra nhiều hóa đơn). */
-    public record DonTomTat(Integer donBanHangId, String soDonHang, Instant thanhToanLuc, String khoBan,
-                            BigDecimal tongCong, String khachHang, String soDienThoai, String trangThaiTraHang,
-                            boolean conTraDuoc, boolean quaHan) {
+    /**
+     * Một hóa đơn POS tìm thấy (tìm theo số điện thoại có thể ra nhiều hóa đơn). {@code hanTraDen}: mốc hết hạn trả
+     * (00:00 ngày thứ 4 sau ngày thanh toán, giờ Việt Nam), giao diện đếm ngày còn lại theo mốc này.
+     */
+    public record DonTomTat(Integer donBanHangId, String soDonHang, Instant thanhToanLuc, Instant hanTraDen,
+                            String khoBan, BigDecimal tongCong, String khachHang, String soDienThoai,
+                            String trangThaiTraHang, boolean conTraDuoc, boolean quaHan) {
     }
 
     /** Khối thông tin đơn gốc + bảng dòng hàng có thể trả, tính cho cửa hàng nhận {@code khoNhanId}. */

@@ -120,7 +120,7 @@ public class DuyetTraHangService {
             Kho kho = em.find(Kho.class, req.khoId());
             var tt = new EmailNghiepVuService.MaDuyetTraHangThongTin(kho.getTenKho(),
                     TraHangTaiQuayService.tenNguoi(nguoiYeuCau), don.getSoDonHang(), thanhToan,
-                    thanhToan == null ? 0 : Duration.between(thanhToan, bayGio).toDays(), lyDoGhi);
+                    TraHangQuyTac.soNgayDaQua(thanhToan, bayGio), lyDoGhi);
             return new DaTao(yc, ma, tt);
         });
 
