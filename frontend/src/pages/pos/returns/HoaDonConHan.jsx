@@ -5,20 +5,20 @@ import LoadingState from '@/components/shared/LoadingState';
 import { formatMoney } from '../pos-format';
 import { usePosDuLieuChung } from '../pos-du-lieu-chung';
 import { t, tDuLieu } from "@/i18n";
-import { nhanLuc as luc } from './nhan-thoi-gian';
+import { hanTraTheoNgay, nhanLuc as luc } from './nhan-thoi-gian';
 import { NutTaiLai } from './TheDanhSach';
 
-const HAN_TRA_MS = 3 * 24 * 60 * 60 * 1000;
-const MOT_NGAY_MS = 24 * 60 * 60 * 1000;
-const MOT_GIO_MS = 60 * 60 * 1000;
-
-/** Hạn trả còn lại tính từ lúc thanh toán (máy chủ vẫn là chốt chặn thật khi mở đơn). */
+/**
+ * Hạn trả theo ngày lịch: mua hôm nay "Còn 3 ngày", ngày cuối "Hết hạn hôm nay". Mốc hạn do máy chủ tính (cũng là
+ * chốt chặn thật khi mở đơn); rê chuột thấy ngày cuối được trả.
+ */
 function hanTra(r, bayGio) {
   if (!r.conTraDuoc) return { chu: '—', tone: 'mute' };
-  const conLai = new Date(r.thanhToanLuc).getTime() + HAN_TRA_MS - bayGio;
-  if (r.quaHan || !(conLai > 0)) return { chu: t("Quá hạn"), tone: 'late' };
-  if (conLai >= MOT_NGAY_MS) return { chu: t("Còn {{count}} ngày", { count: Math.floor(conLai / MOT_NGAY_MS) }), tone: 'normal' };
-  return { chu: t("Còn {{count}} giờ", { count: Math.max(1, Math.ceil(conLai / MOT_GIO_MS)) }), tone: 'late' };
+  const han = hanTraTheoNgay(r.hanTraDen, bayGio);
+  if (r.quaHan || han.quaHan) return { chu: t("Quá hạn"), tone: 'late' };
+  const goiY = t("Trả được đến hết ngày {{ngay}}", { ngay: han.ngayCuoi });
+  if (han.soNgay === 0) return { chu: t("Hết hạn hôm nay"), tone: 'late', goiY };
+  return { chu: t("Còn {{count}} ngày", { count: han.soNgay }), tone: 'normal', goiY };
 }
 
 const TRANG_THAI_TRA = {
@@ -143,7 +143,7 @@ export default function HoaDonConHan({ khoId, onChon, bayGio, tatCa, onDoiTatCa,
                       <td className="border-b border-bo-border/70 px-3 py-2.5">
                         <span className={`inline-flex h-[22px] items-center whitespace-nowrap rounded-full px-2 text-xs font-medium ${mauTra}`}>{t(nhanTra)}</span>
                       </td>
-                      <td className={`whitespace-nowrap border-b border-bo-border/70 px-3 py-2.5 ${han.tone === 'late' ? 'font-medium text-bo-warning' : han.tone === 'mute' ? 'text-bo-muted' : 'text-slate-600'}`}>{han.chu}</td>
+                      <td className={`whitespace-nowrap border-b border-bo-border/70 px-3 py-2.5 ${han.tone === 'late' ? 'font-medium text-bo-warning' : han.tone === 'mute' ? 'text-bo-muted' : 'text-slate-600'}`} title={han.goiY}>{han.chu}</td>
                     </tr>
                   );
                 })}

@@ -26,7 +26,7 @@ import PhieuDaTra from './PhieuDaTra';
 import { locBanDau } from './loc-phieu-tra';
 import KhungPhieuDaTra, { HopPhieuDaTra } from './ChiTietPhieuTra';
 import TheDanhSach, { THE_HOA_DON, THE_PHIEU } from './TheDanhSach';
-import { nhanLuc } from './nhan-thoi-gian';
+import { hanTraTheoNgay, nhanLuc } from './nhan-thoi-gian';
 import {
   CHINH_SACH_DAY_DU,
   CHINH_SACH_TOM_TAT,
@@ -771,7 +771,7 @@ function KetQuaTim({ results, onChon }) {
  */
 function DauDon({ don, bayGio, coMonDangChon, onDong, onXemPhieu }) {
   const phieuDaTra = don.phieuDaTra ?? [];
-  const conNgay = Math.max(0, 3 - Number(don.soNgay));
+  const han = hanTraTheoNgay(don.hanTraDen, bayGio);
   const thongTin = [
     formatDateTime(don.thanhToanLuc),
     t("Bán tại {{kho}}", { kho: tDuLieu(don.khoBan) }),
@@ -787,7 +787,9 @@ function DauDon({ don, bayGio, coMonDangChon, onDong, onXemPhieu }) {
             <h2 className="text-base font-semibold tabular-nums text-bo-heading">{don.soDonHang}</h2>
             {don.quaHan
               ? <TrangThai tone="late">{t("Quá hạn 03 ngày")}</TrangThai>
-              : <TrangThai tone="ok">{conNgay > 0 ? t("Trong hạn · còn {{n}} ngày", { n: conNgay }) : t("Trong hạn · hết hạn hôm nay")}</TrangThai>}
+              : <TrangThai tone="ok">{han.soNgay > 0
+                ? t("Trong hạn · còn {{count}} ngày, đến hết {{ngay}}", { count: han.soNgay, ngay: han.ngayCuoi })
+                : t("Trong hạn · hết hạn hôm nay")}</TrangThai>}
             {don.traCheo ? <TrangThai tone="info">{t("Trả chéo từ {{kho}}", { kho: tDuLieu(don.khoBan) })}</TrangThai> : null}
             {don.trangThaiTraHang === 'tra_mot_phan' ? <TrangThai tone="mute">{t("Đã trả một phần")}</TrangThai> : null}
           </div>

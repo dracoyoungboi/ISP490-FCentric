@@ -51,7 +51,7 @@ export const LY_DO_DUYET = [
 
 /** Bốn ý ở khung tóm tắt: [khóa biểu tượng, câu]. Biểu tượng chọn ở màn (han, tem, duyet, hoan). */
 export const CHINH_SACH_TOM_TAT = [
-  ['han', 'Nhận trả trong 03 ngày kể từ lúc thanh toán, ở mọi cửa hàng.'],
+  ['han', 'Nhận trả đến hết ngày thứ 3 sau ngày mua, ở mọi cửa hàng.'],
   ['tem', 'Hàng còn nguyên tem mác, chưa sử dụng, không ám mùi, không bẩn.'],
   ['duyet', 'Quá hạn: cần quản lý cửa hàng duyệt bằng mã.'],
   ['hoan', 'Hoàn theo giá khách thực trả, tiền mặt hoặc chuyển khoản.'],
@@ -60,7 +60,7 @@ export const CHINH_SACH_TOM_TAT = [
 /** Bản đầy đủ trong hộp "Xem đầy đủ": [tiêu đề nhóm, các ý]. */
 export const CHINH_SACH_DAY_DU = [
   ['Điều kiện nhận trả', [
-    'Trong vòng 03 ngày kể từ lúc thanh toán (in trên hóa đơn gốc). Quá hạn cần quản lý cửa hàng duyệt bằng mã.',
+    'Trong vòng 03 ngày kể từ ngày mua, tính đến hết ngày thứ 3 (ngày mua không tính). Quá hạn cần quản lý cửa hàng duyệt bằng mã.',
     'Hàng còn nguyên tem mác, chưa sử dụng, chưa giặt ủi, không ám mùi, không dính bẩn.',
     'Tra được hóa đơn gốc đã thanh toán trên hệ thống.',
   ]],
