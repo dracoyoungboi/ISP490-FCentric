@@ -2,9 +2,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { bienDong, formatTienNgan, tachTien } from "./tongQuanFormat.js";
-import { diemDaTron, giaTriDiem, tongHopKy, vachTruc } from "./tongQuanSoLieu.js";
-import { danhSachViec, duongDanLoiDongBo } from "./viecCanXuLy.js";
-import { demMaNhom, khaDungNhom, nhomCanBoSung, tomTatBienThe } from "./canBoSung.js";
+import { chuoiBieuDo, giaTri, gopNhom, vachTruc } from "./tongQuanSoLieu.js";
+import { chiaViec, duongDanLoiDongBo, lauChua } from "./viecCanXuLy.js";
+import { chuThichBieuDo, khoangKy, kyTuMayChu, loiTuyChon, moTaKy, nhanDiem, soDiemDaCo, tieuDeBieuDo } from "./kyXem.js";
+import { cauSuKien, gopSuKien } from "./hoatDong.js";
 
 // Intl dùng khoảng trắng hẹp/thường tùy máy: so sánh sau khi gom khoảng trắng
 const gon = (s) => s.replace(/\s/g, " ");
@@ -35,130 +36,145 @@ test("trục tung: bước đẹp, luôn có 0, phủ cả số âm, số đơn 
   assert.ok(vachTruc(0, 0, false).dinh > 0);
 });
 
-const dt = {
-  tongDoanhThu: 300,
-  tongLoiNhuan: 60,
-  tongSoDon: 3,
-  doanhThuKyTruoc: 200,
-  diem: [
-    { tu: "2026-10-15", doanhThu: 100, loiNhuan: 20, soDon: 1, chuaKetThuc: false },
-    { tu: "2026-10-16", doanhThu: 200, loiNhuan: 40, soDon: 2, chuaKetThuc: false },
-    { tu: "2026-10-17", doanhThu: 50, loiNhuan: 10, soDon: 1, chuaKetThuc: true },
-  ],
-  diemKyTruoc: [
-    { tu: "2026-10-13", doanhThu: 200, loiNhuan: 30, soDon: 4, chuaKetThuc: false },
-    { tu: "2026-10-14", doanhThu: 0, loiNhuan: 0, soDon: 0, chuaKetThuc: false },
-  ],
-};
+// Giờ số liệu mẫu: 21:13 thứ Sáu 27/11/2026 (giống demo và test máy chủ KyXemTongQuanTest)
+const BAY_GIO = "2026-11-27T21:13:00";
+const d = (s) => new Date(s);
 
-test("tổng của kỳ và kỳ trước; bỏ ngày đang chạy", () => {
-  assert.equal(diemDaTron(dt).length, 2);
-  const { nay, truoc } = tongHopKy(dt);
-  assert.deepEqual(nay, { doanhThu: 300, loiNhuan: 60, soDon: 3, tbDon: 100 });
-  assert.deepEqual(truoc, { doanhThu: 200, loiNhuan: 30, soDon: 4, tbDon: 50 });
-  // Máy chủ cũ chưa có diemKyTruoc: chỉ so được doanh thu
-  const { truoc: cu } = tongHopKy({ ...dt, diemKyTruoc: undefined });
-  assert.deepEqual(cu, { doanhThu: 200 });
+test("kỳ: 30 ngày gồm hôm nay, so 30 ngày liền trước cắt cùng giờ; dòng mô tả ghi ngày thật", () => {
+  const k = khoangKy("30_ngay", BAY_GIO);
+  assert.deepEqual(k.tu, d("2026-10-29T00:00:00"));
+  assert.deepEqual(k.denTruoc, d("2026-10-28T21:13:00"));
+  assert.deepEqual(moTaKy(k), ["29/10 – 27/11", "So với 29/09 – 28/10, cùng giờ"]);
+  assert.equal(soDiemDaCo(k), 30);
 });
 
-test("giá trị đơn trung bình của ngày không có đơn là null (bỏ trống, không vẽ 0)", () => {
-  assert.equal(giaTriDiem(dt.diemKyTruoc[1], "tbDon"), null);
-  assert.equal(giaTriDiem(dt.diem[1], "tbDon"), 100);
-  assert.equal(giaTriDiem(dt.diem[1], "loiNhuan"), 40);
+test("kỳ: hôm nay theo giờ, so cùng thứ tuần trước; tháng này so tới cùng ngày tháng trước", () => {
+  const h = khoangKy("hom_nay", BAY_GIO);
+  assert.deepEqual(moTaKy(h), ["27/11, 00:00 – 21:13", "So với thứ Sáu 20/11, cùng giờ"]);
+  assert.equal(h.nhom, "gio");
+  assert.equal(soDiemDaCo(h), 22);
+  const tn = khoangKy("thang_nay", BAY_GIO);
+  assert.deepEqual(tn.denTruoc, d("2026-10-27T21:13:00"));
+  assert.equal(tn.soDiem, 30);
+  const tt = khoangKy("thang_truoc", BAY_GIO);
+  assert.deepEqual(moTaKy(tt), ["01/10 – 31/10", "So với 01/09 – 30/09"]);
+  assert.equal(khoangKy("thang_nay", "2026-03-31T10:00:00").denTruoc.getTime(), d("2026-03-01T00:00:00").getTime(), "tháng trước không có ngày 31");
+  assert.deepEqual(moTaKy(khoangKy("12_thang", BAY_GIO)), ["T12/25 – T11/26", "So với T12/24 – T11/25, cùng giờ"]);
 });
 
-const viec = {
-  donNhapChuaGuiKho: 0, donChoXuatKho: 12, phieuNhatChuaPhanCong: 0, phieuXuatChoXuatKho: 5, yeuCauNhapChoDuyet: 0,
-  phieuNhapChoNhapKho: 1, phieuChuyenChoDuyet: 0, phieuChuyenChoXuatHang: 0, dotKiemKeDangMo: 0, hetHang: 3, thieuHang: 4,
-  taiKhoanBiKhoa: 1,
-  theoKho: [
-    { khoId: 1, tenKho: "Kho tổng", donChoXuatKho: 9, phieuNhatChuaPhanCong: 0, phieuChuyenChoDuyet: 0, phieuChuyenChoXuatHang: 0 },
-    { khoId: 2, tenKho: "Cửa hàng Hà Nội", donChoXuatKho: 3, phieuNhatChuaPhanCong: 0, phieuChuyenChoDuyet: 0, phieuChuyenChoXuatHang: 0 },
-  ],
-  donMuaQuaHan: 2,
-  loiDongBo: [{ kenhId: 7, maKenh: "SHOPIFY", tenKenh: "Cửa hàng Shopify", soLoi: 3 }],
-  phieuXuatChoDongGoi: 0,
-  phieuXuatChoXuat: 5,
-};
-
-test("cần xử lý: việc gấp lên đầu, không có dòng hết/thiếu hàng, tách theo kho khi xem tất cả kho", () => {
-  const ds = danhSachViec(viec, null);
-  assert.deepEqual(ds.map((d) => d.key), [
-    "loiDongBo-7", "donMuaQuaHan", "donChoXuatKho-1", "donChoXuatKho-2", "phieuXuatChoXuat", "phieuNhapChoNhapKho", "taiKhoanBiKhoa",
-  ]);
-  assert.ok(!ds.some((d) => /hết|thiếu/i.test(d.ten)), "hết/thiếu hàng đã ở thẻ Tồn kho");
-  assert.equal(ds[0].to, "/channels/shopify/products?trangThai=loi");
-  assert.equal(ds.find((d) => d.key === "donChoXuatKho-2").kho, 2);
+test("kỳ tùy chọn: 1 ngày theo giờ, nhiều ngày so số ngày liền trước, dài theo tháng; lỗi khoảng", () => {
+  const motNgay = khoangKy("tuy_chon", BAY_GIO, d("2026-11-10T00:00:00"), d("2026-11-10T00:00:00"));
+  assert.equal(motNgay.nhom, "gio");
+  assert.deepEqual(motNgay.tuTruoc, d("2026-11-03T00:00:00"));
+  const tam = khoangKy("tuy_chon", BAY_GIO, d("2026-11-20T00:00:00"), d("2026-11-27T00:00:00"));
+  assert.equal(tam.soDiem, 8);
+  assert.deepEqual(tam.denTruoc, d("2026-11-19T21:13:00"));
+  assert.equal(khoangKy("tuy_chon", BAY_GIO, d("2026-01-15T00:00:00"), d("2026-06-10T00:00:00")).nhom, "thang");
+  const homNay = d("2026-11-27T00:00:00");
+  assert.equal(loiTuyChon(d("2026-11-01T00:00:00"), d("2026-11-27T00:00:00"), homNay, null), null);
+  assert.match(loiTuyChon(d("2025-11-01T00:00:00"), d("2026-11-27T00:00:00"), homNay, null), /tối đa 366/);
+  assert.ok(loiTuyChon(d("2026-11-10T00:00:00"), d("2026-11-28T00:00:00"), homNay, null));
 });
 
-test("cần xử lý khi xem một kho: bỏ việc chung của hệ thống, liên kết mang kho", () => {
-  const ds = danhSachViec(viec, 2);
-  assert.ok(!ds.some((d) => d.loai === "loiDongBo" || d.loai === "taiKhoanBiKhoa"));
-  assert.equal(ds.find((d) => d.loai === "donMuaQuaHan").to, "/purchase-orders?trangThai=dang-van-chuyen&kho=2");
-  assert.equal(ds.find((d) => d.loai === "donChoXuatKho").kho, 2);
+const KY_30 = { ma: "30_ngay", tu: "2026-10-29T00:00:00", den: BAY_GIO, tuTruoc: "2026-09-29T00:00:00", denTruoc: "2026-10-28T21:13:00",
+  bieuDoTruocTu: "2026-09-29T00:00:00", bieuDoTruocDen: "2026-10-28T21:13:00", nhom: "ngay", soDiem: 30, kieuSoSanh: "lien_truoc", dangChay: true };
+const KY_HOM_NAY = { ma: "hom_nay", tu: "2026-11-27T00:00:00", den: BAY_GIO, tuTruoc: "2026-11-20T00:00:00", denTruoc: "2026-11-20T21:13:00",
+  bieuDoTruocTu: "2026-11-20T00:00:00", bieuDoTruocDen: "2026-11-21T00:00:00", nhom: "gio", soDiem: 24, kieuSoSanh: "tuan_truoc", dangChay: true };
+
+test("kỳ máy chủ trả: nhãn biểu đồ bằng ngày thật, điểm đang chạy ghi giờ", () => {
+  const k = kyTuMayChu(KY_30);
+  assert.deepEqual(chuThichBieuDo(k), ["29/10 – 27/11", "29/09 – 28/10, cùng giờ"]);
+  assert.equal(nhanDiem(k, 29, false), "Thứ Sáu 27/11 (đến 21:13)");
+  assert.equal(nhanDiem(k, 0, true), "Thứ Ba 29/09");
+  assert.equal(tieuDeBieuDo("Doanh thu", k), "Doanh thu theo ngày, 30 ngày");
+  const h = kyTuMayChu(KY_HOM_NAY);
+  assert.deepEqual(chuThichBieuDo(h), ["Hôm nay", "Thứ Sáu 20/11"]);
+  assert.equal(nhanDiem(h, 9, false), "Thứ Sáu 27/11, 09:00 – 10:00");
 });
 
-test("cần xử lý: phiếu chuyển chờ xử lý chênh lệch mở tab đúng, không tách theo kho; máy chủ cũ chưa trả thì không hiện", () => {
-  for (const khoId of [null, 2]) {
-    const ds = danhSachViec({ ...viec, phieuChuyenChoXuLyLech: 3 }, khoId);
-    const lech = ds.filter((d) => d.loai === "phieuChuyenChoXuLyLech");
-    assert.equal(lech.length, 1);
-    assert.equal(lech[0].so, 3);
-    assert.equal(lech[0].muc, "warn");
-    assert.equal(lech[0].to, "/transfer-tickets?trangThai=cho-xu-ly-chenh-lech");
-    assert.equal(lech[0].kho, undefined, "quản trị viên xem phiếu chuyển của mọi kho, không đổi kho làm việc");
-  }
-  assert.ok(!danhSachViec(viec, null).some((d) => d.loai === "phieuChuyenChoXuLyLech"));
+test("biểu đồ: điểm chưa tới là undefined, điểm không có đơn là 0; trung bình đơn chỉ khi doanh thu và số đơn dương", () => {
+  const k = kyTuMayChu(KY_HOM_NAY);
+  const bd = { nay: [{ viTri: 9, doanhThu: 1000, loiNhuan: 400, soDon: 2 }, { viTri: 15, doanhThu: -200, loiNhuan: -100, soDon: -1 }], truoc: [{ viTri: 23, doanhThu: 50, loiNhuan: 10, soDon: 1 }] };
+  const { nay, truoc } = chuoiBieuDo(bd, k, "doanhThu");
+  assert.equal(nay.length, 24);
+  assert.equal(nay[9], 1000);
+  assert.equal(nay[0], 0);
+  assert.equal(nay[22], undefined, "22:00 chưa tới");
+  assert.equal(truoc[23], 50);
+  assert.equal(chuoiBieuDo(bd, k, "tbDon").nay[9], 500);
+  assert.equal(chuoiBieuDo(bd, k, "tbDon").nay[15], null);
+  assert.equal(giaTri({ doanhThu: -5, soDon: 2 }, "tbDon"), null);
 });
 
-test("máy chủ cũ chưa có lỗi đồng bộ và đơn mua quá hạn: không hiện hai dòng đó", () => {
-  const { loiDongBo, donMuaQuaHan, ...cu } = viec;
-  assert.equal(loiDongBo.length + donMuaQuaHan > 0, true);
-  const ds = danhSachViec(cu, null);
-  assert.ok(!ds.some((d) => d.loai === "loiDongBo" || d.loai === "donMuaQuaHan"));
-  // Sàn chưa có trang riêng (Shopee) mở danh sách kênh; Lazada đã có trang Sản phẩm riêng (KH Lazada/TikTok mục B.1)
-  assert.equal(duongDanLoiDongBo("SHOPEE"), "/channels");
-  assert.equal(duongDanLoiDongBo("LAZADA"), "/channels/lazada/products?trangThai=loi");
+test("biểu đồ: tháng đem so ngắn hơn thì các điểm cuối của đường kỳ trước để trống, không vẽ 0", () => {
+  // Tháng trước đã trọn: tháng 3/2026 (31 điểm) so với tháng 2 (28 ngày)
+  const k = kyTuMayChu({
+    ma: "thang_truoc", tu: "2026-03-01T00:00:00", den: "2026-04-01T00:00:00", tuTruoc: "2026-02-01T00:00:00",
+    denTruoc: "2026-03-01T00:00:00", bieuDoTruocTu: "2026-02-01T00:00:00", bieuDoTruocDen: "2026-03-01T00:00:00",
+    nhom: "ngay", soDiem: 31, kieuSoSanh: "thang_truoc", dangChay: false,
+  });
+  const { nay, truoc } = chuoiBieuDo({ nay: [], truoc: [{ viTri: 27, doanhThu: 70, loiNhuan: 0, soDon: 1 }] }, k, "doanhThu");
+  assert.equal(nay[30], 0, "kỳ đang xem đủ 31 điểm");
+  assert.equal(truoc[27], 70, "28/02 là điểm cuối của tháng 2");
+  assert.equal(truoc[0], 0);
+  assert.equal(truoc[28], undefined, "tháng 2 không có ngày 29–31");
+  assert.equal(truoc[30], undefined);
 });
 
-const ma = (tenMau, tenKichCo, khaDung = 1, nguong = 80, extra = {}) => ({ tenMau, tenKichCo, khaDung, nguong, ...extra });
-
-test("cần bổ sung: tóm tắt màu – cỡ theo thứ tự gặp, đuôi cỡ chung ghi một lần", () => {
-  const quan = ["21 Inch", "22 Inch", "23 Inch"];
-  const ds = [...quan.map((c) => ma("Xanh dương", c)), ...quan.map((c) => ma("Xám", c))];
-  assert.equal(tomTatBienThe(ds), "Xanh dương 21 · 22 · 23 / Xám 21 · 22 · 23 Inch");
-  assert.equal(tomTatBienThe([ma("Đen", "S"), ma("Đen", "M"), ma("Trắng", "S")]), "Đen S · M / Trắng S");
-  // Đuôi không chung thì giữ nguyên tên cỡ; mã không màu chỉ ghi cỡ; không trùng cỡ
-  assert.equal(tomTatBienThe([ma("Đen", "21 Inch"), ma("Đen", "Free size")]), "Đen 21 Inch · Free size");
-  // "Free Size" ở nhiều màu: không phải số + đơn vị nên giữ nguyên tên cỡ
-  assert.equal(tomTatBienThe([ma("Đen", "Free Size"), ma("Trắng", "Free Size")]), "Đen Free Size / Trắng Free Size");
-  assert.equal(tomTatBienThe([ma("Be", "28,5 cm"), ma("Be", "29 cm")]), "Be 28,5 · 29 cm");
-  assert.equal(tomTatBienThe([ma(null, "S"), ma(null, "S")]), "S");
-  assert.equal(tomTatBienThe([]), "");
+test("nhóm hàng: quá 4 nhóm thì 3 nhóm lớn + Khác cộng đủ", () => {
+  const ds = [5, 40, 30, 20, 10].map((v, i) => ({ danhMucId: i, tenNhom: `N${i}`, doanhThu: v, doanhThuTruoc: 1 }));
+  const g = gopNhom(ds);
+  assert.deepEqual(g.map((x) => x.doanhThu), [40, 30, 20, 15]);
+  assert.equal(g[3].khac, true);
+  assert.equal(gopNhom(ds.slice(0, 4)).length, 4);
 });
 
-test("cần bổ sung: khả dụng của nhóm là mã thấp nhất, ghi mỗi mã khi đều nhau", () => {
-  assert.deepEqual(khaDungNhom([ma("A", "S"), ma("A", "M")]), { khaDung: 1, nguong: 80, deu: true });
-  assert.deepEqual(khaDungNhom([ma("A", "S", 3), ma("A", "M", 0)]), { khaDung: 0, nguong: 80, deu: false });
-  assert.equal(demMaNhom({ soHet: 0, soSapHet: 6 }), "6 mã");
-  assert.equal(demMaNhom({ soHet: 1, soSapHet: 5 }), "1 hết · 5 sắp hết");
-  assert.equal(demMaNhom({ soHet: 1, soSapHet: 0 }), "1 mã");
+test("cần xử lý: nhóm theo phân hệ, số nhóm là tổng việc, gấp và nút làm ngay lên đầu, bỏ nhóm rỗng", () => {
+  const tabs = chiaViec([
+    { loai: "donNhap", so: 2, ma: "DB-0091" },
+    { loai: "khachYeuCauHuy", so: 1, ma: "SPE-1", moc: "2026-11-27T19:13:00" },
+    { loai: "matKetNoi", so: 1, ma: "LAZADA", ten: "Gian hàng Lazada", moc: "2026-11-27T09:40:00" },
+    { loai: "choNhat", so: 5, kho: "Kho tổng", moc: "2026-11-27T12:00:00", khoId: 22 },
+    { loai: "treHen", so: 1, ma: "PX-TRF-1", kho: "Kho tổng", kho2: "Cửa hàng Nghệ An", moc: "2026-11-27T15:00:00", khoId: 22 },
+    { loai: "loiDongBo", so: 3, kenh: [{ kenhId: 2, maKenh: "SHOPIFY", tenKenh: "Cửa hàng Shopify", so: 3 }] },
+    { loai: "khong_biet", so: 9 },
+  ], BAY_GIO, true);
+  assert.deepEqual(tabs.map((x) => [x.id, x.so, x.gap]), [["ban", 7, true], ["kho", 6, true]]);
+  const ban = tabs[0].dong;
+  assert.equal(ban[0].loai, "matKetNoi", "gấp và có nút Kết nối lại đứng đầu");
+  assert.equal(ban[0].ten, "Gian hàng Lazada mất kết nối");
+  assert.equal(ban[0].to, "/channels/lazada/setup");
+  assert.equal(ban.at(-1).loai, "donNhap");
+  assert.equal(ban.at(-1).donVi, "đơn");
+  assert.equal(ban.find((x) => x.loai === "loiDongBo").to, "/channels/shopify/products?trangThai=loi");
+  const kho = tabs[1].dong;
+  assert.equal(kho[0].loai, "treHen");
+  assert.equal(kho[0].khoId, 22, "trang chuyển kho xem theo kho làm việc");
+  assert.equal(kho[0].phu, "PX-TRF-1 · Kho tổng → Nghệ An, trễ 6 giờ");
+  assert.equal(kho[1].phu, "Kho tổng · lâu nhất chờ 9 giờ");
+  assert.equal(kho[1].khoId, null, "danh sách đơn bán không theo kho làm việc");
+  const chiMua = chiaViec([
+    { loai: "choNhat", so: 5, kho: "Kho tổng", moc: "2026-11-27T12:00:00" },
+    { loai: "muaQuaHan", so: 1, ma: "PO-1", ten: "NCC A", moc: "2026-11-25T00:00:00" },
+  ], BAY_GIO, true);
+  assert.deepEqual(chiMua.map((x) => x.id), ["mua", "kho"], "nhóm có việc gấp lên đầu");
+  assert.equal(lauChua("2026-11-27T21:00:00", BAY_GIO), "13 phút");
+  assert.equal(duongDanLoiDongBo("KHONG_CO"), "/channels");
 });
 
-test("cần bổ sung: dùng nhóm của máy chủ; máy chủ cũ thì gom các mã liền nhau cùng sản phẩm và kho", () => {
-  const nhom = [{ sanPhamId: 7, tenSanPham: "Quần", khoId: 1, soHet: 0, soSapHet: 1, dong: [] }];
-  assert.equal(nhomCanBoSung({ nhom }), nhom);
-  const dong = [
-    ma("Đen", "S", 0, 80, { tenSanPham: "Áo", khoId: 1, tenKho: "Kho tổng", laKhoTong: true }),
-    ma("Xám", "21 Inch", 1, 80, { tenSanPham: "Quần", khoId: 1 }),
-    ma("Xám", "22 Inch", 1, 80, { tenSanPham: "Quần", khoId: 1 }),
-    ma("Xám", "22 Inch", 1, 80, { tenSanPham: "Quần", khoId: 2 }),
-  ];
-  const kq = nhomCanBoSung({ dong });
-  assert.deepEqual(kq.map((n) => [n.tenSanPham, n.khoId, n.dong.length, n.soHet, n.soSapHet]), [
-    ["Áo", 1, 1, 1, 0],
-    ["Quần", 1, 2, 0, 2],
-    ["Quần", 2, 1, 0, 1],
-  ]);
-  assert.deepEqual(nhomCanBoSung(undefined), []);
+test("hoạt động: gộp từ 3 sự kiện cùng người cùng kho cách ≤ 60 phút; không gộp đơn yêu cầu hủy, đơn từ 2 triệu", () => {
+  const ban = (id, gio, them = {}) => ({ loai: "ban_quay", id, ma: `POS-${id}`, thoiGian: `2026-11-27T${gio}:00`, khoId: 1, tenKho: "Cửa hàng Hà Nội", nguoi: "Bảo Ngọc", soTien: 300000, soLuong: 1, ...them });
+  const ds = [ban(5, "20:57"), ban(4, "20:20"), ban(3, "19:40"), ban(2, "19:16"), ban(1, "17:00"),
+    { loai: "don_moi", id: 9, ma: "SPE-9", thoiGian: "2026-11-27T19:00:00", khoId: 22, maKenh: "SHOPEE", soTien: 100000, coYeuCauHuy: true }];
+  const g = gopSuKien(ds);
+  assert.equal(g[0].nhom, true);
+  assert.deepEqual(g[0].ds.map((x) => x.id), [5, 4, 3, 2]);
+  assert.equal(g.length, 3, "nhóm 4 đơn, đơn yêu cầu hủy, đơn lúc 17:00 cách quá xa");
+  const lon = gopSuKien([ban(1, "10:00", { soTien: 2500000 }), ban(2, "10:10"), ban(3, "10:20")]);
+  assert.equal(lon.length, 3, "còn 2 đơn thường thì không đủ 3 để gộp");
+  const xen = gopSuKien([ban(1, "10:00"), { loai: "huy", id: 7, ma: "SPE-7", thoiGian: "2026-11-27T09:50:00" }, ban(2, "09:45")]);
+  assert.deepEqual(xen.map((x) => x.id), [1, 7, 2], "nhóm chưa đủ 3 trải ra vẫn đúng thứ tự giờ");
+  const c = cauSuKien({ loai: "nhan_thieu", ma: "PX-TRF-0412", tenKho: "Cửa hàng Hà Nội", soLuong: 20, soNhan: 18, nguoi: "Ngọc Lan" }, true);
+  assert.equal(c.truoc, "Hà Nội nhận thiếu hàng chuyển");
+  assert.equal(gon(c.phu), "Nhận 18/20 cái · Ngọc Lan");
 });
