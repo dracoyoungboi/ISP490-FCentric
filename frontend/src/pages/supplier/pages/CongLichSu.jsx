@@ -10,7 +10,6 @@ import { KhungLoiTai, KhungXuongCong } from '@/components/supplier-portal/TrangT
 import { cachXuLyLichSu, nhanHangLoi } from '@/components/supplier-portal/congUtils';
 import { xuLyLoiTai } from '@/components/supplier-portal/loiCong';
 import { NHAN_KET_QUA_BAO_GIA } from '@/constants/congNhaCungCap';
-import { LUA_CHON_SO_DONG } from '@/constants/phanTrang';
 import { duongDanBaoGia, duongDanBienBan } from '@/components/supplier-portal/phienCong';
 import { useCongNcc, useTieuDeCong } from '@/components/supplier-portal/useCongNcc';
 import congNhaCungCapService from '@/services/congNhaCungCapService';
@@ -28,6 +27,10 @@ const NUT_PHU = 'h-10 border-bo-border bg-bo-surface px-4 text-bo-foreground hov
 const TRE_TIM = 300;
 /** Cổng mặc định 10 dòng mỗi trang (trang quản trị 20): nhà cung cấp thường chỉ tra vài chứng từ gần đây. */
 const SO_DONG_MAC_DINH = 10;
+/** Cổng bỏ lựa chọn 100 dòng: nhà cung cấp chỉ có vài chục chứng từ, 50 dòng đã đủ xem một lượt. */
+const LUA_CHON_SO_DONG = [10, 20, 50];
+/** Máy tính rộng (≥1024px): bảng không cần cuộn ngang nên đầu bảng dính trên cùng khi cuộn trang dài. */
+const DAU_BANG_DINH = 'lg:sticky lg:top-0 lg:z-10 lg:shadow-[0_1px_0_var(--color-bo-border)]';
 const NGAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Đổi vài tham số trên địa chỉ (null / rỗng: bỏ tham số), giữ các tham số khác. */
@@ -132,9 +135,10 @@ export default function CongLichSu() {
 
     return (
         <KhungCongNhaCungCap tenNhaCungCap={phien.nhaCungCap?.ten} email={phien.nhaCungCap?.email} onThoat={thoat} tab="lich-su">
-            {/* Khối trắng luôn kéo tới sát chân trang (chốt 26/11), cùng Cần xử lý: mép dưới không nhảy khi đổi tab */}
+            {/* Khối trắng luôn kéo tới sát chân trang (chốt 26/11), cùng Cần xử lý: mép dưới không nhảy khi đổi tab.
+                Không overflow-hidden: khối cắt nội dung thì đầu bảng không dính được khi cuộn trang. */}
             <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col p-4 md:p-6">
-                <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+                <div className="flex flex-1 flex-col rounded-xl border border-bo-border bg-bo-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
                     <div className="px-4 pt-5 pb-4 md:px-6 md:pt-6">
                         <h1 className={TIEU_DE_TRANG}>{t("Lịch sử báo giá và hàng lỗi")}</h1>
                     </div>
@@ -249,6 +253,7 @@ export default function CongLichSu() {
                                         total={tong}
                                         onPageChange={doiTrang}
                                         onSizeChange={(so) => doiThamSo({ so: so === SO_DONG_MAC_DINH ? null : String(so) })}
+                                        sizeOptions={LUA_CHON_SO_DONG}
                                         canGiua
                                     />
                                 </div>
@@ -323,9 +328,9 @@ const moKhiBamDong = (onMo, id) => (e) => {
 function BangBaoGia({ ds, onMo }) {
     return (
         <>
-            <div className="hidden overflow-x-auto md:block">
+            <div className="hidden overflow-x-auto md:block lg:overflow-visible">
                 <table className="w-full min-w-[760px] text-sm">
-                    <thead>
+                    <thead className={DAU_BANG_DINH}>
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
                             <th scope="col" className={cn(TIEU_DE_COT, COT_DAU)}>{t("Đơn mua", { context: "nhan" })}</th>
                             <th scope="col" className={TIEU_DE_COT}>{t("Ngày yêu cầu")}</th>
@@ -442,9 +447,9 @@ function HangLoi({ dong }) {
 function BangTraHang({ ds, onMo }) {
     return (
         <>
-            <div className="hidden overflow-x-auto md:block">
+            <div className="hidden overflow-x-auto md:block lg:overflow-visible">
                 <table className="w-full min-w-[820px] text-sm">
-                    <thead>
+                    <thead className={DAU_BANG_DINH}>
                         <tr className="border-b border-bo-border bg-bo-surface-subtle">
                             <th scope="col" className={cn(TIEU_DE_COT, COT_DAU)}>{t("Biên bản")}</th>
                             <th scope="col" className={TIEU_DE_COT}>{t("Ngày lập")}</th>
