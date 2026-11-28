@@ -102,13 +102,13 @@ function DauTrang({ boLoc, setBoLoc, dsKho, data, loading, gio, onTaiLai, chiSo,
     { ...CHI_SO[0], gt: a?.doanhThu, phu: <SoVoi tyLe={tyLeTang(a?.doanhThu, b?.doanhThu)} /> },
     { ...CHI_SO[1], gt: a?.loiNhuan, phu: <BienLai a={a} b={b} /> },
     { ...CHI_SO[2], gt: a?.giaVon, phu: <span className="text-bo-muted">{a && Number(a.doanhThu) ? t("{{tyLe}} doanh thu", { tyLe: formatPercent(Number(a.giaVon) / Number(a.doanhThu)) }) : "—"}</span> },
-    { ...CHI_SO[3], gt: a?.soDon, phu: <span className="text-bo-muted">{a && Number(a.soDon) ? t("TB {{tb}} / đơn", { tb: formatCurrency(Number(a.doanhThu) / Number(a.soDon)) }) : "—"}</span> },
+    { ...CHI_SO[3], gt: a?.soDon, phu: <span className="text-bo-muted">{a && Number(a.soDon) > 0 ? t("TB {{tb}} / đơn", { tb: formatCurrency(Number(a.doanhThu) / Number(a.soDon)) }) : "—"}</span> },
   ] : [
     { ...CHI_SO[0], gt: a?.doanhThu, phu: <SoVoi tyLe={tyLeTang(a?.doanhThu, b?.doanhThu)} /> },
-    { ...CHI_SO[3], gt: a?.soDon, phu: <span className="text-bo-muted">{a && Number(a.soDon) ? t("TB {{tb}} / đơn", { tb: formatCurrency(Number(a.doanhThu) / Number(a.soDon)) }) : "—"}</span> },
+    { ...CHI_SO[3], gt: a?.soDon, phu: <span className="text-bo-muted">{a && Number(a.soDon) > 0 ? t("TB {{tb}} / đơn", { tb: formatCurrency(Number(a.doanhThu) / Number(a.soDon)) }) : "—"}</span> },
     {
       ma: "cuaToi", ten: t("Đơn của bạn"), tien: false, chiXem: true, gt: toi.soDon,
-      phu: <span className="text-bo-muted">{toi.soDon ? t("{{doanhThu}} · {{tyLe}} doanh thu", { doanhThu: formatCurrencyCompact(toi.doanhThu), tyLe: formatPercent(toi.tyTrong, 0) }) : t("Chưa có đơn đã giao")}</span>,
+      phu: <span className="text-bo-muted">{Number(toi.soDon) > 0 ? t("{{doanhThu}} · {{tyLe}} doanh thu", { doanhThu: formatCurrencyCompact(toi.doanhThu), tyLe: formatPercent(toi.tyTrong, 0) }) : t("Chưa có đơn đã giao")}</span>,
     },
   ];
   return (
@@ -380,7 +380,7 @@ function BangChiTiet({ data, tienThu, loading, loi, onTaiLai, coGiaVon }) {
       error={Boolean(loi)}
       loading={loading && !data}
       onRetry={onTaiLai}
-      right={<span className="hidden text-xs text-bo-muted @min-[720px]:inline">{t("Doanh thu theo ngày giao hàng · tiền thu theo ngày thu")}</span>}
+      right={<span className="hidden text-xs text-bo-muted @min-[720px]:inline">{t("Doanh thu theo ngày giao hàng, chưa gồm thuế GTGT và phí vận chuyển · tiền thu theo ngày thu")}</span>}
       scope={data ? t("{{count}} {{donVi}} có số liệu", { count: rows.length, donVi: tenKy.toLowerCase() }) : null}
       title={t("Chi tiết theo {{donVi}}", { donVi: tenKy.toLowerCase() })}
     >

@@ -21,6 +21,7 @@ import { laKhoAo } from "@/pages/warehouse/loaiKho";
 import { khoService, getMineKhoList } from "@/services/khoService";
 import { baoCaoSanPhamService } from "@/services/baoCaoSanPhamService";
 import { MAU2 } from "@/pages/dashboard/admin/tong-quan-moi/mau";
+import GiaiThich from "@/pages/dashboard/admin/tong-quan-moi/GiaiThich";
 import NutXuatExcel from "@/components/shared/NutXuatExcel";
 import useCoQuyenXuatBaoCao from "@/hooks/useCoQuyenXuatBaoCao";
 import { cn } from "@/lib/utils";
@@ -41,12 +42,14 @@ import { t, tDuLieu } from "@/i18n";
  * - Chân bảng: dòng tổng của nhóm đang xem, phân trang, giờ cập nhật. Xuất Excel do máy chủ dựng (cùng số với màn).
  * - Tab, kỳ, kho, kênh nằm trên đường dẫn (?nhom, ?ky | ?tu&den, ?kho, ?kenh): thẻ Bán chạy ở Tổng quan mở đúng kỳ và kho.
  * - Dòng phụ ghi hạng theo số lượng kèm lên / xuống so với kỳ trước (FO-091 bảng xếp hạng bán chạy).
- * Số bán tính như Báo cáo doanh thu (ngày giao hàng, đơn đã xuất / hoàn thành); so với kỳ liền trước cùng số ngày.
+ * Số bán tính như Báo cáo doanh thu (ngày giao hàng, đơn đã xuất đủ hàng; hàng trả, đơn hoàn trừ ở ngày trả về); so với kỳ
+ * liền trước cùng số ngày.
  */
 
 const TH = "h-10 px-3 text-[11px] font-semibold uppercase tracking-wide text-bo-muted whitespace-nowrap";
 const O_NGAY = "h-9 min-w-0 rounded-md border border-bo-border bg-white px-2 text-sm text-bo-foreground focus:border-bo-primary focus:outline-none focus:ring-2 focus:ring-bo-primary/15";
 const SAP_HET = 14;
+const DU_HANG = 90; // cùng ngưỡng máy chủ (BaoCaoSanPhamService.DU_HANG_TREN_NGAY)
 
 const loiCua = (e) => e?.response?.data?.message || e?.message || "";
 // Chữ thay thế máy chủ điền khi trống (BaoCaoSanPhamService, Excel dùng chung nên máy chủ giữ tiếng Việt) → dịch; tên thật giữ nguyên
@@ -70,16 +73,47 @@ function SoVoi({ nay, truoc }) {
 /**
  * Đủ bán bao nhiêu ngày: dưới 7 đỏ, dưới 14 cam; hết hàng mà có bán thì "đã hết". So ngưỡng trên số máy chủ gửi (cùng
  * phép so của nhãn tình trạng), số hiện ra làm tròn xuống: 13,7 ngày là "13 ngày" màu cam, khớp nhãn Sắp hết hàng.
+ * soNgayKy (chỉ ở bảng): hàng về kho giữa kỳ nên bình quân chia ít ngày hơn kỳ thì ghi "tính N ngày" bên dưới, để người
+ * xem hiểu vì sao bán ít mà đủ bán ngắn.
  */
-function DuBan({ p }) {
+function DuBan({ p, soNgayKy }) {
   if (p.duBanNgay == null) return <span className="text-bo-muted">{N(p.khaDung) ? t("không bán") : "—"}</span>;
   if (!N(p.khaDung)) return <span className="font-semibold text-bo-danger">{t("đã hết")}</span>;
   const d = N(p.duBanNgay);
   const n = Math.floor(d);
+  const soNgayBan = N(p.soNgayBan);
   return (
-    <span className={cn("whitespace-nowrap", d < 7 ? "font-semibold text-bo-danger" : d < SAP_HET ? "font-semibold text-bo-warning" : "text-slate-700")}>
-      {d < 1 ? t("dưới 1 ngày") : n > 365 ? t("hơn 1 năm") : t("{{n}} ngày", { n: formatNumber(n) })}
-    </span>
+    <>
+      <span className={cn("whitespace-nowrap", d < 7 ? "font-semibold text-bo-danger" : d < SAP_HET ? "font-semibold text-bo-warning" : "text-slate-700")}>
+        {d < 1 ? t("dưới 1 ngày") : n > 365 ? t("hơn 1 năm") : t("{{n}} ngày", { n: formatNumber(n) })}
+      </span>
+      {soNgayKy && soNgayBan > 0 && soNgayBan < soNgayKy ? (
+        <span className="block whitespace-nowrap text-xs text-bo-muted" title={t("Hàng về kho giữa kỳ: bình quân bán tính từ ngày hàng về")}>
+          {t("tính {{n}} ngày", { n: formatNumber(soNgayBan), count: soNgayBan })}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+/** Chữ "Đủ bán" gạch chấm: bấm mở hộp giải thích cách tính (công thức, số ngày bán của kỳ, ngưỡng tình trạng). */
+function NhanDuBan({ soNgayKy, align }) {
+  return (
+    <GiaiThich
+      align={align}
+      tieuDe={t("Đủ bán")}
+      moTa={t("Số ngày hàng hiện có còn bán được nếu bán nhanh như trong kỳ đang xem.")}
+      congThuc={[t("Đủ bán = Khả dụng ÷ Bán mỗi ngày"), t("Bán mỗi ngày = Đã bán ÷ Số ngày bán")]}
+      dong={[
+        [t("Đã bán"), t("mọi kênh, đã trừ hàng trả")],
+        [t("Số ngày bán"), soNgayKy ? t("{{n}} ngày của kỳ", { n: formatNumber(soNgayKy), count: soNgayKy }) : "—"],
+        [t("Dưới {{n}} ngày", { n: SAP_HET }), t("Sắp hết hàng")],
+        [t("Trên {{n}} ngày", { n: DU_HANG }), t("Dư hàng")],
+      ]}
+      ghiChu={t("Hàng về kho lần đầu giữa kỳ thì số ngày bán tính từ ngày hàng về. Số đổi theo kỳ đang chọn; mã không bán được cái nào ghi “không bán”.")}
+    >
+      {t("Đủ bán")}
+    </GiaiThich>
   );
 }
 
@@ -557,8 +591,8 @@ export default function BaoCaoSanPham() {
                     {/* Cột chia theo độ dài số: Doanh thu ("123,4 triệu ₫") và Đủ bán ("dưới 1 ngày") rộng hơn Đã bán, Khả dụng,
                         kẻo bốn cột bằng nhau ở khổ 375px cắt mất chữ */}
                     <dl className="mt-2.5 grid grid-cols-[0.7fr_1.3fr_0.8fr_1.2fr] gap-1 rounded-lg bg-bo-surface-subtle px-2 py-2 text-center">
-                      {[[t("Đã bán"), formatNumber(p.soLuong)], [t("Doanh thu"), formatCurrencyCompact(p.doanhThu)], [t("Khả dụng"), formatNumber(p.khaDung)], [t("Đủ bán"), <DuBan key="d" p={p} />]].map(([nhan, gt]) => (
-                        <div key={nhan} className="min-w-0">
+                      {[[t("Đã bán"), formatNumber(p.soLuong)], [t("Doanh thu"), formatCurrencyCompact(p.doanhThu)], [t("Khả dụng"), formatNumber(p.khaDung)], [<NhanDuBan key="nd" soNgayKy={bc?.soNgay} align="end" />, <DuBan key="d" p={p} />]].map(([nhan, gt], i) => (
+                        <div key={i} className="min-w-0">
                           <dt className="truncate text-[11px] leading-4 text-bo-muted">{nhan}</dt>
                           <dd className="truncate text-[14px] font-semibold leading-6 tabular-nums">{gt}</dd>
                         </div>
@@ -592,7 +626,7 @@ export default function BaoCaoSanPham() {
                   ))}
                   <th scope="col" className={cn(TH, "text-left")}>{t("Theo ngày")}</th>
                   <th scope="col" className={cn(TH, "text-right")}>{t("Khả dụng")}</th>
-                  <th scope="col" className={cn(TH, "text-right")} title={t("Khả dụng chia số bán bình quân một ngày của mọi kênh")}>{t("Đủ bán")}</th>
+                  <th scope="col" className={cn(TH, "text-right")}><NhanDuBan soNgayKy={bc?.soNgay} align="end" /></th>
                   <th scope="col" className={cn(TH, "text-left")}>{t("Tình trạng")}</th>
                   <th scope="col" className={cn(TH, "text-center")}>{t("Thao tác")}</th>
                 </tr>
@@ -632,7 +666,7 @@ export default function BaoCaoSanPham() {
                           <b className={cn("font-semibold", N(p.khaDung) ? "text-bo-foreground" : "text-bo-muted")}>{formatNumber(p.khaDung)}</b>
                           {N(p.dangVe) ? <span className="block text-xs text-bo-primary">{t("+{{dangVe}} đang về", { dangVe: formatNumber(p.dangVe) })}</span> : null}
                         </td>
-                        <td className="px-3 py-3 text-right tabular-nums"><DuBan p={p} /></td>
+                        <td className="px-3 py-3 text-right tabular-nums"><DuBan p={p} soNgayKy={bc?.soNgay} /></td>
                         <td className="px-3 py-3"><TinhTrang ma={p.tinhTrang} /></td>
                         <td className="px-3 py-3 text-center">
                           <button type="button" className={NUT_MO} aria-expanded={dangMo} aria-label={dangMo ? t("Thu gọn chi tiết {{ten}}", { ten: p.tenSanPham }) : t("Xem chi tiết {{ten}}", { ten: p.tenSanPham })} onClick={() => doiMo(p.id)}>
@@ -651,7 +685,7 @@ export default function BaoCaoSanPham() {
               </tbody>
             </table>
             <p className="border-t border-[#eef1f5] px-5 py-3 text-xs text-bo-muted max-md:px-4">
-              {t("Tính theo ngày giao hàng, đơn đã xuất kho hoặc hoàn thành; hàng khách trả tại quầy trừ vào ngày trả. Doanh thu đã trừ giảm giá, gồm thuế GTGT, chưa gồm phí vận chuyển. Khả dụng là số hiện tại, đã trừ hàng đang giữ cho đơn chưa xuất và phiếu chuyển kho. Đủ bán = khả dụng chia số bán bình quân một ngày của mọi kênh; hàng về kho giữa kỳ thì tính từ ngày về.")}
+              {t("Tính theo ngày giao hàng, đơn đã xuất đủ hàng; hàng khách trả tại quầy và đơn sàn bị hoàn trừ vào ngày trả về, nên số của kỳ đã qua không đổi. Doanh thu đã trừ giảm giá, không gồm thuế GTGT và phí vận chuyển, khớp Báo cáo doanh thu và Tổng quan. Khả dụng là số hiện tại, đã trừ hàng đang giữ cho đơn chưa xuất và phiếu chuyển kho.")}
             </p>
           </>
         )}
