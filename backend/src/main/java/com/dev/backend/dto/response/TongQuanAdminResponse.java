@@ -3,214 +3,131 @@ package com.dev.backend.dto.response;
 import java.util.List;
 
 /**
- * Dữ liệu màn Tổng quan của quản trị viên (GET /api/v1/admin/dashboard/tong-quan).
+ * Dữ liệu màn Tổng quan của quản trị viên (GET /api/v1/admin/dashboard/tong-quan), làm lại 28/11/2026 theo đặc tả bản 2.
  *
- * - Tiền tính bằng đồng (VND), số lượng là số sản phẩm; đều là số nguyên, chưa định dạng.
- * - Ngày dạng "yyyy-MM-dd", thời điểm dạng "yyyy-MM-dd'T'HH:mm:ss" theo giờ của CSDL (giờ Việt Nam).
- * - Khối nào truy vấn lỗi thì để null và có tên trong {@code khoiLoi}; các khối khác vẫn trả về (UC 11.1, luồng A2).
+ * <ul>
+ *   <li>Tiền tính bằng đồng (VND), số lượng là số cái; số nguyên, chưa định dạng.</li>
+ *   <li>Thời điểm dạng "yyyy-MM-dd'T'HH:mm:ss", ngày "yyyy-MM-dd", đều theo giờ Việt Nam.</li>
+ *   <li>Khối nào truy vấn lỗi thì để null và có tên trong {@code khoiLoi}; các khối khác vẫn trả về (UC 11.1, luồng A2).</li>
+ *   <li>Doanh thu: tiền hàng đơn đã xuất đủ, sau giảm giá, không gồm thuế GTGT và phí vận chuyển; hàng trả và đơn hoàn trừ
+ *       vào ngày trả. Khối Tồn kho, Cần xử lý, Hoạt động không đổi theo kỳ.</li>
+ * </ul>
  */
 public record TongQuanAdminResponse(
         String thoiDiem,
-        String ky,
+        Ky ky,
         Integer khoId,
         List<Kho> danhSachKho,
+        /** Ngày đặt đơn bán sớm nhất: lịch chọn khoảng không cho chọn trước ngày này. */
+        String ngayDauDuLieu,
         List<String> khoiLoi,
-        ChiSo chiSo,
-        DoanhThu doanhThu,
-        List<DoanhThuKho> doanhThuTheoKho,
-        List<Kenh> theoKenh,
-        ViecCanXuLy viecCanXuLy,
+        KetQua ketQua,
+        BieuDo bieuDo,
+        PhanBo phanBo,
+        List<SanPhamBanChay> banChay,
         TonKho tonKho,
-        NhapXuat nhapXuat,
-        List<SanPhamBanChay> sanPhamBanChay,
-        HangCanBoSung hangCanBoSung,
-        List<HoatDong> hoatDongGanDay
+        List<Viec> viecCanXuLy,
+        HoatDong hoatDong
 ) {
 
-    public static final String KHOI_CHI_SO = "chiSo";
-    public static final String KHOI_DOANH_THU = "doanhThu";
-    public static final String KHOI_DOANH_THU_THEO_KHO = "doanhThuTheoKho";
-    public static final String KHOI_THEO_KENH = "theoKenh";
-    public static final String KHOI_VIEC_CAN_XU_LY = "viecCanXuLy";
+    public static final String KHOI_KET_QUA = "ketQua";
+    public static final String KHOI_BIEU_DO = "bieuDo";
+    public static final String KHOI_PHAN_BO = "phanBo";
+    public static final String KHOI_BAN_CHAY = "banChay";
     public static final String KHOI_TON_KHO = "tonKho";
-    public static final String KHOI_NHAP_XUAT = "nhapXuat";
-    public static final String KHOI_SAN_PHAM_BAN_CHAY = "sanPhamBanChay";
-    public static final String KHOI_HANG_CAN_BO_SUNG = "hangCanBoSung";
-    public static final String KHOI_HOAT_DONG = "hoatDongGanDay";
-
-    /** Kho đang hoạt động (không gồm kho trung chuyển). */
-    public record Kho(Integer id, String maKho, String tenKho, boolean laKhoTong) {}
-
-    /** 4 thẻ chỉ số đầu trang. */
-    public record ChiSo(
-            long doanhThuHomNay,
-            long doanhThuCungGioTuanTruoc,
-            long soDonGiaoHomNay,
-            /** Doanh thu từng giờ hôm nay, từ 0 giờ đến giờ hiện tại. */
-            List<Long> doanhThuTheoGio,
-            long soDonMoiHomNay,
-            long soDonMoiCungGioTuanTruoc,
-            /** Số đơn bán mới 14 ngày gần nhất, ngày cuối là hôm nay (chưa hết ngày). */
-            List<SoDonNgay> soDonMoiTheoNgay,
-            int thang,
-            long doanhThuThangNay,
-            long loiNhuanThangNay,
-            long doanhThuThangTruoc,
-            long loiNhuanThangTruoc
-    ) {}
-
-    public record SoDonNgay(String ngay, long soDon) {}
-
-    /** Doanh thu và lợi nhuận gộp theo kỳ xem. */
-    public record DoanhThu(
-            /** "ngay" hoặc "thang". */
-            String nhom,
-            /** Kỳ đã trọn (không gồm ngày/tháng đang chạy): từ ngày, đến ngày (bao gồm). */
-            String tuNgay,
-            String denNgay,
-            List<Diem> diem,
-            long tongDoanhThu,
-            long tongLoiNhuan,
-            long tongSoDon,
-            long doanhThuKyTruoc,
-            /** "ky_truoc" (7 hoặc 30 ngày liền trước) hoặc "cung_ky_nam_truoc" (12 tháng). */
-            String kieuSoSanh,
-            int nam,
-            long luyKeNam,
-            long caNamTruoc,
-            /**
-             * Kỳ so sánh chia theo cùng cách (ngày hoặc tháng), chỉ gồm ngày/tháng đã trọn: phần tử thứ i so với
-             * phần tử thứ i đã trọn của {@code diem}. Tổng doanh thu bằng {@code doanhThuKyTruoc}.
-             */
-            List<Diem> diemKyTruoc
-    ) {}
-
-    /** Một điểm trên biểu đồ: một ngày hoặc một tháng (tu = ngày đầu). */
-    public record Diem(String tu, long doanhThu, long loiNhuan, long soDon, boolean chuaKetThuc) {}
-
-    public record DoanhThuKho(Integer khoId, String tenKho, boolean laKhoTong,
-                              long doanhThu, long soDon, long doanhThuKyTruoc) {}
-
-    /** maKenh: mã kênh trong kenh_ban_hang, hoặc POS (bán tại quầy), TRUC_TIEP (đơn tạo tay). */
-    public record Kenh(String maKenh, String tenKenh, long doanhThu, long soDon, long soDonHoan) {}
-
-    public record ViecCanXuLy(
-            long donNhapChuaGuiKho,
-            long donChoXuatKho,
-            long phieuNhatChuaPhanCong,
-            long phieuXuatChoXuatKho,
-            long yeuCauNhapChoDuyet,
-            long phieuNhapChoNhapKho,
-            long phieuChuyenChoDuyet,
-            long phieuChuyenChoXuatHang,
-            long dotKiemKeDangMo,
-            /** Null khi khối Tồn kho lỗi. */
-            Long hetHang,
-            Long thieuHang,
-            long taiKhoanBiKhoa,
-            /**
-             * Chỉ có khi xem "Tất cả kho" (khoId = null): bốn việc trên tách theo kho, vì Đơn chờ xuất,
-             * Phiếu nhặt hàng và Chuyển kho nội bộ chỉ xem kho làm việc. Null khi đang xem một kho.
-             */
-            List<ViecTheoKho> theoKho,
-            /** Đơn mua đang vận chuyển (trạng thái 3) đã qua ngày giao dự kiến mà chưa nhận đủ hàng. */
-            long donMuaQuaHan,
-            /**
-             * Sản phẩm đồng bộ lỗi theo từng kênh đang hoạt động (cùng số "Lỗi" ở trang Sản phẩm của kênh); chỉ kênh có lỗi.
-             * Không lọc theo kho. Null khi không đếm được (các việc khác vẫn trả về).
-             */
-            List<LoiDongBoKenh> loiDongBo,
-            /**
-             * Phiếu chuyển kho nhận lệch đang chờ xử lý chênh lệch (quản trị viên luôn xử lý được); kho đang xem là kho
-             * xuất hoặc kho nhận của phiếu.
-             */
-            long phieuChuyenChoXuLyLech,
-            /**
-             * phieuXuatChoXuatKho tách theo trạng thái phiếu xuất bán hàng: Nháp (chờ đóng gói, 0) và Chờ xuất (đã đóng
-             * gói, 6) — mỗi số mở đúng một tab của danh sách phiếu xuất. phieuXuatChoXuatKho giữ tổng cho màn cũ.
-             */
-            long phieuXuatChoDongGoi,
-            long phieuXuatChoXuat
-    ) {}
-
-    public record ViecTheoKho(Integer khoId, String tenKho, long donChoXuatKho, long phieuNhatChuaPhanCong,
-                              long phieuChuyenChoDuyet, long phieuChuyenChoXuatHang) {}
-
-    public record LoiDongBoKenh(Integer kenhId, String maKenh, String tenKenh, long soLoi) {}
+    public static final String KHOI_VIEC = "viecCanXuLy";
+    public static final String KHOI_HOAT_DONG = "hoatDong";
 
     /**
-     * Tồn kho theo 3 con số của SRS (khả dụng = tồn thực tế − đang giữ) và 4 mức tình trạng tính trên
-     * từng cặp (kho, biến thể đang kinh doanh): Hết hàng (khả dụng ≤ 0), Thiếu hàng (≤ ngưỡng),
-     * Bình thường (≤ ngưỡng × hệ số dư), Dư hàng.
+     * Kỳ đang xem: [tu, den) và kỳ so sánh [tuTruoc, denTruoc); đường kỳ trước trên biểu đồ vẽ từ bieuDoTruocTu tới
+     * bieuDoTruocDen. nhom: gio | ngay | thang; kieuSoSanh: tuan_truoc | lien_truoc | thang_truoc | nam_truoc.
      */
-    public record TonKho(
-            long tonThucTe,
-            long dangGiu,
-            long khaDung,
-            long giaTri,
-            long soBienThe,
-            long soDong,
-            long hetHang,
-            long thieuHang,
-            long binhThuong,
-            long duHang,
-            long dangVe,
-            long dangChuyen,
-            int nguongMacDinh,
-            int heSoDu,
-            List<TonKhoKho> theoKho,
-            /** Giá trị tồn (theo giá vốn lô) của các dòng Dư hàng. */
-            long giaTriDu,
-            /**
-             * Số dòng Dư hàng không có đơn đã giao nào trong {@code soNgayChamBan} ngày gần nhất (tính ở đúng kho đó).
-             * Null khi không đếm được.
-             */
-            Long duChamBan,
-            /** Số ngày xét "chưa bán được" (cấu hình SLOW_MOVING_DAYS, mặc định 60). */
-            int soNgayChamBan
-    ) {}
+    public record Ky(String ma, String tu, String den, String tuTruoc, String denTruoc, String bieuDoTruocTu,
+                     String bieuDoTruocDen, String nhom, int soDiem, String kieuSoSanh, boolean dangChay) {}
 
-    public record TonKhoKho(Integer khoId, String tenKho, boolean laKhoTong,
-                            long tonThucTe, long khaDung, long giaTri) {}
-
-    public record NhapXuat(String nhom, List<DiemNhapXuat> diem, long tongNhap, long tongXuat,
-                           /** true khi xem tất cả kho: đã bỏ hai chặng của chuyển kho nội bộ. */
-                           boolean boChuyenKhoNoiBo) {}
-
-    public record DiemNhapXuat(String tu, long nhap, long xuat, boolean chuaKetThuc) {}
-
-    public record SanPhamBanChay(Integer sanPhamId, String maSanPham, String tenSanPham,
-                                 long soLuongBan, long doanhThu, long khaDung,
-                                 /** Số ngày của kỳ, để tính lượng bán trung bình mỗi ngày. */
-                                 int soNgay) {}
+    /** Kho đang hoạt động (không gồm kho trung chuyển). ngayMo: ngày tạo kho, để biết kho mới mở. */
+    public record Kho(Integer id, String maKho, String tenKho, boolean laKhoTong, String ngayMo) {}
 
     /**
-     * tongSo: số mã Hết hàng + Thiếu hàng (cả hệ thống hoặc kho đang xem). nhom: vài nhóm (sản phẩm, kho) tệ nhất, mỗi nhóm
-     * đủ các mã cần bổ sung của nó. dong: các mã của những nhóm đó xếp phẳng (giữ cho bản giao diện cũ).
+     * Tổng của một khoảng. doanhThu = tienHangXuat − tienHangTra − thueGtgt; loiNhuan = doanhThu − giaVonXuat + giaVonTraTot
+     * (giá vốn hàng trả bị lỗi không cộng lại); soDon = donXuat − donTra.
      */
-    public record HangCanBoSung(long tongSo, boolean coKhoTong, List<DongBoSung> dong, List<NhomBoSung> nhom) {}
+    public record TongSo(long doanhThu, long tienHangXuat, long tienHangTra, long thueGtgt, long giaVonXuat,
+                         long giaVonTraTot, long giaVonTraLoi, long loiNhuan, long donXuat, long donTra, long soDon) {}
+
+    /** Dải số đầu trang. homQuaCungGio chỉ có khi xem Hôm nay. Chờ xuất: đơn đặt trong kỳ, chưa xuất, chưa hủy. */
+    public record KetQua(TongSo nay, TongSo truoc, TongSo homQuaCungGio, long choXuatSoDon, long choXuatTien,
+                         /** Kho đang xem (hoặc các kho, khi xem tất cả) mở sau đầu kỳ so sánh. */
+                         List<Integer> khoMoTrongKySoSanh) {}
+
+    /** Một điểm của biểu đồ: vị trí tính từ đầu khoảng (giờ, ngày hoặc tháng thứ mấy). */
+    public record Diem(int viTri, long doanhThu, long loiNhuan, long soDon) {}
+
+    /** nay: các điểm đã có của kỳ đang xem (điểm chưa tới không có); truoc: đường kỳ trước. */
+    public record BieuDo(List<Diem> nay, List<Diem> truoc) {}
 
     /**
-     * Các mã cần bổ sung của cùng một sản phẩm tại cùng một kho, mã tệ nhất trước. soHet / soSapHet: số mã khả dụng ≤ 0 /
-     * còn khả dụng nhưng ≤ ngưỡng.
+     * Phân bổ doanh thu. Xem tất cả kho: theoKho + theoKenh. Xem một kho: theoNhom (danh mục gốc) + theoKenh (kênh có đơn ở kho
+     * đó); kho là cửa hàng thì thêm theoNhanVien (người lập đơn bán tại quầy).
      */
-    public record NhomBoSung(Integer sanPhamId, String tenSanPham, Integer khoId, String tenKho, boolean laKhoTong,
-                             int soHet, int soSapHet, List<DongBoSung> dong) {}
+    public record PhanBo(List<DongKho> theoKho, List<DongKenh> theoKenh, List<DongNhom> theoNhom,
+                         List<DongNhanVien> theoNhanVien) {}
+
+    public record DongKho(Integer khoId, String tenKho, boolean laKhoTong, String ngayMo, long doanhThu, long soDon,
+                          long doanhThuTruoc) {}
+
+    /** soDonXuat: đơn xuất trong kỳ; soDonHoan: trong số đó, đơn tới nay đã bị hoàn hoặc trả hết. */
+    public record DongKenh(String maKenh, String tenKenh, long doanhThu, long soDonXuat, long soDonHoan, long doanhThuTruoc) {}
+
+    public record DongNhom(Integer danhMucId, String tenNhom, long doanhThu, long doanhThuTruoc) {}
+
+    public record DongNhanVien(Integer nguoiId, String hoTen, long doanhThu, long soDon) {}
+
+    /** Bán chạy: xếp theo số cái đã trừ hàng trả; anh là ảnh đại diện của sản phẩm (null khi chưa có). */
+    public record SanPhamBanChay(Integer sanPhamId, String maSanPham, String tenSanPham, String anh, long soLuong,
+                                 long doanhThu) {}
 
     /**
-     * deXuat: "chuyen_kho" (chuyển từ Kho tổng) hoặc "yeu_cau_nhap" (nhập về Kho tổng từ nhà cung cấp).
-     * khaDungKhoTong: số Kho tổng có thể chuyển = (tồn − đang giữ) − chờ xuất của đơn bán ở Kho tổng, đúng mức tạo yêu
-     * cầu chuyển kho cho phép; choXuatKhoTong: phần chờ xuất đã trừ. Cả hai null khi chưa có Kho tổng hoặc dòng là
-     * chính Kho tổng.
+     * Tồn kho hiện tại. coTheBan = tonThucTe − giuDon − giuChuyen − giuKhac (mỗi mã mỗi kho không dưới 0, nên tổng có thể lệch
+     * vài cái so với phép trừ các tổng). giaTri: theo giá vốn lô; xem tất cả kho thì gồm giaTriDangChuyen.
      */
-    public record DongBoSung(Integer bienTheId, String maSku, String tenSanPham, String tenMau, String tenKichCo,
-                             Integer khoId, String tenKho, boolean laKhoTong, long khaDung, int nguong,
-                             Long khaDungKhoTong, Long choXuatKhoTong, String deXuat, long soLuongDeXuat) {}
+    public record TonKho(long giaTri, long giaTriDangChuyen, long tonThucTe, long giuDon, long giuChuyen, long giuKhac,
+                         long coTheBan, long dangVe, long dangChuyenDi, long dangChuyenDen, long hangLoiChoTra,
+                         long soMa, long soKho, long het, long sap, long binhThuong, long du, long giaTriDu,
+                         Long duChamBan, int soNgayChamBan, int nguongMacDinh,
+                         List<TonKhoKho> theoKho, CanBoSung canBoSung) {}
+
+    public record TonKhoKho(Integer khoId, String tenKho, boolean laKhoTong, long giaTri, long coTheBan, long het, long sap) {}
+
+    /** Mã hết / sắp hết của kho đang xem (chỉ khi xem một kho). */
+    public record CanBoSung(long tong, List<DongBoSung> dong) {}
 
     /**
-     * loai: nhap_kho, nhap_chuyen_kho, xuat_kho, xuat_chuyen_kho, don_ban, ban_tai_quay, kiem_ke.
-     * doiTac: nhà cung cấp / kho nguồn (nhập), số đơn / kho đích (xuất), kênh (đơn bán), tên đợt (kiểm kê).
+     * khoTongCon: số có thể bán của mã ở Kho tổng (null khi kho đang xem là Kho tổng); dangVe: đơn mua chưa về kho này.
+     * deXuat: chuyen_kho (Kho tổng còn đủ) hoặc yeu_cau_nhap; soLuongDeXuat đưa có thể bán về gấp đôi ngưỡng.
      */
-    public record HoatDong(String loai, Integer id, String maChungTu, String thoiGian, String tenKho,
-                           String nguoiThucHien, Long soLuong, String doiTac, Long soTien) {}
+    public record DongBoSung(Integer bienTheId, Integer sanPhamId, String maSku, String tenSanPham, String tenMau,
+                             String tenKichCo, long coTheBan, int nguong, Long khoTongCon, long dangVe, String deXuat,
+                             long soLuongDeXuat) {}
+
+    /**
+     * Một loại việc. so: tổng số; ma, ten, kho, kho2, moc: chứng từ đứng đầu (cũ nhất / trễ nhất) để ghi dòng phụ; soPhu,
+     * soPhu2: số kèm theo tùy loại; kenh: lỗi đồng bộ theo kênh; khoId: kho của chứng từ đứng đầu.
+     */
+    public record Viec(String loai, long so, String ma, String ten, String kho, String kho2, String moc, long soPhu,
+                       long soPhu2, Integer khoId, List<ViecKenh> kenh) {}
+
+    public record ViecKenh(Integer kenhId, String maKenh, String tenKenh, long so) {}
+
+    /** Hoạt động 2 ngày gần nhất (hôm qua và hôm nay), mới nhất trước; homNay = số sự kiện hôm nay (trước khi gộp). */
+    public record HoatDong(long homNay, List<SuKien> ds) {}
+
+    /**
+     * loai: ban_quay | don_moi | xuat | huy | hoan | tra_quay | nhap_kho | chuyen | nhan_du | nhan_thieu | kiem_ke.
+     * khoId2 / tenKho2: kho bên kia của chuyển kho. soNhan: số cái kho nhận đếm được (nhận chuyển kho).
+     * trangThai: trạng thái hiện tại của đợt kiểm kê ("2" chờ duyệt, "3" đã duyệt).
+     */
+    public record SuKien(String loai, Integer id, String ma, String thoiGian, Integer khoId, String tenKho, Integer khoId2,
+                         String tenKho2, String nguoi, String maKenh, String tenKenh, Long soTien, Long soLuong, Long soMa,
+                         boolean coYeuCauHuy, boolean coHangLoi, Long soNhan, String trangThai) {}
 }

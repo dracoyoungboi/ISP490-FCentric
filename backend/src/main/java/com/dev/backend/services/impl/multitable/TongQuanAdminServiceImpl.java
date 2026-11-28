@@ -1,50 +1,48 @@
 package com.dev.backend.services.impl.multitable;
 
+import com.dev.backend.dto.kiemke.KiemKeDto;
 import com.dev.backend.dto.response.TongQuanAdminResponse;
-import com.dev.backend.dto.response.TongQuanAdminResponse.ChiSo;
+import com.dev.backend.dto.response.TongQuanAdminResponse.BieuDo;
+import com.dev.backend.dto.response.TongQuanAdminResponse.CanBoSung;
 import com.dev.backend.dto.response.TongQuanAdminResponse.Diem;
-import com.dev.backend.dto.response.TongQuanAdminResponse.DiemNhapXuat;
-import com.dev.backend.dto.response.TongQuanAdminResponse.DoanhThu;
-import com.dev.backend.dto.response.TongQuanAdminResponse.DoanhThuKho;
 import com.dev.backend.dto.response.TongQuanAdminResponse.DongBoSung;
-import com.dev.backend.dto.response.TongQuanAdminResponse.HangCanBoSung;
+import com.dev.backend.dto.response.TongQuanAdminResponse.DongKenh;
+import com.dev.backend.dto.response.TongQuanAdminResponse.DongKho;
+import com.dev.backend.dto.response.TongQuanAdminResponse.DongNhanVien;
+import com.dev.backend.dto.response.TongQuanAdminResponse.DongNhom;
 import com.dev.backend.dto.response.TongQuanAdminResponse.HoatDong;
-import com.dev.backend.dto.response.TongQuanAdminResponse.Kenh;
+import com.dev.backend.dto.response.TongQuanAdminResponse.KetQua;
 import com.dev.backend.dto.response.TongQuanAdminResponse.Kho;
-import com.dev.backend.dto.response.TongQuanAdminResponse.LoiDongBoKenh;
-import com.dev.backend.dto.response.TongQuanAdminResponse.NhapXuat;
-import com.dev.backend.dto.response.TongQuanAdminResponse.NhomBoSung;
+import com.dev.backend.dto.response.TongQuanAdminResponse.Ky;
+import com.dev.backend.dto.response.TongQuanAdminResponse.PhanBo;
 import com.dev.backend.dto.response.TongQuanAdminResponse.SanPhamBanChay;
-import com.dev.backend.dto.response.TongQuanAdminResponse.SoDonNgay;
+import com.dev.backend.dto.response.TongQuanAdminResponse.SuKien;
 import com.dev.backend.dto.response.TongQuanAdminResponse.TonKho;
 import com.dev.backend.dto.response.TongQuanAdminResponse.TonKhoKho;
-import com.dev.backend.dto.response.TongQuanAdminResponse.ViecCanXuLy;
-import com.dev.backend.dto.response.TongQuanAdminResponse.ViecTheoKho;
-import com.dev.backend.exception.customize.CommonException;
+import com.dev.backend.dto.response.TongQuanAdminResponse.TongSo;
+import com.dev.backend.dto.response.TongQuanAdminResponse.Viec;
+import com.dev.backend.dto.response.TongQuanAdminResponse.ViecKenh;
+import com.dev.backend.i18n.ThongDiep;
+import com.dev.backend.i18n.LoiThamSoException;
 import com.dev.backend.repository.TongQuanAdminRepository;
-import com.dev.backend.repository.TongQuanAdminRepository.DoanhThuKhoDong;
-import com.dev.backend.repository.TongQuanAdminRepository.DoanhThuNgay;
-import com.dev.backend.repository.TongQuanAdminRepository.HangCanBoSungNhomDong;
-import com.dev.backend.repository.TongQuanAdminRepository.HomNayDong;
 import com.dev.backend.repository.TongQuanAdminRepository.KhoDong;
-import com.dev.backend.repository.TongQuanAdminRepository.NhapXuatNgay;
-import com.dev.backend.repository.TongQuanAdminRepository.SanPhamBanChayDong;
-import com.dev.backend.repository.TongQuanAdminRepository.TonKhoTheoKhoDong;
-import com.dev.backend.repository.TongQuanAdminRepository.TonKhoTongHopDong;
-import com.dev.backend.services.impl.multitable.KhaDungChuyenKhoService.KhaDungChuyen;
+import com.dev.backend.repository.TongQuanQuanTriRepository;
+import com.dev.backend.repository.TongQuanQuanTriRepository.BoSungDong;
+import com.dev.backend.repository.TongQuanQuanTriRepository.DiemChuoi;
+import com.dev.backend.repository.TongQuanQuanTriRepository.TongNhom;
+import com.dev.backend.repository.TongQuanQuanTriRepository.TonTongDong;
+import com.dev.backend.repository.TongQuanQuanTriRepository.ViecDong;
+import com.dev.backend.services.impl.kiemke.HangChuaCoKeService;
 import com.dev.backend.services.multitable.TongQuanAdminService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -52,282 +50,283 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import com.dev.backend.i18n.ThongDiep;
-import com.dev.backend.i18n.LoiTrangThaiException;
 
 /**
- * Màn Tổng quan của quản trị viên (UC 11.1): mỗi khối tính độc lập, khối lỗi không làm hỏng các khối khác.
+ * Màn Tổng quan của quản trị viên (UC 11.1), làm lại 28/11/2026 theo đặc tả bản 2: mỗi khối tính độc lập, khối lỗi không
+ * làm hỏng các khối khác. Truy vấn ở {@link TongQuanQuanTriRepository}; kỳ xem ở {@link KyXemTongQuan}.
  */
 @Service
 public class TongQuanAdminServiceImpl implements TongQuanAdminService {
 
     private static final Logger log = LoggerFactory.getLogger(TongQuanAdminServiceImpl.class);
 
-    public static final String KY_7_NGAY = "7_ngay";
-    public static final String KY_30_NGAY = "30_ngay";
-    public static final String KY_12_THANG = "12_thang";
-
     /** Dùng khi chưa cấu hình DEFAULT_MIN_STOCK_ALERT. */
     public static final int NGUONG_TON_MAC_DINH = 10;
-    /** Dư hàng khi khả dụng vượt ngưỡng × hệ số này (có thể ghi đè bằng cấu hình SURPLUS_STOCK_RATIO). */
+    /** Hệ số Dư hàng của Tổng quan theo vai trò và API /admin/dashboard cũ (khả dụng > ngưỡng × hệ số). */
     public static final int HE_SO_DU_MAC_DINH = 3;
-    /** Số ngày xét hàng dư "chưa bán được" (có thể ghi đè bằng cấu hình SLOW_MOVING_DAYS). */
+    /** Số ngày xét hàng dư "chưa bán được" (ghi đè bằng cấu hình SLOW_MOVING_DAYS). */
     public static final int SO_NGAY_CHAM_BAN_MAC_DINH = 60;
 
-    private static final int SO_SAN_PHAM_BAN_CHAY = 5;
-    /** Số nhóm (sản phẩm, kho) cần bổ sung hiện ở Tổng quan; xem hết ở Báo cáo tồn kho. */
-    static final int SO_NHOM_BO_SUNG = 3;
-    private static final int SO_HOAT_DONG = 8;
-    private static final int SO_NGAY_DON_MOI = 14;
+    static final int SO_SAN_PHAM_BAN_CHAY = 5;
+    static final int SO_DONG_BO_SUNG = 4;
+    /** Trần số sự kiện Hoạt động đọc một lần (2 ngày). */
+    static final int SO_SU_KIEN_TOI_DA = 800;
 
     private static final DateTimeFormatter DINH_DANG_THOI_DIEM = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
-    /** Giữ kết quả 60 giây cho mỗi (kỳ, kho): mở lại màn hoặc đổi qua lại bộ lọc không phải tính lại. */
+    /** Giữ kết quả 60 giây cho mỗi (kỳ, khoảng, kho): mở lại màn hoặc đổi qua lại bộ lọc không phải tính lại. */
     static final long THOI_GIAN_GIU_MS = 60_000;
 
     private record BanDaTinh(long luc, TongQuanAdminResponse duLieu) {}
 
-    private final TongQuanAdminRepository repo;
-    private final KhaDungChuyenKhoService khaDungChuyenKhoService;
+    private static final Set<String> MA_KY = Set.of(KyXemTongQuan.HOM_NAY, KyXemTongQuan.HOM_QUA, KyXemTongQuan.BAY_NGAY,
+            KyXemTongQuan.BA_MUOI_NGAY, KyXemTongQuan.THANG_NAY, KyXemTongQuan.THANG_TRUOC, KyXemTongQuan.MUOI_HAI_THANG,
+            KyXemTongQuan.TUY_CHON);
+
+    private final TongQuanAdminRepository goc;
+    private final TongQuanQuanTriRepository repo;
+    private final HangChuaCoKeService hangChuaCoKeService;
     private final Map<String, BanDaTinh> banDaTinh = new ConcurrentHashMap<>();
 
-    public TongQuanAdminServiceImpl(TongQuanAdminRepository repo, KhaDungChuyenKhoService khaDungChuyenKhoService) {
+    public TongQuanAdminServiceImpl(TongQuanAdminRepository goc, TongQuanQuanTriRepository repo,
+                                    HangChuaCoKeService hangChuaCoKeService) {
+        this.goc = goc;
         this.repo = repo;
-        this.khaDungChuyenKhoService = khaDungChuyenKhoService;
+        this.hangChuaCoKeService = hangChuaCoKeService;
     }
 
-    /**
-     * Khung thời gian của kỳ xem.
-     * [tu, den) là phần đã trọn (không gồm ngày/tháng đang chạy); [tuTruoc, denTruoc) là kỳ so sánh.
-     * Biểu đồ vẽ từ tu đến hết ngày/tháng hiện tại (điểm cuối đang chạy, vẽ nét đứt).
+    /*
+     * Không mở giao dịch ở đây: mỗi khối tự bắt lỗi (chay/phu). Nếu bọc cả hàm trong một giao dịch, lỗi trong bean có
+     * @Transactional được gọi tới (HangChuaCoKeService.dem) sẽ đánh dấu cả giao dịch rollback-only và làm hỏng cả trang.
      */
-    record KhungKy(boolean theoThang, LocalDate tu, LocalDate den, LocalDate tuTruoc, LocalDate denTruoc) {
-        int soNgay() {
-            return (int) ChronoUnit.DAYS.between(tu, den);
-        }
-    }
-
-    static KhungKy khungKy(String ky, LocalDate homNay) {
-        switch (ky) {
-            case KY_7_NGAY:
-            case KY_30_NGAY: {
-                int n = KY_7_NGAY.equals(ky) ? 7 : 30;
-                LocalDate tu = homNay.minusDays(n);
-                return new KhungKy(false, tu, homNay, homNay.minusDays(2L * n), tu);
-            }
-            case KY_12_THANG: {
-                // 12 tháng đã trọn trước tháng này; so với cùng 12 tháng của năm trước.
-                YearMonth thangNay = YearMonth.from(homNay);
-                return new KhungKy(true,
-                        thangNay.minusMonths(12).atDay(1), thangNay.atDay(1),
-                        thangNay.minusMonths(24).atDay(1), thangNay.minusMonths(12).atDay(1));
-            }
-            default:
-                throw new CommonException(ThongDiep.of("khoVanHanh.kyXemKhongHopLe"));
-        }
-    }
-
     @Override
-    @Transactional(readOnly = true)
-    public TongQuanAdminResponse layTongQuan(String ky, Integer khoId, boolean lamMoi) {
-        String kyXem = (ky == null || ky.isBlank()) ? KY_30_NGAY : ky.trim();
-        khungKy(kyXem, LocalDate.now()); // kiểm tra kỳ xem hợp lệ trước khi tra bản đã tính
-        String khoa = kyXem + "|" + khoId;
+    public TongQuanAdminResponse layTongQuan(String ky, LocalDate tuNgay, LocalDate denNgay, Integer khoId, boolean lamMoi) {
+        String kyXem = (ky == null || ky.isBlank()) ? KyXemTongQuan.BA_MUOI_NGAY : ky.trim();
+        if (!MA_KY.contains(kyXem)) throw new LoiThamSoException(ThongDiep.of("hienThiBaoCao.tongQuanKyKhongHopLe"));
+        boolean tuyChon = KyXemTongQuan.TUY_CHON.equals(kyXem);
+        String khoa = kyXem + "|" + (tuyChon ? tuNgay + "|" + denNgay : "") + "|" + khoId;
         long bayGioMs = System.currentTimeMillis();
         BanDaTinh daTinh = banDaTinh.get(khoa);
         if (!lamMoi && daTinh != null && bayGioMs - daTinh.luc() < THOI_GIAN_GIU_MS) {
             return daTinh.duLieu();
         }
-        TongQuanAdminResponse ketQua = tinhTongQuan(kyXem, khoId);
+        TongQuanAdminResponse ketQua = tinhTongQuan(kyXem, tuyChon ? tuNgay : null, tuyChon ? denNgay : null, khoId);
         // Chỉ giữ bản đầy đủ; bản có khối lỗi sẽ được tính lại ở lần mở sau.
         if (ketQua.khoiLoi().isEmpty()) {
+            // Dọn bản đã hết hạn để bộ nhớ không phình theo số khoảng tùy chọn đã xem.
+            banDaTinh.values().removeIf(b -> bayGioMs - b.luc() >= THOI_GIAN_GIU_MS);
             banDaTinh.put(khoa, new BanDaTinh(bayGioMs, ketQua));
         }
         return ketQua;
     }
 
-    private TongQuanAdminResponse tinhTongQuan(String kyXem, Integer khoId) {
-        LocalDateTime bayGio = repo.thoiDiemHienTai();
-        LocalDate homNay = bayGio.toLocalDate();
-        KhungKy khung = khungKy(kyXem, homNay);
-
-        List<KhoDong> dsKho = repo.danhSachKho();
+    private TongQuanAdminResponse tinhTongQuan(String kyXem, LocalDate tuNgay, LocalDate denNgay, Integer khoId) {
+        LocalDateTime bayGio = goc.thoiDiemHienTai();
+        List<KhoDong> dsKho = goc.danhSachKho();
         if (khoId != null && dsKho.stream().noneMatch(k -> k.id().equals(khoId))) {
-            throw new CommonException(ThongDiep.of("khoVanHanh.khoKhongTonTaiHoacNgung"));
+            throw new LoiThamSoException(ThongDiep.of("khoVanHanh.khoKhongTonTaiHoacNgung"));
         }
-        Map<Integer, KhoDong> khoTheoId = new LinkedHashMap<>();
-        dsKho.forEach(k -> khoTheoId.put(k.id(), k));
-
         List<String> khoiLoi = Collections.synchronizedList(new ArrayList<>());
-        int nguong = macDinhNeuKhongHopLe(chay("cauHinh", khoiLoi, () -> repo.cauHinhSo("DEFAULT_MIN_STOCK_ALERT")),
-                NGUONG_TON_MAC_DINH);
-        int heSoDu = macDinhNeuKhongHopLe(chay("cauHinh", khoiLoi, () -> repo.cauHinhSo("SURPLUS_STOCK_RATIO")),
-                HE_SO_DU_MAC_DINH);
-        int soNgayChamBan = macDinhNeuKhongHopLe(chay("cauHinh", khoiLoi, () -> repo.cauHinhSo("SLOW_MOVING_DAYS")),
-                SO_NGAY_CHAM_BAN_MAC_DINH);
-        khoiLoi.remove("cauHinh");
+        Map<Integer, LocalDateTime> ngayMo = new HashMap<>();
+        List<TongQuanQuanTriRepository.KhoMoDong> mo = phu("ngayMoKho", repo::ngayMoKho);
+        if (mo != null) mo.forEach(m -> { if (m.ngayTao() != null) ngayMo.put(m.khoId(), m.ngayTao()); });
+        LocalDateTime dauDuLieu = phu("ngayDauDuLieu", repo::ngayDauDuLieu);
 
-        /*
-         * Doanh thu theo ngày: đủ rộng cho kỳ xem, kỳ so sánh, lũy kế năm, năm trước và tháng trước.
-         * Giá vốn (tốn kém hơn) chỉ lấy cho phần cần lợi nhuận: kỳ xem và kỳ so sánh (lợi nhuận của biểu đồ
-         * kỳ trước), tháng này và tháng trước.
-         */
-        YearMonth thangNay = YearMonth.from(homNay);
-        LocalDate tuTruyVan = minNgay(khung.tuTruoc(), LocalDate.of(homNay.getYear() - 1, 1, 1),
-                thangNay.minusMonths(1).atDay(1));
-        LocalDate tuGiaVon = minNgay(khung.tuTruoc(), thangNay.minusMonths(1).atDay(1));
-        DuLieuNgay theoNgay = chay(TongQuanAdminResponse.KHOI_DOANH_THU, khoiLoi, () -> {
-            DuLieuNgay m = new DuLieuNgay();
-            repo.doanhThuTheoNgay(tuTruyVan.atStartOfDay(), homNay.plusDays(1).atStartOfDay(), khoId)
-                    .forEach(r -> m.doanhThu.put(r.ngay(), r));
-            repo.giaVonTheoNgay(tuGiaVon.atStartOfDay(), homNay.plusDays(1).atStartOfDay(), khoId)
-                    .forEach(r -> m.giaVon.put(r.ngay(), r.giaVon()));
-            return m;
-        });
+        // Kỳ không hợp lệ (tùy chọn sai) là lỗi của yêu cầu, báo cả trang
+        KyXemTongQuan k = KyXemTongQuan.tao(kyXem, tuNgay, denNgay, bayGio, dauDuLieu == null ? null : dauDuLieu.toLocalDate());
 
-        ChiSo chiSo = chay(TongQuanAdminResponse.KHOI_CHI_SO, khoiLoi,
-                () -> tinhChiSo(bayGio, khoId, batBuoc(theoNgay)));
-        DoanhThu doanhThu = theoNgay == null ? null
-                : chay(TongQuanAdminResponse.KHOI_DOANH_THU, khoiLoi, () -> tinhDoanhThu(khung, homNay, theoNgay));
-        List<DoanhThuKho> theoKho = chay(TongQuanAdminResponse.KHOI_DOANH_THU_THEO_KHO, khoiLoi,
-                () -> tinhDoanhThuTheoKho(khung, khoTheoId));
-        List<Kenh> theoKenh = chay(TongQuanAdminResponse.KHOI_THEO_KENH, khoiLoi,
-                () -> tinhTheoKenh(khung, khoId));
-        TonKhoTongHopDong tongHopTon = chay(TongQuanAdminResponse.KHOI_TON_KHO, khoiLoi,
-                () -> repo.tonKhoTongHop(khoId, nguong, heSoDu));
-        TonKho tonKho = tongHopTon == null ? null
-                : chay(TongQuanAdminResponse.KHOI_TON_KHO, khoiLoi,
-                        () -> tinhTonKho(tongHopTon, khoId, khoTheoId, nguong, heSoDu, soNgayChamBan, homNay));
-        ViecCanXuLy viec = chay(TongQuanAdminResponse.KHOI_VIEC_CAN_XU_LY, khoiLoi,
-                () -> tinhViecCanXuLy(khoId, tongHopTon, homNay));
-        NhapXuat nhapXuat = chay(TongQuanAdminResponse.KHOI_NHAP_XUAT, khoiLoi,
-                () -> tinhNhapXuat(khung, homNay, khoId));
-        List<SanPhamBanChay> banChay = chay(TongQuanAdminResponse.KHOI_SAN_PHAM_BAN_CHAY, khoiLoi,
-                () -> tinhSanPhamBanChay(khung, khoId));
-        HangCanBoSung boSung = chay(TongQuanAdminResponse.KHOI_HANG_CAN_BO_SUNG, khoiLoi,
-                () -> tinhHangCanBoSung(khoId, nguong, tongHopTon, khoTheoId));
-        List<HoatDong> hoatDong = chay(TongQuanAdminResponse.KHOI_HOAT_DONG, khoiLoi,
-                () -> tinhHoatDong(khoId));
+        int nguong = cauHinh("DEFAULT_MIN_STOCK_ALERT", NGUONG_TON_MAC_DINH);
+        int soNgayCham = cauHinh("SLOW_MOVING_DAYS", SO_NGAY_CHAM_BAN_MAC_DINH);
+
+        Map<Integer, KhoDong> khoTheoId = new LinkedHashMap<>();
+        dsKho.forEach(x -> khoTheoId.put(x.id(), x));
+        KhoDong khoXem = khoId == null ? null : khoTheoId.get(khoId);
+
+        // Một lần đọc cho kỳ này và kỳ so sánh, dùng chung cho dải số và Phân bổ
+        List<TongNhom> nay = chay(TongQuanAdminResponse.KHOI_KET_QUA, khoiLoi, () -> repo.tongTheoNhom(khoId, k.tu(), k.den()));
+        List<TongNhom> truoc = nay == null ? null
+                : chay(TongQuanAdminResponse.KHOI_KET_QUA, khoiLoi, () -> repo.tongTheoNhom(khoId, k.tuTruoc(), k.denTruoc()));
+
+        KetQua ketQua = nay == null || truoc == null ? null
+                : chay(TongQuanAdminResponse.KHOI_KET_QUA, khoiLoi, () -> tinhKetQua(k, khoId, nay, truoc, ngayMo, dsKho));
+        if (ketQua == null && !khoiLoi.contains(TongQuanAdminResponse.KHOI_PHAN_BO)) {
+            khoiLoi.add(TongQuanAdminResponse.KHOI_PHAN_BO);
+        }
+        BieuDo bieuDo = chay(TongQuanAdminResponse.KHOI_BIEU_DO, khoiLoi, () -> tinhBieuDo(k, khoId));
+        PhanBo phanBo = ketQua == null ? null
+                : chay(TongQuanAdminResponse.KHOI_PHAN_BO, khoiLoi, () -> tinhPhanBo(k, khoXem, nay, truoc, khoTheoId, ngayMo));
+        List<SanPhamBanChay> banChay = chay(TongQuanAdminResponse.KHOI_BAN_CHAY, khoiLoi, () -> tinhBanChay(k, khoId));
+        TonKho tonKho = chay(TongQuanAdminResponse.KHOI_TON_KHO, khoiLoi,
+                () -> tinhTonKho(khoXem, khoTheoId, nguong, soNgayCham, bayGio));
+        List<Viec> viec = chay(TongQuanAdminResponse.KHOI_VIEC, khoiLoi, () -> tinhViec(khoXem, dsKho, bayGio));
+        HoatDong hoatDong = chay(TongQuanAdminResponse.KHOI_HOAT_DONG, khoiLoi, () -> tinhHoatDong(khoId, bayGio));
 
         List<Kho> danhSachKho = dsKho.stream()
-                .map(k -> new Kho(k.id(), k.maKho(), k.tenKho(), k.laKhoTong()))
+                .map(x -> new Kho(x.id(), x.maKho(), x.tenKho(), x.laKhoTong(), ngay(ngayMo.get(x.id()))))
                 .toList();
-        return new TongQuanAdminResponse(
-                bayGio.format(DINH_DANG_THOI_DIEM), kyXem, khoId, danhSachKho, List.copyOf(khoiLoi),
-                chiSo, doanhThu, theoKho, theoKenh, viec, tonKho, nhapXuat, banChay, boSung, hoatDong);
+        Ky ky = new Ky(k.ky(), thoiDiem(k.tu()), thoiDiem(k.den()), thoiDiem(k.tuTruoc()), thoiDiem(k.denTruoc()),
+                thoiDiem(k.bieuDoTruocTu()), thoiDiem(k.bieuDoTruocDen()), k.nhom(), k.soDiem(), k.kieuSoSanh(), k.dangChay());
+        return new TongQuanAdminResponse(thoiDiem(bayGio), ky, khoId, danhSachKho,
+                dauDuLieu == null ? null : dauDuLieu.toLocalDate().toString(), List.copyOf(khoiLoi),
+                ketQua, bieuDo, phanBo, banChay, tonKho, viec, hoatDong);
     }
 
     /* ======================================================================
-     * TỪNG KHỐI
+     * DẢI SỐ
      * ====================================================================== */
 
-    private ChiSo tinhChiSo(LocalDateTime bayGio, Integer khoId, DuLieuNgay theoNgay) {
-        LocalDate homNay = bayGio.toLocalDate();
-        HomNayDong h = repo.homNay(bayGio, khoId);
-
-        long[] theoGio = new long[bayGio.getHour() + 1];
-        repo.doanhThuTheoGio(homNay.atStartOfDay(), bayGio, khoId).forEach(r -> {
-            if (r.gio() >= 0 && r.gio() < theoGio.length) theoGio[r.gio()] = so(r.doanhThu());
-        });
-        List<Long> doanhThuTheoGio = new ArrayList<>();
-        for (long v : theoGio) doanhThuTheoGio.add(v);
-
-        LocalDate tu14 = homNay.minusDays(SO_NGAY_DON_MOI - 1L);
-        Map<LocalDate, Long> donMoi = new HashMap<>();
-        repo.soDonMoiTheoNgay(tu14.atStartOfDay(), homNay.plusDays(1).atStartOfDay(), khoId)
-                .forEach(r -> donMoi.put(r.ngay(), r.soDon()));
-        List<SoDonNgay> soDonMoiTheoNgay = new ArrayList<>();
-        for (LocalDate d = tu14; !d.isAfter(homNay); d = d.plusDays(1)) {
-            soDonMoiTheoNgay.add(new SoDonNgay(d.toString(), donMoi.getOrDefault(d, 0L)));
+    KetQua tinhKetQua(KyXemTongQuan k, Integer khoId, List<TongNhom> nay, List<TongNhom> truoc,
+                      Map<Integer, LocalDateTime> ngayMo, List<KhoDong> dsKho) {
+        TongSo homQua = null;
+        if (KyXemTongQuan.HOM_NAY.equals(k.ky())) {
+            homQua = tong(repo.tongTheoNhom(khoId, k.tu().minusDays(1), k.den().minusDays(1)));
         }
-
-        YearMonth thangNay = YearMonth.from(homNay);
-        YearMonth thangTruoc = thangNay.minusMonths(1);
-        TongKy thang = cong(theoNgay, thangNay.atDay(1), homNay.plusDays(1));
-        TongKy truoc = cong(theoNgay, thangTruoc.atDay(1), thangNay.atDay(1));
-
-        return new ChiSo(
-                so(h.doanhThu()), so(h.doanhThuCungGioTuanTruoc()), h.soDonGiao(), doanhThuTheoGio,
-                h.soDonMoi(), h.soDonMoiCungGioTuanTruoc(), soDonMoiTheoNgay,
-                thangNay.getMonthValue(), thang.doanhThu, thang.loiNhuan, truoc.doanhThu, truoc.loiNhuan);
-    }
-
-    DoanhThu tinhDoanhThu(KhungKy khung, LocalDate homNay, DuLieuNgay theoNgay) {
-        List<Diem> diem = new ArrayList<>();
-        if (khung.theoThang()) {
-            YearMonth thangNay = YearMonth.from(homNay);
-            for (YearMonth ym = YearMonth.from(khung.tu()); !ym.isAfter(thangNay); ym = ym.plusMonths(1)) {
-                TongKy t = cong(theoNgay, ym.atDay(1), ym.plusMonths(1).atDay(1));
-                diem.add(new Diem(ym.atDay(1).toString(), t.doanhThu, t.loiNhuan, t.soDon, ym.equals(thangNay)));
-            }
-        } else {
-            for (LocalDate d = khung.tu(); !d.isAfter(homNay); d = d.plusDays(1)) {
-                TongKy t = cong(theoNgay, d, d.plusDays(1));
-                diem.add(new Diem(d.toString(), t.doanhThu, t.loiNhuan, t.soDon, d.equals(homNay)));
+        long soDon = 0;
+        long tien = 0;
+        if (k.dangChay()) {
+            TongQuanQuanTriRepository.ChoXuatDong c = phu("choXuat", () -> repo.choXuat(khoId, k.tu(), k.den()));
+            if (c != null) {
+                soDon = c.soDon();
+                tien = so(c.tien());
             }
         }
-        TongKy ky = cong(theoNgay, khung.tu(), khung.den());
-        TongKy kyTruoc = cong(theoNgay, khung.tuTruoc(), khung.denTruoc());
-        int nam = homNay.getYear();
-        TongKy luyKe = cong(theoNgay, LocalDate.of(nam, 1, 1), homNay.plusDays(1));
-        TongKy namTruoc = cong(theoNgay, LocalDate.of(nam - 1, 1, 1), LocalDate.of(nam, 1, 1));
-        return new DoanhThu(
-                khung.theoThang() ? "thang" : "ngay",
-                khung.tu().toString(), khung.den().minusDays(1).toString(),
-                diem, ky.doanhThu, ky.loiNhuan, ky.soDon, kyTruoc.doanhThu,
-                khung.theoThang() ? "cung_ky_nam_truoc" : "ky_truoc",
-                nam, luyKe.doanhThu, namTruoc.doanhThu, diemKyTruoc(khung, theoNgay));
-    }
-
-    /**
-     * Kỳ so sánh [tuTruoc, denTruoc) chia cùng cách với kỳ xem: 7/30 ngày liền trước theo từng ngày, cùng 12 tháng năm
-     * trước theo từng tháng. Mọi điểm đều đã trọn; số điểm bằng số điểm đã trọn của kỳ xem.
-     */
-    static List<Diem> diemKyTruoc(KhungKy khung, DuLieuNgay theoNgay) {
-        List<Diem> diem = new ArrayList<>();
-        if (khung.theoThang()) {
-            YearMonth den = YearMonth.from(khung.denTruoc());
-            for (YearMonth ym = YearMonth.from(khung.tuTruoc()); ym.isBefore(den); ym = ym.plusMonths(1)) {
-                TongKy t = cong(theoNgay, ym.atDay(1), ym.plusMonths(1).atDay(1));
-                diem.add(new Diem(ym.atDay(1).toString(), t.doanhThu, t.loiNhuan, t.soDon, false));
-            }
-        } else {
-            for (LocalDate d = khung.tuTruoc(); d.isBefore(khung.denTruoc()); d = d.plusDays(1)) {
-                TongKy t = cong(theoNgay, d, d.plusDays(1));
-                diem.add(new Diem(d.toString(), t.doanhThu, t.loiNhuan, t.soDon, false));
-            }
-        }
-        return diem;
-    }
-
-    private List<DoanhThuKho> tinhDoanhThuTheoKho(KhungKy khung, Map<Integer, KhoDong> khoTheoId) {
-        Map<Integer, DoanhThuKhoDong> theoKho = new HashMap<>();
-        repo.doanhThuTheoKho(khung.tu().atStartOfDay(), khung.den().atStartOfDay(),
-                        khung.tuTruoc().atStartOfDay(), khung.denTruoc().atStartOfDay())
-                .forEach(r -> theoKho.put(r.khoId(), r));
-        List<DoanhThuKho> ketQua = new ArrayList<>();
-        for (KhoDong k : khoTheoId.values()) {
-            DoanhThuKhoDong r = theoKho.remove(k.id());
-            ketQua.add(r == null
-                    ? new DoanhThuKho(k.id(), k.tenKho(), k.laKhoTong(), 0, 0, 0)
-                    : new DoanhThuKho(k.id(), k.tenKho(), k.laKhoTong(), so(r.doanhThu()), r.soDon(), so(r.doanhThuKyTruoc())));
-        }
-        // Đơn của kho đã ngừng hoạt động vẫn là doanh thu thật: giữ để tổng các dòng khớp tổng doanh thu.
-        theoKho.values().forEach(r -> ketQua.add(new DoanhThuKho(r.khoId(), "Kho đã ngừng hoạt động", false,
-                so(r.doanhThu()), r.soDon(), so(r.doanhThuKyTruoc()))));
-        ketQua.sort(Comparator.comparingLong(DoanhThuKho::doanhThu).reversed()
-                .thenComparing(DoanhThuKho::laKhoTong, Comparator.reverseOrder())
-                .thenComparing(DoanhThuKho::khoId));
-        return ketQua;
-    }
-
-    private List<Kenh> tinhTheoKenh(KhungKy khung, Integer khoId) {
-        return repo.doanhThuTheoKenh(khung.tu().atStartOfDay(), khung.den().atStartOfDay(), khoId).stream()
-                .map(r -> new Kenh(r.maKenh(), tenKenh(r.maKenh(), r.tenKenh()),
-                        so(r.doanhThu()), r.soDon(), r.soDonHoan()))
+        List<Integer> khoMoi = dsKho.stream()
+                .filter(x -> khoId == null || x.id().equals(khoId))
+                .filter(x -> { LocalDateTime m = ngayMo.get(x.id()); return m != null && m.isAfter(k.tuTruoc()) && m.isBefore(k.den()); })
+                .map(KhoDong::id)
                 .toList();
+        return new KetQua(tong(nay), tong(truoc), homQua, soDon, tien, khoMoi);
+    }
+
+    /** Cộng các nhóm thành tổng của khoảng. */
+    static TongSo tong(List<TongNhom> ds) {
+        BigDecimal dt = BigDecimal.ZERO, xuat = BigDecimal.ZERO, tra = BigDecimal.ZERO, vat = BigDecimal.ZERO;
+        BigDecimal von = BigDecimal.ZERO, tot = BigDecimal.ZERO, loi = BigDecimal.ZERO;
+        long donXuat = 0, donTra = 0;
+        for (TongNhom n : ds) {
+            dt = dt.add(n.doanhThu());
+            xuat = xuat.add(n.tienHangXuat());
+            tra = tra.add(n.tienHangTra());
+            vat = vat.add(n.thueGtgt());
+            von = von.add(n.giaVonXuat());
+            tot = tot.add(n.giaVonTraTot());
+            loi = loi.add(n.giaVonTraLoi());
+            donXuat += n.donXuat();
+            donTra += n.donTra();
+        }
+        return new TongSo(so(dt), so(xuat), so(tra), so(vat), so(von), so(tot), so(loi),
+                so(dt.subtract(von).add(tot)), donXuat, donTra, donXuat - donTra);
+    }
+
+    /* ======================================================================
+     * BIỂU ĐỒ
+     * ====================================================================== */
+
+    BieuDo tinhBieuDo(KyXemTongQuan k, Integer khoId) {
+        String dinhDang = switch (k.nhom()) {
+            case KyXemTongQuan.NHOM_GIO -> TongQuanQuanTriRepository.DINH_DANG_GIO_SQL;
+            case KyXemTongQuan.NHOM_NGAY -> TongQuanQuanTriRepository.DINH_DANG_NGAY_SQL;
+            default -> TongQuanQuanTriRepository.DINH_DANG_THANG_SQL;
+        };
+        List<Diem> nay = diem(k, k.tu(), repo.chuoi(khoId, k.tu(), k.den(), dinhDang));
+        List<Diem> truoc = diem(k, k.bieuDoTruocTu(), repo.chuoi(khoId, k.bieuDoTruocTu(), k.bieuDoTruocDen(), dinhDang));
+        return new BieuDo(nay, truoc);
+    }
+
+    static List<Diem> diem(KyXemTongQuan k, LocalDateTime goc, List<DiemChuoi> ds) {
+        List<Diem> kq = new ArrayList<>();
+        for (DiemChuoi d : ds) {
+            int viTri = k.viTri(goc, docMoc(d.moc(), k.nhom()));
+            if (viTri < 0 || viTri >= k.soDiem()) continue;
+            kq.add(new Diem(viTri, so(d.doanhThu()), so(d.doanhThu().subtract(d.giaVonXuat()).add(d.giaVonTraTot())),
+                    d.donXuat() - d.donTra()));
+        }
+        kq.sort(Comparator.comparingInt(Diem::viTri));
+        return kq;
+    }
+
+    static LocalDateTime docMoc(String moc, String nhom) {
+        return switch (nhom) {
+            case KyXemTongQuan.NHOM_GIO -> LocalDate.parse(moc.substring(0, 10)).atTime(Integer.parseInt(moc.substring(11, 13)), 0);
+            case KyXemTongQuan.NHOM_NGAY -> LocalDate.parse(moc).atStartOfDay();
+            default -> LocalDate.parse(moc + "-01").atStartOfDay();
+        };
+    }
+
+    /* ======================================================================
+     * PHÂN BỔ
+     * ====================================================================== */
+
+    PhanBo tinhPhanBo(KyXemTongQuan k, KhoDong khoXem, List<TongNhom> nay, List<TongNhom> truoc,
+                      Map<Integer, KhoDong> khoTheoId, Map<Integer, LocalDateTime> ngayMo) {
+        List<DongKenh> theoKenh = theoKenh(nay, truoc);
+        if (khoXem == null) {
+            return new PhanBo(theoKho(nay, truoc, khoTheoId, ngayMo), theoKenh, null, null);
+        }
+        List<DongNhom> theoNhom = repo.theoNhomHang(khoXem.id(), k.tu(), k.den(), k.tuTruoc(), k.denTruoc()).stream()
+                .map(r -> new DongNhom(r.danhMucId(), r.tenDanhMuc(), so(r.doanhThu()), so(r.doanhThuTruoc())))
+                .filter(r -> r.doanhThu() != 0 || r.doanhThuTruoc() != 0)
+                .sorted(Comparator.comparingLong(DongNhom::doanhThu).reversed())
+                .toList();
+        List<DongNhanVien> theoNhanVien = khoXem.laKhoTong() ? null : theoNhanVien(nay);
+        return new PhanBo(null, theoKenh, theoNhom, theoNhanVien);
+    }
+
+    static List<DongKho> theoKho(List<TongNhom> nay, List<TongNhom> truoc, Map<Integer, KhoDong> khoTheoId,
+                                 Map<Integer, LocalDateTime> ngayMo) {
+        Map<Integer, long[]> m = new LinkedHashMap<>();
+        khoTheoId.keySet().forEach(id -> m.put(id, new long[3]));
+        Map<Integer, BigDecimal[]> tien = new HashMap<>();
+        for (TongNhom n : nay) {
+            if (n.khoId() == null) continue;
+            BigDecimal[] t = tien.computeIfAbsent(n.khoId(), x -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            t[0] = t[0].add(n.doanhThu());
+            m.computeIfAbsent(n.khoId(), x -> new long[3])[1] += n.donXuat() - n.donTra();
+        }
+        for (TongNhom n : truoc) {
+            if (n.khoId() == null) continue;
+            BigDecimal[] t = tien.computeIfAbsent(n.khoId(), x -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            t[1] = t[1].add(n.doanhThu());
+            m.computeIfAbsent(n.khoId(), x -> new long[3]);
+        }
+        List<DongKho> kq = new ArrayList<>();
+        m.forEach((id, v) -> {
+            BigDecimal[] t = tien.getOrDefault(id, new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            KhoDong kho = khoTheoId.get(id);
+            long dt = so(t[0]);
+            long dtTruoc = so(t[1]);
+            // Kho đã ngừng hoạt động không có doanh thu thì không hiện
+            if (kho == null && dt == 0 && dtTruoc == 0) return;
+            kq.add(new DongKho(id, kho == null ? null : kho.tenKho(), kho != null && kho.laKhoTong(), ngay(ngayMo.get(id)),
+                    dt, v[1], dtTruoc));
+        });
+        kq.sort(Comparator.comparingLong(DongKho::doanhThu).reversed().thenComparing(DongKho::khoId));
+        return kq;
+    }
+
+    static List<DongKenh> theoKenh(List<TongNhom> nay, List<TongNhom> truoc) {
+        Map<String, Object[]> m = new LinkedHashMap<>();
+        for (TongNhom n : nay) {
+            Object[] v = m.computeIfAbsent(n.maKenh(), x -> new Object[]{n.tenKenh(), BigDecimal.ZERO, 0L, 0L, BigDecimal.ZERO});
+            if (v[0] == null) v[0] = n.tenKenh();
+            v[1] = ((BigDecimal) v[1]).add(n.doanhThu());
+            v[2] = (Long) v[2] + n.donXuat();
+            v[3] = (Long) v[3] + n.donBiHoan();
+        }
+        for (TongNhom n : truoc) {
+            Object[] v = m.computeIfAbsent(n.maKenh(), x -> new Object[]{n.tenKenh(), BigDecimal.ZERO, 0L, 0L, BigDecimal.ZERO});
+            if (v[0] == null) v[0] = n.tenKenh();
+            v[4] = ((BigDecimal) v[4]).add(n.doanhThu());
+        }
+        List<DongKenh> kq = new ArrayList<>();
+        m.forEach((ma, v) -> kq.add(new DongKenh(ma, tenKenh(ma, (String) v[0]), so((BigDecimal) v[1]), (Long) v[2],
+                (Long) v[3], so((BigDecimal) v[4]))));
+        kq.sort(Comparator.comparingLong(DongKenh::doanhThu).reversed().thenComparing(DongKenh::maKenh));
+        return kq;
     }
 
     static String tenKenh(String maKenh, String tenTrongCsdl) {
@@ -336,231 +335,182 @@ public class TongQuanAdminServiceImpl implements TongQuanAdminService {
         return tenTrongCsdl != null && !tenTrongCsdl.isBlank() ? tenTrongCsdl : maKenh;
     }
 
-    private TonKho tinhTonKho(TonKhoTongHopDong t, Integer khoId, Map<Integer, KhoDong> khoTheoId,
-                              int nguong, int heSoDu, int soNgayChamBan, LocalDate homNay) {
-        Map<Integer, TonKhoTheoKhoDong> theoKhoDong = new HashMap<>();
-        repo.tonKhoTheoKho().forEach(r -> theoKhoDong.put(r.khoId(), r));
-        List<TonKhoKho> theoKho = new ArrayList<>();
-        for (KhoDong k : khoTheoId.values()) {
-            TonKhoTheoKhoDong r = theoKhoDong.get(k.id());
-            theoKho.add(r == null
-                    ? new TonKhoKho(k.id(), k.tenKho(), k.laKhoTong(), 0, 0, 0)
-                    : new TonKhoKho(k.id(), k.tenKho(), k.laKhoTong(), so(r.tonThucTe()), so(r.khaDung()), so(r.giaTri())));
+    /** Doanh thu bán tại quầy theo người lập đơn; số đơn = đơn bán trong kỳ (không trừ đơn trả). */
+    static List<DongNhanVien> theoNhanVien(List<TongNhom> nay) {
+        Map<Integer, Object[]> m = new LinkedHashMap<>();
+        for (TongNhom n : nay) {
+            if (!n.laPos() || n.nguoiId() == null) continue;
+            Object[] v = m.computeIfAbsent(n.nguoiId(), x -> new Object[]{n.hoTen(), BigDecimal.ZERO, 0L});
+            v[1] = ((BigDecimal) v[1]).add(n.doanhThu());
+            v[2] = (Long) v[2] + n.donXuat();
         }
-        theoKho.sort(Comparator.comparingLong(TonKhoKho::giaTri).reversed().thenComparing(TonKhoKho::khoId));
-        // Số phụ: lỗi thì để null, không làm hỏng cả khối Tồn kho
-        Long duChamBan = t.duHang() == 0 ? Long.valueOf(0) : phu("duChamBan",
-                () -> repo.demDuChamBan(khoId, nguong, heSoDu, homNay.minusDays(soNgayChamBan).atStartOfDay()));
-        return new TonKho(
-                so(t.tonThucTe()), so(t.dangGiu()), so(t.khaDung()), so(t.giaTri()),
-                t.soBienThe(), t.soDong(), t.hetHang(), t.thieuHang(), t.binhThuong(), t.duHang(),
-                so(repo.hangDangVe(khoId)), so(repo.hangDangChuyen(khoId)), nguong, heSoDu, theoKho,
-                so(t.giaTriDu()), duChamBan, soNgayChamBan);
-    }
-
-    private ViecCanXuLy tinhViecCanXuLy(Integer khoId, TonKhoTongHopDong ton, LocalDate homNay) {
-        TongQuanAdminRepository.ViecCanXuLyDong v = repo.viecCanXuLy(khoId, homNay.atStartOfDay());
-        List<ViecTheoKho> theoKho = khoId != null ? null : repo.viecTheoKho().stream()
-                .map(r -> new ViecTheoKho(r.khoId(), r.tenKho(), r.donChoXuatKho(), r.phieuNhatChuaPhanCong(),
-                        r.phieuChuyenChoDuyet(), r.phieuChuyenChoXuatHang()))
-                .toList();
-        return new ViecCanXuLy(
-                v.donNhapChuaGuiKho(), v.donChoXuatKho(), v.phieuNhatChuaPhanCong(),
-                v.phieuXuatChoDongGoi() + v.phieuXuatChoXuat(),
-                v.yeuCauNhapChoDuyet(), v.phieuNhapChoNhapKho(), v.phieuChuyenChoDuyet(), v.phieuChuyenChoXuatHang(),
-                v.dotKiemKeDangMo(),
-                ton == null ? null : ton.hetHang(),
-                ton == null ? null : ton.thieuHang(),
-                v.taiKhoanBiKhoa(),
-                theoKho,
-                v.donMuaQuaHan(),
-                phu("loiDongBo", () -> repo.loiDongBoTheoKenh().stream()
-                        .map(r -> new LoiDongBoKenh(r.kenhId(), r.maKenh(), tenKenh(r.maKenh(), r.tenKenh()), r.soLoi()))
-                        .toList()),
-                v.phieuChuyenChoXuLyLech(),
-                v.phieuXuatChoDongGoi(),
-                v.phieuXuatChoXuat());
-    }
-
-    private NhapXuat tinhNhapXuat(KhungKy khung, LocalDate homNay, Integer khoId) {
-        Map<LocalDate, NhapXuatNgay> theoNgay = new HashMap<>();
-        repo.nhapXuatTheoNgay(khung.tu().atStartOfDay(), homNay.plusDays(1).atStartOfDay(), khoId)
-                .forEach(r -> theoNgay.put(r.ngay(), r));
-        List<DiemNhapXuat> diem = new ArrayList<>();
-        if (khung.theoThang()) {
-            YearMonth thangNay = YearMonth.from(homNay);
-            for (YearMonth ym = YearMonth.from(khung.tu()); !ym.isAfter(thangNay); ym = ym.plusMonths(1)) {
-                long[] t = congNhapXuat(theoNgay, ym.atDay(1), ym.plusMonths(1).atDay(1));
-                diem.add(new DiemNhapXuat(ym.atDay(1).toString(), t[0], t[1], ym.equals(thangNay)));
-            }
-        } else {
-            for (LocalDate d = khung.tu(); !d.isAfter(homNay); d = d.plusDays(1)) {
-                NhapXuatNgay r = theoNgay.get(d);
-                diem.add(new DiemNhapXuat(d.toString(), r == null ? 0 : so(r.nhap()), r == null ? 0 : so(r.xuat()),
-                        d.equals(homNay)));
-            }
-        }
-        long[] tong = congNhapXuat(theoNgay, khung.tu(), khung.den());
-        return new NhapXuat(khung.theoThang() ? "thang" : "ngay", diem, tong[0], tong[1], khoId == null);
-    }
-
-    private List<SanPhamBanChay> tinhSanPhamBanChay(KhungKy khung, Integer khoId) {
-        List<SanPhamBanChayDong> dong = repo.sanPhamBanChay(khung.tu().atStartOfDay(), khung.den().atStartOfDay(),
-                khoId, SO_SAN_PHAM_BAN_CHAY);
-        Map<Integer, BigDecimal> khaDung = repo.khaDungTheoSanPham(
-                dong.stream().map(SanPhamBanChayDong::sanPhamId).toList(), khoId);
-        int soNgay = khung.soNgay();
-        return dong.stream()
-                .map(r -> new SanPhamBanChay(r.sanPhamId(), r.maSanPham(), r.tenSanPham(), so(r.soLuong()),
-                        so(r.doanhThu()), so(khaDung.get(r.sanPhamId())), soNgay))
-                .toList();
-    }
-
-    /**
-     * Số Kho tổng có thể chuyển lấy từ KhaDungChuyenKhoService, cùng phép kiểm khi tạo yêu cầu chuyển kho, nên số điền
-     * sẵn ở nút "Chuyển … từ Kho tổng" luôn tạo được phiếu (trừ khi số liệu đổi giữa lúc xem và lúc bấm).
-     */
-    HangCanBoSung tinhHangCanBoSung(Integer khoId, int nguong, TonKhoTongHopDong ton,
-                                    Map<Integer, KhoDong> khoTheoId) {
-        KhoDong khoTong = khoTheoId.values().stream().filter(KhoDong::laKhoTong).findFirst().orElse(null);
-        List<HangCanBoSungNhomDong> dong = repo.hangCanBoSungTheoNhom(khoId, nguong, SO_NHOM_BO_SUNG);
-        Map<Integer, KhaDungChuyen> khoTongCoTheChuyen = khoTong == null ? Map.of()
-                : khaDungChuyenKhoService.theoBienThe(khoTong.id(), dong.stream()
-                        .filter(r -> !r.khoId().equals(khoTong.id()))
-                        .map(HangCanBoSungNhomDong::bienTheId)
-                        .distinct()
-                        .toList());
-        List<DongBoSung> ketQua = new ArrayList<>();
-        // Truy vấn đã xếp các mã của một nhóm liền nhau, nhóm tệ nhất trước: gom theo thứ tự gặp
-        Map<String, List<DongBoSung>> theoNhom = new LinkedHashMap<>();
-        Map<String, HangCanBoSungNhomDong> dauNhom = new HashMap<>();
-        // Đếm Hết hàng trên số thập phân gốc như SQL (khả dụng 0,4 là Thiếu hàng), không trên số đã làm tròn
-        Map<String, Integer> soHetTheoNhom = new HashMap<>();
-        for (HangCanBoSungNhomDong r : dong) {
-            KhoDong kho = khoTheoId.get(r.khoId());
-            boolean laKhoTong = kho != null && kho.laKhoTong();
-            long khaDung = so(r.khaDung());
-            KhaDungChuyen kt = laKhoTong ? null : khoTongCoTheChuyen.get(r.bienTheId());
-            // Làm tròn xuống: với N nguyên, so sánh phần nguyên khớp phép so số thập phân khi tạo phiếu
-            // Theo số khi bỏ phần đang kiểm kê: Kho tổng kiểm kê vài ngày không đẩy mọi cửa hàng sang đặt nhà cung cấp
-            // (bấm Chuyển lúc đợt còn mở thì máy chủ báo rõ đợt)
-            Long khaDungKhoTong = kt == null ? null : kt.khaDungNeuBoKiemKe().setScale(0, RoundingMode.FLOOR).longValue();
-            Long choXuatKhoTong = kt == null ? null : so(kt.choXuat());
-            long canBoSung = soLuongDeXuat(khaDung, r.nguong());
-            String deXuat = deXuat(laKhoTong, khaDungKhoTong, canBoSung);
-            DongBoSung d = new DongBoSung(r.bienTheId(), r.maSku(), r.tenSanPham(), r.tenMau(), r.tenKichCo(),
-                    r.khoId(), kho != null ? kho.tenKho() : null, laKhoTong, khaDung, r.nguong(),
-                    khaDungKhoTong, choXuatKhoTong, deXuat, canBoSung);
-            ketQua.add(d);
-            String khoa = r.sanPhamId() + "-" + r.khoId();
-            theoNhom.computeIfAbsent(khoa, k -> new ArrayList<>()).add(d);
-            dauNhom.putIfAbsent(khoa, r);
-            if (r.khaDung() == null || r.khaDung().signum() <= 0) soHetTheoNhom.merge(khoa, 1, Integer::sum);
-        }
-        List<NhomBoSung> nhom = new ArrayList<>();
-        theoNhom.forEach((khoa, ds) -> {
-            HangCanBoSungNhomDong r = dauNhom.get(khoa);
-            DongBoSung dau = ds.get(0);
-            int soHet = soHetTheoNhom.getOrDefault(khoa, 0);
-            nhom.add(new NhomBoSung(r.sanPhamId(), r.tenSanPham(), r.khoId(), dau.tenKho(), dau.laKhoTong(),
-                    soHet, ds.size() - soHet, List.copyOf(ds)));
+        List<DongNhanVien> kq = new ArrayList<>();
+        m.forEach((id, v) -> {
+            if ((Long) v[2] > 0) kq.add(new DongNhanVien(id, (String) v[0], so((BigDecimal) v[1]), (Long) v[2]));
         });
-        long tongSo = ton != null ? ton.hetHang() + ton.thieuHang() : ketQua.size();
-        return new HangCanBoSung(tongSo, khoTong != null, ketQua, nhom);
+        kq.sort(Comparator.comparingLong(DongNhanVien::doanhThu).reversed().thenComparing(DongNhanVien::nguoiId));
+        return kq;
     }
 
-    /** Đưa khả dụng về gấp đôi ngưỡng tối thiểu (tạm thời, khi chưa có mức tồn tối đa cho từng mã). */
-    static long soLuongDeXuat(long khaDung, int nguong) {
-        return Math.max(1, 2L * nguong - khaDung);
+    /* ======================================================================
+     * BÁN CHẠY
+     * ====================================================================== */
+
+    private List<SanPhamBanChay> tinhBanChay(KyXemTongQuan k, Integer khoId) {
+        List<TongQuanQuanTriRepository.SanPhamDong> ds = repo.banChay(khoId, k.tu(), k.den(), SO_SAN_PHAM_BAN_CHAY);
+        Map<Integer, String> anh = ds.isEmpty() ? Map.of()
+                : Objects.requireNonNullElse(phu("anhSanPham",
+                        () -> repo.anhSanPham(ds.stream().map(TongQuanQuanTriRepository.SanPhamDong::sanPhamId).toList())), Map.of());
+        return ds.stream()
+                .map(r -> new SanPhamBanChay(r.sanPhamId(), r.maSanPham(), r.tenSanPham(), anh.get(r.sanPhamId()),
+                        so(r.soLuong()), so(r.doanhThu())))
+                .toList();
+    }
+
+    /* ======================================================================
+     * TỒN KHO
+     * ====================================================================== */
+
+    private TonKho tinhTonKho(KhoDong khoXem, Map<Integer, KhoDong> khoTheoId, int nguong, int soNgayCham,
+                              LocalDateTime bayGio) {
+        Integer khoId = khoXem == null ? null : khoXem.id();
+        TonTongDong t = repo.tonTong(khoId, nguong, soNgayCham, bayGio);
+        long giaTriChuyen = khoId == null ? Objects.requireNonNullElse(phu("giaTriDangChuyen", () -> so(repo.giaTriDangChuyen())), 0L) : 0;
+        TongQuanQuanTriRepository.DangChuyenDong dc = repo.dangChuyen(khoId);
+        long dangVe = so(goc.hangDangVe(khoId));
+        Long hangLoi = phu("hangLoiChoTra", () -> so(repo.hangLoiChoTra(khoId)));
+
+        List<TonKhoKho> theoKho = null;
+        CanBoSung canBoSung = null;
+        if (khoId == null) {
+            Map<Integer, TongQuanQuanTriRepository.TonTheoKhoDong> m = new HashMap<>();
+            repo.tonTheoKho(nguong).forEach(r -> m.put(r.khoId(), r));
+            theoKho = new ArrayList<>();
+            for (KhoDong kho : khoTheoId.values()) {
+                TongQuanQuanTriRepository.TonTheoKhoDong r = m.get(kho.id());
+                theoKho.add(r == null ? new TonKhoKho(kho.id(), kho.tenKho(), kho.laKhoTong(), 0, 0, 0, 0)
+                        : new TonKhoKho(kho.id(), kho.tenKho(), kho.laKhoTong(), so(r.giaTri()), so(r.coTheBan()), r.het(), r.sap()));
+            }
+            theoKho.sort(Comparator.comparing(TonKhoKho::laKhoTong).reversed().thenComparing(Comparator.comparingLong(TonKhoKho::giaTri).reversed()));
+        } else {
+            List<BoSungDong> ds = repo.canBoSung(khoId, nguong, SO_DONG_BO_SUNG);
+            canBoSung = new CanBoSung(ds.isEmpty() ? 0 : ds.get(0).tong(),
+                    ds.stream().map(r -> dongBoSung(r, khoXem.laKhoTong())).toList());
+        }
+        long ton = so(t.ton());
+        long giuDon = so(t.giuDon());
+        long giuChuyen = so(t.giuChuyen());
+        long giuKhac = so(t.daDat());
+        return new TonKho(so(t.giaTri()) + giaTriChuyen, giaTriChuyen, ton, giuDon, giuChuyen, giuKhac, so(t.coTheBan()),
+                dangVe, so(dc.di()), so(dc.den()), hangLoi == null ? 0 : hangLoi,
+                t.soBienThe(), khoId == null ? khoTheoId.size() : 1, t.het(), t.sap(), t.binhThuong(), t.du(),
+                so(t.giaTriDu()), t.duChamBan(), soNgayCham, nguong, theoKho, canBoSung);
+    }
+
+    static DongBoSung dongBoSung(BoSungDong r, boolean khoXemLaKhoTong) {
+        long coTheBan = so(r.coTheBan());
+        long can = soLuongDeXuat(coTheBan, r.nguong());
+        Long khoTongCon = khoXemLaKhoTong || r.khoTongCon() == null ? null
+                : r.khoTongCon().setScale(0, RoundingMode.FLOOR).longValue();
+        String deXuat = deXuat(khoXemLaKhoTong, khoTongCon, can);
+        return new DongBoSung(r.bienTheId(), r.sanPhamId(), r.maSku(), r.tenSanPham(), r.tenMau(), r.tenKichCo(), coTheBan,
+                r.nguong(), khoTongCon, so(r.dangVe()), deXuat, can);
     }
 
     /**
-     * Quy tắc nhập hàng (SRS 3.3): chỉ Kho tổng nhập từ nhà cung cấp; cửa hàng được bổ sung bằng chuyển kho
-     * từ Kho tổng khi Kho tổng còn đủ khả dụng, nếu không thì nhập về Kho tổng.
+     * Quy tắc nhập hàng (SRS 3.3): chỉ Kho tổng nhập từ nhà cung cấp; cửa hàng được bổ sung bằng chuyển kho từ Kho tổng khi
+     * Kho tổng còn đủ, nếu không thì nhập về Kho tổng. Tổng quan theo vai trò dùng chung.
      */
     static String deXuat(boolean laKhoTong, Long khaDungKhoTong, long canBoSung) {
         if (!laKhoTong && khaDungKhoTong != null && khaDungKhoTong >= canBoSung) return "chuyen_kho";
         return "yeu_cau_nhap";
     }
 
-    private List<HoatDong> tinhHoatDong(Integer khoId) {
-        return repo.hoatDongGanDay(khoId, SO_HOAT_DONG).stream()
-                .map(r -> new HoatDong(r.loai(), r.id(), r.maChungTu(), r.thoiGian().format(DINH_DANG_THOI_DIEM),
-                        r.tenKho(), r.nguoiThucHien(),
-                        r.soLuong() == null ? null : so(r.soLuong()),
-                        r.doiTac(),
-                        r.soTien() == null ? null : so(r.soTien())))
-                .toList();
+    /** Đưa có thể bán về gấp đôi ngưỡng tối thiểu (tạm thời, khi chưa có mức tồn tối đa cho từng mã). */
+    static long soLuongDeXuat(long coTheBan, int nguong) {
+        return Math.max(1, 2L * nguong - coTheBan);
+    }
+
+    /* ======================================================================
+     * CẦN XỬ LÝ
+     * ====================================================================== */
+
+    private List<Viec> tinhViec(KhoDong khoXem, List<KhoDong> dsKho, LocalDateTime bayGio) {
+        Integer khoId = khoXem == null ? null : khoXem.id();
+        // Việc cấp kênh (mất kết nối, lỗi đẩy tồn) thuộc kho xuất đơn sàn: hiện khi xem tất cả kho hoặc Kho tổng
+        boolean coViecKenh = khoXem == null || khoXem.laKhoTong();
+        List<Viec> kq = new ArrayList<>();
+        for (ViecDong v : repo.viec(khoId, bayGio)) {
+            if (v.so() <= 0) continue;
+            if ("matKetNoi".equals(v.loai()) && !coViecKenh) continue;
+            kq.add(new Viec(v.loai(), v.so(), v.ma(), v.ten(), v.kho(), v.kho2(), thoiDiem(v.moc()), v.soPhu(), v.soPhu2(),
+                    v.khoId(), null));
+        }
+        if (coViecKenh) {
+            List<TongQuanQuanTriRepository.LoiDongBoDong> loi = phu("loiDongBo", repo::loiDongBo);
+            if (loi != null && !loi.isEmpty()) {
+                long tongLoi = loi.stream().mapToLong(TongQuanQuanTriRepository.LoiDongBoDong::soLoi).sum();
+                kq.add(new Viec("loiDongBo", tongLoi, null, null, null, null, null, 0, 0, null,
+                        loi.stream().map(r -> new ViecKenh(r.kenhId(), r.maKenh(), tenKenh(r.maKenh(), r.tenKenh()), r.soLoi())).toList()));
+            }
+        }
+        Viec chuaKe = phu("hangChuaCoKe", () -> hangChuaCoKe(khoXem, dsKho));
+        if (chuaKe != null) kq.add(chuaKe);
+        return kq;
+    }
+
+    /** Hàng chưa có kệ: số lô và số cái của kho đang xem, hoặc cộng mọi kho (kho mẫu là kho nhiều hàng nhất). */
+    private Viec hangChuaCoKe(KhoDong khoXem, List<KhoDong> dsKho) {
+        long soLo = 0, soLuong = 0, nhieuNhat = -1;
+        KhoDong mau = null;
+        for (KhoDong kho : khoXem == null ? dsKho : List.of(khoXem)) {
+            KiemKeDto.DemChuaCoKe d = hangChuaCoKeService.dem(kho.id(), null, null);
+            if (d == null || d.soLo() <= 0) continue;
+            soLo += d.soLo();
+            soLuong += d.soLuong();
+            if (d.soLuong() > nhieuNhat) {
+                nhieuNhat = d.soLuong();
+                mau = kho;
+            }
+        }
+        if (soLo <= 0) return null;
+        return new Viec("hangChuaCoKe", soLo, null, null, mau == null ? null : mau.tenKho(), null, null, soLuong, 0,
+                mau == null ? null : mau.id(), null);
+    }
+
+    /* ======================================================================
+     * HOẠT ĐỘNG
+     * ====================================================================== */
+
+    private HoatDong tinhHoatDong(Integer khoId, LocalDateTime bayGio) {
+        LocalDateTime homNay = bayGio.toLocalDate().atStartOfDay();
+        List<TongQuanQuanTriRepository.SuKienDong> ds = repo.hoatDong(khoId, homNay.minusDays(1), bayGio, SO_SU_KIEN_TOI_DA);
+        long soHomNay = ds.stream().filter(s -> s.thoiGian() != null && !s.thoiGian().isBefore(homNay)).count();
+        return new HoatDong(soHomNay, ds.stream().map(s -> new SuKien(s.loai(), s.id(), s.ma(), thoiDiem(s.thoiGian()),
+                s.khoId(), s.tenKho(), s.khoId2(), s.tenKho2(), s.nguoi(), s.maKenh(), s.tenKenh(),
+                s.soTien() == null ? null : so(s.soTien()), s.soLuong() == null ? null : so(s.soLuong()), s.soMa(),
+                s.coYeuCauHuy(), s.coHangLoi(), s.soNhan() == null ? null : so(s.soNhan()), s.trangThai())).toList());
     }
 
     /* ======================================================================
      * TIỆN ÍCH
      * ====================================================================== */
 
-    /** Doanh thu và giá vốn theo ngày ghi nhận. */
-    static final class DuLieuNgay {
-        final Map<LocalDate, DoanhThuNgay> doanhThu = new HashMap<>();
-        final Map<LocalDate, BigDecimal> giaVon = new HashMap<>();
-    }
-
-    private static final class TongKy {
-        long doanhThu;
-        long loiNhuan;
-        long soDon;
-    }
-
-    /** Cộng các ngày trong [tu, den); lợi nhuận gộp = doanh thu − giá vốn. */
-    static TongKy cong(DuLieuNgay theoNgay, LocalDate tu, LocalDate den) {
-        BigDecimal dt = BigDecimal.ZERO;
-        BigDecimal gv = BigDecimal.ZERO;
-        long sd = 0;
-        for (Map.Entry<LocalDate, DoanhThuNgay> e : theoNgay.doanhThu.entrySet()) {
-            LocalDate d = e.getKey();
-            if (!d.isBefore(tu) && d.isBefore(den)) {
-                dt = dt.add(e.getValue().doanhThu());
-                sd += e.getValue().soDon();
-            }
-        }
-        for (Map.Entry<LocalDate, BigDecimal> e : theoNgay.giaVon.entrySet()) {
-            LocalDate d = e.getKey();
-            if (!d.isBefore(tu) && d.isBefore(den)) gv = gv.add(e.getValue());
-        }
-        TongKy t = new TongKy();
-        t.doanhThu = so(dt);
-        t.loiNhuan = so(dt.subtract(gv));
-        t.soDon = sd;
-        return t;
-    }
-
-    private static long[] congNhapXuat(Map<LocalDate, NhapXuatNgay> theoNgay, LocalDate tu, LocalDate den) {
-        BigDecimal nhap = BigDecimal.ZERO;
-        BigDecimal xuat = BigDecimal.ZERO;
-        for (Map.Entry<LocalDate, NhapXuatNgay> e : theoNgay.entrySet()) {
-            if (!e.getKey().isBefore(tu) && e.getKey().isBefore(den)) {
-                nhap = nhap.add(e.getValue().nhap());
-                xuat = xuat.add(e.getValue().xuat());
-            }
-        }
-        return new long[]{so(nhap), so(xuat)};
+    private int cauHinh(String ma, int macDinh) {
+        Integer v = phu("cauHinh " + ma, () -> goc.cauHinhSo(ma));
+        return v != null && v > 0 ? v : macDinh;
     }
 
     static long so(BigDecimal v) {
         return v == null ? 0L : v.setScale(0, RoundingMode.HALF_UP).longValue();
     }
 
-    private static int macDinhNeuKhongHopLe(Integer giaTri, int macDinh) {
-        return giaTri != null && giaTri > 0 ? giaTri : macDinh;
+    private static String thoiDiem(LocalDateTime t) {
+        return t == null ? null : t.format(DINH_DANG_THOI_DIEM);
     }
 
-    private static LocalDate minNgay(LocalDate... ngay) {
-        LocalDate min = ngay[0];
-        for (LocalDate d : ngay) if (d.isBefore(min)) min = d;
-        return min;
-    }
-
-    private static <T> T batBuoc(T giaTri) {
-        if (giaTri == null) throw new LoiTrangThaiException(ThongDiep.of("khoVanHanh.thieuDoanhThuTheoNgay"));
-        return giaTri;
+    private static String ngay(LocalDateTime t) {
+        return t == null ? null : t.toLocalDate().toString();
     }
 
     /** Số phụ trong một khối: lỗi thì ghi log và trả null, khối vẫn hiển thị phần còn lại. */

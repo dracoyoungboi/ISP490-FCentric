@@ -15,6 +15,7 @@ import com.dev.backend.services.impl.multitable.DoanhThuReportService;
 import com.dev.backend.services.multitable.AdminDashboardService;
 import com.dev.backend.services.multitable.TongQuanAdminService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -67,8 +68,10 @@ public class AdminDashboardController {
      * Màn Tổng quan của quản trị viên (UC 11.1): doanh thu, việc cần xử lý, tồn kho, nhập – xuất,
      * bán chạy, hàng cần bổ sung, hoạt động gần đây. Chỉ quản trị viên (ma trận phân quyền SRS).
      *
-     * @param ky     7_ngay | 30_ngay (mặc định) | 12_thang
-     * @param khoId  bỏ trống = tất cả kho
+     * @param ky      hom_nay | hom_qua | 7_ngay | 30_ngay (mặc định) | thang_nay | thang_truoc | 12_thang | tuy_chon
+     * @param tuNgay  kỳ tùy chọn: ngày đầu (yyyy-MM-dd, tính cả ngày đó)
+     * @param denNgay kỳ tùy chọn: ngày cuối (yyyy-MM-dd, tính cả ngày đó), tối đa 366 ngày, không sau hôm nay
+     * @param khoId   bỏ trống = tất cả kho
      * @param lamMoi true khi bấm "Cập nhật": tính lại ngay, không dùng bản đã tính trong 60 giây
      */
     @GetMapping("/tong-quan")
@@ -76,13 +79,15 @@ public class AdminDashboardController {
     public ResponseEntity<ResponseData<TongQuanAdminResponse>> getTongQuan(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(defaultValue = "30_ngay") String ky,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate tuNgay,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate denNgay,
             @RequestParam(required = false) Integer khoId,
             @RequestParam(defaultValue = "false") boolean lamMoi
     ) {
         return ResponseEntity.ok(
                 ResponseData.<TongQuanAdminResponse>builder()
                         .status(HttpStatus.OK.value())
-                        .data(tongQuanAdminService.layTongQuan(ky, khoId, lamMoi))
+                        .data(tongQuanAdminService.layTongQuan(ky, tuNgay, denNgay, khoId, lamMoi))
                         .message(ThongDiep.dich("khoVanHanh.layTongQuanThanhCong"))
                         .error(null)
                         .build()
