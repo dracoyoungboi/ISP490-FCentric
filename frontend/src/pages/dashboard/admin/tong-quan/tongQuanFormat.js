@@ -12,20 +12,6 @@ export const MAU = {
   truc: "#94a3b8",
 };
 
-export const KY_OPTIONS = [
-  { value: "7_ngay", label: t("7 ngày") },
-  { value: "30_ngay", label: t("30 ngày") },
-  { value: "12_thang", label: t("12 tháng") },
-];
-
-export const KY_MAC_DINH = "30_ngay";
-
-export function moTaKy(ky) {
-  if (ky === "7_ngay") return t("7 ngày qua");
-  if (ky === "12_thang") return t("12 tháng qua");
-  return t("30 ngày qua");
-}
-
 const nf0 = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 });
 const nf1 = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const nf2 = new Intl.NumberFormat("vi-VN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });

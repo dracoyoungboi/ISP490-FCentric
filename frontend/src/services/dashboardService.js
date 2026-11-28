@@ -6,14 +6,15 @@ export const dashboardService = {
 
   /**
    * Màn Tổng quan của quản trị viên.
-   * Backend giữ kết quả 60 giây cho mỗi (kỳ, kho); lamMoi = true (nút "Cập nhật") để tính lại ngay.
-   * @param {{ ky?: "7_ngay" | "30_ngay" | "12_thang", khoId?: number | null, lamMoi?: boolean }} params
+   * Backend giữ kết quả 60 giây cho mỗi (kỳ, khoảng, kho); lamMoi = true (nút "Cập nhật") để tính lại ngay.
+   * ky: hom_nay | hom_qua | 7_ngay | 30_ngay | thang_nay | thang_truoc | 12_thang | tuy_chon (kèm tuNgay, denNgay yyyy-MM-dd).
+   * @param {{ ky?: string, tuNgay?: string, denNgay?: string, khoId?: number | null, lamMoi?: boolean }} params
    * @param {{ signal?: AbortSignal }} [config]
    */
-  getTongQuan: ({ ky, khoId, lamMoi } = {}, config = {}) =>
+  getTongQuan: ({ ky, tuNgay, denNgay, khoId, lamMoi } = {}, config = {}) =>
     apiClient.get("/api/v1/admin/dashboard/tong-quan", {
       ...config,
-      params: { ky, khoId: khoId ?? undefined, lamMoi: lamMoi ? true : undefined },
+      params: { ky, tuNgay: tuNgay || undefined, denNgay: denNgay || undefined, khoId: khoId ?? undefined, lamMoi: lamMoi ? true : undefined },
       needKho: false,
     }),
 

@@ -258,6 +258,37 @@
 		scrollbar-color: #cbd5e1 transparent;
 	}
 }
+
+/*
+ * Khối danh sách lăn bên trong thẻ (Tổng quan: Cần xử lý, Hoạt động gần đây): thanh cuộn mảnh, nhạt, không nút mũi tên,
+ * không đường ray; phần kéo 4px bo tròn, cách mép trên dưới 6px, rê vào thì đậm hơn một nấc.
+ */
+.tq-cuon::-webkit-scrollbar {
+	width: 8px;
+}
+.tq-cuon::-webkit-scrollbar-button {
+	display: none;
+	height: 0;
+}
+.tq-cuon::-webkit-scrollbar-track {
+	background: transparent;
+	margin: 6px 0;
+}
+.tq-cuon::-webkit-scrollbar-thumb {
+	background-color: #d9e0e8;
+	background-clip: padding-box;
+	border: 2px solid transparent;
+	border-radius: 999px;
+}
+.tq-cuon::-webkit-scrollbar-thumb:hover {
+	background-color: #cbd5e1;
+}
+@supports not selector(::-webkit-scrollbar) {
+	.tq-cuon {
+		scrollbar-width: thin;
+		scrollbar-color: #d9e0e8 transparent;
+	}
+}
 .bo-cuon thead.sticky > tr > th {
 	transition: box-shadow 0.15s ease;
 }

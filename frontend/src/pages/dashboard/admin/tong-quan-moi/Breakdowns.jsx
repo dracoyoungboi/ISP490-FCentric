@@ -2,120 +2,175 @@ import { Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, Delta, LE } from "./ui";
 import { MAU2 } from "./mau";
-import { bienDong, formatPhanTram, formatSo, formatTienNgan, tyLe } from "../tong-quan/tongQuanFormat";
-import { t } from "@/i18n";
+import GiaiThich from "./GiaiThich";
+import { bienDong, docNgay, formatPhanTram, formatSo, formatTienNgan, tyLe } from "../tong-quan/tongQuanFormat";
+import { soNgayCuaKy } from "../tong-quan/kyXem";
+import { gopNhom } from "../tong-quan/tongQuanSoLieu";
+import { t, tDuLieu } from "@/i18n";
 
-/** Kênh POS / trực tiếp: máy chủ trả tên cố định tiếng Việt nên dịch; tên kênh sàn là dữ liệu, giữ nguyên. */
-const tenKenhHien = (k) => (k.maKenh === "POS" || k.maKenh === "TRUC_TIEP" ? t(k.tenKenh) : k.tenKenh);
+/** Kênh POS / trực tiếp: máy chủ trả tên cố định tiếng Việt nên dịch; tên kênh sàn là dữ liệu. */
+const tenKenhHien = (k) => (k.maKenh === "POS" || k.maKenh === "TRUC_TIEP" ? t(k.tenKenh) : tDuLieu(k.tenKenh));
 
-/* Mỗi dòng: tên trên nền trắng (nền xanh nhạt chỉ dành cho kho đang xem), Doanh thu, Tỷ trọng kèm thanh nhỏ, cột thứ tư.
-   Lưới cột giống nhau ở cả hai danh sách để số thẳng hàng. Bản hẹp (bỏ cột Tỷ trọng, thanh mảnh xuống dưới tên) dùng khi
-   thẻ ≤ 520px, và khi hai danh sách nằm cạnh nhau ở thẻ 680–1099px (mỗi danh sách chỉ còn nửa thẻ).
-   Điện thoại (≤ 440px): hai cột, tên rộng hết bên trái; doanh thu và cột thứ tư xếp chồng bên phải.
-   Danh sách kho bỏ cột Biến động khi không kho nào có số kỳ trước (ô Doanh thu đầu trang đã báo), nhưng chỉ khi hai danh
-   sách nằm cạnh nhau; xếp chồng thì giữ đủ 4 cột (ghi "Mới" / "—") để số thẳng hàng với danh sách kênh bên dưới. */
+/* Lưới cột giống nhau ở cả hai danh sách để số thẳng hàng: tên | doanh thu | tỷ trọng | cột thứ tư. Bản hẹp (bỏ cột Tỷ
+   trọng, thanh mảnh xuống dưới tên) khi thẻ ≤ 520px và khi hai danh sách nằm cạnh nhau ở thẻ 680–1099px.
+   Điện thoại (≤ 440px): tên rộng hết bên trái; doanh thu và cột thứ tư xếp chồng bên phải. */
 const LUOI = [
   "grid grid-cols-[minmax(0,1fr)_112px_124px_84px] items-center gap-x-4",
   "@max-[520px]:grid-cols-[minmax(0,1fr)_104px_64px] @max-[520px]:gap-x-2.5",
   "@min-[680px]:@max-[1100px]:grid-cols-[minmax(0,1fr)_104px_76px] @min-[680px]:@max-[1100px]:gap-x-2.5",
   "@max-[440px]:grid-cols-[minmax(0,1fr)_auto] @max-[440px]:gap-x-3 @max-[440px]:gap-y-0.5",
 ].join(" ");
-const LUOI_BO_COT4_KHI_CANH = [
-  "grid grid-cols-[minmax(0,1fr)_112px_124px_84px] items-center gap-x-4",
-  "@max-[520px]:grid-cols-[minmax(0,1fr)_104px_64px] @max-[520px]:gap-x-2.5",
-  "@min-[680px]:@max-[1100px]:grid-cols-[minmax(0,1fr)_104px] @min-[680px]:@max-[1100px]:gap-x-2.5",
-  "@min-[1100px]:grid-cols-[minmax(0,1fr)_112px_124px]",
-  "@max-[440px]:grid-cols-[minmax(0,1fr)_auto] @max-[440px]:gap-x-3 @max-[440px]:gap-y-0.5",
-].join(" ");
 const AN_HEP = "@max-[520px]:hidden @min-[680px]:@max-[1100px]:hidden";
 const HIEN_HEP = "@max-[520px]:block @min-[680px]:@max-[1100px]:block";
-/* Bản hẹp không có cột Tỷ trọng (thanh dưới tên chỉ để nhìn): trình đọc màn hình đọc số ở đây */
 const DOC_HEP = "@max-[520px]:inline @min-[680px]:@max-[1100px]:inline";
 
 /**
- * Phân bổ doanh thu của kỳ theo kho bán và theo kênh bán, cùng một kiểu bảng gọn: thanh tỷ trọng nằm trong cột
- * Tỷ trọng (dài theo % của tổng), không trải nền sau tên để khỏi giống dòng đang chọn. Không dùng màu riêng cho từng
- * kênh. Thẻ từ 680px hai danh sách nằm cạnh nhau (laptop không còn xếp hai tầng); 680–1099px mỗi danh sách dùng bản hẹp.
- * Số đơn và giá trị trung bình mỗi đơn ở chú thích khi rê chuột.
+ * Phân bổ doanh thu của kỳ (đặc tả bản 2, mục 4, 10).
+ * - Tất cả kho: Kho bán (doanh thu, tỷ trọng, so kỳ trước) | Kênh bán (doanh thu, tỷ trọng, Đơn hoàn "2/14").
+ * - Một kho: Nhóm hàng (danh mục gốc, 4 nhóm hoặc 3 + Khác) | Kênh bán của kho; kho là cửa hàng thì Nhân viên bán.
+ * - Kỳ 1 ngày: cột Đơn hoàn đổi thành Số đơn (đơn mới bán chưa kịp bị hoàn); Hôm nay cột so sánh ghi số tiền tuần trước.
  */
-export default function Breakdowns({ data, ky, khoId, loading, loiKho, loiKenh, onRetry, className }) {
-  // Dòng gom đơn của kho đã ngừng hoạt động: tên cố định máy chủ dựng (TongQuanAdminServiceImpl) nên dịch; tên kho thật giữ nguyên
-  const dsKho = (data?.doanhThuTheoKho ?? [])
-    .map((r) => (r.tenKho === "Kho đã ngừng hoạt động" ? { ...r, tenKho: t("Kho đã ngừng hoạt động") } : r))
-    .sort((a, b) => b.doanhThu - a.doanhThu);
-  const tongKho = dsKho.reduce((s, r) => s + r.doanhThu, 0);
-  const namTruoc = ky === "12_thang";
-  // Không kho nào có số kỳ trước thì cột Biến động chỉ toàn "Mới" / "—": bỏ cột (chỉ đổi cách hiện, không đổi số)
-  const coCotBienDong = dsKho.some((r) => r.doanhThuKyTruoc > 0);
+export default function Breakdowns({ data, k, khoId, dsKho, loading, error, onRetry, className }) {
+  const pb = data?.phanBo;
+  const homNay = k?.ma === "hom_nay";
+  const motNgay = k ? soNgayCuaKy(k) <= 1 : false;
+  const tuTruoc = k?.tuTruoc;
+  const khoXem = khoId == null ? null : dsKho.find((x) => x.id === khoId);
+  const tenKho = khoXem?.tenKho ?? t("Tất cả kho");
 
-  const dsKenh = (data?.theoKenh ?? []).filter((k) => k.doanhThu > 0 || k.soDon > 0 || k.soDonHoan > 0).sort((a, b) => b.doanhThu - a.doanhThu);
-  const tongKenh = dsKenh.reduce((s, k) => s + k.doanhThu, 0);
-  const tongHoan = dsKenh.reduce((s, k) => s + k.soDonHoan, 0);
-  const tongDon = dsKenh.reduce((s, k) => s + k.soDon + k.soDonHoan, 0);
+  const trai = khoId == null
+    ? (pb?.theoKho ?? []).map((r) => ({
+        key: r.khoId,
+        ten: r.tenKho ?? t("Kho đã ngừng hoạt động"),
+        doanhThu: r.doanhThu,
+        truoc: r.doanhThuTruoc,
+        moi: !r.doanhThuTruoc && r.ngayMo && tuTruoc && docNgay(r.ngayMo) > tuTruoc,
+        chiTiet: t("{{ten}}: {{soDon}} đơn đã bán", { ten: r.tenKho ?? "", soDon: formatSo(r.soDon), count: Number(r.soDon) }),
+      }))
+    : gopNhom(pb?.theoNhom).map((r) => ({
+        key: r.danhMucId ?? "chua",
+        ten: r.khac ? t("Khác") : r.tenNhom ? tDuLieu(r.tenNhom) : t("Chưa phân loại"),
+        doanhThu: r.doanhThu,
+        truoc: r.doanhThuTruoc,
+      }));
+  // Tỷ trọng chia trên tổng phần dương: dòng âm (trả nhiều hơn bán) không làm dòng khác vượt 100%.
+  const tongDuong = (ds) => ds.reduce((s, x) => s + Math.max(0, x.doanhThu), 0);
+  const tongTrai = tongDuong(trai);
 
-  const trong = !loiKho && !loiKenh && tongKho === 0 && tongKenh === 0;
+  const nhanVien = khoXem && !khoXem.laKhoTong ? pb?.theoNhanVien ?? [] : null;
+  const kenh = (pb?.theoKenh ?? []).filter((x) => x.doanhThu !== 0 || x.soDonXuat > 0 || x.doanhThuTruoc !== 0);
+  const tongKenh = tongDuong(kenh);
+  const tongNv = tongDuong(nhanVien ?? []);
+
+  const trong = !loading && !error && pb && trai.every((r) => !r.doanhThu && !r.truoc) && !kenh.length && !(nhanVien ?? []).length;
+
+  const cot4Trai = homNay ? t("Tuần trước") : t("So kỳ trước");
+  const soSanh = (r) => {
+    if (homNay) return <span className="tabular-nums text-bo-muted">{formatTienNgan(r.truoc)}</span>;
+    if (r.moi) return <span className="text-bo-muted">{t("Mới mở")}</span>;
+    const bd = bienDong(r.doanhThu, r.truoc);
+    return bd ? <Delta bd={bd} /> : <span className="text-bo-muted">—</span>;
+  };
 
   return (
     <Card
       className={className}
       title={t("Phân bổ doanh thu")}
       loading={loading}
+      error={error}
+      onRetry={onRetry}
       empty={trong}
       emptyIcon={Store}
-      emptyText={t("Chưa có đơn đã giao trong kỳ.")}
+      emptyText={t("Chưa có đơn xuất kho trong kỳ.")}
       bodyClassName="grid grid-cols-1 @min-[680px]:grid-cols-2"
     >
       <div className={cn(LE, "flex min-w-0 flex-col gap-0.5 pb-3.5 pt-3.5")}>
-        <DauCot ten={t("Kho bán")} cot4={namTruoc ? t("So năm trước") : t("Biến động")} anCot4KhiCanh={!coCotBienDong} />
-        {loiKho ? (
-          <Loi onRetry={onRetry} />
+        {khoId == null ? (
+          <DauCot
+            ten={<GiaiThich tieuDe={t("Kho bán")} moTa={t("Kho xuất hàng cho đơn. Đơn tại quầy tính cho cửa hàng; đơn online và đơn sàn tính cho kho gắn với kênh ở Cấu hình kênh bán.")}>{t("Kho bán")}</GiaiThich>}
+            cot4={
+              <GiaiThich
+                align="end"
+                tieuDe={cot4Trai}
+                moTa={homNay
+                  ? t("Doanh thu của kho từ 00:00 tới cùng giờ này, cùng thứ tuần trước. Hôm nay mới qua vài giờ nên ghi số tiền, không ghi %, tránh những con số như +1.600%.")
+                  : t("Doanh thu của kho trong kỳ đang xem so với kỳ so sánh cùng độ dài. Kho mở cửa sau đầu kỳ so sánh ghi Mới mở thay cho %.")}
+              >
+                {cot4Trai}
+              </GiaiThich>
+            }
+          />
         ) : (
-          dsKho.map((r) => {
-            const bd = bienDong(r.doanhThu, r.doanhThuKyTruoc);
-            const chi = `${r.tenKho}${r.laKhoTong && !/kho tổng/i.test(r.tenKho) ? t(" (Kho tổng)") : ""}: ${
-              r.soDon ? t("{{soDon}} đơn, trung bình {{trungBinh}}/đơn", { soDon: formatSo(r.soDon), trungBinh: formatTienNgan(r.doanhThu / r.soDon), count: r.soDon }) : t("chưa có đơn trong kỳ")
-            }${r.doanhThuKyTruoc ? t(". Kỳ trước {{doanhThuKyTruoc}}", { doanhThuKyTruoc: formatTienNgan(r.doanhThuKyTruoc) }) : ""}`;
-            return (
-              <DongThanh
-                key={r.khoId}
-                ten={r.tenKho}
-                phanTram={tyLe(r.doanhThu, tongKho)}
-                chon={khoId === r.khoId}
-                mo={khoId != null && khoId !== r.khoId}
-                giaTri={formatTienNgan(r.doanhThu)}
-                cot4={bd ? <Delta bd={bd} /> : <span className="text-bo-muted">{r.doanhThu > 0 && !r.doanhThuKyTruoc ? t("Mới") : "—"}</span>}
-                anCot4KhiCanh={!coCotBienDong}
-                chiTiet={chi}
-              />
-            );
-          })
+          <DauCot
+            ten={<GiaiThich tieuDe={t("Nhóm hàng")} moTa={t("Doanh thu của {{kho}} chia theo danh mục cấp gốc của sản phẩm; các nhóm nhỏ gộp vào Khác để cộng đủ 100%. Khi xem tất cả kho, cột này là Kho bán.", { kho: tenKho })}>{t("Nhóm hàng")}</GiaiThich>}
+            cot4={cot4Trai}
+          />
+        )}
+        {trai.length === 0 ? (
+          <p className="py-2 text-[13px] text-bo-muted">{t("Chưa có đơn xuất kho trong kỳ.")}</p>
+        ) : (
+          trai.map((r) => (
+            <DongThanh key={r.key} ten={r.ten} phanTram={tyLe(Math.max(0, r.doanhThu), tongTrai)} giaTri={formatTienNgan(r.doanhThu)} cot4={soSanh(r)} chiTiet={r.chiTiet} mo={!r.doanhThu} />
+          ))
         )}
       </div>
 
       <div className={cn(LE, "flex min-w-0 flex-col gap-0.5 border-t border-[#eef1f5] pb-3.5 pt-3.5 @min-[680px]:border-l @min-[680px]:border-t-0")}>
-        <DauCot ten={t("Kênh bán")} cot4={t("Tỷ lệ hoàn")} />
-        {loiKenh ? (
-          <Loi onRetry={onRetry} />
-        ) : dsKenh.length === 0 ? (
-          <p className="py-2 text-[13px] text-bo-muted">{t("Chưa có đơn đã giao trong kỳ.")}</p>
+        {nhanVien ? (
+          <>
+            <DauCot
+              ten={<GiaiThich tieuDe={t("Nhân viên bán")} moTa={t("Doanh thu bán tại quầy của {{kho}} theo người lập đơn, đã trừ hàng khách trả. Số đơn là số đơn bán trong kỳ.", { kho: tenKho })}>{t("Nhân viên bán")}</GiaiThich>}
+              cot4={t("Số đơn")}
+            />
+            {nhanVien.length === 0 ? (
+              <p className="py-2 text-[13px] text-bo-muted">{t("Chưa có đơn bán tại quầy trong kỳ.")}</p>
+            ) : (
+              nhanVien.map((x) => (
+                <DongThanh key={x.nguoiId} ten={tDuLieu(x.hoTen) || t("Chưa rõ người lập")} phanTram={tyLe(Math.max(0, x.doanhThu), tongNv)} giaTri={formatTienNgan(x.doanhThu)} cot4={<span className="tabular-nums">{formatSo(x.soDon)}</span>} nhanHep={t("Đơn")} />
+              ))
+            )}
+          </>
         ) : (
           <>
-            {dsKenh.map((k) => (
-              <DongThanh
-                key={k.maKenh}
-                ten={tenKenhHien(k)}
-                phanTram={tyLe(k.doanhThu, tongKenh)}
-                giaTri={formatTienNgan(k.doanhThu)}
-                cot4={<span className="tabular-nums text-bo-foreground">{formatPhanTram(tyLe(k.soDonHoan, k.soDon + k.soDonHoan))}</span>}
-                nhanHep={t("Hoàn")}
-                chiTiet={t("{{tenKenh}}: {{soDon}} đơn đã giao, {{soDonHoan}} đơn hoàn{{trungBinh}}", { tenKenh: tenKenhHien(k), soDon: formatSo(k.soDon), count: Number(k.soDon), soDonHoan: formatSo(k.soDonHoan), trungBinh: k.soDon ? t(", trung bình {{tien}}/đơn", { tien: formatTienNgan(k.doanhThu / k.soDon) }) : "" })}
-              />
-            ))}
-            <p className="pt-2 text-xs text-bo-muted">
-              {tongHoan
-                ? t("Đơn hoàn trong kỳ: {{tongHoan}} đơn, bằng {{tyLe}} số đơn.", { tongHoan: formatSo(tongHoan), tyLe: formatPhanTram(tyLe(tongHoan, tongDon)), count: tongHoan })
-                : t("Không có đơn hoàn trong kỳ.")}
-            </p>
+            <DauCot
+              ten={t("Kênh bán")}
+              cot4={
+                motNgay ? (
+                  t("Số đơn")
+                ) : (
+                  <GiaiThich
+                    align="end"
+                    tieuDe={t("Đơn hoàn")}
+                    moTa={t("Đơn bán trong kỳ mà tới nay khách đã trả lại hoặc sàn hoàn về. Đơn mới bán vẫn có thể bị hoàn sau này, nên tỷ lệ của kỳ gần đây thường thấp hơn thực tế; xem kỳ Hôm nay, Hôm qua thì cột này đổi thành Số đơn. \"2/14\" là 2 đơn hoàn trên 14 đơn bán của kênh.")}
+                    dong={kenh.filter((x) => x.soDonXuat > 0).map((x) => [tenKenhHien(x), `${formatSo(x.soDonHoan)}/${formatSo(x.soDonXuat)} = ${formatPhanTram(tyLe(x.soDonHoan, x.soDonXuat))}`])}
+                    ghiChu={t("Kênh ít đơn thì tỷ lệ dao động mạnh, xem số đơn trước khi kết luận.")}
+                  >
+                    {t("Đơn hoàn")}
+                  </GiaiThich>
+                )
+              }
+            />
+            {kenh.length === 0 ? (
+              <p className="py-2 text-[13px] text-bo-muted">{t("Chưa có đơn xuất kho trong kỳ.")}</p>
+            ) : (
+              kenh.map((x) => (
+                <DongThanh
+                  key={x.maKenh}
+                  ten={tenKenhHien(x)}
+                  phanTram={tyLe(Math.max(0, x.doanhThu), tongKenh)}
+                  giaTri={formatTienNgan(x.doanhThu)}
+                  mo={!x.doanhThu}
+                  nhanHep={motNgay ? t("Đơn") : t("Hoàn")}
+                  cot4={
+                    motNgay ? (
+                      <span className={cn("tabular-nums", !x.soDonXuat && "text-bo-muted")}>{formatSo(x.soDonXuat)}</span>
+                    ) : (
+                      <span className={cn("tabular-nums", !x.soDonHoan && "text-bo-muted")}>{x.soDonXuat ? `${formatSo(x.soDonHoan)}/${formatSo(x.soDonXuat)}` : "—"}</span>
+                    )
+                  }
+                />
+              ))
+            )}
           </>
         )}
       </div>
@@ -123,29 +178,26 @@ export default function Breakdowns({ data, ky, khoId, loading, loiKho, loiKenh, 
   );
 }
 
-/** anCot4KhiCanh: bỏ cột thứ tư khi hai danh sách nằm cạnh nhau (danh sách kho không có số kỳ trước). */
-function DauCot({ ten, cot4, anCot4KhiCanh }) {
+function DauCot({ ten, cot4 }) {
   return (
-    <div className={cn(anCot4KhiCanh ? LUOI_BO_COT4_KHI_CANH : LUOI, "pb-1 text-xs font-medium leading-4 text-bo-muted")} aria-hidden="true">
+    <div className={cn(LUOI, "pb-1 text-xs font-medium leading-4 text-bo-muted")}>
       <span>{ten}</span>
       <span className="text-right">{t("Doanh thu")}</span>
       <span className={cn("text-right", AN_HEP)}>{t("Tỷ trọng")}</span>
-      <span className={cn("whitespace-nowrap text-right @max-[440px]:hidden", anCot4KhiCanh && "@min-[680px]:hidden")}>{cot4}</span>
+      <span className="whitespace-nowrap text-right @max-[440px]:hidden">{cot4}</span>
     </div>
   );
 }
 
-function DongThanh({ ten, phanTram, giaTri, cot4, nhanHep, chiTiet, chon, mo, anCot4KhiCanh }) {
-  const rong = `${Math.max(0, Math.min(100, phanTram ?? 0))}%`;
-  const thanh = { width: rong, background: MAU2.chinh, opacity: mo ? 0.4 : 1 };
+function DongThanh({ ten, phanTram, giaTri, cot4, nhanHep, chiTiet, mo }) {
+  const thanh = { width: `${Math.max(0, Math.min(100, phanTram ?? 0))}%`, background: MAU2.chinh, opacity: mo ? 0.4 : 1 };
   return (
-    <div className={cn(anCot4KhiCanh ? LUOI_BO_COT4_KHI_CANH : LUOI, "-mx-2 rounded-md px-2 py-2", chon && "bg-bo-primary-soft")} title={chiTiet}>
+    <div className={cn(LUOI, "-mx-2 rounded-md px-2 py-2")} title={chiTiet}>
       <div className="min-w-0 @max-[440px]:row-span-2">
         <span className={cn("block truncate text-sm font-medium @max-[440px]:whitespace-normal", mo ? "text-bo-muted" : "text-bo-foreground")}>
           {ten}
           <span className={cn("sr-only hidden", DOC_HEP)}>{t(", tỷ trọng {{phanTram}}", { phanTram: formatPhanTram(phanTram, 0) })}</span>
         </span>
-        {/* Bản hẹp: cột Tỷ trọng ẩn, thanh mảnh nằm dưới tên */}
         <span className={cn("mt-1.5 hidden h-1 overflow-hidden rounded-full bg-[#eef1f5]", HIEN_HEP)} aria-hidden="true">
           <span className="block h-full rounded-full" style={thanh} />
         </span>
@@ -160,22 +212,10 @@ function DongThanh({ ten, phanTram, giaTri, cot4, nhanHep, chiTiet, chon, mo, an
           {formatPhanTram(phanTram, 0)}
         </span>
       </span>
-      <span className={cn("whitespace-nowrap text-right text-sm @max-[440px]:text-xs", anCot4KhiCanh && "@min-[680px]:hidden")}>
-        {/* Điện thoại không có dòng tiêu đề cột này nên ghi nhãn ngắn */}
+      <span className="whitespace-nowrap text-right text-sm @max-[440px]:text-xs">
         {nhanHep ? <span className="hidden text-bo-muted @max-[440px]:inline">{nhanHep} </span> : null}
         {cot4}
       </span>
     </div>
-  );
-}
-
-function Loi({ onRetry }) {
-  return (
-    <p role="alert" className="py-2 text-[13px] text-bo-warning">
-      {t("Không tải được số liệu.")}{" "}
-      <button type="button" onClick={onRetry} className="cursor-pointer font-medium text-bo-primary hover:underline">
-        {t("Thử lại")}
-      </button>
-    </p>
   );
 }
